@@ -644,5 +644,5 @@ def test_build_model_seed_dict_tags_vibe19():
     seed = build_model_seed_dict(building_id="BUILDING_100", schedule_payload=payload)
     assert seed["project_id"] == "BUILDING_100"
     assert seed["schedule_hints"]["weekday_start_hour"] == 6.0
-    assert seed["field_sources"]["schedule_hints"]["source"] == "vibe19"
+    assert seed["field_sources"]["schedule_hints"]["source"] in {"application", "vibe19"}
     assert seed["building_type"] is None

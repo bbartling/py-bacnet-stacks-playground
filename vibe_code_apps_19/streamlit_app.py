@@ -54,6 +54,7 @@ from app.charts import (  # noqa: E402
     sensor_fault_chart,
 )
 from app.config import AppConfig  # noqa: E402
+from app.openfdd_runtime import OpenFddVersionError, require_supported_open_fdd  # noqa: E402
 from app.dashboard_contract import REQUIRED_MAIN_SECTIONS  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
 from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode, occupied_hours_per_week  # noqa: E402
@@ -110,6 +111,12 @@ except ImportError:  # pragma: no cover
     APP_TITLE = "OpenFDD Vibe 19"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
+
+try:
+    require_supported_open_fdd()
+except OpenFddVersionError as exc:
+    st.error(str(exc))
+    st.stop()
 
 _AGENTS_MD_URL = (
     "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
@@ -476,7 +483,7 @@ def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
                 if p.is_file():
                     # Spec: forward-slash arcnames (PACKAGE_SPEC.md)
                     zf.write(p, arcname=p.relative_to(td).as_posix())
-    return buf.getvalue(), f"wattlab_dump_{building_id}.zip"
+    return buf.getvalue(), f"openfdd_engineering_bundle_{building_id}.zip"
 
 
 def _apply_session_config_bytes(raw: bytes, *, source_label: str) -> list[str]:
@@ -3507,57 +3514,29 @@ def main() -> None:
     if section == "Export":
         st.subheader("Export")
         st.caption(
-            "One big dump for WattLab (vibe20): every FDD rule, analytic CSVs, "
-            "sensor stats / 24h diurnal profiles (fan on/off × weekday/weekend/holiday), "
-            "setpoints, schedules, weather, data-derived model seed, and MANIFEST.json. "
-            "Session restore stays below; individual CSVs live under the expander."
+            "One OpenFDD Engineering Bundle: complete cookbook FDD, analytics tables, "
+            "shared telemetry, quality flags, sparse fault intervals, model seed, and "
+            "calibration-readiness. Diagnostic/forensic evidence is CLI-only."
         )
         results = st.session_state.batch_results
 
-        st.markdown("##### WattLab dump (vibe20 handoff)")
+        st.markdown("##### OpenFDD Engineering Bundle")
         if not frames:
-            st.info("Load a package first — the dump needs equipment data.")
+            st.info("Load a package first — the bundle needs equipment data.")
         else:
-            profile_options = {
-                "Summary (default)": "summary",
-                "Diagnostic": "diagnostic",
-                "Forensic": "forensic",
-            }
-            # Durable non-widget key survives Export unmount; widget key is re-seeded.
-            if "wattlab_export_profile" not in st.session_state:
-                st.session_state["wattlab_export_profile"] = "summary"
-            if "wattlab_export_profile_label" not in st.session_state:
-                rev = {v: k for k, v in profile_options.items()}
-                st.session_state["wattlab_export_profile_label"] = rev.get(
-                    st.session_state["wattlab_export_profile"],
-                    "Summary (default)",
-                )
-            profile_label = st.selectbox(
-                "Export profile",
-                options=list(profile_options),
-                key="wattlab_export_profile_label",
-                help=(
-                    "Summary: shared telemetry + analytic tables, no per-rule timeseries. "
-                    "Diagnostic: FAULT/ERROR evidence. Forensic: applicable evidence."
-                ),
-            )
-            st.session_state["wattlab_export_profile"] = profile_options.get(
-                str(profile_label), "summary"
-            )
-            if st.button("Build WattLab dump (zip)", type="primary", key="wattlab_dump_build"):
+            st.session_state["wattlab_export_profile"] = "summary"
+            if st.button("Build OpenFDD Engineering Bundle (zip)", type="primary", key="wattlab_dump_build"):
                 with st.spinner("Running analytics + writing bundle…"):
                     try:
-                        data, fname = _build_wattlab_dump_zip(
-                            profile=st.session_state.get("wattlab_export_profile", "summary")
-                        )
+                        data, fname = _build_wattlab_dump_zip(profile="summary")
                         st.session_state["wattlab_dump_zip"] = (data, fname)
-                        st.success(f"Dump ready · {len(data) / 1e6:.1f} MB — see README_WATTLAB.md inside")
+                        st.success(f"Bundle ready · {len(data) / 1e6:.1f} MB — see README.md inside")
                     except Exception as exc:
-                        st.error(f"WattLab dump failed: {exc}")
+                        st.error(f"Engineering bundle failed: {exc}")
             dump = st.session_state.get("wattlab_dump_zip")
             if dump:
                 st.download_button(
-                    "Download WattLab dump (zip)",
+                    "Download OpenFDD Engineering Bundle (zip)",
                     data=dump[0],
                     file_name=dump[1],
                     mime="application/zip",

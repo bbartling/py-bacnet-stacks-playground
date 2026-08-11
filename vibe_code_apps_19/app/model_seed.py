@@ -329,7 +329,7 @@ def build_model_seed_dict(
     utility_bills: list[dict[str, Any]] | None = None,
     extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """WattLab-shaped minimal-inputs dict with vibe19 provenance tags."""
+    """Operational model-seed dict (not a calibrated EnergyPlus model)."""
     window = schedule_payload.get("data_window") or {}
     # Pick a representative AHU schedule for schedule hints
     equip = schedule_payload.get("equipment") or {}
@@ -399,16 +399,21 @@ def build_model_seed_dict(
         "data_window": window,
         "schedule_hints": hint,
         "inferred_parameters": inferred,
+        "operational_evidence": {
+            "source": "openfdd_engineering_bundle",
+            "schedule_equipment_count": len(equip),
+            "signature_rows": 0 if signatures is None else int(len(signatures)),
+        },
         "vibe19_evidence": {
-            "source": "vibe19",
+            "source": "openfdd_engineering_bundle",
             "schedule_equipment_count": len(equip),
             "signature_rows": 0 if signatures is None else int(len(signatures)),
         },
         "field_sources": {
-            "project_id": {"source": "vibe19"},
-            "data_window": {"source": "vibe19"},
-            "schedule_hints": {"source": "vibe19"},
-            "inferred_parameters": {"source": "vibe19"},
+            "project_id": {"source": "application"},
+            "data_window": {"source": "application"},
+            "schedule_hints": {"source": "application"},
+            "inferred_parameters": {"source": "application"},
             "building_type": {"source": "user_required"},
             "floor_area_ft2": {"source": "user_required"},
             "floors": {"source": "user_required"},

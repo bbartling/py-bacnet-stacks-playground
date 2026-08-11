@@ -50,6 +50,9 @@ from app.site_model import resolve_equipment_type, stamp_equipment_type
 from app.tuning_report import build_tuning_assistant_report
 from app.weather_psychrometrics import enrich_weather_frame
 from app.weather_resolver import has_web_oat
+from app.openfdd_runtime import require_supported_open_fdd
+
+require_supported_open_fdd()
 
 
 @dataclass
@@ -102,6 +105,7 @@ def make_session_config(
     chw_leave_max_f: float | None = None,
     use_mech_cooling_status_proof: bool = True,
     include_ahu_chw_valve: bool | None = None,
+    occupancy_schedule: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an ``openfdd_session_v1`` dict suitable for JSON export.
 
@@ -120,6 +124,8 @@ def make_session_config(
     }
     if chw_leave_max_f is not None:
         out["chw_leave_max_f"] = float(chw_leave_max_f)
+    if occupancy_schedule is not None:
+        out["occupancy_schedule"] = occupancy_schedule
     return out
 
 
@@ -297,6 +303,32 @@ def load_building_folder(path: str | Path) -> AgentDataset:
     )
 
 
+def _quality_gated_frames(frames: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Use role-aware normalized values for FDD; keep raw frames on the dataset."""
+    try:
+        from open_fdd.quality import apply_normalized, assess_frame
+    except Exception:
+        return frames
+    out: dict[str, pd.DataFrame] = {}
+    for eq_id, df in frames.items():
+        fq = df.attrs.get("openfdd_quality")
+        if fq is None:
+            try:
+                fq = assess_frame(df)
+                df.attrs["openfdd_quality"] = fq
+                df.attrs["frame_quality"] = fq.summary()
+            except Exception:
+                out[eq_id] = df
+                continue
+        try:
+            gated = apply_normalized(df, fq)
+            gated.attrs.update(df.attrs)
+            out[eq_id] = gated
+        except Exception:
+            out[eq_id] = df
+    return out
+
+
 def run_rules(
     dataset: AgentDataset,
     params: dict[str, dict[str, Any]] | None = None,
@@ -309,10 +341,11 @@ def run_rules(
     merged_params = {**dataset.params, **(params or {})}
     _attach_role_map(dataset.frames, dataset.role_map)
     eq_filter = set(equipment_ids) if equipment_ids is not None else None
+    frames_for_rules = _quality_gated_frames(dataset.frames)
     t_rules = time.perf_counter()
     if require_operational_gates:
         results = run_batch(
-            dataset.frames,
+            frames_for_rules,
             params_by_rule=merged_params,
             weather=dataset.weather,
             equipment_filter=eq_filter,
@@ -322,7 +355,7 @@ def run_rules(
         from app.rules.runner import run_all_cookbook_rules
 
         results = []
-        for eq_id, raw_df in sorted(dataset.frames.items()):
+        for eq_id, raw_df in sorted(frames_for_rules.items()):
             if eq_filter is not None and eq_id not in eq_filter:
                 continue
             mapped = apply_role_map(raw_df, eq_id, dataset.role_map)
@@ -467,6 +500,7 @@ def export_agent_bundle(
     include_bootstrap: bool = True,
     profile: str = "summary",
     selected_evidence: set[tuple[str, str]] | None = None,
+    occupancy_schedule: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     """Write run_report + CSVs + model-seed artifacts under ``out_dir``.
 
@@ -586,9 +620,12 @@ def export_agent_bundle(
     if run.results:
         findings = fdd_findings_table(run.results)
         if isinstance(findings, pd.DataFrame) and not findings.empty:
-            p = out / "fdd_findings.csv"
-            findings.to_csv(p, index=False)
-            written["fdd_findings"] = p
+            from app.bundle_io import write_canonical_table
+
+            paths = write_canonical_table(findings, out / "fdd_findings", also_csv=True)
+            for kind, path in paths.items():
+                written[f"fdd_findings_{kind}"] = path
+            written["fdd_findings"] = paths.get("csv") or paths.get("parquet")
         export_counts = write_fdd_evidence(
             run.results,
             out,
@@ -621,7 +658,18 @@ def export_agent_bundle(
         fault_settings,
         unit_system=dataset.unit_system,
         prefer_web_oat=dataset.prefer_web_oat,
+        occupancy_schedule=occupancy_schedule,
     )
+    if occupancy_schedule is not None:
+        from app.bundle_io import dumps_json_safe as _dumps_sched
+        from app.occupancy import OccupancySchedule as _OccSched
+
+        sched_dict = _OccSched.from_dict(occupancy_schedule).to_dict()
+        if occupancy_schedule.get("nominal_occ_hours_week") is not None:
+            sched_dict["nominal_occ_hours_week"] = occupancy_schedule["nominal_occ_hours_week"]
+        ps = out / "parity_schedule.json"
+        ps.write_text(_dumps_sched(sched_dict), encoding="utf-8")
+        written["parity_schedule"] = ps
     sc = out / "session_config.json"
     sc.write_text(json.dumps(session, indent=2), encoding="utf-8")
     written["session_config"] = sc
@@ -667,14 +715,18 @@ def export_agent_bundle(
             written["mech_cooling_coverage"] = path
 
     # WattLab big dump: sensor stats sliced by operating proof + setpoint medians
-    stats_tables = sensor_stats_tables(dataset.frames, dataset.role_map)
+    stats_tables = sensor_stats_tables(
+        dataset.frames, dataset.role_map, schedule=occupancy_schedule
+    )
     for slice_key, df in stats_tables.items():
         if isinstance(df, pd.DataFrame) and not df.empty:
             path = out / f"sensor_stats_{slice_key}.csv"
             df.to_csv(path, index=False)
             written[f"sensor_stats_{slice_key}"] = path
 
-    sp = setpoints_table(dataset.frames, dataset.role_map)
+    sp = setpoints_table(
+        dataset.frames, dataset.role_map, schedule=occupancy_schedule
+    )
     if isinstance(sp, pd.DataFrame) and not sp.empty:
         path = out / "setpoints.csv"
         sp.to_csv(path, index=False)
@@ -743,7 +795,7 @@ def export_agent_bundle(
         ranking = zone_comfort_fail_ranking(
             dataset.frames,
             dataset.role_map,
-            schedule=OccupancySchedule(),
+            schedule=OccupancySchedule.from_dict(occupancy_schedule),
             comfort_low_f=70.0,
             comfort_high_f=75.0,
         )
@@ -779,7 +831,9 @@ def export_agent_bundle(
     sched_payload = analytics.get("schedule_inference")
     if isinstance(sched_payload, dict):
         si = out / "schedule_inference.json"
-        si.write_text(json.dumps(sched_payload, indent=2, default=str), encoding="utf-8")
+        from app.bundle_io import dumps_json_safe as _dumps_json_safe
+
+        si.write_text(_dumps_json_safe(sched_payload), encoding="utf-8")
         written["schedule_inference"] = si
 
     # Observed weather for AMY EPW / calibration
@@ -811,9 +865,85 @@ def export_agent_bundle(
         lon=lon,
         utility_bills=utility_bills,
     )
+    from app.bundle_io import dumps_json_safe, write_canonical_table
+    from app.calibration_readiness import build_calibration_readiness
+    from app.openfdd_runtime import build_provenance
+
     ms = out / "model_seed.json"
-    ms.write_text(json.dumps(seed, indent=2, default=str), encoding="utf-8")
+    ms.write_text(dumps_json_safe(seed), encoding="utf-8")
     written["model_seed"] = ms
+
+    tz = None
+    grid = None
+    preport = dataset.package_report or {}
+    man = preport.get("manifest") or {}
+    if isinstance(man, dict):
+        tz = man.get("timezone")
+        grid = man.get("grid_minutes")
+    tz = tz or (dataset.session_config or {}).get("timezone")
+    ready = build_calibration_readiness(
+        seed=seed,
+        frames=dataset.frames,
+        weather=dataset.weather,
+        timezone=tz,
+        electric_bills=utility_bills,
+    )
+    cr = out / "calibration_readiness.json"
+    cr.write_text(dumps_json_safe(ready), encoding="utf-8")
+    written["calibration_readiness"] = cr
+
+    try:
+        from open_fdd.catalog import effective_catalog
+
+        cat = effective_catalog(overrides_by_rule=dataset.params or None)
+        ec = out / "effective_catalog.json"
+        ec.write_text(dumps_json_safe(cat), encoding="utf-8")
+        written["effective_catalog"] = ec
+        cfg = out / "effective_config.json"
+        cfg.write_text(dumps_json_safe(cat), encoding="utf-8")
+        written["effective_config"] = cfg
+    except Exception:
+        pass
+
+    quality_rows: list[dict[str, Any]] = []
+    for eq_id, df in dataset.frames.items():
+        summary = df.attrs.get("frame_quality")
+        if isinstance(summary, dict):
+            row = {"equipment_id": eq_id, **{k: v for k, v in summary.items() if k != "roles"}}
+            quality_rows.append(row)
+    if quality_rows:
+        qpath = out / "quality_flags.json"
+        qpath.write_text(dumps_json_safe({"equipment": quality_rows}), encoding="utf-8")
+        written["quality_flags"] = qpath
+
+    intervals: list[dict[str, Any]] = []
+    if run.results:
+        try:
+            from open_fdd.rules.evidence import sparse_intervals
+
+            for r in run.results:
+                mask = getattr(r, "confirmed_fault", None)
+                if mask is None or not hasattr(mask, "any"):
+                    continue
+                try:
+                    if not bool(mask.any()):
+                        continue
+                except Exception:
+                    continue
+                poll = float(getattr(r, "poll_seconds", 300.0) or 300.0)
+                intervals.append(
+                    {
+                        "rule_id": r.rule_id,
+                        "equipment_id": r.equipment_id,
+                        "status": r.status,
+                        "intervals": sparse_intervals(mask, poll_seconds=poll),
+                    }
+                )
+        except Exception:
+            intervals = []
+    fi = out / "fault_intervals.json"
+    fi.write_text(dumps_json_safe(intervals), encoding="utf-8")
+    written["fault_intervals"] = fi
 
     if isinstance(rcx, pd.DataFrame):
         path = out / "rcx_preset_coverage.csv"
@@ -827,7 +957,9 @@ def export_agent_bundle(
 
     if run.tuning_report:
         path = out / "tuning_assistant_report.json"
-        path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
+        from app.bundle_io import dumps_json_safe as _dumps_tune
+
+        path.write_text(_dumps_tune(run.tuning_report), encoding="utf-8")
         written["tuning_assistant_report"] = path
 
     files_suppressed = 0
@@ -864,7 +996,9 @@ def export_agent_bundle(
         "metrics_scope": dict(EXPORT_METRICS_SCOPE),
     }
     rp = out / "run_report.json"
-    rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    from app.bundle_io import dumps_json_safe as _dumps_report
+
+    rp.write_text(_dumps_report(report), encoding="utf-8")
     written["run_report"] = rp
 
     # Payload metrics after final run_report: all files except MANIFEST.
@@ -880,6 +1014,13 @@ def export_agent_bundle(
     payload_compressed_bytes = len(buf.getvalue())
     stage_seconds["compression"] = round(time.perf_counter() - t_compress, 6)
 
+    provenance = build_provenance(
+        timezone=tz,
+        grid_interval_minutes=grid,
+        role_map=dataset.role_map,
+        source_path=dataset.source_path,
+        export_profile=export_profile,
+    )
     written["manifest"] = write_manifest(
         out,
         written,
@@ -896,6 +1037,7 @@ def export_agent_bundle(
         metrics_scope=EXPORT_METRICS_SCOPE,
         stage_seconds=stage_seconds,
         stage_scope=EXPORT_STAGE_SCOPE,
+        provenance=provenance,
     )
     package_file_count = sum(1 for p in out.rglob("*") if p.is_file())
     man_path = out / "MANIFEST.json"

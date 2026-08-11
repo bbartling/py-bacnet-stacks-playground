@@ -9,7 +9,9 @@ from app.rules.operational_gate import RULE_GATES, resolve_fan_running, resolve_
 
 
 def test_all_canonical_rules_have_gate_spec():
-    assert len(RULE_GATES) == 59
+    from tests.catalog_contract import pinned_diagnostic_count
+
+    assert len(RULE_GATES) == pinned_diagnostic_count()
     for r in CANONICAL_RULES:
         assert r.id in RULE_GATES, r.id
 

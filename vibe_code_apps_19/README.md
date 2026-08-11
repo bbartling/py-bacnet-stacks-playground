@@ -28,7 +28,7 @@ Suggested human→agent message:
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (**compressor devices only** — not CHW pump-alone or AHU chilled-water valves), device-hours + any-active aggregates, RCx plots
-- **WattLab dump v3** (Export tab) — AI-agent handoff zip for vibe20: profiles `summary` (default) / `diagnostic` / `forensic`, shared `telemetry/`, mechanical series + coverage, FDD summary/findings, expanded sensor stats + provenance, `model_seed.json`, and `MANIFEST.json` (`wattlab_dump_v3`)
+- **OpenFDD Engineering Bundle** (Export tab) — one standard handoff zip (`openfdd_engineering_bundle_v1`, legacy `wattlab_dump_v3`): shared `telemetry/`, quality flags, sparse fault intervals, FDD findings, analytics, `model_seed.json`, `calibration_readiness.json`, and `MANIFEST.json`
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
 - **Docker / GHCR** image for self-host demos (**Vibe 19 only** — this work does not publish Vibe 20)
 - **Shared agent workspace with vibe20:** dump zips into a host volume both containers mount; agents use `docker exec` (no git clone). See vibe20 [`AGENT_DOCKER_WORKSPACE.md`](../vibe_code_apps_20/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md)
@@ -124,9 +124,12 @@ More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/w
 
 Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses the upload widget).
 
-## WattLab dump (vibe20 handoff)
+## OpenFDD Engineering Bundle
 
-The **Export** tab builds one zip for WattLab (`vibe_code_apps_20`) so an AI agent can calibrate and iterate an EnergyPlus twin. Schema is **`wattlab_dump_v3`** (additive over v2). Default profile is **`summary`** — compact FDD + analytics + shared `telemetry/<equip>.csv`; it does **not** require legacy `fdd_timeseries/`. Use **`diagnostic`** / **`forensic`** when you need more per-rule evidence. See `README_WATTLAB.md` and `MANIFEST.json` inside the dump (profile, result-status counts, files written/suppressed, stage timings).
+The **Export** tab builds one zip for FDD analysis and EnergyPlus handoff. Schema is
+**`openfdd_engineering_bundle_v1`** (`legacy_schema_version`: `wattlab_dump_v3`).
+See [`docs/ENGINEERING_BUNDLE.md`](docs/ENGINEERING_BUNDLE.md). Diagnostic/forensic
+per-rule timeseries stay on `scripts/agent_afdd.py --export-profile`.
 
 **Mechanical cooling in the dump:** rows carry `series_kind` (`individual_device`, `aggregate_device_hours`, `aggregate_active_hours`) and normalized coverage (`eligibility_state`, including `eligible_no_runtime`). Compressor/chiller status, verified command, or **unit-aware** analog power/current above validated thresholds prove runtime — **not** CHW pump status alone, and **not** chilled-water AHU valves. Heat-pump/VRF compressor evidence additionally requires proven cooling mode. Building characteristics (`building_type`, `floor_area_ft2`, utility bills) stay `user_required` in `model_seed.json` for the vibe20 human+agent. Sensor stats include expanded percentiles/coverage; inferred parameters carry provenance/confidence.
 

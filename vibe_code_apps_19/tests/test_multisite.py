@@ -103,8 +103,11 @@ def test_site_model_serialization():
 
 
 def test_all_50_rules_inventory():
-    assert CANONICAL_RULE_COUNT == 59
-    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == 59
+    from tests.catalog_contract import pinned_diagnostic_count
+
+    n = pinned_diagnostic_count()
+    assert CANONICAL_RULE_COUNT == n
+    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == n
     assert len(RULES) >= CANONICAL_RULE_COUNT
 
 

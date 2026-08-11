@@ -13,8 +13,12 @@ from tests.point_names import canon_point_cols
 
 
 def test_canonical_count():
-    assert CANONICAL_RULE_COUNT == 59
-    assert len(CANONICAL_RULES) == 59
+    from tests.catalog_contract import assert_live_catalog_matches_pin
+
+    pin = assert_live_catalog_matches_pin()
+    n = pin["diagnostic_count"]
+    assert CANONICAL_RULE_COUNT == n
+    assert len(CANONICAL_RULES) == n
     assert len(RULES) >= 51
     # Custom extras never replace canonical ids
     canonical_ids = {r.id for r in CANONICAL_RULES}
@@ -26,8 +30,11 @@ def test_inventory_metadata():
     from pathlib import Path
 
     inv = yaml.safe_load((Path(__file__).parent.parent / "configs" / "rule_inventory.yaml").read_text(encoding="utf-8"))
-    assert inv["canonical_rule_count"] == 59
-    assert len(inv["rules"]) == 59
+    from tests.catalog_contract import pinned_diagnostic_count
+
+    n = pinned_diagnostic_count()
+    assert inv["canonical_rule_count"] == n
+    assert len(inv["rules"]) == n
 
 
 @pytest.mark.parametrize("rule_id", [r.id for r in CANONICAL_RULES])
@@ -86,7 +93,9 @@ def test_run_all_returns_active_catalog():
     df.attrs["equipment_id"] = "AHU_1"
     results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
     assert len(results) == len(RULES)
-    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 59
+    from tests.catalog_contract import pinned_diagnostic_count
+
+    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == pinned_diagnostic_count()
 
 
 def test_result_shape():

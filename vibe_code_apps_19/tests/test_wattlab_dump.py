@@ -374,7 +374,8 @@ def test_write_manifest_and_readme(tmp_path: Path):
     assert man.is_file()
 
     payload = json.loads(man.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "wattlab_dump_v3"
+    assert payload["schema_version"] == "openfdd_engineering_bundle_v1"
+    assert payload["legacy_schema_version"] == "wattlab_dump_v3"
     assert payload["export_profile"] == "summary"
     assert payload["result_status_counts"]["FAULT"] == 1
     assert payload["applicable_count"] == 3

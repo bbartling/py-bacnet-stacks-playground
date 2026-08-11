@@ -125,9 +125,12 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert ds.role_map.get("AHU_1", {}).get("discharge-air-temp") == "discharge_air_temp_f"
 
     run = run_rules(ds)
-    assert run.meta["rule_catalog_count"] == 59
-    assert run.meta["result_count"] == 59  # one equipment × canonical rules
-    assert sum(run.status_counts.values()) == 59
+    from tests.catalog_contract import pinned_diagnostic_count
+
+    n = pinned_diagnostic_count()
+    assert run.meta["rule_catalog_count"] == n
+    assert run.meta["result_count"] == n  # one equipment × canonical rules
+    assert sum(run.status_counts.values()) == n
     assert "rule_execution_seconds" in run.meta
     assert float(run.meta["rule_execution_seconds"]) >= 0.0
     assert float(run.meta["rule_execution_seconds"]) > 0.0
@@ -176,7 +179,9 @@ def test_agent_api_load_run_export(tmp_path: Path):
         diurnal = pd.read_csv(out / "sensor_diurnal_24h.csv")
         assert {"day_type", "fan_state", "hour", "role"} <= set(diurnal.columns)
     manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "wattlab_dump_v3"
+    assert manifest["schema_version"] == "openfdd_engineering_bundle_v1"
+    assert manifest["legacy_schema_version"] == "wattlab_dump_v3"
+    assert "provenance" in manifest
     assert manifest.get("export_profile") == "summary"
     assert any(f["path"] == "fdd_findings.csv" for f in manifest["files"])
     assert manifest["stage_seconds"]["rule_execution"] == pytest.approx(

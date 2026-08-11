@@ -1,0 +1,55 @@
+# RAM-light Vibe19 pytest on GitHub runners. Do not build Docker here.
+name: vibe19-pytest
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "vibe_code_apps_19/**"
+      - ".github/workflows/vibe19-pytest.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "vibe_code_apps_19/**"
+      - ".github/workflows/vibe19-pytest.yml"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_19
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev,engineering-report]" -c constraints.txt
+          # Occupied-string + hydronic-ungate fixes land on open-fdd master before 4.3.1 PyPI.
+          if [ -n "${{ vars.OPENFDD_GIT_SHA }}" ]; then
+            pip install --upgrade "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@${{ vars.OPENFDD_GIT_SHA }}"
+          else
+            pip install --upgrade "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@master"
+          fi
+      - name: Runtime OpenFDD pin
+        run: python -c "from app.openfdd_runtime import require_supported_open_fdd; print(require_supported_open_fdd())"
+      - name: Focused contract tests
+        run: |
+          python -m pytest -q \
+            tests/test_openfdd_runtime.py \
+            tests/test_parent_ahu_map.py \
+            tests/test_data_contract.py \
+            tests/test_topology_enrich.py \
+            tests/test_engineering_bundle_json.py \
+            tests/test_wattlab_export_profiles.py \
+            tests/test_wattlab_performance_contract.py \
+            tests/test_wattlab_dump.py \
+            tests/test_wattlab_dump_complete.py \
+            tests/test_analytics_shim_parity.py \
+            tests/test_calibration_readiness.py \
+            tests/test_cookbook_rules.py \
+            tests/test_agent_api.py \
+            tests/test_building100_baseline.py

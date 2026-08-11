@@ -191,9 +191,13 @@ Overview / Export bin **compressor runtime hours** by outdoor air temperature. P
 
 Source of truth: `app/analytics.py` (`CHILLER_STATUS_ROLES`, `COMPRESSOR_CMD_ROLES`, `DX_RUN_ROLES`, `MECH_COOL_SERIES_KINDS`). See also [`DATA_MODEL_DRIVEN.md`](DATA_MODEL_DRIVEN.md) and [`../vibe19_agent_spec/docs/ANALYTICS.md`](../vibe19_agent_spec/docs/ANALYTICS.md).
 
-## WattLab dump handoff (`wattlab_dump_v3`)
+## Engineering bundle handoff (`openfdd_engineering_bundle_v1`)
 
-Export builds an additive schema for vibe20. Default profile **`summary`**. Shared telemetry under `telemetry/`; legacy `fdd_timeseries/` is optional and not required for summary. Vibe 20 `load_bundle` accepts v2 and v3. This historian package (`openfdd_package_v1`) is the **input** to vibe19 — not the WattLab dump zip.
+Export writes `openfdd_engineering_bundle_v1` and sets `legacy_schema_version` to
+`wattlab_dump_v3` so older readers keep working. Default (UI) profile is
+**`summary`**. Shared telemetry under `telemetry/`; per-rule `fdd_timeseries/` is
+CLI diagnostic/forensic only. This historian package (`openfdd_package_v1`) is the
+**input** — not the engineering-bundle zip. See [`ENGINEERING_BUNDLE.md`](ENGINEERING_BUNDLE.md).
 
 ## Local vs Cloud (one app)
 

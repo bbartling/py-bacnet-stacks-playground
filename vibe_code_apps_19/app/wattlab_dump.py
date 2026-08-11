@@ -1,11 +1,7 @@
-"""WattLab dump helpers — sensor stats, diurnal profiles, FDD findings for vibe20.
+"""OpenFDD Engineering Bundle helpers — sensor stats, diurnal, FDD findings.
 
-These build the "big dump" pieces of the agent bundle: per-equipment summary
-statistics of every mapped role sliced by operating state (all / fan-or-pump
-on / off), 24h diurnal profiles (weekday/weekend/holiday × fan state),
-occupied/unoccupied medians of every setpoint (``*-sp``) role, long-format
-FDD findings, and a machine-readable MANIFEST.json.
-Everything is data-model driven — only roles present in the role map are used.
+Application-owned export assembly. Cookbook math lives in open-fdd.
+Schema: ``openfdd_engineering_bundle_v1`` (legacy alias ``wattlab_dump_v3``).
 """
 
 from __future__ import annotations
@@ -33,6 +29,10 @@ from app.units import resolve_role_unit
 
 # role_map meta keys that are not timeseries roles
 _META_KEYS = {"chw_pump_equipment", "notes", "equipment_type", "plant_group", "cooling_technology"}
+
+BUNDLE_SCHEMA = "openfdd_engineering_bundle_v1"
+LEGACY_BUNDLE_SCHEMA = "wattlab_dump_v3"
+BUNDLE_PRODUCT = "OpenFDD Engineering Bundle"
 
 ExportProfile = Literal["summary", "diagnostic", "forensic"]
 
@@ -285,7 +285,7 @@ def sensor_stats_tables(
             if role not in aug.columns:
                 aug[role] = s
         mask, proof = operating_mask(aug)
-        if mask is None:
+        if mask is None and et not in {"METER", "WEATHER", "UNKNOWN"}:
             mask, proof = hydronic_operating_mask(aug)
         proof_label = proof or "none"
         nominal = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
@@ -546,17 +546,21 @@ def fdd_findings_table(results: list[RuleResult]) -> pd.DataFrame:
             "missing_roles": ", ".join(r.missing_roles or []),
             "notes": r.notes or "",
         }
+        from open_fdd.rules.evidence import json_safe
+
         for k, v in metrics.items():
             key = f"metric_{k}"
-            if isinstance(v, (list, dict, tuple, set)):
-                row[key] = json.dumps(v, default=str)
-            elif hasattr(v, "item"):
+            if isinstance(v, (pd.Series, pd.DataFrame)):
+                row[key] = json.dumps(json_safe(v))
+            elif isinstance(v, (list, dict, tuple, set)):
+                row[key] = json.dumps(json_safe(v))
+            elif hasattr(v, "item") and not hasattr(v, "index"):
                 try:
                     row[key] = v.item()
                 except Exception:
-                    row[key] = str(v)
+                    row[key] = json_safe(v)
             else:
-                row[key] = v
+                row[key] = json_safe(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -829,68 +833,62 @@ def write_shared_telemetry(
     return written
 
 
-WATTLAB_README = """# WattLab dump — vibe19 → vibe20 handoff
+WATTLAB_README = """# OpenFDD Engineering Bundle
 
-This bundle is the "big dump" consumed by WattLab (vibe_code_apps_20) so an AI
-agent can seed, calibrate, and iterate an EnergyPlus digital twin. All tables
-are data-model driven: only points mapped in `role_map.yaml` appear.
+Schema `openfdd_engineering_bundle_v1` (legacy readers may still look for
+`wattlab_dump_v3` via `legacy_schema_version` in MANIFEST.json).
 
-Start with **`MANIFEST.json`** — every file's path, columns, purpose, and
-how the agent should use it.
+This zip is operational evidence for FDD analysis and EnergyPlus *handoff*.
+`model_seed.json` is **not** a calibrated model. Read `calibration_readiness.json`
+before treating any schedule or utility field as EnergyPlus-ready.
 
-## Model seed (data-derived)
+Canonical tables are Parquet when present; CSV twins are human-facing summaries.
+Shared `telemetry/` plus `fault_intervals.json` replace a full timeseries per rule.
+
+Start with **`MANIFEST.json`** (provenance + file index). `package_file_count` is
+on-disk files; `manifest_entry_count` is the index length (they can differ).
+
+## Provenance
+See `MANIFEST.json` → `provenance`. Missing git/engine SHAs set
+`provenance_incomplete: true`.
+
+## Model seed (operational evidence)
 - `model_seed.json` — building id, inferred schedules, data window. Geometry /
-  building_type / floor_area / utility bills are tagged `user_required` for the
-  vibe20 human+agent to fill. No interactive Energy Model wizard in vibe19.
-- `schedule_inference.json` / `schedule_inference_table.csv` — inferred
-  occupied/operating schedules per equipment.
-- `operating_signatures.csv` — OAT-binned operating signatures (the
-  spreadsheet "Weather Man" equivalent, from observed data).
-- `weather_observed.csv` — observed weather (web/Open-Meteo enriched) for
-  AMY-style EPW construction and bin tables.
+  building_type / floor_area / utility bills stay `user_required` unless supplied.
+- `calibration_readiness.json` — missing requirements and consequences.
+- `schedule_inference.json` / `schedule_inference_table.csv`
+- `operating_signatures.csv`
+- `weather_observed.csv`
 
-## FDD faults (every rule ran)
-- `fdd_summary.csv` — aggregate cookbook rule results (one row per rule × equip).
-- `fdd_findings.csv` — long-format findings with flattened metrics + confirmed_fault.
-- `fdd_timeseries/<rule_id>__<equipment_id>.csv` — per-rule fault masks
-  (`raw_fault`, `confirmed_fault`) plus key metric series. Lazy-load via MANIFEST.
-- `fault_settings.json` — tunable parameters used for the run.
+## FDD
+- `fdd_summary.csv` — one row per rule × equipment.
+- `fdd_findings.csv` / `.parquet` — structured metrics (never pandas repr).
+- `fault_intervals.json` — sparse confirmed-fault intervals.
+- `fdd_timeseries/` — CLI diagnostic/forensic only.
+- `effective_catalog.json` + `effective_config.json`
 
-## Run hours and mechanical cooling
-- `motor_hours.csv` / `motor_weekly.csv` — motor run hours per equipment.
-- `mech_cooling_oat_bins.csv` — mechanical cooling hours by OAT bin per device,
-  plus aggregated `ALL` rows.
-- `mech_cooling_coverage.csv` — every cooling-capable device with
-  included/excluded status and the run proof used (or reason excluded).
-- `economizer_weather.csv` — economizer opportunity / compliance hours.
+## Quality
+- `quality_flags.json` — reason-coded coverage (sentinels 999/888/-999, role bounds).
+  Zeros/ones on status/command are valid.
 
-## Sensors, setpoints, diurnal profiles
-- `sensor_stats_all.csv` — summary stats for every mapped role per equipment.
-- `sensor_stats_fan_on.csv` / `sensor_stats_fan_off.csv` — the same stats
-  sliced by fan/pump operating proof (equipment without proof only appears
-  in `all`).
-- `sensor_diurnal_24h.csv` — critical sensors (sweep + rule-required + `*-sp`)
-  binned by hour-of-day, split by `day_type` (weekday/weekend/holiday) and
-  `fan_state` (all/on/off). Filter columns to get separate datasets.
-- `setpoints.csv` — occupied/unoccupied medians for every `*-sp` role.
+## Analytics
+- `sensor_stats_all.csv` / `sensor_stats_fan_on.csv` / `sensor_stats_fan_off.csv`
+- `sensor_diurnal_24h.csv` / `setpoints.csv`
+- motor / mech-cooling / economizer / topology / data_model / RCx / meters
+- topology / data_model / RCx / meters / role-map gap
 
-## Analytic-tab CSVs
-- `topology.csv` / `data_model.csv` — equipment feeds/fedBy and point bindings.
-- `sensor_health_matrix.csv` / `sensor_fault_summary.csv` — SV-* health.
-- `rcx_preset_coverage.csv` / `rcx_zone_comfort_ranking.csv` — RCx coverage.
-- `meter_monthly_electric.csv` / `meter_monthly_gas.csv` — monthly meters.
-- `role_map_gap_report.csv` — unmapped/missing roles worth fixing.
-
-## Session round-trip
-- `session_config.json` + `role_map.yaml` (+ `column_map.json`) reload this
-  exact session in the vibe19 app.
-- `run_report.json` — status counts and package health.
+## Session
+- `session_config.json` + `role_map.yaml` + `run_report.json`
 """
 
 
 def write_wattlab_readme(out_dir) -> Path:
-    p = Path(out_dir) / "README_WATTLAB.md"
+    """Write README.md (and a legacy filename alias for older readers)."""
+    out = Path(out_dir)
+    p = out / "README.md"
     p.write_text(WATTLAB_README, encoding="utf-8")
+    alias = out / "README_WATTLAB.md"
+    alias.write_text(WATTLAB_README, encoding="utf-8")
     return p
 
 
@@ -901,10 +899,40 @@ _MANIFEST_HINTS: dict[str, dict[str, str]] = {
         "purpose": "Index of every file in this dump",
         "how_to_use": "Read first; discover paths/columns before loading CSVs",
     },
+    "README.md": {
+        "kind": "docs",
+        "purpose": "Human-readable bundle guide",
+        "how_to_use": "Skim for agent onboarding",
+    },
     "README_WATTLAB.md": {
         "kind": "docs",
-        "purpose": "Human-readable dump guide",
-        "how_to_use": "Skim for agent onboarding",
+        "purpose": "Legacy filename alias of README.md",
+        "how_to_use": "Same as README.md",
+    },
+    "calibration_readiness.json": {
+        "kind": "seed",
+        "purpose": "EnergyPlus calibration-readiness (missing requirements + consequences)",
+        "how_to_use": "Do not treat the seed as calibrated until ready is true",
+    },
+    "effective_catalog.json": {
+        "kind": "catalog",
+        "purpose": "Effective rule catalog for the pinned OpenFDD version",
+        "how_to_use": "Pin tests to rule_catalog_hash, not a hard-coded rule count",
+    },
+    "effective_config.json": {
+        "kind": "catalog",
+        "purpose": "Complete effective configuration (defaults + overrides)",
+        "how_to_use": "Compare effective_config_hash across runs",
+    },
+    "quality_flags.json": {
+        "kind": "quality",
+        "purpose": "Role-aware quality summaries and sentinel/plausibility counts",
+        "how_to_use": "Join to findings; do not treat SENTINEL values as measurements",
+    },
+    "fault_intervals.json": {
+        "kind": "fdd",
+        "purpose": "Sparse confirmed-fault intervals per rule × equipment",
+        "how_to_use": "Preferred evidence; do not expect a full timeseries per rule",
     },
     "model_seed.json": {
         "kind": "seed",
@@ -994,8 +1022,9 @@ def build_manifest(
     metrics_scope: Mapping[str, str] | None = None,
     stage_seconds: Mapping[str, float] | None = None,
     stage_scope: Mapping[str, str] | None = None,
+    provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a MANIFEST.json describing every emitted file (wattlab_dump_v3)."""
+    """Build a MANIFEST.json describing every emitted file (engineering bundle v1)."""
     out = Path(out_dir)
     files: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -1048,18 +1077,22 @@ def build_manifest(
                 ["timestamp", "<mapped_roles...>"],
             )
         )
-        for p in sorted(tel_root.glob("*.csv")) if tel_root.is_dir() else []:
+        tel_files = []
+        if tel_root.is_dir():
+            tel_files = sorted(list(tel_root.glob("*.csv")) + list(tel_root.glob("*.parquet")))
+        for p in tel_files:
             rel = p.relative_to(out).as_posix()
             if rel in seen:
                 continue
             seen.add(rel)
-            cols: list[str] = []
-            try:
-                cols = list(pd.read_csv(p, nrows=0).columns)
-            except Exception:
-                cols = ["timestamp"]
             files.append(
-                _entry(rel, "telemetry_file", f"Telemetry for {p.stem}", "Join from evidence telemetry_path", cols)
+                _entry(
+                    rel,
+                    "telemetry_file",
+                    f"Telemetry for {p.stem}",
+                    "Join from evidence telemetry_path",
+                    ["timestamp"],
+                )
             )
 
     for key, path in sorted(written.items(), key=lambda kv: str(kv[1])):
@@ -1087,25 +1120,29 @@ def build_manifest(
         }
         columns: list[str] = []
         if p.suffix.lower() == ".csv":
-            try:
-                columns = list(pd.read_csv(p, nrows=0).columns)
-            except Exception:
-                columns = []
+            columns = []  # avoid re-reading large CSVs; writers own the schema
+        elif p.suffix.lower() == ".parquet":
+            columns = []
         files.append(_entry(rel, hint["kind"], hint["purpose"], hint["how_to_use"], columns))
 
     # Ensure MANIFEST / README are described even before they are written
-    for name in ("MANIFEST.json", "README_WATTLAB.md"):
-        if name not in seen:
+    for name in ("MANIFEST.json", "README.md", "README_WATTLAB.md"):
+        if name not in seen and name in _MANIFEST_HINTS:
             hint = _MANIFEST_HINTS[name]
             files.insert(0, _entry(name, hint["kind"], hint["purpose"], hint["how_to_use"]))
             seen.add(name)
 
     payload: dict[str, Any] = {
-        "product": "OpenFDD WattLab Dump",
-        "schema_version": "wattlab_dump_v3",
+        "product": BUNDLE_PRODUCT,
+        "schema_version": BUNDLE_SCHEMA,
+        "legacy_schema_version": LEGACY_BUNDLE_SCHEMA,
+        "manifest_entry_count": len(files),
         "file_count": len(files),
         "files": files,
     }
+    if provenance is not None:
+        payload["provenance"] = dict(provenance)
+        payload["provenance_incomplete"] = bool(provenance.get("provenance_incomplete"))
     if profile is not None:
         payload["export_profile"] = profile
     if export_counts is not None:
@@ -1170,6 +1207,7 @@ def write_manifest(
     metrics_scope: Mapping[str, str] | None = None,
     stage_seconds: Mapping[str, float] | None = None,
     stage_scope: Mapping[str, str] | None = None,
+    provenance: Mapping[str, Any] | None = None,
 ) -> Path:
     out = Path(out_dir)
     payload = build_manifest(
@@ -1191,9 +1229,12 @@ def write_manifest(
         metrics_scope=metrics_scope,
         stage_seconds=stage_seconds,
         stage_scope=stage_scope,
+        provenance=provenance,
     )
+    from app.bundle_io import dumps_json_safe
+
     path = out / "MANIFEST.json"
-    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    path.write_text(dumps_json_safe(payload), encoding="utf-8")
     return path
 
 
@@ -1217,4 +1258,7 @@ __all__ = [
     "build_manifest",
     "write_manifest",
     "WATTLAB_README",
+    "BUNDLE_SCHEMA",
+    "LEGACY_BUNDLE_SCHEMA",
+    "BUNDLE_PRODUCT",
 ]
