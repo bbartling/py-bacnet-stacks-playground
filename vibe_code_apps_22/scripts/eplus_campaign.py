@@ -78,7 +78,9 @@ def _ensure_site_globals() -> Path:
     BEST = MODELS / "lakeside_6zone_gshp_best.idf"
     PINNED_BEST = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
     BEST_SC = EPLUS / "scorecards" / "best_scorecard.json"
-    AMY = EPLUS / "weather" / "madison_amy_202508_202607.epw"
+    from eplus_gym_app.weather_files import resolve_amy_epw
+
+    AMY = resolve_amy_epw(ROOT) or (EPLUS / "weather" / "madison_amy_202508_202607.epw")
     TMY = EPLUS / "weather" / "madison_tmy_screening.epw"
     MCP_VENV = ROOT.parent / "EnergyPlus-MCP" / "energyplus-mcp-server" / ".venv" / "Lib" / "site-packages"
     return ROOT

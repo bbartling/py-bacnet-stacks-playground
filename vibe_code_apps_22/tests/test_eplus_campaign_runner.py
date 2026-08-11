@@ -10,7 +10,7 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "scripts"))
-sys.path.insert(0, str(_ROOT / "ml"))
+sys.path.insert(0, str(_ROOT / "archive" / "ml"))
 
 from eplus_calibrate_multires import (  # noqa: E402
     EXECUTABLE_KNOBS,

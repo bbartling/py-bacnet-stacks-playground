@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 _APP = Path(__file__).resolve().parents[1]
-_ML = _APP / "ml"
+_ML = _APP / "archive" / "ml"
 for p in (_APP, _ML, _APP / "scripts"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -702,7 +702,7 @@ def _rescore_existing_campaign(camp: Path) -> int:
         after = hashlib.sha256(original_summary_path.read_bytes()).hexdigest()
         if original_summary_sha and after != original_summary_sha:
             raise RuntimeError("rescore mutated summary.json — abort")
-    mirror = _APP / "ml" / "artifacts" / "eplus_campaigns"
+    mirror = _APP / "archive" / "ml" / "artifacts" / "eplus_campaigns"
     mirror.mkdir(parents=True, exist_ok=True)
     (mirror / "latest_summary_rescored.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
@@ -1018,7 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(structural, indent=2) + "\n", encoding="utf-8"
     )
 
-    mirror = _APP / "ml" / "artifacts" / "eplus_campaigns"
+    mirror = _APP / "archive" / "ml" / "artifacts" / "eplus_campaigns"
     mirror.mkdir(parents=True, exist_ok=True)
     (mirror / "latest_summary.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"

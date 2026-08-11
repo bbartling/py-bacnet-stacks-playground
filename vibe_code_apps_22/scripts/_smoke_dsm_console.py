@@ -42,13 +42,12 @@ def _live_day() -> int:
 
     site = site_root()
     src = _APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
-    epw = site / "eplus" / "weather" / "madison_amy_202508_202607.epw"
-    if not epw.is_file():
-        cands = list((site / "eplus" / "weather").glob("*.epw"))
-        if not cands:
-            print("NO_EPW")
-            return 3
-        epw = cands[0]
+    from eplus_gym_app.weather_files import resolve_amy_epw
+
+    epw = resolve_amy_epw(site)
+    if epw is None:
+        print("NO_EPW")
+        return 3
     out = site / "reports" / "eplus_gym" / "runs" / "smoke_a04_jan26"
     if out.exists():
         shutil.rmtree(out, ignore_errors=True)

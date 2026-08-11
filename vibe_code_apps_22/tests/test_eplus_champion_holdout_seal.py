@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 _ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "ml"))
+sys.path.insert(0, str(_ROOT / "archive" / "ml"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
 from eplus_calibrate_multires import _rank_candidate  # noqa: E402

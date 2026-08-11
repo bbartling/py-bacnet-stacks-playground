@@ -37,6 +37,30 @@ STRATEGY_LABELS = {
 }
 
 
+def calendar_month_options(bundle: "SiteUiBundle") -> list[str]:
+    months: set[str] = set()
+    peak = str(getattr(getattr(bundle, "dial_ladder", None), "peak_day", "") or "")
+    if len(peak) >= 7:
+        months.add(peak[:7])
+    months.update(("2026-01", "2026-02"))
+    try:
+        from eplus_gym_app.load_profiles import load_bas_demand_oat
+
+        bas = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
+        months.update(str(d)[:7] for d in bas["local_day"].astype(str))
+    except Exception:  # noqa: BLE001
+        pass
+    return sorted(m for m in months if m and len(m) == 7)
+
+
+def default_calendar_month(months: list[str], peak_day: str | None) -> str:
+    """Calendar-month widget defaults to the BAS peak day's month, not the earliest month."""
+    ym = (peak_day or "")[:7]
+    if ym in months:
+        return ym
+    return months[0] if months else "2026-01"
+
+
 def strategy_library() -> dict[str, Any]:
     """Desktop strategy cards + 96-step SP series. Not list_strategies() (skips index.json)."""
     from eplus_gym.controllers import RuleController, load_strategy_contract
@@ -115,6 +139,7 @@ def dsm_kpis(
     *,
     actual_peak_kw: float | None = None,
     baseline_peak_kw: float | None = None,
+    baseline_kwh: float | None = None,
 ) -> dict[str, Any]:
     peak = float(df["facility_kw"].max()) if df is not None and not df.empty and "facility_kw" in df.columns else None
     kwh = (
@@ -126,11 +151,18 @@ def dsm_kpis(
     if peak is not None and actual_peak_kw not in (None, 0):
         vs_actual = (peak - float(actual_peak_kw)) / float(actual_peak_kw) * 100.0
     vs_base = None
+    kw_trim = None
     if peak is not None and baseline_peak_kw not in (None, 0):
         vs_base = (peak - float(baseline_peak_kw)) / float(baseline_peak_kw) * 100.0
+        kw_trim = float(baseline_peak_kw) - float(peak)
+    kwh_penalty = None
+    if kwh is not None and baseline_kwh is not None:
+        kwh_penalty = float(kwh) - float(baseline_kwh)
     return {
         "peak_kw": peak,
         "kwh": kwh,
+        "kw_trim": kw_trim,
+        "kwh_penalty": kwh_penalty,
         "vs_actual_pct": vs_actual,
         "vs_baseline_pct": vs_base,
         "honesty": meta.get("honesty"),
@@ -141,6 +173,32 @@ def dsm_kpis(
         "day": meta.get("day"),
         "strategy_id": meta.get("strategy_id"),
     }
+
+
+def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Window-total kW trim and kWh penalty vs the baseline strategy.
+
+    kw_trim = baseline peak kW − strategy peak kW  (+ = trimmed demand)
+    kwh_penalty = strategy kWh − baseline kWh      (+ = energy penalty)
+    Totals cover the whole selected window (peak day / month / winter / year).
+    """
+    base = kpis_by.get("baseline") or {}
+    b_peak = base.get("peak_kw")
+    b_kwh = base.get("kwh")
+    for sid, row in kpis_by.items():
+        peak = row.get("peak_kw")
+        kwh = row.get("kwh")
+        if peak is not None and b_peak not in (None, 0):
+            row["kw_trim"] = float(b_peak) - float(peak)
+            row["vs_baseline_pct"] = (float(peak) - float(b_peak)) / float(b_peak) * 100.0
+        elif sid == "baseline" and peak is not None:
+            row["kw_trim"] = 0.0
+            row["vs_baseline_pct"] = 0.0
+        if kwh is not None and b_kwh is not None:
+            row["kwh_penalty"] = float(kwh) - float(b_kwh)
+        elif sid == "baseline" and kwh is not None:
+            row["kwh_penalty"] = 0.0
+    return kpis_by
 
 
 def run_dsm_lookup(
@@ -657,15 +715,8 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     wx_opts = ["AMY", "TMY", "Both"]
     default_wx = inv.get("default_mode") or "AMY"
 
-    month_opts = [bundle.dial_ladder.peak_day[:7], "2026-01", "2026-02"]
-    try:
-        from eplus_gym_app.load_profiles import load_bas_demand_oat
-
-        bas_months = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
-        month_opts.extend(str(d)[:7] for d in bas_months["local_day"].astype(str))
-    except Exception:  # noqa: BLE001
-        pass
-    month_opts = sorted({m for m in month_opts if m and len(m) == 7})
+    month_opts = calendar_month_options(bundle)
+    default_m = default_calendar_month(month_opts, bundle.dial_ladder.peak_day)
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -674,7 +725,11 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         )
     with c2:
         month = st.selectbox(
-            "Month", options=month_opts, key="dsm_month", disabled=preset != "Calendar month"
+            "Month",
+            options=month_opts,
+            index=month_opts.index(default_m) if default_m in month_opts else 0,
+            key="dsm_month",
+            disabled=preset != "Calendar month",
         )
     with c3:
         wx_mode = st.radio(
@@ -758,12 +813,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             if not frames_by:
                 st.error("No W2A farm days for any of the five strategies.")
                 return
-            if base_peak:
-                for sid, row in kpis_by.items():
-                    if sid != "baseline" and row.get("peak_kw") is not None:
-                        row["vs_baseline_pct"] = (
-                            (float(row["peak_kw"]) - float(base_peak)) / float(base_peak) * 100.0
-                        )
+            attach_baseline_deltas(kpis_by)
             primary = frames_by.get("baseline:lookup") or next(iter(frames_by.values()))
             _store_run(
                 site=bundle.site,
@@ -896,12 +946,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                 kpis_by[sid] = dsm_kpis(df_sid, meta, actual_peak_kw=actual_peak)
                 if sid == "baseline":
                     base_peak = kpis_by[sid].get("peak_kw")
-            if base_peak:
-                for sid, row in kpis_by.items():
-                    if sid != "baseline" and row.get("peak_kw") is not None:
-                        row["vs_baseline_pct"] = (
-                            (float(row["peak_kw"]) - float(base_peak)) / float(base_peak) * 100.0
-                        )
+            attach_baseline_deltas(kpis_by)
             primary_key = f"baseline:{KIND_AMY}"
             if primary_key not in frames_by:
                 primary_key = next(iter(frames_by))
@@ -992,13 +1037,20 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             {
                 "strategy_id": sid,
                 "peak_kw": row.get("peak_kw"),
+                "kw_trim": row.get("kw_trim"),
                 "kwh": row.get("kwh"),
+                "kwh_penalty": row.get("kwh_penalty"),
                 "vs_actual_pct": row.get("vs_actual_pct"),
                 "vs_baseline_pct": row.get("vs_baseline_pct"),
             }
         )
     if score_rows:
         st.dataframe(pd.DataFrame(score_rows), width="stretch", hide_index=True)
+        st.caption(
+            "Window totals for the selected period (peak day / month / winter / year). "
+            "**kW trim** = baseline peak − strategy peak (+ trimmed demand). "
+            "**kWh penalty** = strategy kWh − baseline kWh (+ used more energy)."
+        )
     paths = list((last.get("parquets") or {}).values()) or (
         [last["parquet"]] if last.get("parquet") else []
     )

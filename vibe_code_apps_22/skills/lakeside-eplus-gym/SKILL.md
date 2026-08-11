@@ -12,7 +12,8 @@ description: >-
 **Code:** `vibe_code_apps_22/eplus_gym/`  
 **Site:** `LAKESIDE_SITE_ROOT`  
 **SoT:** [`../../vibe22_agent_spec/EPLUS_GYM.md`](../../vibe22_agent_spec/EPLUS_GYM.md) ·
-[`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md)
+[`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md) ·
+weather: [`../lakeside-open-meteo-epw/SKILL.md`](../lakeside-open-meteo-epw/SKILL.md)
 
 **Do not** revive hybrid ONNX / grey-box / control-twin lab from
 `archive/2026-08-10_pre_eplus_gym/` into the live path.
@@ -34,8 +35,13 @@ $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
-Tabs: Building and fuel · **Run DSM** · Calibration.  
+Tabs: **Run DSM** · **Calibration**.  
 No IDF / campus / interval pickers. Pack comes from `ingest_site_pack.py`.
+Calendar month defaults to the BAS **peak-day month**.
+
+**Weather:** AMY = Open-Meteo actual year (M&V). Refresh with
+`python -u scripts\eplus_fetch_open_meteo_epw.py`. TMY = Madison MSN only —
+never auto-pick Chicago screening. See `lakeside-open-meteo-epw`.
 
 **Run DSM:** lookup if `{site}/eplus/dsm_farm_w2a` exists; else live via
 **subprocess** to `scripts/run_eplus_gym_rules.py --family w2a --mode live`.  

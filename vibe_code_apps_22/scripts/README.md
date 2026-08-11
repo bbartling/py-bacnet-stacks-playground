@@ -9,6 +9,8 @@ Archived hybrid/greybox/lab scripts: [`../archive/2026-08-10_pre_eplus_gym/scrip
 | Script | Role |
 | --- | --- |
 | `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
+| `eplus_fetch_open_meteo_epw.py` | Open-Meteo archive @ site lat/lon → `madison_amy_*.epw` |
+| `eplus_build_amy_epw.py` | Alias of `eplus_fetch_open_meteo_epw.py` |
 | `run_eplus_gym_rules.py` | Rule DR (`--family w2a\|idealloads`, `lookup` / `live` / `auto`) |
 | `run_eplus_gym_month_farm.py` | IdealLoads calendar-month farm grow (structural) |
 | `run_eplus_gym_month_live.py` | CLI-only closed-loop month (staged IdealLoads IDF) |

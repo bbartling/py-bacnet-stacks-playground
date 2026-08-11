@@ -1,6 +1,13 @@
 # Local regenerable / heavy artifacts (models + data packs live on Drive / LAKESIDE_SITE_ROOT)
 # Keep only small fixtures + READMEs in git so GH stays learnable.
 
+.pytest_cache/
+archive/**/__pycache__/
+archive/ml/**/__pycache__/
+archive/ml/artifacts/**
+!archive/ml/artifacts/README.md
+!archive/ml/README.md
+
 ml/artifacts/**
 !ml/artifacts/README.md
 !ml/artifacts/INTEGRITY_INVENTORY_20260806.md

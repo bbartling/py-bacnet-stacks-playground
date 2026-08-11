@@ -13,6 +13,7 @@ from typing import Any
 
 _APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_APP))
+sys.path.insert(0, str(_APP / "archive" / "ml"))
 sys.path.insert(0, str(_APP / "scripts"))
 
 from eplus_heating_dsm_farm import (  # noqa: E402

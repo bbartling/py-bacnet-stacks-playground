@@ -22,7 +22,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "archive" / "ml"))
 
 from eplus_native.align import parse_eplus_csv_timestamp  # noqa: E402
 from eplus_native.extract import _c_to_f, _find_zone_mat_col  # noqa: E402

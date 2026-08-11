@@ -9,7 +9,7 @@ from pathlib import Path as _PathForLakeside
 from typing import Iterable
 
 _APP = _PathForLakeside(__file__).resolve().parents[1]
-_ML = _APP / "ml"
+_ML = _APP / "archive" / "ml"
 for _p in (_APP, _ML):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))

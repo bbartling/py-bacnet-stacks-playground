@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 _APP = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_APP / "ml"))
+sys.path.insert(0, str(_APP / "archive" / "ml"))
 
 from energy_math import (  # noqa: E402
     hourly_mean_from_quarters,

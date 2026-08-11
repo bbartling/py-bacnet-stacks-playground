@@ -52,7 +52,9 @@ if not SEED.is_file():
 LATEST = MODELS / "lakeside_6zone_gshp_latest.idf"
 BEST = MODELS / "lakeside_6zone_gshp_best_utility.idf"
 BEST_SC = EPLUS / "scorecards" / "best_scorecard_utility.json"
-AMY = EPLUS / "weather" / "madison_amy_202508_202607.epw"
+from eplus_gym_app.weather_files import resolve_amy_epw  # noqa: E402
+
+AMY = resolve_amy_epw(ROOT) or (EPLUS / "weather" / "madison_amy_202508_202607.epw")
 
 os.environ.setdefault(
     "EPLUS_OBS_CSV",

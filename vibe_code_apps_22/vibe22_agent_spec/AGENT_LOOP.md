@@ -41,7 +41,12 @@ ALC-first path (no zip): `scripts/process_lakeside.py` then
 
 - Billing campus + sibling bill CSVs
 - Interval Actual: `reports/demand_vs_web_weather_hourly.csv` (or pack interval)
-- EPW: `eplus/weather/*.epw` (AMY preferred)
+- EPW AMY: `eplus/weather/madison_amy_*.epw` from Open-Meteo at site lat/lon.
+  Agent tool: `python -u scripts/eplus_fetch_open_meteo_epw.py`
+  (lib `eplus_gym_app/open_meteo_epw.py`). Skill: `lakeside-open-meteo-epw`.
+  Refresh if missing or last EPW day is older than ~5 days. Do **not** invent
+  EPW from BAS OAT-only. TMY = Madison MSN download only — never Chicago
+  `*screening*` / O'Hare as typical-year.
 - Write / refresh `reports/eplus/observed_monthly_utility.csv` when bills change
 
 ### 3. Hypothesis
@@ -90,7 +95,10 @@ Set `current_model_id=A04` and `dsm_champion=A04` when dual gates hold.
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
-Tabs: **Building and fuel** · **Run DSM** · **Calibration**.  
+Tabs: **Run DSM** · **Calibration**.  
+Calendar month defaults to the BAS peak-day month.  
+Weather radio: **AMY** = Open-Meteo actual year; **TMY** = Madison MSN typical
+(missing TMY → AMY only; Chicago screening is not used).  
 Run: lookup if `{site}/eplus/dsm_farm_w2a` exists, else live EnergyPlus via
 **CLI subprocess** (`scripts/run_eplus_gym_rules.py --family w2a --mode live`).  
 Do not bind `pyenergyplus` into the Streamlit process. Still no live E+ in Jupyter.

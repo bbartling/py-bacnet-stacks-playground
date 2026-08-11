@@ -37,6 +37,7 @@ as the shipped product.
 | [`eplus_gym/simulate.py`](../eplus_gym/simulate.py) | `run_rule_episode` / `run_rule_month_lookup` |
 | [`eplus_gym/envs/lakeside_w2a.py`](../eplus_gym/envs/lakeside_w2a.py) | Lakeside W2A A04 — actuate `SCH_HtgSP` |
 | [`eplus_gym_app/`](../eplus_gym_app/) | **Streamlit DSM console** (published pack; live E+ via CLI subprocess) |
+| [`eplus_gym_app/open_meteo_epw.py`](../eplus_gym_app/open_meteo_epw.py) | Open-Meteo archive → AMY EPW (agent weather tool) |
 | [`eplus_gym/train_rllib.py`](../eplus_gym/train_rllib.py) | RLlib stub (not shipped) |
 
 ## Run
@@ -55,16 +56,34 @@ python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
 
 # Live month closed-loop (CLI only; slow)
 # python -u scripts\run_eplus_gym_month_live.py --month 2026-01 --strategy baseline --max-steps 96
+
+# Refresh AMY EPW from Open-Meteo (site lat/lon)
+python -u scripts\eplus_fetch_open_meteo_epw.py
 ```
 
 Notebook viewer: `notebooks\lakeside_eplus_gym_playground.ipynb`  
 Artifacts: `reports/eplus_gym/`.
 
+## Weather (AMY vs TMY)
+
+| Kind | Source | Agent tool |
+| --- | --- | --- |
+| `AMY_OPEN_METEO` | Open-Meteo archive at `answers.json` lat/lon | `scripts/eplus_fetch_open_meteo_epw.py` |
+| `TMY_MSN` | Madison Dane County TMY3/TMYx | Manual EnergyPlus weather download |
+| `TMY_SCREENING` | Chicago O'Hare / `*screening*` | **Never auto-select** |
+
+AMY is **actual-year M&V**, not typical. Do not invent an EPW from BAS OAT-only.
+Console **Calendar month** defaults to the BAS peak-day month.
+Scorecard: **kW trim** (baseline peak − strategy peak) and **kWh penalty**
+(strategy kWh − baseline kWh) over the **entire selected window**.
+No live `ml/` package — helpers live in `archive/ml/`.
+Skill: [`../skills/lakeside-open-meteo-epw/SKILL.md`](../skills/lakeside-open-meteo-epw/SKILL.md).
+
 ## Twin foundation (still live)
 
 - IDF pins: `models/eplus/`
 - Staging: `eplus_native/`
-- Skills: eplus-gl14, utility-gl14, w2a-plant-dial
+- Skills: eplus-gl14, utility-gl14, w2a-plant-dial, open-meteo-epw
 - Specs: [`UTILITY_GL14.md`](UTILITY_GL14.md), [`W2A_PLANT_DIAL.md`](W2A_PLANT_DIAL.md)
 
 ## Archived product paths

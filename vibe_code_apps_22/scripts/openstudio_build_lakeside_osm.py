@@ -43,7 +43,9 @@ OUT_DIR = ROOT / "eplus" / "models"
 OUT_OSM = OUT_DIR / "lakeside_9zone_openstudio.osm"
 OUT_IDF = OUT_DIR / "lakeside_9zone_openstudio.idf"
 OUT_META = OUT_DIR / "lakeside_9zone_openstudio_meta.json"
-AMY = ROOT / "eplus" / "weather" / "madison_amy_202508_202607.epw"
+from eplus_gym_app.weather_files import resolve_amy_epw  # noqa: E402
+
+AMY = resolve_amy_epw(ROOT) or (ROOT / "eplus" / "weather" / "madison_amy_202508_202607.epw")
 TARGETS = ROOT / "eplus" / "assumptions" / "bas_calibration_targets.json"
 FAN_CSV = ROOT / "reports" / "zone_avg_fan_run_hours_monthly.csv"
 

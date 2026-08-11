@@ -12,7 +12,9 @@ from eplus_gym.lookup_emulator import STEPS
 from eplus_gym.simulate import day_for_step
 from eplus_gym.month_calendar import DEPLOYABLE_STRATEGIES
 from eplus_gym_app.dsm_console import (
+    attach_baseline_deltas,
     daily_peaks_from_traj,
+    default_calendar_month,
     dsm_kpis,
     live_run_jobs,
     meter_peak_day_for_period,
@@ -74,12 +76,27 @@ def test_dsm_kpis_vs_baseline_and_actual():
         {"honesty": "W2A_PHYSICAL_DSM", "provenance": "FARM_LOOKUP_EMULATOR", "promote": False},
         actual_peak_kw=220.0,
         baseline_peak_kw=250.0,
+        baseline_kwh=200.0,
     )
     assert kpis["peak_kw"] == pytest.approx(200.0)
     assert kpis["kwh"] == pytest.approx((100 + 200 + 150) * 0.25)
+    assert kpis["kw_trim"] == pytest.approx(50.0)
+    assert kpis["kwh_penalty"] == pytest.approx((100 + 200 + 150) * 0.25 - 200.0)
     assert kpis["vs_actual_pct"] == pytest.approx((200 - 220) / 220 * 100)
     assert kpis["vs_baseline_pct"] == pytest.approx((200 - 250) / 250 * 100)
     assert kpis["promote"] is False
+
+
+def test_attach_baseline_deltas_window_totals():
+    kpis = {
+        "baseline": {"peak_kw": 200.0, "kwh": 1000.0},
+        "deep_setback": {"peak_kw": 160.0, "kwh": 1100.0},
+    }
+    attach_baseline_deltas(kpis)
+    assert kpis["baseline"]["kw_trim"] == pytest.approx(0.0)
+    assert kpis["baseline"]["kwh_penalty"] == pytest.approx(0.0)
+    assert kpis["deep_setback"]["kw_trim"] == pytest.approx(40.0)
+    assert kpis["deep_setback"]["kwh_penalty"] == pytest.approx(100.0)
 
 
 def test_run_dsm_lookup_returns_frame(tmp_path: Path):
@@ -295,6 +312,13 @@ def test_period_daily_peak_figure_highlights_sim_day():
     )
     assert len(fig.data) == 1
     assert fig.layout.title.text == "winter"
+
+
+def test_default_calendar_month_is_peak_day_month_not_earliest():
+    months = ["2025-08", "2025-12", "2026-01", "2026-02"]
+    assert default_calendar_month(months, "2026-01-26") == "2026-01"
+    assert default_calendar_month(months, "2025-12-15") == "2025-12"
+    assert default_calendar_month(months, None) == "2025-08"
 
 
 def test_meter_peak_day_calendar_month_not_always_anchor():

@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(_APP), str(_APP / "ml"), str(_APP / "scripts")]
+sys.path[:0] = [str(_APP), str(_APP / "archive" / "ml"), str(_APP / "scripts")]
 
 from lakeside.paths import site_root  # noqa: E402
 from eplus_gym.honesty import HONESTY_IDEALLOADS, PROMOTE  # noqa: E402
@@ -129,13 +129,12 @@ def main(argv: list[str] | None = None) -> int:
     # --- execute path: reuse farm runner internals ---
     import eplus_heating_dsm_farm as farm  # noqa: E402
 
-    epw = site / "eplus" / "weather" / "madison_amy_202508_202607.epw"
-    if not epw.is_file():
-        cands = list((site / "eplus" / "weather").glob("madison_amy*.epw"))
-        if not cands:
-            print(f"FAIL closed: missing AMY EPW under {site / 'eplus' / 'weather'}", file=sys.stderr)
-            return 2
-        epw = cands[0]
+    from eplus_gym_app.weather_files import resolve_amy_epw
+
+    epw = resolve_amy_epw(site)
+    if epw is None:
+        print(f"FAIL closed: missing AMY EPW under {site / 'eplus' / 'weather'}", file=sys.stderr)
+        return 2
     idf_src = farm._eligible_idf(site)
     print(f"EXECUTE idf={idf_src.name} epw={epw.name} n={len(scenarios)}", flush=True)
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SCRIPTS = _ROOT / "scripts"
-_ML = _ROOT / "ml"
+_ML = _ROOT / "archive" / "ml"
 sys.path.insert(0, str(_SCRIPTS))
 sys.path.insert(0, str(_ML))
 

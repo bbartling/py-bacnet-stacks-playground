@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "archive" / "ml"))
 
 from eplus_multires_metrics import (  # noqa: E402
     HOURLY_CVRMSE_MAX,

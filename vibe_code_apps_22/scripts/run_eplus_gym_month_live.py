@@ -35,12 +35,11 @@ def _resolve_idf(site: Path) -> Path:
 
 
 def _resolve_epw(site: Path) -> Path:
-    epw = site / "eplus" / "weather" / "madison_amy_202508_202607.epw"
-    if epw.is_file():
+    from eplus_gym_app.weather_files import resolve_amy_epw
+
+    epw = resolve_amy_epw(site)
+    if epw is not None:
         return epw
-    cands = list((site / "eplus" / "weather").glob("madison_amy*.epw"))
-    if cands:
-        return cands[0]
     raise FileNotFoundError(f"missing AMY EPW under {site / 'eplus' / 'weather'}")
 
 

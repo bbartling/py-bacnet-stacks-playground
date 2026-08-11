@@ -12,6 +12,7 @@ EnergyPlus IdealLoads / W2A twin pins, **EnergyPlus DSM gym** (rule DR on the
 [`vibe22_agent_spec/W2A_PLANT_DIAL.md`](vibe22_agent_spec/W2A_PLANT_DIAL.md),
 [`skills/lakeside-site-pack/SKILL.md`](skills/lakeside-site-pack/SKILL.md),
 [`skills/lakeside-eplus-gym/SKILL.md`](skills/lakeside-eplus-gym/SKILL.md),
+[`skills/lakeside-open-meteo-epw/SKILL.md`](skills/lakeside-open-meteo-epw/SKILL.md),
 [`skills/lakeside-eplus-gl14/SKILL.md`](skills/lakeside-eplus-gl14/SKILL.md),
 [`skills/lakeside-utility-gl14/SKILL.md`](skills/lakeside-utility-gl14/SKILL.md),
 [`skills/lakeside-w2a-plant-dial/SKILL.md`](skills/lakeside-w2a-plant-dial/SKILL.md).
@@ -41,7 +42,7 @@ console**. Hybrid ONNX desktop, grey-box, and control-twin lab stay under
    billing `campus_utility.json`). Humans never pick files.
 5. Human **Streamlit** shows fuel + current IDF and **Run DSM** on A04
    (farm lookup if `eplus/dsm_farm_w2a` exists, else live E+ via CLI subprocess).
-6. Optional later: RLlib PPO on the same env (`eplus_gym/train_rllib.py` stub).
+6. Optional later: RLlib PPO stub only (`eplus_gym/train_rllib.py`) — not the product.
 7. Leave room for a future **BACnet** app under `bacnet/` (stub only — **no writes**).
 
 ---
@@ -57,7 +58,7 @@ vibe_code_apps_22/
   eplus_native/              # IDF stage / meters / schedule repair
   contracts/                 # DR strategies + site_ui_bundle example
   scripts/                   # ingest, ALC, twin calibrate, gym farm/rules/live
-  ml/                        # thin shared helpers (interval15, physics_families, …)
+  archive/ml/                # parked GL14/farm helpers (not a live ML product)
   notebooks/lakeside_eplus_gym_playground.ipynb   # CLI artifact viewer
   docs/audits/eplus_gym_v1.md
   archive/2026-08-10_pre_eplus_gym/
@@ -89,6 +90,9 @@ pip install -r requirements.txt
 # Pack ingest (zip or existing SITE_ROOT) — publishes site_ui_bundle_v1
 python -u scripts\ingest_site_pack.py --src $env:LAKESIDE_SITE_ROOT
 
+# AMY EPW from Open-Meteo at site lat/lon (skip if fresh)
+python -u scripts\eplus_fetch_open_meteo_epw.py
+
 # ALC → package (writes into SITE) — optional if pack already has campus + interval
 python -u scripts\process_lakeside.py
 
@@ -116,7 +120,8 @@ hypothesis → campaign folder → score → republish.
 - Gym **live** mode = `ENERGYPLUS_PYTHON_API` (rllib-energyplus-style callbacks).
 - W2A `auto` **never** falls back to the IdealLoads farm.
 - `promote=False` until hourly DSM gates.
-- Interval clock: `ml/interval15.py` (`step_15=0 → 00:15`).
+- Interval clock: `archive/ml/interval15.py` (`step_15=0 → 00:15`).
+- No live `ml/` package. Helpers are parked under `archive/ml/`.
 - No BACnet WriteProperty.
 - Archived hybrid/greybox/lab paths: see [`archive/2026-08-10_pre_eplus_gym/`](archive/2026-08-10_pre_eplus_gym/README.md).
 

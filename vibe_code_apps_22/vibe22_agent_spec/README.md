@@ -15,6 +15,7 @@
 | ../archive/2026-08-10_pre_eplus_gym/README.md | Full archaeology ledger |
 | ../scripts/README.md | Live scripts map |
 | ../skills/lakeside-eplus-gym/SKILL.md | Agent skill — gym run order |
+| ../skills/lakeside-open-meteo-epw/SKILL.md | Open-Meteo archive → AMY EPW |
 | ../skills/lakeside-eplus-gl14/SKILL.md | IdealLoads interval G14 |
 | ../skills/lakeside-utility-gl14/SKILL.md | Utility-bill G14 |
 | ../skills/lakeside-w2a-plant-dial/SKILL.md | W2A plant dial |

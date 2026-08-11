@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[1]
-_ML = _APP / "ml"
+_ML = _APP / "archive" / "ml"
 for p in (_APP, _ML, _APP / "scripts"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))

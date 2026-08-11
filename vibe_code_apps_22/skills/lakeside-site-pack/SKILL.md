@@ -22,7 +22,7 @@ a mixed zip is fine if `campus.json` + bills + an `.idf` are inside.
 | Fuel | `campus.json` / `campus_utility.json` + sibling bill CSVs (`Campus.from_json` must succeed) |
 | Twin | one `.idf` (prefer `*a04*` / champion pin) |
 | Actual | interval CSV (`demand_vs_web_weather_hourly.csv` or timestamp + kW) |
-| Recommended | WattLab `MANIFEST.json` + `data_model.csv` / `model_seed.json`, scorecard, `.epw` |
+| Recommended | WattLab `MANIFEST.json` + `data_model.csv` / `model_seed.json`, scorecard, Open-Meteo AMY `.epw` (`eplus_fetch_open_meteo_epw.py`) |
 
 **Billing campus wins** over interval-integrated `campus.json`.
 
@@ -39,6 +39,11 @@ Writes `{site}/reports/site_ui_bundle_v1.json` with `current_model_id`,
 `dsm_champion=A04`, `dsm_farm_parquet=eplus/dsm_farm_w2a/...`.
 
 Human Streamlit sidebar has an optional **Load site pack** expander. Prefer this CLI.
+
+Missing / stale AMY: `python -u scripts\eplus_fetch_open_meteo_epw.py`
+(site lat/lon from `eplus/assumptions/answers.json`). See
+[`../lakeside-open-meteo-epw/SKILL.md`](../lakeside-open-meteo-epw/SKILL.md).
+Do not invent EPW from BAS OAT and do not copy Chicago as TMY.
 
 ## Do not
 

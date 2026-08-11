@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(_APP), str(_APP / "ml")]
+sys.path[:0] = [str(_APP), str(_APP / "archive" / "ml")]
 
 from physics_families import (  # noqa: E402
     W2A_PHYSICAL_DSM,
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--out-dir",
         type=Path,
-        default=_APP / "ml" / "artifacts" / "w2a_dsm_scaffold",
+        default=_APP / "archive" / "ml" / "artifacts" / "w2a_dsm_scaffold",
     )
     ap.add_argument("--steps-per-hour", type=int, default=4, choices=(4, 6, 12))
     args = ap.parse_args(argv)

@@ -39,8 +39,13 @@ def resolve_amy_epw(site: Path, *, published: Path | None = None) -> Path | None
     weather = _weather_dir(site)
     if not weather.is_dir():
         return None
-    cands = sorted(weather.glob("madison_amy*.epw")) or sorted(weather.glob("*amy*.epw"))
-    return cands[0] if cands else None
+    cands = [p for p in weather.glob("madison_amy*.epw") if p.is_file()]
+    if not cands:
+        cands = [p for p in weather.glob("*amy*.epw") if p.is_file()]
+    if not cands:
+        return None
+    cands.sort(key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    return cands[0]
 
 
 def resolve_tmy_msn_epw(site: Path) -> Path | None:

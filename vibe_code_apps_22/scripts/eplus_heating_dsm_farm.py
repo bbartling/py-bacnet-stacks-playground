@@ -25,7 +25,7 @@ import pandas as pd
 _APP = Path(__file__).resolve().parents[1]
 if str(_APP) not in sys.path:
     sys.path.insert(0, str(_APP))
-_ML = _APP / "ml"
+_ML = _APP / "archive" / "ml"
 if str(_ML) not in sys.path:
     sys.path.insert(0, str(_ML))
 
@@ -580,7 +580,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--out",
         type=Path,
-        default=_APP / "ml" / "artifacts" / f"{OUT_STEM}.parquet",
+        default=_APP / "archive" / "ml" / "artifacts" / f"{OUT_STEM}.parquet",
     )
     ap.add_argument(
         "--pre-roll-days",

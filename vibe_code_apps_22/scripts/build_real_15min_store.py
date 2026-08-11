@@ -9,7 +9,7 @@ from pathlib import Path
 _APP = Path(__file__).resolve().parents[1]
 if str(_APP) not in sys.path:
     sys.path.insert(0, str(_APP))
-_ML = _APP / "ml"
+_ML = _APP / "archive" / "ml"
 if str(_ML) not in sys.path:
     sys.path.insert(0, str(_ML))
 

@@ -165,7 +165,7 @@ def test_stale_idf_hash_rejected(tmp_path: Path):
 def test_train_parquet_no_bootstrap_fallback(monkeypatch, tmp_path: Path):
     import sys
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "archive" / "ml"))
     import artifact_paths as ap
 
     monkeypatch.setattr(ap, "default_artifact_dir", lambda: tmp_path)

@@ -65,7 +65,7 @@ python -u scripts\thermal_zone_analytics.py
 
 # B) Deep-research + BAS → E+ targets / weather / seed / campaign
 python -u scripts\eplus_observed_targets.py
-python -u scripts\eplus_build_amy_epw.py
+python -u scripts\eplus_fetch_open_meteo_epw.py
 python -u scripts\eplus_seed_6zone.py
 $env:EPLUS_START_ITER="75"; $env:EPLUS_MAX_ITER="80"
 python -u scripts\eplus_campaign.py
@@ -132,7 +132,10 @@ Produced via OpenAI deep research on public sources (assessor, construction port
 
 ## Step 2 — Weather for EnergyPlus
 
-- Build **AMY** EPW for demand window: `scripts/eplus_build_amy_epw.py` → `eplus/weather/madison_amy_202508_202607.epw` (Open-Meteo Madison).
+- Build **AMY** EPW from Open-Meteo at site lat/lon:
+  `scripts/eplus_fetch_open_meteo_epw.py` → `eplus/weather/madison_amy_YYYYMM_YYYYMM.epw`.
+  Skill: [`../lakeside-open-meteo-epw/SKILL.md`](../lakeside-open-meteo-epw/SKILL.md).
+  AMY is actual-year M&V, **not** TMY. Never auto-pick Chicago screening.
 - Package weather for vibe19 is separate (`demand_weather_charts.py`); after `process_lakeside.py` **always** re-run it so zip keeps `weather/`.
 
 Demand is **heating-dominated** (hourly demand↔web OAT r ≈ **−0.41**). Opaque IdealLoads twins **under**-predicted winter until fenestration + OA existed; then they **over**-predicted warm school months until program zones + LPD trim.

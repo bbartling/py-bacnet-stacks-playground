@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "ml"))
+sys.path.insert(0, str(_ROOT / "archive" / "ml"))
 sys.path.insert(0, str(_ROOT / "eplus_native"))
 sys.path.insert(0, str(_ROOT))
 

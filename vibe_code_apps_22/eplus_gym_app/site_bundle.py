@@ -372,11 +372,15 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
         warnings.append(f"epw missing: {epw}")
         epw = None
     if epw is None:
-        weather = site / "eplus" / "weather"
-        if weather.is_dir():
-            amys = sorted(weather.glob("madison_amy*.epw")) or sorted(weather.glob("*.epw"))
-            if amys:
-                epw = amys[0]
+        from eplus_gym_app.weather_files import resolve_amy_epw
+
+        epw = resolve_amy_epw(site)
+        if epw is None:
+            weather = site / "eplus" / "weather"
+            if weather.is_dir():
+                leftover = sorted(p for p in weather.glob("*.epw") if p.is_file())
+                if leftover:
+                    epw = leftover[0]
 
     catalog = _load_catalog(site, doc, warnings)
     default_model_id = str(doc.get("default_model_id") or "A04")

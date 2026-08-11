@@ -16,6 +16,7 @@ No personal machine-path fallbacks in git. Set an env var, write ``.site_root``
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,21 @@ REGION_LABEL = "southern Wisconsin"
 
 def app_root() -> Path:
     return APP_ROOT
+
+
+def archived_ml_dir() -> Path:
+    """Parked GL14 / farm helpers. Not a live ML product."""
+    return APP_ROOT / "archive" / "ml"
+
+
+def ensure_eplus_helpers_on_path() -> Path:
+    helper = archived_ml_dir()
+    if helper.is_dir() and str(helper) not in sys.path:
+        sys.path.insert(0, str(helper))
+    return helper
+
+
+ensure_eplus_helpers_on_path()
 
 
 def _valid_site(path: Path) -> bool:

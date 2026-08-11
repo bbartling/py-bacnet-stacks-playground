@@ -5,6 +5,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _ML = _ROOT / "ml"
+_ARCH_ML = _ROOT / "archive" / "ml"
 _CONTRACTS = _ROOT / "contracts"
 _AUDITS = _ROOT / "docs" / "audits"
 _ARCH = _ROOT / "archive" / "2026-08-10_pre_eplus_gym"
@@ -15,6 +16,10 @@ def test_hybrid_contracts_not_live():
     assert not (_CONTRACTS / "hybrid_dsm_96_v2.json").is_file()
     assert (_ARCH / "contracts" / "hybrid_dsm_96_v1.json").is_file()
     assert (_ARCH / "contracts" / "hybrid_dsm_96_v2.json").is_file()
+
+
+def test_live_ml_package_is_gone():
+    assert not _ML.exists(), "live ml/ must stay archived — use archive/ml helpers only"
 
 
 def test_hybrid_ml_helpers_archived():
@@ -59,12 +64,14 @@ def test_streamlit_app_uses_width_stretch():
     assert "Building and fuel" not in src
 
 
-def test_live_ml_keeps_farm_helpers():
+def test_archived_ml_keeps_eplus_helpers():
     for name in (
         "interval15.py",
         "feature_compile_heating_dsm.py",
         "physics_families.py",
         "artifact_paths.py",
         "eplus_validation_contract.py",
+        "eplus_multires_metrics.py",
+        "energy_math.py",
     ):
-        assert (_ML / name).is_file()
+        assert (_ARCH_ML / name).is_file()

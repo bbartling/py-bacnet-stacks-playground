@@ -363,6 +363,6 @@ def interval_ending_local(stamp: str) -> tuple[int, int, int]:
         import sys
         from pathlib import Path
 
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "archive" / "ml"))
         from interval15 import from_eplus_stamp
     return from_eplus_stamp(stamp)
