@@ -321,7 +321,7 @@ def _quality_gated_frames(frames: dict[str, pd.DataFrame]) -> dict[str, pd.DataF
                 out[eq_id] = df
                 continue
         try:
-            gated = apply_normalized(df, fq)
+            gated = apply_normalized(df, fq, attach_raw_and_flags=False)
             gated.attrs.update(df.attrs)
             out[eq_id] = gated
         except Exception:
