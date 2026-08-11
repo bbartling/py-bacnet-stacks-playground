@@ -12,6 +12,31 @@ from queue import Empty, Full, Queue
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 
+def _meter_lookup_key(name: str) -> str:
+    return str(name).split("[", 1)[0].strip().upper()
+
+
+def _meter_indices_from_api_csv(raw: Union[bytes, str]) -> Dict[str, int]:
+    """Map meter names to 0-based handles from list_available_api_data_csv."""
+    text = raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+    indices: Dict[str, int] = {}
+    in_meters = False
+    idx = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "**METERS**":
+            in_meters = True
+            continue
+        if in_meters and stripped.startswith("**"):
+            break
+        if in_meters and stripped.upper().startswith("OUTPUTMETER,"):
+            parts = stripped.split(",")
+            if len(parts) >= 2:
+                indices[_meter_lookup_key(parts[1])] = idx
+                idx += 1
+    return indices
+
+
 @dataclass
 class RunnerConfig:
     epw: Union[Path, str]
@@ -243,10 +268,19 @@ class EnergyPlusRunner:
             key: self.x.get_variable_handle(state_argument, *var)
             for key, var in self.variables.items()
         }
-        self.meter_handles = {
-            key: self.x.get_meter_handle(state_argument, meter)
-            for key, meter in self.meters.items()
-        }
+        meter_index = None
+        self.meter_handles = {}
+        for key, meter in self.meters.items():
+            handle = self.x.get_meter_handle(state_argument, meter)
+            if handle == -1:
+                # EnergyPlus getMeterHandle treats meter index 0 as missing
+                # (Electricity:Facility is usually 0). Fall back to API CSV order.
+                if meter_index is None:
+                    meter_index = _meter_indices_from_api_csv(
+                        self.x.list_available_api_data_csv(state_argument)
+                    )
+                handle = meter_index.get(_meter_lookup_key(meter), -1)
+            self.meter_handles[key] = handle
         self.actuator_handles = {
             key: self.x.get_actuator_handle(state_argument, *actuator)
             for key, actuator in self.actuators.items()
@@ -268,6 +302,12 @@ class EnergyPlusRunner:
             **{k: v for k, v in self.var_handles.items() if v == -1},
             **{k: v for k, v in self.meter_handles.items() if v == -1},
         }
+        # kind_of_sim: 1=DesignDay, 2=RunPeriodDesign, 3=RunPeriodWeather
+        # Meters are often unavailable until the weather run-period finishes warmup.
+        kind = int(self.x.kind_of_sim(state_argument))
+        warmup = bool(self.x.warmup_flag(state_argument))
+        if missing_sensors and (kind != 3 or warmup):
+            return False
         if missing_sensors and self.verbose:
             print(f"WARN missing E+ sensor handles (NaN obs): {missing_sensors}")
         self.initialized = True

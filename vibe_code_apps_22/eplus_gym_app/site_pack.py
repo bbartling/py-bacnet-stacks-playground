@@ -187,7 +187,7 @@ def _pick_interval(cands: list[Path]) -> Path | None:
 
 
 def _pick_campus(root: Path) -> tuple[Path | None, list[Path]]:
-    found = sorted(root.rglob("campus*.json"))
+    found = sorted(_iter_matches(root, "campus*.json"))
     utility = [p for p in found if p.name == "campus_utility.json" and _try_campus(p)]
     if utility:
         return utility[0], found
@@ -199,29 +199,82 @@ def _pick_campus(root: Path) -> tuple[Path | None, list[Path]]:
     return (found[0] if found else None), found
 
 
+_SCAN_REL = (
+    "utilities",
+    "reports",
+    "eplus/models",
+    "eplus/weather",
+    "eplus/scorecards",
+    "uploads",
+    "packages",
+    "plots",
+)
+_SKIP_DIR_NAMES = {
+    "campaigns",
+    "dsm_farm",
+    "dsm_farm_paired",
+    "dsm_farm_w2a",
+    "dsm_native",
+    "target",
+    ".git",
+    "__pycache__",
+    "archive",
+}
+
+
+def _iter_matches(root: Path, pattern: str):
+    """Search pack layout folders; never walk E+ campaign trees."""
+    found: list[Path] = []
+    seen: set[str] = set()
+
+    def _add(p: Path) -> None:
+        if not p.is_file():
+            return
+        if any(part in _SKIP_DIR_NAMES for part in p.parts):
+            return
+        key = str(p.resolve())
+        if key in seen:
+            return
+        seen.add(key)
+        found.append(p)
+
+    structured = [root / rel for rel in _SCAN_REL if (root / rel).exists()]
+    if structured:
+        for p in root.glob(pattern):
+            _add(p)
+        for base in structured:
+            if base.is_file():
+                if base.match(pattern) or base.name.lower() == pattern.lower():
+                    _add(base)
+                continue
+            for p in base.rglob(pattern):
+                _add(p)
+    else:
+        for p in root.rglob(pattern):
+            _add(p)
+    return found
+
+
 def inventory_site_pack(root: Path) -> SitePackInventory:
     root = _unwrap_root(Path(root))
     inv = SitePackInventory(root=root)
     campus, all_campus = _pick_campus(root)
     inv.campus_json = campus if campus and _try_campus(campus) else None
 
-    inv.idfs = sorted(root.rglob("*.idf"))
+    inv.idfs = sorted(_iter_matches(root, "*.idf"))
     inv.champion_idf = _pick_champion_idf(inv.idfs)
 
-    inv.interval_csvs = [p for p in root.rglob("*.csv") if _looks_interval_csv(p)]
+    inv.interval_csvs = [p for p in _iter_matches(root, "*.csv") if _looks_interval_csv(p)]
     inv.interval_csv = _pick_interval(inv.interval_csvs)
 
-    for p in root.rglob("MANIFEST.json"):
-        inv.dump_manifest = p
-        break
-    for p in root.rglob("data_model.csv"):
-        inv.data_model_csv = p
-        break
-    for p in root.rglob("model_seed.json"):
-        inv.model_seed = p
-        break
-    inv.scorecards = sorted(root.rglob("*scorecard*.json"))
-    inv.epws = sorted(root.rglob("*.epw"))
+    manifests = _iter_matches(root, "MANIFEST.json")
+    inv.dump_manifest = manifests[0] if manifests else None
+    dms = _iter_matches(root, "data_model.csv")
+    inv.data_model_csv = dms[0] if dms else None
+    seeds = _iter_matches(root, "model_seed.json")
+    inv.model_seed = seeds[0] if seeds else None
+    inv.scorecards = sorted(_iter_matches(root, "*scorecard*.json"))
+    inv.epws = sorted(_iter_matches(root, "*.epw"))
     bundle = root / "reports" / "site_ui_bundle_v1.json"
     if bundle.is_file():
         inv.existing_bundle = bundle

@@ -148,6 +148,17 @@ def test_windows_wrapped_zip(tmp_path: Path):
     assert (dest / "utilities" / "campus_utility.json").is_file()
 
 
+def test_inventory_skips_campaign_idfs(tmp_path: Path):
+    pack = _min_pack(tmp_path / "pack")
+    camp = pack / "eplus" / "campaigns" / "old" / "trials" / "x"
+    camp.mkdir(parents=True)
+    _write_tiny_idf(camp / "champion_B_equip_mult_mid_model.idf")
+    inv = inventory_site_pack(pack)
+    assert inv.champion_idf is not None
+    assert "a04" in inv.champion_idf.name.lower()
+    assert "campaigns" not in str(inv.champion_idf)
+
+
 def test_zip_slip_rejected(tmp_path: Path):
     zpath = tmp_path / "evil.zip"
     with zipfile.ZipFile(zpath, "w") as zf:

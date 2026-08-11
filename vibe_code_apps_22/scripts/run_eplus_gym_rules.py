@@ -150,7 +150,18 @@ def main() -> int:
             day = max(by_day.items(), key=lambda kv: (len(kv[1]), kv[0]))[0]
         print(f"shared_day={day} coverage={sorted(by_day.get(day, []))}")
 
-    if day is not None:
+    live_idf = args.idf
+    if args.mode == "live" and day and args.idf is not None:
+        from eplus_gym_app.dsm_console import stage_idf_for_day
+
+        live_idf = stage_idf_for_day(
+            Path(args.idf),
+            out / f"staged_{day}_{Path(args.idf).name}",
+            day,
+        )
+        print(f"staged_idf={live_idf}")
+
+    if day is not None and args.mode != "live":
         present = []
         for s in strategies:
             if day in set(list_farm_days(site, s, farm_root=farm_root)):
@@ -170,7 +181,7 @@ def main() -> int:
             day=day,
             mode=args.mode,
             epw=args.epw,
-            idf=args.idf,
+            idf=live_idf,
             output=out / "runs",
             verbose=args.verbose,
             family=args.family,

@@ -24,6 +24,7 @@ desktop/dist/**
 *_executed.ipynb
 *.pyc
 .venv/
+.site_root
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

@@ -307,8 +307,13 @@ def dial_progression_figure(overlay: Mapping[str, Any]) -> go.Figure:
     return fig
 
 
-def dsm_trajectory_figure(df: pd.DataFrame, *, title: str = "DSM run") -> go.Figure:
-    """15-min facility kW + heating SP for one DSM episode."""
+def dsm_trajectory_figure(
+    df: pd.DataFrame,
+    *,
+    title: str = "DSM run",
+    actual: pd.DataFrame | None = None,
+) -> go.Figure:
+    """15-min E+ facility kW, optional Actual BAS overlay, heating SP on y2."""
     fig = go.Figure()
     if df is None or getattr(df, "empty", True):
         fig.update_layout(title="No DSM trajectory", template="plotly_white", height=400)
@@ -318,13 +323,25 @@ def dsm_trajectory_figure(df: pd.DataFrame, *, title: str = "DSM run") -> go.Fig
         if "step" in df.columns
         else list(range(len(df)))
     )
+    if actual is not None and not getattr(actual, "empty", True):
+        xcol = "hod" if "hod" in actual.columns else None
+        ycol = "kw_avg" if "kw_avg" in actual.columns else ("kw" if "kw" in actual.columns else None)
+        if xcol and ycol:
+            fig.add_trace(
+                go.Scatter(
+                    x=actual[xcol],
+                    y=actual[ycol],
+                    name="Actual (BAS meter)",
+                    line=dict(color="#1f2a30", width=2.5),
+                )
+            )
     if "facility_kw" in df.columns:
         fig.add_trace(
             go.Scatter(
                 x=hours,
                 y=df["facility_kw"],
-                name="facility kW",
-                line=dict(color="#264653", width=2.2),
+                name="E+ A04 (this run)",
+                line=dict(color="#2a9d8f", width=2.2),
             )
         )
     if "htg_sp_f" in df.columns:
@@ -332,18 +349,65 @@ def dsm_trajectory_figure(df: pd.DataFrame, *, title: str = "DSM run") -> go.Fig
             go.Scatter(
                 x=hours,
                 y=df["htg_sp_f"],
-                name="htg SP °F",
+                name="E+ htg SP °F",
                 yaxis="y2",
-                line=dict(color="#e76f51", width=1.6),
+                line=dict(color="#e76f51", width=1.5, dash="dot"),
             )
         )
         fig.update_layout(yaxis2=dict(title="htg SP °F", overlaying="y", side="right"))
     fig.update_layout(
         title=title,
-        xaxis_title="Hour",
+        xaxis_title="Hour (local)",
         yaxis_title="kW",
         template="plotly_white",
-        height=420,
+        height=440,
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def dsm_panel_figure(
+    df: pd.DataFrame,
+    *,
+    title: str,
+    ycol: str,
+    name: str,
+    color: str,
+    oat_col: str | None = None,
+    oat_name: str = "OAT °F",
+) -> go.Figure:
+    """One-series kW panel (Actual or E+) with optional OAT on y2."""
+    fig = go.Figure()
+    if df is None or getattr(df, "empty", True) or ycol not in df.columns:
+        fig.update_layout(title=title, template="plotly_white", height=320)
+        return fig
+    if "hod" in df.columns:
+        hours = df["hod"]
+    elif "step" in df.columns:
+        hours = df["step"].to_numpy(dtype=float) / 4.0
+    else:
+        hours = list(range(len(df)))
+    fig.add_trace(
+        go.Scatter(x=hours, y=df[ycol], name=name, line=dict(color=color, width=2.2))
+    )
+    if oat_col and oat_col in df.columns and df[oat_col].notna().any():
+        fig.add_trace(
+            go.Scatter(
+                x=hours,
+                y=df[oat_col],
+                name=oat_name,
+                yaxis="y2",
+                line=dict(color="#e76f51", width=1.5, dash="dash"),
+            )
+        )
+        fig.update_layout(yaxis2=dict(title="OAT °F", overlaying="y", side="right"))
+    fig.update_layout(
+        title=title,
+        xaxis_title="Hour (local)",
+        yaxis_title="kW",
+        template="plotly_white",
+        height=320,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        margin=dict(t=48, b=36),
     )
     return fig

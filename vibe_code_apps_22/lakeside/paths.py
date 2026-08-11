@@ -9,8 +9,9 @@ Env (any one works; first wins):
   VIBE22_CREEKSIDE_ROOT   # legacy
   VIBE23_CREEKSIDE_ROOT   # legacy
 
-No personal machine-path fallbacks. Set an env var or place the site next to
-the repo parent as ``sp_creekside`` / ``sp_lakeside``.
+No personal machine-path fallbacks in git. Set an env var, write ``.site_root``
+(gitignored) next to this app, or place the site next to the repo parent as
+``sp_creekside`` / ``sp_lakeside``.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ import os
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
+SITE_ROOT_PIN = APP_ROOT / ".site_root"
 
 BUILDING_ID = "LAKESIDE_ES"
 BUILDING_LABEL = "Lakeside Elementary School"
@@ -28,6 +30,36 @@ REGION_LABEL = "southern Wisconsin"
 
 def app_root() -> Path:
     return APP_ROOT
+
+
+def _valid_site(path: Path) -> bool:
+    return path.is_dir() and (path / "reports").is_dir()
+
+
+def remember_site_root(path: Path | str) -> Path:
+    """Persist site root to ``.site_root`` and ``LAKESIDE_SITE_ROOT`` for this process."""
+    p = Path(path).expanduser()
+    if not _valid_site(p):
+        raise FileNotFoundError(
+            f"{p} is not a site workspace (expected a reports/ folder under it)."
+        )
+    resolved = p.resolve()
+    SITE_ROOT_PIN.write_text(str(resolved) + "\n", encoding="utf-8")
+    os.environ["LAKESIDE_SITE_ROOT"] = str(resolved)
+    return resolved
+
+
+def _pinned_site_root() -> Path | None:
+    if not SITE_ROOT_PIN.is_file():
+        return None
+    try:
+        raw = SITE_ROOT_PIN.read_text(encoding="utf-8").strip().splitlines()
+    except OSError:
+        return None
+    if not raw:
+        return None
+    p = Path(raw[0].strip()).expanduser()
+    return p if _valid_site(p) else None
 
 
 def site_root() -> Path:
@@ -44,6 +76,10 @@ def site_root() -> Path:
                 raise FileNotFoundError(f"{key}={val} is not a directory")
             return p
 
+    pinned = _pinned_site_root()
+    if pinned is not None:
+        return pinned
+
     candidates = [
         APP_ROOT.parent.parent / "sp_creekside",
         APP_ROOT.parent.parent / "sp_lakeside",
@@ -51,7 +87,7 @@ def site_root() -> Path:
         APP_ROOT.parent / "sp_lakeside",
     ]
     for c in candidates:
-        if c.is_dir() and (c / "reports").is_dir():
+        if _valid_site(c):
             return c
     raise FileNotFoundError(
         "Set LAKESIDE_SITE_ROOT (or VIBE22_SITE_ROOT) to the site workspace "

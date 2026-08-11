@@ -112,19 +112,113 @@ def run_dsm_lookup(
     return {"frame": df, "meta": result["meta"], "kpis": kpis}
 
 
-def pick_run_day(bundle: SiteUiBundle, preset: str, month: str | None = None) -> str:
-    peak = bundle.dial_ladder.peak_day
-    farm = resolve_w2a_farm_root(bundle.site)
-    days = list_farm_days(bundle.site, "baseline", farm_root=farm)
+def meter_peak_day_for_period(
+    bas: pd.DataFrame,
+    *,
+    preset: str,
+    peak_anchor: str,
+    month: str | None = None,
+) -> dict[str, Any]:
+    """Pick the BAS meter peak day inside a period. Live E+ still runs that one day."""
+    from eplus_gym_app.period_explorer import days_for_period
+
+    if bas is None or bas.empty or "local_day" not in bas.columns:
+        return {
+            "day": peak_anchor,
+            "preset": preset,
+            "month": month,
+            "window_days": [peak_anchor],
+            "actual_peak_kw": None,
+            "why": "no interval meter rows; using published dial peak day",
+        }
+    days = days_for_period(bas, preset=preset, peak_day=peak_anchor, month=month)
+    window = bas.loc[bas["local_day"].astype(str).isin(set(days))]
+    if window.empty or "kw_avg" not in window.columns:
+        return {
+            "day": peak_anchor,
+            "preset": preset,
+            "month": month,
+            "window_days": list(days),
+            "actual_peak_kw": None,
+            "why": "period window empty; using published dial peak day",
+        }
+    idx = window["kw_avg"].idxmax()
+    day = str(window.loc[idx, "local_day"])
+    peak_kw = float(window.loc[idx, "kw_avg"])
+    label = preset
     if preset == "Calendar month" and month:
-        month_days = [d for d in days if d.startswith(month)]
-        if month_days:
-            return month_days[-1]
-    if peak in days:
-        return peak
-    if days:
-        return days[-1]
-    return peak
+        label = f"Calendar month {month}"
+    return {
+        "day": day,
+        "preset": preset,
+        "month": month,
+        "window_days": list(days),
+        "actual_peak_kw": peak_kw,
+        "why": f"BAS meter peak inside {label} ({len(days)} day window)",
+    }
+
+
+def pick_run_day(bundle: SiteUiBundle, preset: str, month: str | None = None) -> str:
+    return pick_run_context(bundle, preset, month)["day"]
+
+
+def pick_run_context(
+    bundle: SiteUiBundle, preset: str, month: str | None = None
+) -> dict[str, Any]:
+    """Resolve which single calendar day a Run will simulate."""
+    peak = bundle.dial_ladder.peak_day
+    try:
+        from eplus_gym_app.load_profiles import load_bas_demand_oat
+
+        bas = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
+    except Exception:  # noqa: BLE001
+        bas = pd.DataFrame()
+    ctx = meter_peak_day_for_period(
+        bas, preset=preset, peak_anchor=peak, month=month
+    )
+    farm = resolve_w2a_farm_root(bundle.site)
+    farm_days = list_farm_days(bundle.site, "baseline", farm_root=farm)
+    ctx["farm_has_day"] = ctx["day"] in set(farm_days)
+    ctx["bas"] = bas
+    return ctx
+
+
+def actual_day_profile(bundle: SiteUiBundle, day: str) -> pd.DataFrame:
+    try:
+        from eplus_gym_app.load_profiles import load_bas_demand_oat, peak_day_bas_profile
+
+        bas = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
+        return peak_day_bas_profile(bas, str(day)[:10])
+    except Exception:  # noqa: BLE001
+        return pd.DataFrame()
+
+
+def stage_idf_for_day(src: Path, dest: Path, day: str) -> Path:
+    """Copy IDF with RunPeriod clipped to ``day``. Never overwrite the champion."""
+    from datetime import date
+
+    from eplus_native.idf_stage import patch_run_period
+
+    src = Path(src)
+    dest = Path(dest)
+    if dest.resolve() == src.resolve():
+        raise ValueError("refusing to overwrite source IDF; pass a staged dest path")
+    d = date.fromisoformat(str(day)[:10])
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        patch_run_period(
+            src.read_text(encoding="utf-8"),
+            begin_month=d.month,
+            begin_day=d.day,
+            end_month=d.month,
+            end_day=d.day,
+            begin_year=d.year,
+            end_year=d.year,
+            name=f"DSM_{d.isoformat()}",
+        ),
+        encoding="utf-8",
+    )
+    return dest
 
 
 def start_live_subprocess(
@@ -168,6 +262,54 @@ def start_live_subprocess(
     )
 
 
+def _resolve_epw(bundle: SiteUiBundle) -> Path | None:
+    epw = bundle.epw
+    if epw is not None and Path(epw).is_file():
+        return Path(epw)
+    weather = bundle.site / "eplus" / "weather"
+    if not weather.is_dir():
+        return None
+    cands = sorted(weather.glob("madison_amy*.epw")) or sorted(weather.glob("*.epw"))
+    return cands[0] if cands else None
+
+
+def _eplus_with_oat_f(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "oat_c" in out.columns and "oat_f" not in out.columns:
+        out["oat_f"] = out["oat_c"].astype(float) * 9.0 / 5.0 + 32.0
+    return out
+
+
+def _store_run(
+    *,
+    df: pd.DataFrame,
+    actual: pd.DataFrame,
+    kpis: dict[str, Any],
+    strategy: str,
+    day: str,
+    preset: str,
+    mode: str,
+    epw_name: str,
+    why: str,
+    window_n: int,
+) -> None:
+    import streamlit as st
+
+    st.session_state["dsm_last"] = {
+        "kpis": kpis,
+        "frame": df,
+        "actual": actual,
+        "title": f"E+ A04 {strategy} vs Actual meter · {day} · {preset}",
+        "strategy": strategy,
+        "day": day,
+        "preset": preset,
+        "mode": mode,
+        "epw_name": epw_name,
+        "why": why,
+        "window_n": window_n,
+    }
+
+
 def _actual_peak(bundle: SiteUiBundle, day: str) -> float | None:
     try:
         from eplus_gym_app.load_profiles import load_bas_demand_oat
@@ -184,7 +326,7 @@ def _actual_peak(bundle: SiteUiBundle, day: str) -> float | None:
 def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     import streamlit as st
 
-    from eplus_gym_app.plots import dsm_trajectory_figure
+    from eplus_gym_app.plots import dsm_panel_figure, dsm_trajectory_figure
 
     st.subheader("Run DSM")
     st.caption(
@@ -194,39 +336,50 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     mode, reason = resolve_dsm_mode(bundle.site)
     st.info(f"Mode: **{mode}** — {reason}")
 
+    month_opts = [bundle.dial_ladder.peak_day[:7], "2026-01", "2026-02"]
+    try:
+        from eplus_gym_app.load_profiles import load_bas_demand_oat
+
+        bas_months = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
+        month_opts.extend(str(d)[:7] for d in bas_months["local_day"].astype(str))
+    except Exception:  # noqa: BLE001
+        pass
+    month_opts = sorted({m for m in month_opts if m and len(m) == 7})
+
     c1, c2, c3 = st.columns(3)
     with c1:
-        strategy = st.selectbox(
-            "Strategy",
-            list(DEPLOYABLE_STRATEGIES),
-            key="dsm_strategy",
-        )
+        strategy = st.selectbox("Strategy", list(DEPLOYABLE_STRATEGIES), key="dsm_strategy")
     with c2:
         preset = st.select_slider(
-            "Period",
-            options=list(PERIOD_PRESETS),
-            value="Peak day",
-            key="dsm_period",
+            "Period", options=list(PERIOD_PRESETS), value="Peak day", key="dsm_period"
         )
     with c3:
         month = st.selectbox(
-            "Month",
-            options=sorted(
-                {
-                    bundle.dial_ladder.peak_day[:7],
-                    "2026-01",
-                    "2026-02",
-                }
-            ),
-            key="dsm_month",
-            disabled=preset != "Calendar month",
+            "Month", options=month_opts, key="dsm_month", disabled=preset != "Calendar month"
         )
 
-    day = pick_run_day(bundle, preset, month if preset == "Calendar month" else None)
-    st.caption(f"Run day `{day}` (96 × 15-min steps)")
+    ctx = pick_run_context(bundle, preset, month if preset == "Calendar month" else None)
+    day = ctx["day"]
+    epw = _resolve_epw(bundle)
+    epw_name = epw.name if epw is not None else "(no EPW)"
+    window_n = len(ctx.get("window_days") or [])
+    st.markdown(
+        f"**Will simulate one day:** `{day}` — {ctx['why']}. "
+        "Live E+ is **96 × 15-min steps**, not a full month/week run."
+    )
+    if ctx.get("actual_peak_kw") is not None:
+        st.caption(
+            f"That calendar date is the BAS meter peak in this window "
+            f"({ctx['actual_peak_kw']:.0f} kW hourly). "
+            f"E+ weather is **{epw_name}** (typical-year EPW on that date), "
+            "not the observed Open-Meteo/BAS outdoor temperature for the real peak event."
+        )
 
     if st.button("Run", key="dsm_run_btn", type="primary"):
-        actual_peak = _actual_peak(bundle, day)
+        actual_peak = ctx.get("actual_peak_kw")
+        if actual_peak is None:
+            actual_peak = _actual_peak(bundle, day)
+        actual = actual_day_profile(bundle, day)
         if mode == "error":
             st.error(reason)
             return
@@ -238,18 +391,24 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                     day=day,
                     actual_peak_kw=actual_peak,
                 )
-                st.session_state["dsm_last"] = {
-                    "kpis": pack["kpis"],
-                    "frame": pack["frame"],
-                    "title": f"{strategy} · {day} · lookup",
-                }
+                _store_run(
+                    df=pack["frame"],
+                    actual=actual,
+                    kpis=pack["kpis"],
+                    strategy=strategy,
+                    day=day,
+                    preset=preset,
+                    mode="lookup",
+                    epw_name=epw_name,
+                    why=str(ctx["why"]),
+                    window_n=window_n,
+                )
             except FileNotFoundError as exc:
                 st.error(str(exc))
                 return
         else:
             champ = bundle.champion()
             idf = (champ.idf_path if champ else None) or bundle.idf_path
-            epw = bundle.epw
             if idf is None or not Path(idf).is_file():
                 st.error("No champion IDF on the published pack.")
                 return
@@ -278,7 +437,6 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                     st.error(f"CLI exited {code}")
                     return
                 status.update(label="Live run finished", state="complete")
-            # Prefer trajectory parquet written by CLI
             frames = sorted(out_dir.glob("traj_*.parquet"))
             if not frames:
                 frames = sorted((out_dir / "runs").glob("*.parquet")) if (out_dir / "runs").is_dir() else []
@@ -305,21 +463,34 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                         meta["provenance"] = rows[0].get("provenance") or meta["provenance"]
                 except (OSError, json.JSONDecodeError):
                     pass
-            st.session_state["dsm_last"] = {
-                "kpis": dsm_kpis(df, meta, actual_peak_kw=actual_peak),
-                "frame": df,
-                "title": f"{strategy} · {day} · live",
-            }
+            _store_run(
+                df=df,
+                actual=actual,
+                kpis=dsm_kpis(df, meta, actual_peak_kw=actual_peak),
+                strategy=strategy,
+                day=day,
+                preset=preset,
+                mode="live",
+                epw_name=epw_name,
+                why=str(ctx["why"]),
+                window_n=window_n,
+            )
 
     last = st.session_state.get("dsm_last")
     if not last:
         return
+    stale = last.get("day") != day or last.get("preset") != preset or last.get("strategy") != strategy
+    if stale:
+        st.warning(
+            f"Chart below is the **last Run** (`{last.get('preset')}` · `{last.get('day')}` · "
+            f"`{last.get('strategy')}`). Click **Run** to simulate `{preset}` → `{day}`."
+        )
     kpis = last["kpis"]
     k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Peak kW", f"{kpis['peak_kw']:.0f}" if kpis.get("peak_kw") is not None else "—")
-    k2.metric("kWh", f"{kpis['kwh']:.0f}" if kpis.get("kwh") is not None else "—")
+    k1.metric("E+ peak kW", f"{kpis['peak_kw']:.0f}" if kpis.get("peak_kw") is not None else "—")
+    k2.metric("E+ kWh", f"{kpis['kwh']:.0f}" if kpis.get("kwh") is not None else "—")
     k3.metric(
-        "vs Actual",
+        "E+ vs Actual peak",
         f"{kpis['vs_actual_pct']:+.1f}%" if kpis.get("vs_actual_pct") is not None else "—",
     )
     k4.metric(
@@ -327,11 +498,68 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         f"{kpis['vs_baseline_pct']:+.1f}%" if kpis.get("vs_baseline_pct") is not None else "—",
     )
     k5.metric("promote", "False")
-    st.caption(
-        f"honesty=`{kpis.get('honesty')}` · provenance=`{kpis.get('provenance')}` · "
-        f"mode=`{kpis.get('mode')}` · day=`{kpis.get('day')}`"
+    actual = last.get("actual")
+    eplus = _eplus_with_oat_f(last["frame"])
+    actual_peak_show = None
+    if actual is not None and not getattr(actual, "empty", True) and "kw_avg" in actual.columns:
+        actual_peak_show = float(actual["kw_avg"].max())
+    eplus_oat = "—"
+    if "oat_f" in eplus.columns and eplus["oat_f"].notna().any():
+        eplus_oat = f"{float(eplus['oat_f'].min()):.0f}–{float(eplus['oat_f'].max()):.0f}°F"
+    actual_oat = "—"
+    if (
+        actual is not None
+        and not getattr(actual, "empty", True)
+        and "oat_f" in actual.columns
+        and actual["oat_f"].notna().any()
+    ):
+        actual_oat = f"{float(actual['oat_f'].min()):.0f}–{float(actual['oat_f'].max()):.0f}°F"
+    actual_bit = (
+        f" (peak {actual_peak_show:.0f} kW, OAT {actual_oat})"
+        if actual_peak_show is not None
+        else ""
     )
+    st.info(
+        f"**Last run** `{last.get('preset')}` · **{last.get('day')}** · `{last.get('strategy')}` · "
+        f"{last.get('why')}. Black = **Actual BAS meter**{actual_bit}. "
+        f"Teal = **EnergyPlus A04** (`{kpis.get('provenance')}`, OAT {eplus_oat} from **{last.get('epw_name')}**). "
+        "Same calendar date; weather is **not** the observed peak-day OAT unless the EPW happens to match."
+    )
+    left, right = st.columns(2)
+    with left:
+        st.plotly_chart(
+            dsm_panel_figure(
+                actual if actual is not None else pd.DataFrame(),
+                title=f"Actual BAS meter · {last.get('day')}",
+                ycol="kw_avg",
+                name="Actual (BAS meter)",
+                color="#1f2a30",
+                oat_col="oat_f",
+                oat_name="Actual OAT °F",
+            ),
+            width="stretch",
+            key=f"dsm_actual_{last.get('day')}_{last.get('preset')}",
+        )
+    with right:
+        st.plotly_chart(
+            dsm_panel_figure(
+                eplus,
+                title=f"EnergyPlus A04 {last.get('strategy')} · {last.get('day')}",
+                ycol="facility_kw",
+                name="E+ A04 facility kW",
+                color="#2a9d8f",
+                oat_col="oat_f",
+                oat_name="E+ EPW OAT °F",
+            ),
+            width="stretch",
+            key=f"dsm_eplus_{last.get('day')}_{last.get('strategy')}_{last.get('mode')}",
+        )
     st.plotly_chart(
-        dsm_trajectory_figure(last["frame"], title=last.get("title") or "DSM run"),
+        dsm_trajectory_figure(
+            eplus,
+            actual=actual,
+            title=last.get("title") or "E+ vs Actual",
+        ),
         width="stretch",
+        key=f"dsm_overlay_{last.get('day')}_{last.get('strategy')}_{last.get('preset')}_{last.get('mode')}",
     )

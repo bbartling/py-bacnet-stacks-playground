@@ -371,6 +371,12 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
     if epw is not None and not epw.is_file():
         warnings.append(f"epw missing: {epw}")
         epw = None
+    if epw is None:
+        weather = site / "eplus" / "weather"
+        if weather.is_dir():
+            amys = sorted(weather.glob("madison_amy*.epw")) or sorted(weather.glob("*.epw"))
+            if amys:
+                epw = amys[0]
 
     catalog = _load_catalog(site, doc, warnings)
     default_model_id = str(doc.get("default_model_id") or "A04")

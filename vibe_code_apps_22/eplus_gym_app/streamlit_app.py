@@ -303,6 +303,36 @@ def _render_calibration_tab(bundle: SiteUiBundle, active: ModelCatalogEntry | No
         st.caption(active.metrics.role)
 
 
+def _hint_site_path() -> str:
+    desktop = Path.home() / "OneDrive" / "Desktop" / "testing" / "sp_creekside"
+    if desktop.is_dir():
+        return str(desktop)
+    return ""
+
+
+def _render_missing_site(exc: BaseException) -> None:
+    from lakeside.paths import remember_site_root
+
+    st.error(f"Site root not set: {exc}")
+    st.caption(
+        "This console reads the published pack under the site workspace. "
+        "Paste the folder that contains `reports/` (usually Desktop `testing/sp_creekside`)."
+    )
+    typed = st.text_input(
+        "Site workspace",
+        value=_hint_site_path(),
+        key="site_root_typed",
+    )
+    if st.button("Use this site", type="primary", key="use_site_root_btn"):
+        try:
+            remember_site_root(typed.strip())
+            _bundle_cached.clear()
+            _campus_cached.clear()
+            st.rerun()
+        except Exception as pin_exc:  # noqa: BLE001
+            st.error(str(pin_exc))
+
+
 def main() -> None:
     st.set_page_config(page_title="Lakeside DSM", layout="wide")
     st.title("Lakeside DSM")
@@ -313,7 +343,7 @@ def main() -> None:
         site = site_root()
         site_key = str(site)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Site root not set: {exc}")
+        _render_missing_site(exc)
         return
 
     try:

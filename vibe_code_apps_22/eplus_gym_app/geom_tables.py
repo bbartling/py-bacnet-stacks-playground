@@ -23,7 +23,10 @@ def envelope_table(summary: dict[str, Any]) -> pd.DataFrame:
         ("WWR %", summary.get("wwr_pct")),
         ("Source", summary.get("source")),
     ]
-    return pd.DataFrame(rows, columns=["Metric", "Value"])
+    return pd.DataFrame(
+        [(m, "" if v is None else str(v)) for m, v in rows],
+        columns=["Metric", "Value"],
+    )
 
 
 def zones_table(summary: dict[str, Any]) -> pd.DataFrame:
@@ -36,5 +39,5 @@ def zones_table(summary: dict[str, Any]) -> pd.DataFrame:
 def knobs_table(knobs: dict[str, Any]) -> pd.DataFrame:
     if not knobs:
         return pd.DataFrame(columns=["Knob", "Value"])
-    rows = [(str(k), v) for k, v in knobs.items()]
+    rows = [(str(k), "" if v is None else str(v)) for k, v in knobs.items()]
     return pd.DataFrame(rows, columns=["Knob", "Value"])

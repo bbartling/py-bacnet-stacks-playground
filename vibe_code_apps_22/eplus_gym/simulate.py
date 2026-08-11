@@ -63,15 +63,18 @@ def _live_episode(
         action = ctrl.action_c(t)
         _obs_vec, reward, done, truncated, step_info = env.step(action)
         od = step_info.get("obs_dict") or {}
-        rows.append(
-            {
-                "step": t,
-                "htg_sp_f": ctrl.setpoint_f(t),
-                "htg_sp_c": action,
-                "reward": reward,
-                **{k: float(v) for k, v in od.items()},
-            }
-        )
+        row = {
+            "step": t,
+            "htg_sp_f": ctrl.setpoint_f(t),
+            "htg_sp_c": action,
+            "reward": reward,
+            **{k: float(v) for k, v in od.items()},
+        }
+        if "facility_kw" not in row and "facility_j" in row:
+            # Electricity:Facility at 15-min zone timestep → kW
+            j = row["facility_j"]
+            row["facility_kw"] = (j / 900_000.0) if j == j else float("nan")
+        rows.append(row)
         if done or truncated:
             break
     env.close()

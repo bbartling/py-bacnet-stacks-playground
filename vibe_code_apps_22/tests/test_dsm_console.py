@@ -7,7 +7,13 @@ import pandas as pd
 import pytest
 
 from eplus_gym.lookup_emulator import STEPS
-from eplus_gym_app.dsm_console import dsm_kpis, resolve_dsm_mode, run_dsm_lookup
+from eplus_gym_app.dsm_console import (
+    dsm_kpis,
+    meter_peak_day_for_period,
+    resolve_dsm_mode,
+    run_dsm_lookup,
+    stage_idf_for_day,
+)
 
 
 def _w2a_farm(site: Path, day: str = "2026-01-26") -> None:
@@ -68,3 +74,70 @@ def test_run_dsm_lookup_returns_frame(tmp_path: Path):
     assert pack["meta"]["honesty"] == "W2A_PHYSICAL_DSM"
     assert not pack["frame"].empty
     assert pack["kpis"]["peak_kw"] < 220
+
+
+def test_stage_idf_for_day_does_not_overwrite_source(tmp_path: Path):
+    src = tmp_path / "champion.idf"
+    src.write_text(
+        "RunPeriod,\n"
+        "  CalibrationWindow,  !- Name\n"
+        "  8,                  !- Begin Month\n"
+        "  1,                  !- Begin Day of Month\n"
+        "  2025,               !- Begin Year\n"
+        "  7,                  !- End Month\n"
+        "  2,                  !- End Day of Month\n"
+        "  2026;               !- End Year\n",
+        encoding="utf-8",
+    )
+    dest = tmp_path / "staged.idf"
+    stage_idf_for_day(src, dest, "2026-01-26")
+    assert "CalibrationWindow" in src.read_text(encoding="utf-8")
+    staged = dest.read_text(encoding="utf-8")
+    assert "DSM_2026-01-26" in staged
+    assert "26," in staged
+    with pytest.raises(ValueError, match="overwrite"):
+        stage_idf_for_day(src, src, "2026-01-26")
+
+
+def test_meter_peak_day_calendar_month_not_always_anchor():
+    rows = []
+    for day, peak in (("2026-01-26", 280.0), ("2026-02-03", 190.0), ("2026-02-14", 240.0)):
+        for h in range(24):
+            rows.append(
+                {
+                    "hour_utc": pd.Timestamp(f"{day}T{h:02d}:00:00+00:00"),
+                    "kw_avg": peak if h == 8 else 80.0,
+                    "oat_f": 10.0,
+                    "local_day": day,
+                    "hod": float(h),
+                }
+            )
+    bas = pd.DataFrame(rows)
+    jan = meter_peak_day_for_period(
+        bas, preset="Peak day", peak_anchor="2026-01-26"
+    )
+    assert jan["day"] == "2026-01-26"
+    feb = meter_peak_day_for_period(
+        bas, preset="Calendar month", peak_anchor="2026-01-26", month="2026-02"
+    )
+    assert feb["day"] == "2026-02-14"
+    assert feb["actual_peak_kw"] == pytest.approx(240.0)
+    assert "2026-02" in feb["why"]
+
+
+def test_meter_index_zero_from_api_csv():
+    from eplus_gym.runner import _meter_indices_from_api_csv, _meter_lookup_key
+
+    raw = (
+        b"**ACTUATORS**\n"
+        b"Actuator,Foo,Bar,Baz,[W]\n"
+        b"**METERS**\n"
+        b"OutputMeter,Electricity:Facility,J\n"
+        b"OutputMeter,Electricity:Building,J\n"
+        b"**VARIABLES**\n"
+        b"OutputVariable,Site Outdoor Air Drybulb Temperature,Environment,C\n"
+    )
+    idx = _meter_indices_from_api_csv(raw)
+    assert idx[_meter_lookup_key("Electricity:Facility")] == 0
+    assert idx["ELECTRICITY:BUILDING"] == 1
+    assert "SITE OUTDOOR AIR DRYBULB TEMPERATURE" not in idx
