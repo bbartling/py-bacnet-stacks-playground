@@ -2,8 +2,10 @@
 
 | Spec | Topic |
 | --- | --- |
-| [EPLUS_GYM.md](EPLUS_GYM.md) | **PRODUCT** — E+ control gym + Streamlit month UI |
-| ../eplus_gym_app/streamlit_app.py | Streamlit + Plotly month/strategy charts |
+| [AGENT_LOOP.md](AGENT_LOOP.md) | **TURNKEY** — ingest → GL14 → publish pack → human Run DSM |
+| [EPLUS_GYM.md](EPLUS_GYM.md) | E+ control gym + Streamlit DSM console |
+| ../eplus_gym_app/streamlit_app.py | Streamlit DSM console (fuel + IDF + Run) |
+| ../skills/lakeside-site-pack/SKILL.md | Zip/folder ingest + publish bundle |
 | [HEATING_DSM.md](HEATING_DSM.md) | **ARCHIVED** — former hybrid Real+E+ ONNX path |
 | [NATIVE_EPLUS_DSM_REPORT.md](NATIVE_EPLUS_DSM_REPORT.md) | Quarantine report — superseded kW-only path |
 | [UTILITY_GL14.md](UTILITY_GL14.md) | Billing-grade utility G14 (IdealLoads) |

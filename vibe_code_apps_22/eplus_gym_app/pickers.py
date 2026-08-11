@@ -23,9 +23,16 @@ class PickerSelection:
 
 def list_idf_pins(site: Path | None = None) -> list[str]:
     """IDF filenames from repo pins + site eplus/models (unique, sorted)."""
-    site = Path(site or site_root())
     names: set[str] = set()
-    for folder in (pinned_eplus_models_dir(), site / "eplus" / "models"):
+    folders = [pinned_eplus_models_dir()]
+    if site is not None:
+        folders.append(Path(site) / "eplus" / "models")
+    else:
+        try:
+            folders.append(site_root() / "eplus" / "models")
+        except FileNotFoundError:
+            pass
+    for folder in folders:
         if not folder.is_dir():
             continue
         for p in folder.glob("*.idf"):

@@ -14,17 +14,22 @@ import pandas as pd
 from .honesty import HONESTY_IDEALLOADS, LOOKUP_EMULATOR, PROMOTE
 
 STEPS = 96
+W2A_PARQUET = "heating_dsm_w2a_15min_v1.parquet"
 
 
 def resolve_farm_root(site: Path) -> Path:
     return Path(site) / "eplus" / "dsm_farm_paired"
 
 
+def resolve_w2a_farm_root(site: Path) -> Path:
+    return Path(site) / "eplus" / "dsm_farm_w2a"
+
+
 def _paired_parquet_candidates(farm: Path) -> list[Path]:
     from .month_calendar import MONTHLY_PARQUET, PAIRED_PARQUET
 
     out = []
-    for name in (MONTHLY_PARQUET, PAIRED_PARQUET):
+    for name in (MONTHLY_PARQUET, PAIRED_PARQUET, W2A_PARQUET):
         p = farm / name
         if p.is_file():
             out.append(p)
@@ -108,12 +113,14 @@ class FarmLookupEnv:
         day: str,
         strategy_id: str,
         htg_setpoints_f: Optional[List[float]] = None,
+        farm_root: Optional[Path] = None,
+        honesty: str = HONESTY_IDEALLOADS,
     ):
         self.site_root = Path(site_root)
         self.day = day
         self.strategy_id = strategy_id
-        self.farm = resolve_farm_root(self.site_root)
-        self.honesty = HONESTY_IDEALLOADS
+        self.farm = Path(farm_root) if farm_root is not None else resolve_farm_root(self.site_root)
+        self.honesty = honesty
         self.provenance = LOOKUP_EMULATOR
         self.promote = PROMOTE
         self._kw: Optional[np.ndarray] = None
@@ -167,15 +174,25 @@ class FarmLookupEnv:
         return None
 
 
+def w2a_farm_ready(site_root: Path) -> bool:
+    farm = resolve_w2a_farm_root(site_root)
+    if not farm.is_dir():
+        return False
+    if _paired_parquet_candidates(farm):
+        return True
+    return any(farm.glob("*_*_*"))
+
+
 def list_farm_days(
     site_root: Path,
     strategy: str = "baseline",
     month: Optional[str] = None,
+    farm_root: Optional[Path] = None,
 ) -> List[str]:
     """Days with usable trajectories. Prefer paired/monthly parquet when present."""
     from .month_calendar import filter_days_for_month
 
-    farm = resolve_farm_root(site_root)
+    farm = Path(farm_root) if farm_root is not None else resolve_farm_root(site_root)
     days: list[str] = []
     for pq in _paired_parquet_candidates(farm):
         df = pd.read_parquet(pq, columns=["day", "strategy_id"])

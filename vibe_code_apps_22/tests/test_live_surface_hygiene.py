@@ -52,6 +52,10 @@ def test_streamlit_app_uses_width_stretch():
     src = (_ROOT / "eplus_gym_app" / "streamlit_app.py").read_text(encoding="utf-8")
     assert "use_container_width" not in src
     assert 'width="stretch"' in src
+    assert "IDF source" not in src
+    assert "Lakeside DSM" in src
+    assert "Farm month" not in src
+    assert "_render_farm_diagnostic" not in src
 
 
 def test_live_ml_keeps_farm_helpers():

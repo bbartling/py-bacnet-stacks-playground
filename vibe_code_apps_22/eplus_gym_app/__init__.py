@@ -1,1 +1,1 @@
-"""Streamlit + Plotly UI for IdealLoads gym month/strategy charts."""
+"""Streamlit DSM console: published pack, fuel + current IDF, Run DSM on A04."""

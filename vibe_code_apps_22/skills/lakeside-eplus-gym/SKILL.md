@@ -1,63 +1,65 @@
 ---
 name: lakeside-eplus-gym
 description: >-
-  Lakeside Elementary EnergyPlus control gym (vibe22): rule demand-response on
-  IdealLoads twin via eplus_gym (rllib-energyplus-inspired). Lookup farm mode or
-  live pyenergyplus step loop. Optional RLlib later. STRUCTURAL_LOAD_DIAGNOSTIC.
-  Use for vibe_code_apps_22 after 2026-08-10 product cut.
+  Lakeside Elementary EnergyPlus DSM gym (vibe22): rule demand-response on the
+  published W2A A04 champion via eplus_gym. Lookup farm (eplus/dsm_farm_w2a) or
+  live pyenergyplus. Streamlit Run DSM launches live via CLI subprocess only.
+  IdealLoads farm is STRUCTURAL_LOAD_DIAGNOSTIC and CLI-only.
 ---
 
 # Lakeside E+ gym (vibe22)
 
 **Code:** `vibe_code_apps_22/eplus_gym/`  
 **Site:** `LAKESIDE_SITE_ROOT`  
-**SoT:** [`../../vibe22_agent_spec/EPLUS_GYM.md`](../../vibe22_agent_spec/EPLUS_GYM.md)
+**SoT:** [`../../vibe22_agent_spec/EPLUS_GYM.md`](../../vibe22_agent_spec/EPLUS_GYM.md) ·
+[`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md)
 
 **Do not** revive hybrid ONNX / grey-box / control-twin lab from
 `archive/2026-08-10_pre_eplus_gym/` into the live path.
 
 ## Honesty
 
-- IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`
+- W2A A04 = `W2A_PHYSICAL_DSM` (human DSM console)
+- IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC` (CLI screening only)
 - Lookup = `FARM_LOOKUP_EMULATOR` (not closed-loop)
 - Live = `ENERGYPLUS_PYTHON_API`
-- `promote=False` — never claim plant DSM savings
+- `promote=False`
+- W2A `auto` **never** falls back to IdealLoads `dsm_farm_paired`
 
-## Run
+## Human console
 
 ```powershell
 cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
-pip install -r requirements.txt
-python -u scripts\run_eplus_gym_rules.py --mode lookup
-python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
-python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
-Notebook: `notebooks/lakeside_eplus_gym_playground.ipynb` — **results viewer only**
-(plots `reports/eplus_gym/`). Do **not** run live `pyenergyplus` inside Jupyter
-(ctypes callbacks crash Cursor). Streamlit also never starts EnergyPlus.
+Tabs: Building and fuel · **Run DSM** · Calibration.  
+No IDF / campus / interval pickers. Pack comes from `ingest_site_pack.py`.
 
-Live mode needs EnergyPlus + `ENERGYPLUS_ROOT` + EPW/IDF (CLI only):
+**Run DSM:** lookup if `{site}/eplus/dsm_farm_w2a` exists; else live via
+**subprocess** to `scripts/run_eplus_gym_rules.py --family w2a --mode live`.  
+Do **not** import `pyenergyplus` inside the Streamlit server (ctypes).  
+Still **no** live `pyenergyplus` inside Jupyter.
+
+## CLI
 
 ```powershell
-python -u scripts\run_eplus_gym_rules.py --mode live --epw PATH.epw --idf PATH.idf
-python -u scripts\run_eplus_gym_month_live.py --month 2026-01 --strategy baseline --max-steps 96
+python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
+python -u scripts\run_eplus_gym_rules.py --family w2a --mode lookup --day 2026-01-26
+python -u scripts\run_eplus_gym_rules.py --family w2a --mode live --epw PATH.epw --idf PATH.idf
+# IdealLoads structural only:
+python -u scripts\run_eplus_gym_rules.py --family idealloads --mode lookup
 ```
+
+Live needs EnergyPlus + `ENERGYPLUS_ROOT` + EPW/IDF.
 
 ## Controllers
 
 Named strategies from `contracts/control_strategies_v1/*.json` → heating SP °C
-on `SCH_HtgSP` (live) or farm trajectory (lookup).
-
-## RL later
-
-`eplus_gym/train_rllib.py` is a stub. Follow
-[airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus) when ready;
-do not hard-dep Ray for rule DR.
+on `SCH_HtgSP` (live W2A or IdealLoads) or farm trajectory (lookup).
 
 ## Twin pins
 
 Never overwrite IdealLoads `*_best_utility.idf` or W2A A04 champion. See
-`lakeside-eplus-gl14` / `lakeside-w2a-plant-dial` skills.
+`lakeside-eplus-gl14` / `lakeside-w2a-plant-dial` / `lakeside-site-pack`.

@@ -1,74 +1,66 @@
 # Lakeside E+ gym V1 — design / honesty
 
-**Status:** live product surface (2026-08-10)  
-**Package:** `eplus_gym/`  
-**Inspiration:** [airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus)
+**Status:** live product surface (2026-08-11)  
+**Package:** `eplus_gym/` + `eplus_gym_app/`  
+**Inspiration:** [airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus)  
+**Agent loop:** [`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md)
 
 ## Why
 
 Prior vibe22 work stacked competing concepts (hybrid IdealLoads delta + ONNX desktop,
 grey-box 1R1C, batch “control twin lab”, phys-LSTM fun notebooks). Treatment claims
-were not earned. The cut keeps **twin foundation** (G14 / W2A pins) and replaces the
-control product with a **BOPTEST / rllib-energyplus-shaped** gym: controller ↔ emulator.
+were not earned. The cut keeps **twin foundation** (G14 / W2A pins) and ships a
+**BOPTEST / rllib-energyplus-shaped** gym: controller ↔ emulator, plus a human
+console that runs DSM on the **published A04 champion**.
 
 ## Architecture
 
 ```text
-RuleController (contracts/) ──action °C──► EnergyPlusRunner (queues + callbacks)
-                                         or FarmLookupEnv (parquet)
-                                              │
-                                              ▼
-                                    obs: facility / OAT / …
+Agent: ingest pack → GL14 iterate → publish site_ui_bundle_v1
+Human Streamlit: fuel + current IDF + Run DSM
+RuleController ──°C──► LakesideW2AEnv (live subprocess)
+                    or FarmLookupEnv (eplus/dsm_farm_w2a)
 ```
 
 ## Honesty layers
 
 | Layer | Label | May claim |
 |---|---|---|
-| IdealLoads live/lookup | `STRUCTURAL_LOAD_DIAGNOSTIC` | Strategy **shape** / ranking |
-| Lookup specifically | `FARM_LOOKUP_EMULATOR` | Offline charts; not closed-loop |
-| Live API | `ENERGYPLUS_PYTHON_API` | Step control on twin |
-| W2A IDF (future env) | `W2A_PHYSICAL_DSM` | Separate — do not mix labels |
+| IdealLoads live/lookup | `STRUCTURAL_LOAD_DIAGNOSTIC` | Strategy **shape** / ranking (CLI only) |
+| W2A live | `W2A_PHYSICAL_DSM` + `ENERGYPLUS_PYTHON_API` | Step control on A04 twin |
+| W2A lookup | `W2A_PHYSICAL_DSM` + `FARM_LOOKUP_EMULATOR` | Offline A04 farm; not closed-loop |
 | Promote | `false` | Never field savings |
+
+W2A `auto` **never** falls back to the IdealLoads farm.
 
 ## vs BOPTEST / rllib-energyplus
 
 - Same idea: separate controller from emulator; `reset` / `step`.
-- Not a REST KPI server (BOPTEST); Gymnasium + CLI + **Streamlit/Plotly** UI instead.
+- Not a REST KPI server (BOPTEST); Gymnasium + CLI + Streamlit **Run** instead.
 - Rule DR first; RLlib optional (`train_rllib.py` stub).
 
-## Month farm vs live vs UI
+## Paths
 
 | Path | Role |
 |---|---|
-| `run_eplus_gym_month_farm.py` | Grow IdealLoads day×strategy farm for calendar months (CLI; hours) |
-| `run_eplus_gym_rules.py --month` | Lookup + scorecards from existing farm (no E+) |
-| `run_eplus_gym_month_live.py` | Closed-loop month on staged IDF (CLI only; slow) |
-| `eplus_gym_app/streamlit_app.py` | Tabs over **`site_ui_bundle_v1`** (vibe20 Campus + published layers) — **never** starts E+ |
+| `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
+| `run_eplus_gym_rules.py --family w2a` | A04 lookup or live |
+| `run_eplus_gym_month_farm.py` | IdealLoads farm grow (structural; CLI) |
+| `eplus_gym_app/streamlit_app.py` | Building and fuel · Run DSM · Calibration |
 
-### Streamlit tabs (data-model driven)
+### Streamlit (2026-08-11)
 
-UI binds only to [`SiteUiBundle`](../../eplus_gym_app/site_bundle.py) resolved from
-`{site}/reports/site_ui_bundle_v1.json` (fallback:
-[`contracts/site_ui_bundle_v1.lakeside.example.json`](../../contracts/site_ui_bundle_v1.lakeside.example.json)):
+No file pickers. Binds to `{site}/reports/site_ui_bundle_v1.json`.  
+Optional sidebar **Load site pack**. Live EnergyPlus is a **CLI subprocess**
+(not in-process `pyenergyplus`). Jupyter still must not start live E+.
 
-### Streamlit = picker viewer only
-
-Sidebar pickers (no live E+):
-
-| Picker | Discovers | Renders |
-|---|---|---|
-| Catalog model / IDF file | `model_catalog` + `models/eplus/*.idf` + site `eplus/models` | Period overlay, massing, GL14 tiles |
-| `campus.json` | `utilities/campus*.json` (vibe20 Campus) | Fuel tab monthly kWh / EUI |
-| Demand / interval CSV | `reports/*demand*` / utilities interval | Actual traces in Period + Load profiles |
-
-Agents still own GL14 dialing and publish scorecards / sim dirs on the bundle.
+IdealLoads farm is **not** a human tab.
 
 ## Explicit non-claims
 
 - IdealLoads gym ≠ Lakeside meter / GSHP plant
 - Lookup ≠ live dynamics (strategy baked into farm day)
-- Streamlit UI ≠ live sim
+- Streamlit in-process ≠ live sim (live is subprocess)
 - W2A dial closeness ≠ field savings / promote
 - Archived hybrid Δ ≠ this gym
 - No BACnet writes

@@ -305,3 +305,45 @@ def dial_progression_figure(overlay: Mapping[str, Any]) -> go.Figure:
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
     return fig
+
+
+def dsm_trajectory_figure(df: pd.DataFrame, *, title: str = "DSM run") -> go.Figure:
+    """15-min facility kW + heating SP for one DSM episode."""
+    fig = go.Figure()
+    if df is None or getattr(df, "empty", True):
+        fig.update_layout(title="No DSM trajectory", template="plotly_white", height=400)
+        return fig
+    hours = (
+        df["step"].to_numpy(dtype=float) / 4.0
+        if "step" in df.columns
+        else list(range(len(df)))
+    )
+    if "facility_kw" in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=hours,
+                y=df["facility_kw"],
+                name="facility kW",
+                line=dict(color="#264653", width=2.2),
+            )
+        )
+    if "htg_sp_f" in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=hours,
+                y=df["htg_sp_f"],
+                name="htg SP °F",
+                yaxis="y2",
+                line=dict(color="#e76f51", width=1.6),
+            )
+        )
+        fig.update_layout(yaxis2=dict(title="htg SP °F", overlaying="y", side="right"))
+    fig.update_layout(
+        title=title,
+        xaxis_title="Hour",
+        yaxis_title="kW",
+        template="plotly_white",
+        height=420,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig

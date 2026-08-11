@@ -11,9 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_honesty_constants():
-    from eplus_gym.honesty import HONESTY_IDEALLOADS, LOOKUP_EMULATOR, PROMOTE
+    from eplus_gym.honesty import HONESTY_IDEALLOADS, HONESTY_W2A, LOOKUP_EMULATOR, PROMOTE
 
     assert HONESTY_IDEALLOADS == "STRUCTURAL_LOAD_DIAGNOSTIC"
+    assert HONESTY_W2A == "W2A_PHYSICAL_DSM"
     assert LOOKUP_EMULATOR == "FARM_LOOKUP_EMULATOR"
     assert PROMOTE is False
 

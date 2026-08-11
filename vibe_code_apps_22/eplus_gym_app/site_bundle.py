@@ -105,6 +105,10 @@ class SiteUiBundle:
     dial_ladder: DialLadder
     model_catalog: tuple[ModelCatalogEntry, ...] = ()
     default_model_id: str = "A04"
+    current_model_id: str = "A04"
+    dsm_champion: str = "A04"
+    epw: Path | None = None
+    dsm_farm_parquet: Path | None = None
     honesty: dict[str, str] = field(default_factory=dict)
     source_manifest: Path | None = None
     warnings: list[str] = field(default_factory=list)
@@ -116,7 +120,7 @@ class SiteUiBundle:
     def get_model(self, model_id: str | None) -> ModelCatalogEntry | None:
         if not self.model_catalog:
             return None
-        mid = model_id or self.default_model_id
+        mid = model_id or self.current_model_id or self.default_model_id
         for m in self.model_catalog:
             if m.id == mid:
                 return m
@@ -124,6 +128,9 @@ class SiteUiBundle:
             if m.champion:
                 return m
         return self.model_catalog[0]
+
+    def champion(self) -> ModelCatalogEntry | None:
+        return self.get_model(self.dsm_champion or self.current_model_id)
 
 
 def _rel(site: Path, rel: str | None) -> Path | None:
@@ -355,12 +362,27 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
         warnings.append(f"farm_parquet missing: {farm}")
         farm = None
 
+    dsm_farm = _rel(site, doc.get("dsm_farm_parquet"))
+    if dsm_farm is not None and not dsm_farm.is_file():
+        warnings.append(f"dsm_farm_parquet missing: {dsm_farm}")
+        dsm_farm = None
+
+    epw = _rel(site, doc.get("epw"))
+    if epw is not None and not epw.is_file():
+        warnings.append(f"epw missing: {epw}")
+        epw = None
+
     catalog = _load_catalog(site, doc, warnings)
     default_model_id = str(doc.get("default_model_id") or "A04")
     if catalog and not any(m.id == default_model_id for m in catalog):
         champ = next((m for m in catalog if m.champion), catalog[0])
         default_model_id = champ.id
         warnings.append(f"default_model_id missing; using {default_model_id}")
+    current_model_id = str(doc.get("current_model_id") or default_model_id)
+    dsm_champion = str(doc.get("dsm_champion") or default_model_id)
+    extra_warn = doc.get("warnings")
+    if isinstance(extra_warn, list):
+        warnings.extend(str(w) for w in extra_warn)
 
     # Active IDF: prefer catalog default, else top-level idf_pin
     idf_path: Path | None = None
@@ -417,6 +439,10 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
         bas_demand_oat_csv=bas,
         farm_parquet=farm,
         idf_path=idf_path,
+        current_model_id=current_model_id,
+        dsm_champion=dsm_champion,
+        epw=epw,
+        dsm_farm_parquet=dsm_farm,
         dial_ladder=DialLadder(
             peak_day=peak_day,
             models=tuple(models),

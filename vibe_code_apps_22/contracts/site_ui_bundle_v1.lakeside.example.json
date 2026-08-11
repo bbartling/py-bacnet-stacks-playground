@@ -1,11 +1,15 @@
 {
   "schema_version": "site_ui_bundle_v1",
-  "campus_json": "utilities/campus.json",
+  "campus_json": "utilities/campus_utility.json",
   "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
   "utility_peak_kw": 284.8,
   "default_model_id": "A04",
+  "current_model_id": "A04",
+  "dsm_champion": "A04",
   "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
   "farm_parquet": "eplus/dsm_farm_paired/heating_dsm_eplus_paired_15min_v1.parquet",
+  "dsm_farm_parquet": "eplus/dsm_farm_w2a/heating_dsm_w2a_15min_v1.parquet",
+  "epw": "eplus/weather/madison_amy_202508_202607.epw",
   "honesty": {
     "bas": "BAS_INTERVAL_METER",
     "dial_ladder": "W2A_PHYSICAL_DSM",

@@ -1,6 +1,7 @@
 """Honesty stamps for eplus_gym products."""
 
 HONESTY_IDEALLOADS = "STRUCTURAL_LOAD_DIAGNOSTIC"
+HONESTY_W2A = "W2A_PHYSICAL_DSM"
 PROVENANCE_LIVE = "ENERGYPLUS_PYTHON_API"
 LOOKUP_EMULATOR = "FARM_LOOKUP_EMULATOR"
-PROMOTE = False  # never promote IdealLoads gym as plant truth
+PROMOTE = False  # never promote gym products as field savings

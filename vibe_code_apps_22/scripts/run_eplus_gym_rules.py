@@ -24,7 +24,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from eplus_gym.controllers import list_strategies  # noqa: E402
-from eplus_gym.lookup_emulator import list_farm_days  # noqa: E402
+from eplus_gym.lookup_emulator import (  # noqa: E402
+    list_farm_days,
+    resolve_farm_root,
+    resolve_w2a_farm_root,
+)
 from eplus_gym.month_calendar import write_month_scorecard  # noqa: E402
 from eplus_gym.simulate import (  # noqa: E402
     run_rule_episode,
@@ -34,8 +38,17 @@ from eplus_gym.simulate import (  # noqa: E402
 from lakeside.paths import site_root  # noqa: E402
 
 
-def _run_month(site: Path, month: str, strategies: list[str], out: Path, fig_dir: Path) -> int:
-    result = run_rule_month_lookup(site_root=site, month=month, strategies=strategies)
+def _run_month(
+    site: Path,
+    month: str,
+    strategies: list[str],
+    out: Path,
+    fig_dir: Path,
+    family: str = "idealloads",
+) -> int:
+    result = run_rule_month_lookup(
+        site_root=site, month=month, strategies=strategies, family=family
+    )
     summary = []
     fig, ax = plt.subplots(figsize=(11, 4))
     colors = ["#264653", "#2a9d8f", "#e76f51", "#e9c46a", "#6c757d"]
@@ -84,6 +97,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--mode", choices=("auto", "live", "lookup"), default="lookup")
     ap.add_argument(
+        "--family",
+        choices=("w2a", "idealloads"),
+        default="idealloads",
+        help="w2a = A04 champion (never falls back to IdealLoads farm)",
+    )
+    ap.add_argument(
         "--strategies",
         default="baseline,flat_24_7,deep_setback",
         help="comma-separated strategy ids",
@@ -111,13 +130,18 @@ def main() -> int:
     strategies = [s for s in wanted if s in available] or sorted(available)[:3]
 
     if args.month:
-        return _run_month(site, args.month, strategies, out, fig_dir)
+        return _run_month(site, args.month, strategies, out, fig_dir, family=args.family)
 
+    farm_root = (
+        resolve_w2a_farm_root(site)
+        if args.family == "w2a"
+        else resolve_farm_root(site)
+    )
     day = args.day
     if day is None and strategies:
         by_day: dict[str, set[str]] = defaultdict(set)
         for s in strategies:
-            for d in list_farm_days(site, s):
+            for d in list_farm_days(site, s, farm_root=farm_root):
                 by_day[d].add(s)
         full = sorted(d for d, ss in by_day.items() if set(strategies) <= ss)
         if full:
@@ -129,7 +153,7 @@ def main() -> int:
     if day is not None:
         present = []
         for s in strategies:
-            if day in set(list_farm_days(site, s)):
+            if day in set(list_farm_days(site, s, farm_root=farm_root)):
                 present.append(s)
             else:
                 print(f"WARN skip {s}: not in farm for {day}")
@@ -149,6 +173,7 @@ def main() -> int:
             idf=args.idf,
             output=out / "runs",
             verbose=args.verbose,
+            family=args.family,
         )
         df = trajectory_frame(result)
         meta = result["meta"]
@@ -198,7 +223,11 @@ def main() -> int:
     card = {
         "strategies": summary,
         "figure": str(fig_path),
-        "note": "IdealLoads = STRUCTURAL_LOAD_DIAGNOSTIC; lookup ≠ live closed-loop",
+        "note": (
+            "w2a = W2A_PHYSICAL_DSM; idealloads = STRUCTURAL_LOAD_DIAGNOSTIC; "
+            "lookup ≠ live closed-loop; promote=False"
+        ),
+        "family": args.family,
     }
     (out / "rule_dr_scorecard.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
     print("wrote", fig_path)

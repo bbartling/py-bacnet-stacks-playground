@@ -42,9 +42,15 @@ Tutorial: `notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`.
 
 ## Tooling note
 
-Heating DSM uses **Hybrid Real+E+** (`HYBRID_SCREENING`) — see [`HEATING_DSM.md`](HEATING_DSM.md).
-IdealLoads G14 still uses **native EnergyPlus** with fail-closed severe/fatal
-gates (`eplus_native/`). OpenStudio MCP bridge was removed from this app.
+Human DSM is **W2A A04** via [`EPLUS_GYM.md`](EPLUS_GYM.md) / [`AGENT_LOOP.md`](AGENT_LOOP.md)
+(`W2A_PHYSICAL_DSM`). IdealLoads remains `STRUCTURAL_LOAD_DIAGNOSTIC` (CLI farm only).
+
+IdealLoads G14 uses **native EnergyPlus** with fail-closed severe/fatal
+gates (`eplus_native/`). EnergyPlus-MCP is optional; the loop works with
+`energyplus.exe`. OpenStudio MCP bridge was removed from this app.
+
 Do not treat monthly utility GL14 as proof of interval demand fidelity — see
 [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts)
 and [`EPLUS_MULTIRES.md`](EPLUS_MULTIRES.md) (monthly + hourly + 15-min DSM gates).
+
+Archived hybrid Real+E+ path: [`HEATING_DSM.md`](HEATING_DSM.md) (not the product).

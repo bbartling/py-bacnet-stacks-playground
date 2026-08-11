@@ -1,15 +1,17 @@
 # vibe22 scripts map
 
-**Product SoT (2026-08-10):** [`eplus_gym`](../eplus_gym/) + `run_eplus_gym_rules.py`.  
+**Product SoT (2026-08-11):** [`eplus_gym`](../eplus_gym/) + human DSM console.  
+Agent loop: [`../vibe22_agent_spec/AGENT_LOOP.md`](../vibe22_agent_spec/AGENT_LOOP.md).  
 Archived hybrid/greybox/lab scripts: [`../archive/2026-08-10_pre_eplus_gym/scripts/`](../archive/2026-08-10_pre_eplus_gym/scripts/).
 
 ## Product
 
 | Script | Role |
 | --- | --- |
-| `run_eplus_gym_rules.py` | Rule DR on IdealLoads gym (`lookup` / `live` / `auto`; `--month YYYY-MM`) → `reports/eplus_gym/` |
-| `run_eplus_gym_month_farm.py` | Calendar-month farm grow (`--dry-run` / `--execute`) |
-| `run_eplus_gym_month_live.py` | CLI-only closed-loop month (staged IDF RunPeriod) |
+| `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
+| `run_eplus_gym_rules.py` | Rule DR (`--family w2a\|idealloads`, `lookup` / `live` / `auto`) |
+| `run_eplus_gym_month_farm.py` | IdealLoads calendar-month farm grow (structural) |
+| `run_eplus_gym_month_live.py` | CLI-only closed-loop month (staged IdealLoads IDF) |
 
 UI: `streamlit run eplus_gym_app/streamlit_app.py --server.port 8765`
 

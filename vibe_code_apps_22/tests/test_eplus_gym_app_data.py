@@ -189,6 +189,9 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     )
     at.run(timeout=90)
     assert not at.exception
-    assert any("Lakeside E+ gym" in str(t.value) for t in at.title)
-    assert len(at.selectbox) >= 1
+    assert any("Lakeside DSM" in str(t.value) for t in at.title)
+    labels = " ".join(str(getattr(w, "label", "")) for w in list(at.radio) + list(at.selectbox))
+    assert "IDF source" not in labels
+    assert "campus.json" not in labels.lower()
+    assert "Demand / interval CSV" not in labels
     assert len(at.dataframe) >= 1
