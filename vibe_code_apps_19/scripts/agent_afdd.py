@@ -14,6 +14,10 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
+
+pd.options.mode.copy_on_write = True
+
 # Allow running from repo root or scripts/
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:

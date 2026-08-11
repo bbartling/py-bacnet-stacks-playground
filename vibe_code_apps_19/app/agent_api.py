@@ -311,19 +311,14 @@ def _quality_gated_frames(frames: dict[str, pd.DataFrame]) -> dict[str, pd.DataF
         return frames
     out: dict[str, pd.DataFrame] = {}
     for eq_id, df in frames.items():
-        fq = df.attrs.get("openfdd_quality")
-        if fq is None:
-            try:
-                fq = assess_frame(df)
-                df.attrs["openfdd_quality"] = fq
-                df.attrs["frame_quality"] = fq.summary()
-            except Exception:
-                out[eq_id] = df
-                continue
         try:
+            fq = assess_frame(df)
+            if df.attrs.get("frame_quality") is None:
+                df.attrs["frame_quality"] = fq.summary()
             gated = apply_normalized(df, fq, attach_raw_and_flags=False)
             gated.attrs.update(df.attrs)
             out[eq_id] = gated
+            del fq
         except Exception:
             out[eq_id] = df
     return out

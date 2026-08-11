@@ -552,8 +552,9 @@ def audit_package_dir(
             from open_fdd.quality import assess_frame
 
             fq = assess_frame(df)
-            df.attrs["openfdd_quality"] = fq
             df.attrs["frame_quality"] = fq.summary()
+            # Do not keep FrameQuality on attrs — it holds raw/normalized
+            # copies of every column and OOMs Building 100.
             reasons = fq.reason_counts or {}
             sentinel_invalid += int(reasons.get("SENTINEL", 0))
             plaus = int(reasons.get("IMPOSSIBLE_FOR_ROLE", 0)) + int(reasons.get("OUT_OF_RANGE", 0))
