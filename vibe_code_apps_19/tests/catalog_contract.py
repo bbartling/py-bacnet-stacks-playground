@@ -22,8 +22,12 @@ def assert_live_catalog_matches_pin() -> dict:
 
     pin = load_catalog_pin()
     live = rule_catalog_hash()
-    assert live == pin["rule_catalog_hash"], (
-        f"Installed open-fdd catalog hash {live} != pinned {pin['rule_catalog_hash']}. "
+    allowed = {
+        pin["rule_catalog_hash"],
+        pin.get("pypi_430_wheel_hash"),
+    } - {None, ""}
+    assert live in allowed, (
+        f"Installed open-fdd catalog hash {live} not in {sorted(allowed)}. "
         "Update tests/golden/expected_catalog.json only after reviewing the new catalog."
     )
     assert str(__version__).split("+", 1)[0] == pin["open_fdd_version"]

@@ -34,7 +34,9 @@ jobs:
           if [ -z "$OFDD_REF" ]; then
             OFDD_REF="feat/oracle-quality-hydronic-wattlab-parity"
           fi
-          pip install --upgrade "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@${OFDD_REF}"
+          pip install --upgrade --force-reinstall --no-deps \
+            "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@${OFDD_REF}"
+          python -c "import open_fdd,inspect; from open_fdd.catalog import rule_catalog_hash; print(open_fdd.__file__, open_fdd.__version__, rule_catalog_hash())"
       - name: Runtime OpenFDD pin
         run: python -c "from app.openfdd_runtime import require_supported_open_fdd; print(require_supported_open_fdd())"
       - name: Focused contract tests
