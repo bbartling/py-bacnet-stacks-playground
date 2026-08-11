@@ -135,7 +135,7 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
             obs = self.last_obs
         else:
             action_to_apply = self.post_process_action(action)
-            timeout = float(self.env_config.get("queue_timeout_s", 30.0))
+            timeout = float(self.env_config.get("queue_timeout_s", 120.0))
             try:
                 self.act_queue.put(action_to_apply, timeout=timeout)
                 obs = self.obs_queue.get(timeout=timeout)

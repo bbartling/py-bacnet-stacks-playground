@@ -1,18 +1,34 @@
 """DSM console helpers (lookup / live routing + KPIs)."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from eplus_gym.controllers import RuleController
 from eplus_gym.lookup_emulator import STEPS
+from eplus_gym.simulate import day_for_step
 from eplus_gym_app.dsm_console import (
+    daily_peaks_from_traj,
     dsm_kpis,
     meter_peak_day_for_period,
+    period_run_spec,
     resolve_dsm_mode,
     run_dsm_lookup,
     stage_idf_for_day,
+    stage_idf_for_period,
+)
+from eplus_gym_app.weather_files import (
+    KIND_AMY,
+    KIND_TMY_MSN,
+    KIND_TMY_SCREENING,
+    classify_epw,
+    epws_for_mode,
+    resolve_amy_epw,
+    resolve_tmy_msn_epw,
+    weather_inventory,
 )
 
 
@@ -72,8 +88,134 @@ def test_run_dsm_lookup_returns_frame(tmp_path: Path):
     )
     assert pack["meta"]["family"] == "w2a"
     assert pack["meta"]["honesty"] == "W2A_PHYSICAL_DSM"
+    assert pack["meta"]["loop"] == "CLOSED_LOOP_RULE_DR"
+    assert pack["meta"]["promote"] is False
     assert not pack["frame"].empty
     assert pack["kpis"]["peak_kw"] < 220
+    assert "day" in pack["frame"].columns
+    assert pack["frame"]["day"].iloc[0] == "2026-01-26"
+
+
+def test_stage_idf_for_period_writes_window_without_touching_source(tmp_path: Path):
+    src = tmp_path / "champion.idf"
+    src.write_text(
+        "RunPeriod,\n"
+        "  CalibrationWindow,  !- Name\n"
+        "  8,                  !- Begin Month\n"
+        "  1,                  !- Begin Day of Month\n"
+        "  2025,               !- Begin Year\n"
+        "  7,                  !- End Month\n"
+        "  2,                  !- End Day of Month\n"
+        "  2026;               !- End Year\n",
+        encoding="utf-8",
+    )
+    dest = tmp_path / "staged.idf"
+    stage_idf_for_period(src, dest, "2025-12-01", "2026-02-28")
+    assert "CalibrationWindow" in src.read_text(encoding="utf-8")
+    staged = dest.read_text(encoding="utf-8")
+    assert "DSM_2025-12-01_2026-02-28" in staged
+    assert "12," in staged
+    assert "28," in staged
+    with pytest.raises(ValueError, match="overwrite"):
+        stage_idf_for_period(src, src, "2025-12-01", "2026-02-28")
+
+
+def test_period_run_spec_three_day_window_is_288_steps():
+    ctx = {
+        "day": "2026-01-26",
+        "window_days": ["2026-01-25", "2026-01-26", "2026-01-27"],
+    }
+    spec = period_run_spec(ctx, "Peak week")
+    assert spec["max_steps"] == 288
+    assert spec["n_days"] == 3
+    assert spec["begin"] == "2026-01-25"
+    assert spec["end"] == "2026-01-27"
+    peak = period_run_spec(ctx, "Peak day")
+    assert peak["max_steps"] == 96
+    ctrl = RuleController("baseline")
+    assert ctrl.setpoint_f(0) == ctrl.setpoint_f(96)
+    assert ctrl.setpoint_f(5) == ctrl.setpoint_f(101)
+    assert day_for_step("2026-01-25", 0) == "2026-01-25"
+    assert day_for_step("2026-01-25", 96) == "2026-01-26"
+    assert day_for_step("2026-01-25", 287) == "2026-01-27"
+
+
+def test_period_run_spec_winter_is_full_calendar_span():
+    ctx = {
+        "day": "2026-01-26",
+        "window_days": ["2025-12-01", "2026-01-15", "2026-02-28"],
+    }
+    spec = period_run_spec(ctx, "Winter (Dec–Feb)")
+    assert spec["begin"] == "2025-12-01"
+    assert spec["end"] == "2026-02-28"
+    assert spec["n_days"] == 90
+    assert spec["max_steps"] == 90 * 96
+    assert spec["period"] == "2025-12-01/2026-02-28"
+
+
+def test_weather_resolver_amy_found_chicago_not_auto_tmy(tmp_path: Path):
+    weather = tmp_path / "eplus" / "weather"
+    weather.mkdir(parents=True)
+    amy = weather / "madison_amy_202508_202607.epw"
+    screening = weather / "madison_tmy_screening.epw"
+    chicago = weather / "USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw"
+    amy.write_text("EPW", encoding="utf-8")
+    screening.write_text("EPW", encoding="utf-8")
+    chicago.write_text("EPW", encoding="utf-8")
+    assert classify_epw(amy) == KIND_AMY
+    assert classify_epw(screening) == KIND_TMY_SCREENING
+    assert classify_epw(chicago) == KIND_TMY_SCREENING
+    assert resolve_amy_epw(tmp_path) == amy
+    assert resolve_tmy_msn_epw(tmp_path) is None
+    inv = weather_inventory(tmp_path)
+    assert inv["default_mode"] == "AMY"
+    assert inv["tmy"] is None
+    assert "Chicago" in (inv["tmy_missing_note"] or "")
+    both = epws_for_mode("Both", inv)
+    assert both == [(KIND_AMY, amy)]
+    real = weather / "USA_WI_Madison-Dane.County.AP.726410_TMY3.epw"
+    real.write_text("EPW", encoding="utf-8")
+    assert classify_epw(real) == KIND_TMY_MSN
+    assert resolve_tmy_msn_epw(tmp_path) == real
+    inv2 = weather_inventory(tmp_path)
+    assert inv2["default_mode"] == "Both"
+    assert epws_for_mode("Both", inv2) == [(KIND_AMY, amy), (KIND_TMY_MSN, real)]
+
+
+def test_daily_peak_overlay_accepts_two_or_three_series():
+    from eplus_gym_app.plots import period_daily_peak_figure
+
+    daily = pd.DataFrame(
+        {"local_day": ["2026-01-25", "2026-01-26", "2026-01-27"], "peak_kw": [200.0, 286.0, 180.0]}
+    )
+    amy = pd.DataFrame(
+        {"local_day": ["2026-01-25", "2026-01-26", "2026-01-27"], "peak_kw": [190.0, 198.0, 170.0]}
+    )
+    tmy = pd.DataFrame(
+        {"local_day": ["2026-01-25", "2026-01-26", "2026-01-27"], "peak_kw": [185.0, 192.0, 168.0]}
+    )
+    fig = period_daily_peak_figure(
+        daily,
+        highlight_day="2026-01-26",
+        title="winter both",
+        eplus_daily={"E+ AMY": amy, "E+ TMY": tmy},
+    )
+    assert len(fig.data) == 3
+    names = {t.name for t in fig.data}
+    assert "Actual BAS daily peak kW" in names
+    assert "E+ AMY" in names
+    assert "E+ TMY" in names
+    agg = daily_peaks_from_traj(
+        pd.DataFrame(
+            {
+                "step": list(range(192)),
+                "day": ["2026-01-25"] * 96 + ["2026-01-26"] * 96,
+                "facility_kw": [100.0] * 95 + [140.0] + [110.0] * 95 + [155.0],
+            }
+        )
+    )
+    assert list(agg["local_day"]) == ["2026-01-25", "2026-01-26"]
+    assert agg["peak_kw"].tolist() == pytest.approx([140.0, 155.0])
 
 
 def test_stage_idf_for_day_does_not_overwrite_source(tmp_path: Path):
@@ -97,6 +239,59 @@ def test_stage_idf_for_day_does_not_overwrite_source(tmp_path: Path):
     assert "26," in staged
     with pytest.raises(ValueError, match="overwrite"):
         stage_idf_for_day(src, src, "2026-01-26")
+
+
+def test_persist_and_load_last_run(tmp_path: Path):
+    from eplus_gym_app.dsm_console import persist_last_run
+
+    df = pd.DataFrame({"step": [0, 1], "facility_kw": [100.0, 120.0]})
+    actual = pd.DataFrame({"hod": [0.0, 1.0], "kw_avg": [200.0, 210.0]})
+    pq = tmp_path / "traj.parquet"
+    df.to_parquet(pq, index=False)
+    persist_last_run(
+        tmp_path,
+        df=df,
+        actual=actual,
+        kpis={"peak_kw": 120.0},
+        strategy="baseline",
+        day="2026-01-26",
+        preset="Winter (Dec–Feb)",
+        mode="live",
+        epw_name="madison_amy_202508_202607.epw",
+        why="test",
+        window_days=["2025-12-01", "2026-01-26", "2026-02-28"],
+        parquet=str(pq),
+        weather_mode="AMY",
+        period="2025-12-01/2026-02-28",
+        max_steps=8640,
+        n_days=90,
+        parquets={"AMY_OPEN_METEO": str(pq)},
+        weather_kind="AMY_OPEN_METEO",
+    )
+    ptr = tmp_path / "reports" / "eplus_gym" / "last_dsm_run.json"
+    doc = json.loads(ptr.read_text(encoding="utf-8"))
+    assert "frame" not in doc
+    assert doc["parquet"] == str(pq)
+    assert doc["day"] == "2026-01-26"
+    assert doc["period"] == "2025-12-01/2026-02-28"
+    assert doc["max_steps"] == 8640
+    assert doc["loop"] == "CLOSED_LOOP_RULE_DR"
+    assert doc["weekend_sp"] == "repeat_96_step_profile"
+    assert doc["promote"] is False
+    assert doc["weather_kind"] == "AMY_OPEN_METEO"
+
+
+def test_period_daily_peak_figure_highlights_sim_day():
+    from eplus_gym_app.plots import period_daily_peak_figure
+
+    daily = pd.DataFrame(
+        {"local_day": ["2026-01-25", "2026-01-26", "2026-01-27"], "peak_kw": [200.0, 286.0, 180.0]}
+    )
+    fig = period_daily_peak_figure(
+        daily, highlight_day="2026-01-26", title="winter", eplus_peak_kw=199.0
+    )
+    assert len(fig.data) == 1
+    assert fig.layout.title.text == "winter"
 
 
 def test_meter_peak_day_calendar_month_not_always_anchor():
@@ -141,3 +336,39 @@ def test_meter_index_zero_from_api_csv():
     assert idx[_meter_lookup_key("Electricity:Facility")] == 0
     assert idx["ELECTRICITY:BUILDING"] == 1
     assert "SITE OUTDOOR AIR DRYBULB TEMPERATURE" not in idx
+
+
+def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkeypatch):
+    from eplus_gym_app.dsm_console import start_live_subprocess
+
+    captured: dict = {}
+
+    class _FakeProc:
+        pass
+
+    def _fake_popen(cmd, **kwargs):
+        captured["cmd"] = [str(x) for x in cmd]
+        return _FakeProc()
+
+    monkeypatch.setattr("eplus_gym_app.dsm_console.subprocess.Popen", _fake_popen)
+    epw = tmp_path / "madison_amy_202508_202607.epw"
+    idf = tmp_path / "champ.idf"
+    epw.write_text("EPW", encoding="utf-8")
+    idf.write_text("IDF", encoding="utf-8")
+    start_live_subprocess(
+        site=tmp_path,
+        strategy_id="baseline",
+        epw=epw,
+        idf=idf,
+        out_dir=tmp_path / "out",
+        begin="2025-12-01",
+        end="2026-02-28",
+        max_steps=8640,
+    )
+    cmd = captured["cmd"]
+    assert "--mode" in cmd and "live" in cmd
+    assert "--family" in cmd and "w2a" in cmd
+    assert cmd[cmd.index("--begin") + 1] == "2025-12-01"
+    assert cmd[cmd.index("--end") + 1] == "2026-02-28"
+    assert cmd[cmd.index("--max-steps") + 1] == "8640"
+    assert cmd[cmd.index("--day") + 1] == "2025-12-01"

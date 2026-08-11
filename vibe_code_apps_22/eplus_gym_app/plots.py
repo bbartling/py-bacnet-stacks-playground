@@ -307,22 +307,39 @@ def dial_progression_figure(overlay: Mapping[str, Any]) -> go.Figure:
     return fig
 
 
+_EPLUS_SERIES_COLORS = {
+    "AMY_OPEN_METEO": "#2a9d8f",
+    "TMY_MSN": "#e9c46a",
+    "TMY_SCREENING": "#9b2226",
+    "E+ AMY": "#2a9d8f",
+    "E+ TMY": "#e9c46a",
+    "E+ A04 (this run)": "#2a9d8f",
+}
+
+
+def _hod(df: pd.DataFrame):
+    if "hod" in df.columns:
+        return df["hod"]
+    if "step" in df.columns:
+        return df["step"].to_numpy(dtype=float) / 4.0
+    return list(range(len(df)))
+
+
 def dsm_trajectory_figure(
     df: pd.DataFrame,
     *,
     title: str = "DSM run",
     actual: pd.DataFrame | None = None,
+    extra_eplus: Sequence[tuple[str, str, pd.DataFrame]] | None = None,
 ) -> go.Figure:
     """15-min E+ facility kW, optional Actual BAS overlay, heating SP on y2."""
     fig = go.Figure()
-    if df is None or getattr(df, "empty", True):
+    frames = list(extra_eplus or [])
+    if not frames and df is not None and not getattr(df, "empty", True):
+        frames = [("E+ A04 (this run)", "#2a9d8f", df)]
+    if not frames and (actual is None or getattr(actual, "empty", True)):
         fig.update_layout(title="No DSM trajectory", template="plotly_white", height=400)
         return fig
-    hours = (
-        df["step"].to_numpy(dtype=float) / 4.0
-        if "step" in df.columns
-        else list(range(len(df)))
-    )
     if actual is not None and not getattr(actual, "empty", True):
         xcol = "hod" if "hod" in actual.columns else None
         ycol = "kw_avg" if "kw_avg" in actual.columns else ("kw" if "kw" in actual.columns else None)
@@ -335,20 +352,23 @@ def dsm_trajectory_figure(
                     line=dict(color="#1f2a30", width=2.5),
                 )
             )
-    if "facility_kw" in df.columns:
+    for name, color, frame in frames:
+        if frame is None or getattr(frame, "empty", True) or "facility_kw" not in frame.columns:
+            continue
         fig.add_trace(
             go.Scatter(
-                x=hours,
-                y=df["facility_kw"],
-                name="E+ A04 (this run)",
-                line=dict(color="#2a9d8f", width=2.2),
+                x=_hod(frame),
+                y=frame["facility_kw"],
+                name=name,
+                line=dict(color=color or _EPLUS_SERIES_COLORS.get(name, "#2a9d8f"), width=2.2),
             )
         )
-    if "htg_sp_f" in df.columns:
+    primary = frames[0][2] if frames else None
+    if primary is not None and not getattr(primary, "empty", True) and "htg_sp_f" in primary.columns:
         fig.add_trace(
             go.Scatter(
-                x=hours,
-                y=df["htg_sp_f"],
+                x=_hod(primary),
+                y=primary["htg_sp_f"],
                 name="E+ htg SP °F",
                 yaxis="y2",
                 line=dict(color="#e76f51", width=1.5, dash="dot"),
@@ -362,6 +382,59 @@ def dsm_trajectory_figure(
         template="plotly_white",
         height=440,
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def period_daily_peak_figure(
+    daily: pd.DataFrame,
+    *,
+    highlight_day: str | None,
+    title: str,
+    eplus_peak_kw: float | None = None,
+    eplus_daily: Mapping[str, pd.DataFrame] | None = None,
+) -> go.Figure:
+    """Daily BAS meter peaks plus optional E+ AMY / TMY daily-peak series."""
+    fig = go.Figure()
+    has_actual = daily is not None and not getattr(daily, "empty", True)
+    extras = {k: v for k, v in (eplus_daily or {}).items() if v is not None and not getattr(v, "empty", True)}
+    if not has_actual and not extras:
+        fig.update_layout(title=title, template="plotly_white", height=320)
+        return fig
+    if has_actual:
+        x = daily["local_day"].astype(str)
+        y = daily["peak_kw"]
+        colors = ["#e76f51" if d == str(highlight_day or "")[:10] else "#264653" for d in x]
+        fig.add_trace(
+            go.Bar(x=x, y=y, name="Actual BAS daily peak kW", marker_color=colors)
+        )
+    for name, series in extras.items():
+        fig.add_trace(
+            go.Scatter(
+                x=series["local_day"].astype(str),
+                y=series["peak_kw"],
+                name=name,
+                mode="lines+markers",
+                line=dict(color=_EPLUS_SERIES_COLORS.get(name, "#2a9d8f"), width=2.2),
+                marker=dict(size=6),
+            )
+        )
+    if not extras and eplus_peak_kw is not None and eplus_peak_kw == eplus_peak_kw:
+        fig.add_hline(
+            y=float(eplus_peak_kw),
+            line_dash="dot",
+            line_color="#2a9d8f",
+            annotation_text=f"E+ A04 peak {float(eplus_peak_kw):.0f} kW",
+            annotation_position="top left",
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Local day",
+        yaxis_title="Daily peak kW",
+        template="plotly_white",
+        height=340,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        margin=dict(t=48, b=36),
     )
     return fig
 

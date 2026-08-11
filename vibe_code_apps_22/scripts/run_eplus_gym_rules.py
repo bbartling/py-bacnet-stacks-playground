@@ -108,6 +108,14 @@ def main() -> int:
         help="comma-separated strategy ids",
     )
     ap.add_argument("--day", default=None, help="YYYY-MM-DD (lookup); default=best shared day")
+    ap.add_argument("--begin", default=None, help="YYYY-MM-DD live RunPeriod start")
+    ap.add_argument("--end", default=None, help="YYYY-MM-DD live RunPeriod end")
+    ap.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="closed-loop steps (default 96; n_days*96 for a window)",
+    )
     ap.add_argument("--month", default=None, help="YYYY-MM — lookup all available days in month")
     ap.add_argument("--epw", type=Path, default=None)
     ap.add_argument("--idf", type=Path, default=None)
@@ -150,16 +158,29 @@ def main() -> int:
             day = max(by_day.items(), key=lambda kv: (len(kv[1]), kv[0]))[0]
         print(f"shared_day={day} coverage={sorted(by_day.get(day, []))}")
 
-    live_idf = args.idf
-    if args.mode == "live" and day and args.idf is not None:
-        from eplus_gym_app.dsm_console import stage_idf_for_day
+    begin = args.begin or day
+    end = args.end or day
+    if begin:
+        day = begin
+    max_steps = int(args.max_steps) if args.max_steps else 96
+    period = f"{begin}/{end}" if begin and end else (day or None)
+    weather_kind = None
+    if args.epw is not None:
+        from eplus_gym_app.weather_files import classify_epw
 
-        live_idf = stage_idf_for_day(
+        weather_kind = classify_epw(args.epw)
+
+    live_idf = args.idf
+    if args.mode == "live" and begin and end and args.idf is not None:
+        from eplus_gym_app.dsm_console import stage_idf_for_period
+
+        live_idf = stage_idf_for_period(
             Path(args.idf),
-            out / f"staged_{day}_{Path(args.idf).name}",
-            day,
+            out / f"staged_{begin}_{end}_{Path(args.idf).name}",
+            begin,
+            end,
         )
-        print(f"staged_idf={live_idf}")
+        print(f"staged_idf={live_idf} period={period} max_steps={max_steps}")
 
     if day is not None and args.mode != "live":
         present = []
@@ -185,6 +206,9 @@ def main() -> int:
             output=out / "runs",
             verbose=args.verbose,
             family=args.family,
+            max_steps=max_steps,
+            period=period,
+            weather_kind=weather_kind,
         )
         df = trajectory_frame(result)
         meta = result["meta"]
@@ -202,10 +226,15 @@ def main() -> int:
             "mode": meta.get("mode"),
             "provenance": meta.get("provenance"),
             "honesty": meta.get("honesty"),
-            "promote": meta.get("promote"),
+            "promote": False,
             "peak_kw": peak,
             "kwh": kwh,
             "parquet": str(pq),
+            "weather_kind": meta.get("weather_kind") or weather_kind,
+            "loop": meta.get("loop") or "CLOSED_LOOP_RULE_DR",
+            "period": meta.get("period") or period,
+            "weekend_sp": meta.get("weekend_sp") or "repeat_96_step_profile",
+            "max_steps": meta.get("max_steps") or max_steps,
         }
         summary.append(row)
         print(json.dumps(row, indent=None))

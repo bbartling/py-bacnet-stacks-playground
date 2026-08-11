@@ -129,15 +129,17 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         ),
         encoding="utf-8",
     )
-    rows_h = [
-        {
-            "hour_utc": f"2026-01-26T{h:02d}:00:00+00:00",
-            "day_type": "Weekday",
-            "kw_avg": 100.0 + h,
-            "oat_f": -5.0,
-        }
-        for h in range(24)
-    ]
+    rows_h = []
+    for day, peak in (("2025-12-15", 180.0), ("2026-01-26", 286.0), ("2026-02-10", 210.0)):
+        for h in range(24):
+            rows_h.append(
+                {
+                    "hour_utc": f"{day}T{h:02d}:00:00-06:00",
+                    "day_type": "Weekday",
+                    "kw_avg": peak if h == 8 else 90.0 + h,
+                    "oat_f": -5.0,
+                }
+            )
     pd.DataFrame(rows_h).to_csv(
         tmp_path / "reports" / "demand_vs_web_weather_hourly.csv", index=False
     )
@@ -183,6 +185,10 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     pd.DataFrame(rows).to_parquet(
         farm / "heating_dsm_eplus_paired_15min_v1.parquet", index=False
     )
+    weather = tmp_path / "eplus" / "weather"
+    weather.mkdir(parents=True, exist_ok=True)
+    (weather / "madison_amy_202508_202607.epw").write_text("EPW", encoding="utf-8")
+    (weather / "madison_tmy_screening.epw").write_text("EPW", encoding="utf-8")
     monkeypatch.setenv("LAKESIDE_SITE_ROOT", str(tmp_path))
     at = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py")
@@ -195,3 +201,38 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "campus.json" not in labels.lower()
     assert "Demand / interval CSV" not in labels
     assert len(at.dataframe) >= 1
+    def _copy() -> str:
+        blobs = []
+        for attr in ("caption", "markdown", "info", "warning", "text"):
+            for w in getattr(at, attr, []):
+                blobs.append(str(getattr(w, "value", w)))
+        return " ".join(blobs)
+
+    at.session_state["lakeside_main_tabs"] = "Run DSM"
+    at.session_state["dsm_period"] = "Winter (Dec–Feb)"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    radios = [str(getattr(w, "label", "")) for w in at.radio]
+    assert any("Weather" in lab for lab in radios)
+    sliders = list(at.select_slider)
+    assert sliders, "expected Period select_slider"
+    assert not at.exception
+    assert not list(at.error)
+    copy = _copy()
+    assert "typical-year EPW on that date" not in copy
+    assert "Open-Meteo actual year" in copy
+    assert "CLOSED_LOOP_RULE_DR" in copy
+    assert "AMY is **not** a typical-year EPW" in copy
+    assert "Will simulate closed-loop" in copy
+    assert "2025-12-15" in copy
+    assert "2026-02-10" in copy
+    assert "5568 steps" in copy
+    at.session_state["lakeside_main_tabs"] = "Calibration"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    at.session_state["lakeside_main_tabs"] = "Building and fuel"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)

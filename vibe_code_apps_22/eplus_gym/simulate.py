@@ -1,6 +1,7 @@
 """Run a rule-controller episode (live E+ or farm lookup)."""
 from __future__ import annotations
 
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -20,6 +21,11 @@ from .month_calendar import DEPLOYABLE_STRATEGIES, month_kpis
 
 FAMILY_W2A = "w2a"
 FAMILY_IDEALLOADS = "idealloads"
+
+
+def day_for_step(begin: str, step: int) -> str:
+    """Calendar day for a closed-loop step (96 steps/day)."""
+    return (date.fromisoformat(str(begin)[:10]) + timedelta(days=int(step) // 96)).isoformat()
 
 
 def _norm_family(family: str) -> str:
@@ -42,12 +48,19 @@ def _live_episode(
     verbose: bool,
 ) -> Dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
+    begin = None
+    if day:
+        try:
+            begin = date.fromisoformat(str(day)[:10])
+        except ValueError:
+            begin = None
     env = env_cls(
         {
             "epw": str(epw),
             "idf": str(idf),
             "output": str(output),
             "verbose": verbose,
+            "queue_timeout_s": 120.0,
         }
     )
     _obs, info = env.reset()
@@ -56,6 +69,8 @@ def _live_episode(
             "provenance": info.get("provenance"),
             "mode": "live",
             "day": day,
+            "loop": "CLOSED_LOOP_RULE_DR",
+            "weekend_sp": "repeat_96_step_profile",
         }
     )
     rows: List[Dict[str, Any]] = []
@@ -70,6 +85,8 @@ def _live_episode(
             "reward": reward,
             **{k: float(v) for k, v in od.items()},
         }
+        if begin is not None:
+            row["day"] = day_for_step(begin.isoformat(), t)
         if "facility_kw" not in row and "facility_j" in row:
             # Electricity:Facility at 15-min zone timestep → kW
             j = row["facility_j"]
@@ -117,26 +134,24 @@ def _lookup_episode(
             "honesty": honesty,
         }
     )
-    rows: List[Dict[str, Any]] = [
-        {
-            "step": 0,
-            "htg_sp_f": ctrl.setpoint_f(0),
-            "htg_sp_c": ctrl.action_c(0),
-            "reward": -float(obs["facility_kw"]) / 100.0,
-            **obs,
+    def _lookup_row(t: int, obs_row: Dict[str, Any], reward: float) -> Dict[str, Any]:
+        row = {
+            "step": t,
+            "htg_sp_f": ctrl.setpoint_f(t),
+            "htg_sp_c": ctrl.action_c(t),
+            "reward": reward,
+            **obs_row,
         }
+        if day:
+            row["day"] = day_for_step(str(day), t)
+        return row
+
+    rows: List[Dict[str, Any]] = [
+        _lookup_row(0, obs, -float(obs["facility_kw"]) / 100.0)
     ]
     for t in range(1, max_steps):
         obs, reward, done, truncated, _ = env_l.step(ctrl.action_c(t))
-        rows.append(
-            {
-                "step": t,
-                "htg_sp_f": ctrl.setpoint_f(t),
-                "htg_sp_c": ctrl.action_c(t),
-                "reward": reward,
-                **obs,
-            }
-        )
+        rows.append(_lookup_row(t, obs, reward))
         if done or truncated:
             break
     env_l.close()
@@ -156,6 +171,8 @@ def run_rule_episode(
     verbose: bool = False,
     month: Optional[str] = None,
     family: str = FAMILY_IDEALLOADS,
+    period: Optional[str] = None,
+    weather_kind: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Return trajectory dict with rows + meta.
 
@@ -172,6 +189,11 @@ def run_rule_episode(
         "honesty": honesty,
         "promote": PROMOTE,
         "family": fam,
+        "loop": "CLOSED_LOOP_RULE_DR",
+        "weekend_sp": "repeat_96_step_profile",
+        "period": period,
+        "weather_kind": weather_kind,
+        "max_steps": int(max_steps),
     }
 
     if fam == FAMILY_W2A:

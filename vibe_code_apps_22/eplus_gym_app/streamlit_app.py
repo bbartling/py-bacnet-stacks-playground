@@ -357,8 +357,12 @@ def main() -> None:
     campus = _load_campus(bundle)
     _render_overview(bundle, campus)
 
+    # Track tab state. Default on_change="ignore" resets to the first tab on
+    # every rerun — so Run results vanished after clicking Run.
     tab_home, tab_run, tab_cal = st.tabs(
-        ["Building and fuel", "Run DSM", "Calibration"]
+        ["Building and fuel", "Run DSM", "Calibration"],
+        key="lakeside_main_tabs",
+        on_change="rerun",
     )
     with tab_home:
         _render_building_fuel_tab(bundle, campus)
