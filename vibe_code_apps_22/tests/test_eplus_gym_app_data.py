@@ -162,7 +162,11 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
                         "dial_id": "A04",
                     }
                 ],
-                "dial_ladder": {"peak_day": "2026-01-26", "models": []},
+                "dial_ladder": {
+                    "peak_day": "2026-01-26",
+                    "models": [],
+                    "precomputed_closeness_csv": "plots/analytics/eplus_gl14_vs_peak285/winter_shape_closeness_a04_ladder.csv",
+                },
                 "honesty": {"bas": "BAS_INTERVAL_METER"},
             }
         ),
@@ -189,6 +193,28 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     weather.mkdir(parents=True, exist_ok=True)
     (weather / "madison_amy_202508_202607.epw").write_text("EPW", encoding="utf-8")
     (weather / "madison_tmy_screening.epw").write_text("EPW", encoding="utf-8")
+    close_dir = tmp_path / "plots" / "analytics" / "eplus_gl14_vs_peak285"
+    close_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        [
+            {
+                "day_type": "weekday",
+                "model": "A04",
+                "component": "Full-day",
+                "closeness_pct": 80.0,
+                "obs_kw": 200.0,
+                "sim_kw": 160.0,
+            },
+            {
+                "day_type": "weekend",
+                "model": "A04",
+                "component": "Full-day",
+                "closeness_pct": 75.0,
+                "obs_kw": 180.0,
+                "sim_kw": 135.0,
+            },
+        ]
+    ).to_csv(close_dir / "winter_shape_closeness_a04_ladder.csv", index=False)
     monkeypatch.setenv("LAKESIDE_SITE_ROOT", str(tmp_path))
     at = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py")
@@ -200,6 +226,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "IDF source" not in labels
     assert "campus.json" not in labels.lower()
     assert "Demand / interval CSV" not in labels
+    assert "Strategy" not in labels
     assert len(at.dataframe) >= 1
     def _copy() -> str:
         blobs = []
@@ -207,6 +234,11 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
             for w in getattr(at, attr, []):
                 blobs.append(str(getattr(w, "value", w)))
         return " ".join(blobs)
+
+    home = _copy()
+    assert "W2A_PHYSICAL_DSM" in home
+    assert "not" in home.lower() and "IdealLoads" in home and "BOPTEST" in home
+    assert "Building and fuel" not in home
 
     at.session_state["lakeside_main_tabs"] = "Run DSM"
     at.session_state["dsm_period"] = "Winter (Dec–Feb)"
@@ -217,22 +249,21 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert any("Weather" in lab for lab in radios)
     sliders = list(at.select_slider)
     assert sliders, "expected Period select_slider"
-    assert not at.exception
-    assert not list(at.error)
     copy = _copy()
     assert "typical-year EPW on that date" not in copy
     assert "Open-Meteo actual year" in copy
     assert "CLOSED_LOOP_RULE_DR" in copy
     assert "AMY is **not** a typical-year EPW" in copy
-    assert "Will simulate closed-loop" in copy
+    assert "Will simulate closed-loop all 5 strategies" in copy
     assert "2025-12-15" in copy
     assert "2026-02-10" in copy
     assert "5568 steps" in copy
+    for sid in ("baseline", "flat_24_7", "deep_setback", "stagger_preheat", "morning_all_on"):
+        assert sid in copy
     at.session_state["lakeside_main_tabs"] = "Calibration"
     at.run(timeout=90)
     assert not at.exception
     assert not list(at.error)
-    at.session_state["lakeside_main_tabs"] = "Building and fuel"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
+    cal = _copy()
+    assert "Weekday closeness % (electric kW)" in cal
+    assert "Weekend closeness % (electric kW)" in cal

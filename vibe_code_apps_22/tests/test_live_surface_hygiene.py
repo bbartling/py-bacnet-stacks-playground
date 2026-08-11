@@ -56,6 +56,7 @@ def test_streamlit_app_uses_width_stretch():
     assert "Lakeside DSM" in src
     assert "Farm month" not in src
     assert "_render_farm_diagnostic" not in src
+    assert "Building and fuel" not in src
 
 
 def test_live_ml_keeps_farm_helpers():

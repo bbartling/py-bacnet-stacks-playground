@@ -18,6 +18,38 @@ COLORS = {
 }
 
 
+def strategy_setpoint_figure(
+    series_by_id: Mapping[str, Sequence[float]],
+    *,
+    title: str = "Heating SP contracts (96 steps, repeats on weekends)",
+) -> go.Figure:
+    """Overlay RuleController heating setpoints for the five desktop strategies."""
+    fig = go.Figure()
+    for sid, series in series_by_id.items():
+        ys = list(series)
+        if not ys:
+            continue
+        hours = [i / 4.0 for i in range(len(ys))]
+        fig.add_trace(
+            go.Scatter(
+                x=hours,
+                y=ys,
+                name=str(sid),
+                line=dict(color=COLORS.get(str(sid), "#333333"), width=2),
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Hour (local)",
+        yaxis_title="Heating SP °F",
+        template="plotly_white",
+        height=320,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        margin=dict(t=48, b=36),
+    )
+    return fig
+
+
 def fuel_monthly_figure(elec: pd.DataFrame, *, title: str = "Monthly electric") -> go.Figure:
     """vibe20-style monthly fuel bars from Campus electric meter bills."""
     fig = go.Figure()
@@ -415,7 +447,11 @@ def period_daily_peak_figure(
                 y=series["peak_kw"],
                 name=name,
                 mode="lines+markers",
-                line=dict(color=_EPLUS_SERIES_COLORS.get(name, "#2a9d8f"), width=2.2),
+                line=dict(
+                    color=_EPLUS_SERIES_COLORS.get(name)
+                    or COLORS.get(str(name).split()[0], "#2a9d8f"),
+                    width=2.2,
+                ),
                 marker=dict(size=6),
             )
         )

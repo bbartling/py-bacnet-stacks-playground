@@ -10,15 +10,18 @@ import pytest
 from eplus_gym.controllers import RuleController
 from eplus_gym.lookup_emulator import STEPS
 from eplus_gym.simulate import day_for_step
+from eplus_gym.month_calendar import DEPLOYABLE_STRATEGIES
 from eplus_gym_app.dsm_console import (
     daily_peaks_from_traj,
     dsm_kpis,
+    live_run_jobs,
     meter_peak_day_for_period,
     period_run_spec,
     resolve_dsm_mode,
     run_dsm_lookup,
     stage_idf_for_day,
     stage_idf_for_period,
+    strategy_library,
 )
 from eplus_gym_app.weather_files import (
     KIND_AMY,
@@ -372,3 +375,38 @@ def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkey
     assert cmd[cmd.index("--end") + 1] == "2026-02-28"
     assert cmd[cmd.index("--max-steps") + 1] == "8640"
     assert cmd[cmd.index("--day") + 1] == "2025-12-01"
+
+
+def test_strategy_library_lists_five_desktop_contracts():
+    lib = strategy_library()
+    ids = [r["strategy_id"] for r in lib["rows"]]
+    assert ids == list(DEPLOYABLE_STRATEGIES)
+    assert "index" not in ids
+    assert all(not s.startswith("prbs") for s in ids)
+    assert all(len(lib["series"][s]) == 96 for s in ids)
+
+
+def test_live_run_jobs_five_strategies_per_weather(tmp_path: Path):
+    amy = tmp_path / "amy.epw"
+    tmy = tmp_path / "tmy.epw"
+    amy.write_text("EPW", encoding="utf-8")
+    tmy.write_text("EPW", encoding="utf-8")
+    one = live_run_jobs(
+        strategies=list(DEPLOYABLE_STRATEGIES),
+        weathers=[("AMY_OPEN_METEO", amy)],
+        begin="2026-01-01",
+        end="2026-01-03",
+        max_steps=288,
+    )
+    assert len(one) == 5
+    assert [j["strategy_id"] for j in one] == list(DEPLOYABLE_STRATEGIES)
+    assert all(j["max_steps"] == 288 for j in one)
+    both = live_run_jobs(
+        strategies=list(DEPLOYABLE_STRATEGIES),
+        weathers=[("AMY_OPEN_METEO", amy), ("TMY_MSN", tmy)],
+        begin="2026-01-01",
+        end="2026-01-03",
+        max_steps=288,
+    )
+    assert len(both) == 10
+    assert both[0]["key"] == "baseline:AMY_OPEN_METEO"
