@@ -26,12 +26,20 @@ from eplus_gym_app.load_profiles import (
     load_closeness_table,
     peak_day_bas_profile,
 )
-from eplus_gym_app.period_explorer import PERIOD_PRESETS, period_overlay
+from eplus_gym_app.gl14_monthly import champion_gl14_monthly
+from eplus_gym_app.period_explorer import (
+    PERIOD_PRESETS,
+    locked_calibration_window,
+    period_overlay,
+)
 from eplus_gym_app.pickers import list_bill_csvs_near
 from eplus_gym_app.plots import (
     demand_vs_oat_figure,
     dial_progression_figure,
     fuel_monthly_figure,
+    gl14_monthly_kwh_figure,
+    gl14_monthly_pct_figure,
+    gl14_monthly_peak_figure,
     peak_day_profile_figure,
     period_overlay_figure,
 )
@@ -61,6 +69,12 @@ def _fmt_pct(x: float | None) -> str:
 
 
 def _fmt_kw(x: float | None) -> str:
+    if x is None or x != x:
+        return "—"
+    return f"{x:.0f}"
+
+
+def _fmt_kwh(x: float | None) -> str:
     if x is None or x != x:
         return "—"
     return f"{x:.0f}"
@@ -169,10 +183,19 @@ def _render_calibration_tab(
     if gl14_rows:
         st.dataframe(pd.DataFrame(gl14_rows), width="stretch")
 
-    st.subheader("Fuel (billing campus)")
-    if campus is None:
-        st.warning("No vibe20 campus on the published pack.")
-    else:
+    st.subheader("GL14 fuel bills · Actual vs EnergyPlus")
+    st.caption(
+        "Utility bills vs published A04 W2A monthly facility (eplusmtr). "
+        "Not a DSM strategy run and not the IdealLoads C02 / structural farm."
+    )
+    elec = campus.electric_monthly() if campus is not None else pd.DataFrame()
+    pairs = champion_gl14_monthly(bundle, active, campus_elec=elec if not elec.empty else None)
+    has_pairs = (
+        not pairs.empty
+        and pairs["kwh_obs"].notna().any()
+        and pairs["kwh_sim"].notna().any()
+    )
+    if campus is not None:
         campus_path = bundle.campus.source
         st.caption(
             f"**{campus.label}** (`{campus.campus_id}`) · source=`{campus_path.name}`"
@@ -180,13 +203,65 @@ def _render_calibration_tab(
         bills = list_bill_csvs_near(campus_path)
         if bills:
             st.caption("Bill CSVs: " + ", ".join(p.name for p in bills))
-        elec = campus.electric_monthly()
+    if has_pairs:
+        plot_pairs = pairs.dropna(subset=["kwh_obs", "kwh_sim"])
+        months = [
+            str(m)
+            for m in plot_pairs["month"].astype(str).tolist()
+            if m and m != "nan"
+        ]
+        pick = months[-1] if months else None
+        if months:
+            default_fuel = (
+                bundle.dial_ladder.peak_day[:7]
+                if bundle.dial_ladder.peak_day[:7] in months
+                else months[-1]
+            )
+            pick = st.select_slider(
+                "Billing month",
+                options=months,
+                value=default_fuel,
+                key="cal_fuel_month",
+            )
+        sim_id = str(pairs["sim_id"].dropna().iloc[0]) if "sim_id" in pairs.columns else "A04"
+        if pick:
+            row = pairs.loc[pairs["month"].astype(str) == pick]
+            if not row.empty:
+                r0 = row.iloc[0]
+                f1, f2, f3, f4 = st.columns(4)
+                f1.metric("Bill kWh", _fmt_kwh(r0.get("kwh_obs")))
+                f2.metric("E+ kWh", _fmt_kwh(r0.get("kwh_sim")))
+                f3.metric("E+ vs bill kWh", _fmt_pct(r0.get("pct_error")))
+                peak_pct = None
+                obs_p, sim_p = r0.get("peak_kw_obs"), r0.get("peak_kw_sim")
+                if obs_p == obs_p and sim_p == sim_p and obs_p not in (None, 0):
+                    peak_pct = 100.0 * (float(sim_p) - float(obs_p)) / float(obs_p)
+                f4.metric("E+ vs bill peak", _fmt_pct(peak_pct))
+        st.plotly_chart(
+            gl14_monthly_kwh_figure(plot_pairs, highlight=pick, sim_id=sim_id),
+            width="stretch",
+        )
+        st.plotly_chart(
+            gl14_monthly_peak_figure(plot_pairs, highlight=pick, sim_id=sim_id),
+            width="stretch",
+        )
+        st.plotly_chart(
+            gl14_monthly_pct_figure(plot_pairs, highlight=pick, sim_id=sim_id),
+            width="stretch",
+        )
+        show = pairs.drop(columns=["sim_id"], errors="ignore")
+        st.dataframe(show.round(2), width="stretch", hide_index=True)
+    elif campus is not None and not elec.empty:
+        st.info("No published A04 monthly E+ meter table on this pack — bills only.")
         st.plotly_chart(
             fuel_monthly_figure(elec, title=f"{campus.label} · monthly electric"),
             width="stretch",
         )
-        if not elec.empty:
-            st.dataframe(elec, width="stretch", hide_index=True)
+        st.dataframe(elec, width="stretch", hide_index=True)
+    elif campus is None:
+        st.warning("No vibe20 campus on the published pack.")
+    else:
+        st.info("No monthly utility bills or published A04 monthly E+ on this pack.")
 
     try:
         bas = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
@@ -248,30 +323,55 @@ def _render_calibration_tab(
     st.subheader("Actual vs champion (published dial)")
     st.caption(
         "Interval meter vs published A04 dial sim from the pack. "
-        "Not a DSM strategy run and not the structural IdealLoads farm."
+        "Not a DSM strategy run and not the structural IdealLoads farm. "
+        "Period is locked to the last **Run DSM** window (change it there and Run)."
     )
+    from eplus_gym_app.dsm_console import load_last_run_meta
+
+    last = st.session_state.get("dsm_last")
+    if not last:
+        try:
+            last = load_last_run_meta(bundle)
+        except Exception:  # noqa: BLE001
+            last = None
+    lock = locked_calibration_window(
+        bas,
+        peak_day=peak_day,
+        last=last if isinstance(last, dict) else None,
+        session_preset=st.session_state.get("dsm_period"),
+        session_month=st.session_state.get("dsm_month"),
+    )
+    preset = lock["preset"] if lock["preset"] in PERIOD_PRESETS else "Peak day"
+    month = lock["month"]
+    bas_months = sorted({str(d)[:7] for d in bas["local_day"].astype(str)})
+    month_opts = list(bas_months) or ["2026-01"]
+    show_m = month if month in month_opts else month_opts[0]
+    st.session_state["cal_locked_period"] = preset
+    st.session_state["cal_locked_month"] = show_m
     c_a, c_b = st.columns([2, 1])
     with c_a:
-        preset = st.select_slider(
+        st.select_slider(
             "Period",
             options=list(PERIOD_PRESETS),
-            value="Peak day",
-            key="period_preset",
+            key="cal_locked_period",
+            disabled=True,
         )
     with c_b:
-        bas_months = sorted({str(d)[:7] for d in bas["local_day"].astype(str)})
-        month_opts = list(bas_months)
-        default_m = (
-            bundle.dial_ladder.peak_day[:7]
-            if bundle.dial_ladder.peak_day[:7] in month_opts
-            else (month_opts[0] if month_opts else "2026-01")
-        )
-        month = st.selectbox(
+        st.selectbox(
             "Month (for Calendar month)",
-            month_opts or ["2026-01"],
-            index=(month_opts.index(default_m) if default_m in month_opts else 0),
-            key="period_month",
-            disabled=preset != "Calendar month",
+            month_opts,
+            key="cal_locked_month",
+            disabled=True,
+        )
+    if lock["locked"]:
+        st.info(
+            f"Locked to last Run DSM · **{preset}** · `{lock['period']}` · "
+            f"**{len(lock['days'])}** days."
+        )
+    else:
+        st.caption(
+            f"Follows the Run DSM tab (**{preset}** · `{lock['period']}`). "
+            "Run a sim to lock this window."
         )
     period = period_overlay(
         bundle,
@@ -279,15 +379,17 @@ def _render_calibration_tab(
         preset=preset,
         month=month if preset == "Calendar month" else None,
         bas_csv=bundle.bas_demand_oat_csv,
+        days=lock["days"],
     )
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Days in window", period["n_days"])
     k2.metric("Actual peak kW", _fmt_kw(period["actual_peak_kw"]))
-    k3.metric(
-        f"{period.get('sim_id') or 'Sim'} peak kW",
-        _fmt_kw(period["sim_peak_kw"]),
-    )
-    k4.metric("Sim vs Actual", _fmt_pct(period.get("pct_vs_actual")))
+    k3.metric("E+ peak kW", _fmt_kw(period["sim_peak_kw"]))
+    k4.metric("E+ vs Actual peak", _fmt_pct(period.get("pct_vs_actual_peak")))
+    e1, e2, e3 = st.columns(3)
+    e1.metric("Actual kWh", _fmt_kwh(period.get("actual_kwh")))
+    e2.metric("E+ kWh", _fmt_kwh(period.get("sim_kwh")))
+    e3.metric("E+ vs Actual kWh", _fmt_pct(period.get("pct_vs_actual_kwh")))
     if period.get("sim") is None or (
         hasattr(period.get("sim"), "empty") and period["sim"].empty
     ):

@@ -91,6 +91,145 @@ def fuel_monthly_figure(elec: pd.DataFrame, *, title: str = "Monthly electric") 
     return fig
 
 
+def gl14_monthly_kwh_figure(
+    pairs: pd.DataFrame,
+    *,
+    highlight: str | None = None,
+    sim_id: str = "A04",
+) -> go.Figure:
+    """Utility-bill kWh vs published E+ monthly facility kWh."""
+    fig = go.Figure()
+    if pairs is None or pairs.empty:
+        fig.update_layout(
+            title="No monthly bill ↔ E+ pairs",
+            template="plotly_white",
+            height=380,
+        )
+        return fig
+    work = pairs.dropna(subset=["month"]).copy()
+    xs = work["month"].astype(str).tolist()
+    if "kwh_obs" in work.columns and work["kwh_obs"].notna().any():
+        fig.add_trace(
+            go.Bar(
+                x=xs,
+                y=work["kwh_obs"],
+                name="Actual (utility bill)",
+                marker_color="#1f2a30",
+            )
+        )
+    if "kwh_sim" in work.columns and work["kwh_sim"].notna().any():
+        fig.add_trace(
+            go.Bar(
+                x=xs,
+                y=work["kwh_sim"],
+                name=f"E+ {sim_id}",
+                marker_color="#e76f51",
+            )
+        )
+    if highlight and highlight in xs:
+        fig.add_vline(x=highlight, line_dash="dot", line_color="#6c757d")
+    fig.update_layout(
+        title=f"GL14 monthly kWh · bills vs E+ {sim_id}",
+        barmode="group",
+        xaxis_title="Month",
+        yaxis_title="kWh",
+        template="plotly_white",
+        height=400,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def gl14_monthly_peak_figure(
+    pairs: pd.DataFrame,
+    *,
+    highlight: str | None = None,
+    sim_id: str = "A04",
+) -> go.Figure:
+    """Billed / interval peak kW vs E+ monthly max hourly kW."""
+    fig = go.Figure()
+    if pairs is None or pairs.empty:
+        fig.update_layout(
+            title="No monthly peak pairs",
+            template="plotly_white",
+            height=360,
+        )
+        return fig
+    work = pairs.dropna(subset=["month"]).copy()
+    xs = work["month"].astype(str).tolist()
+    if "peak_kw_obs" in work.columns and work["peak_kw_obs"].notna().any():
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=work["peak_kw_obs"],
+                mode="lines+markers",
+                name="Actual peak kW",
+                line=dict(color="#1f2a30", width=2),
+            )
+        )
+    if "peak_kw_sim" in work.columns and work["peak_kw_sim"].notna().any():
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=work["peak_kw_sim"],
+                mode="lines+markers",
+                name=f"E+ {sim_id} peak kW",
+                line=dict(color="#e76f51", width=2),
+            )
+        )
+    if highlight and highlight in xs:
+        fig.add_vline(x=highlight, line_dash="dot", line_color="#6c757d")
+    fig.update_layout(
+        title=f"Monthly peak kW · bills vs E+ {sim_id}",
+        xaxis_title="Month",
+        yaxis_title="kW",
+        template="plotly_white",
+        height=360,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def gl14_monthly_pct_figure(
+    pairs: pd.DataFrame,
+    *,
+    highlight: str | None = None,
+    sim_id: str = "A04",
+) -> go.Figure:
+    """Month ±% (E+ − bill) / bill."""
+    fig = go.Figure()
+    if pairs is None or pairs.empty or "pct_error" not in pairs.columns:
+        fig.update_layout(
+            title="No monthly % error",
+            template="plotly_white",
+            height=320,
+        )
+        return fig
+    work = pairs.dropna(subset=["month", "pct_error"]).copy()
+    colors = ["#2a9d8f" if v <= 0 else "#e76f51" for v in work["pct_error"]]
+    fig.add_trace(
+        go.Bar(
+            x=work["month"].astype(str),
+            y=work["pct_error"],
+            name=f"E+ {sim_id} vs bill",
+            marker_color=colors,
+        )
+    )
+    fig.add_hline(y=5.0, line_dash="dot", line_color="#6c757d")
+    fig.add_hline(y=-5.0, line_dash="dot", line_color="#6c757d")
+    if highlight:
+        fig.add_vline(x=highlight, line_dash="dot", line_color="#6c757d")
+    fig.update_layout(
+        title=f"GL14 monthly % off · E+ {sim_id} vs utility bill",
+        xaxis_title="Month",
+        yaxis_title="% (sim − bill) / bill",
+        template="plotly_white",
+        height=320,
+        showlegend=False,
+    )
+    return fig
+
+
 def period_overlay_figure(overlay: Mapping[str, Any]) -> go.Figure:
     """Actual BAS vs one selected dial model over a period (clear 2-series legend)."""
     fig = go.Figure()

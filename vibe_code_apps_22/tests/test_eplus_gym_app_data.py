@@ -230,8 +230,19 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert len(at.dataframe) >= 1
     def _copy() -> str:
         blobs = []
-        for attr in ("caption", "markdown", "info", "warning", "text"):
+        for attr in (
+            "caption",
+            "markdown",
+            "info",
+            "warning",
+            "text",
+            "metric",
+            "header",
+            "subheader",
+            "title",
+        ):
             for w in getattr(at, attr, []):
+                blobs.append(str(getattr(w, "label", "")))
                 blobs.append(str(getattr(w, "value", w)))
         return " ".join(blobs)
 
@@ -267,3 +278,9 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     cal = _copy()
     assert "Weekday closeness % (electric kW)" in cal
     assert "Weekend closeness % (electric kW)" in cal
+    assert "E+ peak kW" in cal
+    assert "E+ kWh" in cal
+    assert "E+ vs Actual peak" in cal
+    assert "E+ vs Actual kWh" in cal
+    assert "GL14 fuel bills" in cal
+    assert "Locked to last Run DSM" in cal or "Follows the Run DSM tab" in cal

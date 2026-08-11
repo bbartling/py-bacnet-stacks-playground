@@ -480,6 +480,18 @@ def last_run_pointer(site: Path) -> Path:
     return Path(site) / "reports" / "eplus_gym" / "last_dsm_run.json"
 
 
+def load_last_run_meta(bundle: SiteUiBundle) -> dict[str, Any] | None:
+    """Pointer JSON only (preset / window_days). Does not require parquets."""
+    ptr = last_run_pointer(bundle.site)
+    if not ptr.is_file():
+        return None
+    try:
+        doc = json.loads(ptr.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
 def persist_last_run(
     site: Path,
     *,

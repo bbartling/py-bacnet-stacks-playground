@@ -226,6 +226,75 @@ def resolve_dial_sim(
     return None
 
 
+def series_energy_kwh(df: pd.DataFrame | None, *, kw_col: str = "kw") -> float:
+    """Integrate a kW series to kWh using median timestep (hours)."""
+    if df is None or getattr(df, "empty", True) or kw_col not in df.columns:
+        return float("nan")
+    work = df.dropna(subset=[kw_col])
+    if work.empty:
+        return float("nan")
+    dt_h = 1.0
+    if "t_hours" in work.columns and len(work) >= 2:
+        delta = work["t_hours"].astype(float).sort_values().diff().median()
+        if delta is not None and delta == delta and float(delta) > 0:
+            dt_h = float(delta)
+    return float(work[kw_col].sum() * dt_h)
+
+
+def _pct_off(sim: float, actual: float) -> float:
+    if not np.isfinite(sim) or not np.isfinite(actual) or not actual:
+        return float("nan")
+    return 100.0 * (sim - actual) / actual
+
+
+def locked_calibration_window(
+    bas: pd.DataFrame,
+    *,
+    peak_day: str,
+    last: dict[str, Any] | None,
+    session_preset: str | None,
+    session_month: str | None,
+) -> dict[str, Any]:
+    """Period for Calibration: last Run DSM window, else the Run DSM widgets."""
+    if last:
+        days = [str(d)[:10] for d in (last.get("window_days") or []) if d]
+        preset = str(last.get("preset") or session_preset or "Peak day")
+        month = session_month
+        if preset == "Calendar month":
+            if last.get("period"):
+                month = str(last["period"])[:7]
+            elif days:
+                month = days[0][:7]
+        if not days:
+            days = days_for_period(
+                bas, preset=preset, peak_day=str(last.get("day") or peak_day), month=month
+            )
+        if days:
+            begin, end = days[0], days[-1]
+            return {
+                "preset": preset,
+                "month": month,
+                "days": days,
+                "locked": True,
+                "source": "last_dsm_run",
+                "period": str(last.get("period") or f"{begin}/{end}"),
+            }
+
+    preset = str(session_preset or "Peak day")
+    month = session_month
+    days = days_for_period(bas, preset=preset, peak_day=peak_day, month=month)
+    begin = days[0] if days else ""
+    end = days[-1] if days else ""
+    return {
+        "preset": preset,
+        "month": month,
+        "days": days,
+        "locked": False,
+        "source": "run_dsm_widgets",
+        "period": f"{begin}/{end}" if begin else "",
+    }
+
+
 def period_overlay(
     bundle: SiteUiBundle,
     active: ModelCatalogEntry | None,
@@ -233,26 +302,33 @@ def period_overlay(
     preset: str,
     month: str | None = None,
     bas_csv: Path | None = None,
+    days: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Actual BAS + selected dial model for a BOPTEST-style period."""
     bas = load_bas_demand_oat(bundle, csv_path=bas_csv)
     peak_day = bundle.dial_ladder.peak_day
-    days = days_for_period(bas, preset=preset, peak_day=peak_day, month=month)
-    actual = bas_period_frame(bas, days)
+    day_list = [str(d)[:10] for d in days if d] if days else []
+    if not day_list:
+        day_list = days_for_period(bas, preset=preset, peak_day=peak_day, month=month)
+    actual = bas_period_frame(bas, day_list)
 
     pin = resolve_dial_sim(bundle, active)
     sim_df: pd.DataFrame | None = None
     if pin and pin.sim_dir is not None:
-        sim_df = facility_kw_for_days(pin.sim_dir, days)
+        sim_df = facility_kw_for_days(pin.sim_dir, day_list)
 
     util = bundle.dial_ladder.utility_peak_kw
     actual_peak = float(actual["kw"].max()) if not actual.empty else float("nan")
     sim_peak = float(sim_df["kw"].max()) if sim_df is not None and not sim_df.empty else float("nan")
+    actual_kwh = series_energy_kwh(actual)
+    sim_kwh = series_energy_kwh(sim_df)
+    pct_peak = _pct_off(sim_peak, actual_peak)
+    pct_kwh = _pct_off(sim_kwh, actual_kwh)
 
     return {
         "preset": preset,
-        "days": days,
-        "n_days": len(days),
+        "days": day_list,
+        "n_days": len(day_list),
         "peak_day_anchor": peak_day,
         "actual": actual,
         "sim": sim_df,
@@ -262,11 +338,11 @@ def period_overlay(
         "utility_peak_kw": util,
         "actual_peak_kw": actual_peak,
         "sim_peak_kw": sim_peak,
-        "pct_vs_actual": (
-            100.0 * (sim_peak - actual_peak) / actual_peak
-            if np.isfinite(sim_peak) and np.isfinite(actual_peak) and actual_peak
-            else float("nan")
-        ),
+        "actual_kwh": actual_kwh,
+        "sim_kwh": sim_kwh,
+        "pct_vs_actual": pct_peak,
+        "pct_vs_actual_peak": pct_peak,
+        "pct_vs_actual_kwh": pct_kwh,
         "honesty_bas": bundle.honesty.get("bas", "BAS_INTERVAL_METER"),
         "honesty_model": (
             active.family if active else bundle.honesty.get("dial_ladder", "W2A_PHYSICAL_DSM")

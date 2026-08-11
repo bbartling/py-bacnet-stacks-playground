@@ -6,7 +6,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from eplus_gym_app.period_explorer import days_for_period, facility_kw_for_days
+from eplus_gym_app.period_explorer import (
+    days_for_period,
+    facility_kw_for_days,
+    locked_calibration_window,
+    series_energy_kwh,
+)
 from eplus_gym_app.site_bundle import load_site_ui_bundle
 
 
@@ -33,6 +38,29 @@ def test_days_peak_week_contains_peak():
     assert "2026-01-26" in days
     assert len(days) >= 1
     assert len(days) <= 7
+
+
+def test_series_energy_kwh_hourly():
+    df = pd.DataFrame({"t_hours": [0.0, 1.0, 2.0], "kw": [100.0, 200.0, 100.0]})
+    assert series_energy_kwh(df) == pytest.approx(400.0)
+
+
+def test_locked_window_prefers_last_run():
+    bas = _bas_frame()
+    lock = locked_calibration_window(
+        bas,
+        peak_day="2026-01-26",
+        last={
+            "preset": "Winter (Dec–Feb)",
+            "period": "2025-12-01/2026-02-28",
+            "window_days": ["2025-12-15", "2026-01-26", "2026-02-01"],
+        },
+        session_preset="Peak day",
+        session_month="2026-01",
+    )
+    assert lock["locked"] is True
+    assert lock["preset"] == "Winter (Dec–Feb)"
+    assert lock["days"] == ["2025-12-15", "2026-01-26", "2026-02-01"]
 
 
 def test_days_winter_includes_dec_jan_feb():
@@ -82,3 +110,5 @@ def test_period_overlay_a04_peak_day_smoke(monkeypatch: pytest.MonkeyPatch):
     assert ov["actual_peak_kw"] < 400
     if ov["sim"] is not None and not ov["sim"].empty:
         assert ov["sim_peak_kw"] < 400  # not IdealLoads 500+ farm junk
+        assert ov["sim_kwh"] == ov["sim_kwh"]
+        assert ov["actual_kwh"] == ov["actual_kwh"]
