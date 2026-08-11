@@ -14,6 +14,10 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
+
+pd.options.mode.copy_on_write = True
+
 # Allow running from repo root or scripts/
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -66,7 +70,13 @@ def main(argv: list[str] | None = None) -> int:
         "--export-profile",
         choices=("summary", "diagnostic", "forensic"),
         default="summary",
-        help="WattLab dump evidence profile (default: summary)",
+        help="Engineering bundle evidence profile (default: summary)",
+    )
+    parser.add_argument(
+        "--schedule",
+        type=str,
+        default=None,
+        help="OccupancySchedule JSON (Gate 0 calendar lock)",
     )
     args = parser.parse_args(argv)
 
@@ -110,7 +120,23 @@ def main(argv: list[str] | None = None) -> int:
         nonempty = int((run.rcx_coverage["row_count"] > 0).sum()) if not run.rcx_coverage.empty else 0
         print(f"RCx coverage: {nonempty}/{len(run.rcx_coverage)} presets with data")
 
-    written = export_agent_bundle(dataset, run, args.out, profile=args.export_profile)
+    occupancy_schedule = None
+    if args.schedule:
+        sp = Path(args.schedule)
+        if not sp.is_file():
+            raise SystemExit(f"--schedule file not found: {sp}")
+        occupancy_schedule = json.loads(sp.read_text(encoding="utf-8"))
+        if not isinstance(occupancy_schedule, dict):
+            raise SystemExit("--schedule must be a JSON object")
+
+    written = export_agent_bundle(
+        dataset,
+        run,
+        args.out,
+        profile=args.export_profile,
+        include_bootstrap=not args.no_bootstrap,
+        occupancy_schedule=occupancy_schedule,
+    )
     if args.no_bootstrap:
         # Remove default bootstrap if export wrote it
         from app.bootstrap import default_bootstrap_path

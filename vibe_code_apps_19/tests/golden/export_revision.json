@@ -1,0 +1,9 @@
+{
+  "application": "vibe19-fdd-demo",
+  "application_version": "0.2.0",
+  "open_fdd_version": "4.3.0",
+  "bundle_schema": "openfdd_engineering_bundle_v1",
+  "legacy_bundle_schema": "wattlab_dump_v3",
+  "rule_catalog_hash": "5acedd0ddc0bd91e0307539c4f029683197c995fdabb111412b760e74568d274",
+  "note": "streamlit_application_git_sha is recorded at export time in MANIFEST provenance"
+}

@@ -41,6 +41,7 @@ BROWSER_UPLOAD_MB = 500  # Streamlit file_uploader / YouTube demos
 # Real buildings: ~50 equip × (csv + columns + map) + weather + dirs ≈ 250–400 entries.
 DEFAULT_MAX_ENTRIES = 2000
 DEFAULT_MAX_EQUIPMENT = 100
+MAX_COMPRESSION_RATIO = 100.0
 
 
 class PackageError(ValueError):
@@ -337,7 +338,7 @@ def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
         if info.file_size < 0 or info.compress_size < 0:
             raise PackageError("Invalid zip entry sizes")
         # Compression bomb heuristic
-        if info.compress_size > 0 and info.file_size / max(info.compress_size, 1) > 100:
+        if info.compress_size > 0 and info.file_size / max(info.compress_size, 1) > MAX_COMPRESSION_RATIO:
             raise PackageError(f"Suspicious compression ratio: {info.filename}")
         total += int(info.file_size)
         if total > caps.max_uncompressed_bytes:

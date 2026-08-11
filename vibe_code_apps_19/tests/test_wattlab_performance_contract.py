@@ -65,7 +65,8 @@ def test_summary_file_count_below_cartesian_product(tmp_path: Path):
     assert _VIBE20_REQUIRED <= names
 
     manifest = json.loads((tmp_path / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "wattlab_dump_v3"
+    assert manifest["schema_version"] == "openfdd_engineering_bundle_v1"
+    assert manifest.get("legacy_schema_version") == "wattlab_dump_v3"
     assert "stage_seconds" in manifest
     assert "stage_scope" in manifest
     assert "result_status_counts" in manifest
@@ -107,8 +108,9 @@ def test_profiler_before_after_schema_includes_suppressed(tmp_path: Path):
     dataset, run = build_profile_fixture()
     cartesian = len(RULES) * len(dataset.frames)
     assert after["file_count"] < cartesian
-    assert after["file_count"] <= before["file_count"]
-    assert after["per_rule_timeseries_count"] < before["per_rule_timeseries_count"]
+    # Bundle v1 adds parquet twins + catalog/quality/readiness; still no Cartesian TS.
+    assert after["per_rule_timeseries_count"] <= before["per_rule_timeseries_count"]
+    assert after["per_rule_timeseries_count"] == 0
 
     # Simulate CLI --baseline merge shape
     payload = {
@@ -155,6 +157,20 @@ def test_profiler_suppressed_zero_not_overridden_by_fallback():
     ]
     assert resolve_suppressed_combinations({}, results=results) == 1
     assert resolve_suppressed_combinations({"files_suppressed": 5}, results=results) == 5
+
+
+def test_export_wall_clock_is_environment_tolerant(tmp_path: Path, monkeypatch):
+    """Soft timing: only assert when VIBE19_ASSERT_EXPORT_MAX_S is set."""
+    import os
+    import time
+
+    dataset, run = build_profile_fixture()
+    t0 = time.perf_counter()
+    export_agent_bundle(dataset, run, tmp_path, include_bootstrap=False, profile="summary")
+    elapsed = time.perf_counter() - t0
+    raw = os.environ.get("VIBE19_ASSERT_EXPORT_MAX_S", "").strip()
+    if raw:
+        assert elapsed <= float(raw)
 
 
 def test_summary_retains_sensor_setpoint_model_seed_artifacts(tmp_path: Path):

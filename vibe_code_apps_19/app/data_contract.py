@@ -36,9 +36,12 @@ class TopologyHealth(BaseModel):
     mapped_count: int = 0
     missing_map_count: int = 0
     stale_map_id_count: int = 0
+    observed_map_count: int = 0
+    materialized_map_count: int = 0
     coverage_pct: float = 100.0
     missing_samples: list[str] = Field(default_factory=list)
     stale_samples: list[str] = Field(default_factory=list)
+    observed_samples: list[str] = Field(default_factory=list)
 
 
 class ColumnsHealth(BaseModel):
@@ -50,6 +53,8 @@ class ColumnsHealth(BaseModel):
 class QualityHealth(BaseModel):
     equipment_flagged: int = 0
     samples: list[str] = Field(default_factory=list)
+    sentinel_invalid_count: int = 0
+    plausibility_issue_count: int = 0
 
 
 class PackageHealthReport(BaseModel):
@@ -211,8 +216,18 @@ def audit_quality_window(
     return warnings, issues
 
 
+_VAV_COL_ALIASES = ("vav", "vav_id", "terminal", "equipment_id", "vav_key")
+_AHU_COL_ALIASES = ("parent_ahu", "ahu", "ahu_id", "parent", "serves")
+_NEVER_AHU_COLS = frozenset({"tower", "floor", "history_column", "data_file", "vav_key"})
+
+
 def load_vav_to_ahu_map(building_root: Path) -> dict[str, str]:
-    """Return VAV id → AHU id from optional ``vav_to_ahu_simple.csv``."""
+    """Return VAV id → AHU id from optional ``vav_to_ahu_simple.csv``.
+
+    ``parent_ahu`` is a first-class AHU column. Positional fallback is used only
+    when neither VAV nor AHU columns resolved — never overwrite a found
+    ``vav_id`` with column 0 (that mapped AHU ids onto tower numbers).
+    """
     path = Path(building_root) / "vav_to_ahu_simple.csv"
     if not path.is_file():
         return {}
@@ -220,20 +235,29 @@ def load_vav_to_ahu_map(building_root: Path) -> dict[str, str]:
         topo = pd.read_csv(path)
     except Exception:
         return {}
-    cols = {c.lower(): c for c in topo.columns}
-    vav_col = cols.get("vav") or cols.get("vav_id") or cols.get("terminal") or cols.get("equipment_id")
-    ahu_col = cols.get("ahu") or cols.get("ahu_id") or cols.get("parent") or cols.get("serves")
+    cols = {str(c).lower(): c for c in topo.columns}
+    vav_col = next((cols[a] for a in _VAV_COL_ALIASES if a in cols), None)
+    ahu_col = next((cols[a] for a in _AHU_COL_ALIASES if a in cols), None)
+    if not vav_col and not ahu_col and topo.shape[1] >= 2:
+        first, second = topo.columns[0], topo.columns[1]
+        if str(second).lower() not in _NEVER_AHU_COLS:
+            vav_col, ahu_col = first, second
     if not vav_col or not ahu_col:
-        if topo.shape[1] >= 2:
-            vav_col, ahu_col = topo.columns[0], topo.columns[1]
-        else:
-            return {}
+        return {}
+    if str(ahu_col).lower() in _NEVER_AHU_COLS:
+        return {}
     out: dict[str, str] = {}
+    skip_v = {"vav", "vav_id", "nan", "vav_key", ""}
+    skip_a = {"ahu", "ahu_id", "parent_ahu", "nan", ""}
     for _, row in topo.iterrows():
         v = str(row[vav_col]).strip()
         a = str(row[ahu_col]).strip()
-        if v and a and v.lower() not in {"vav", "vav_id", "nan"}:
-            out[v] = a
+        if not v or not a or v.lower() in skip_v or a.lower() in skip_a:
+            continue
+        # Tower / floor numbers must never become an AHU id.
+        if a.isdigit() or str(a).lower() in {"tower", "floor"}:
+            continue
+        out[v] = a
     return out
 
 
@@ -270,7 +294,10 @@ def audit_building_topology(
     vav_set = set(vav_ids)
 
     missing_topo = sorted(v for v in vav_ids if v not in topo)
-    orphan_topo = sorted(v for v in topo if v not in vav_set)
+    unmatched = sorted(v for v in topo if v not in vav_set)
+    # Virtual/observed rows (look like VAVs, no folder) are not stale equipment.
+    observed = [v for v in unmatched if v.upper().startswith("VAV")]
+    stale = [v for v in unmatched if not v.upper().startswith("VAV")]
     mapped = len(vav_ids) - len(missing_topo)
     coverage = (100.0 * mapped / len(vav_ids)) if vav_ids else 100.0
 
@@ -278,10 +305,13 @@ def audit_building_topology(
         vav_folder_count=len(vav_ids),
         mapped_count=mapped,
         missing_map_count=len(missing_topo),
-        stale_map_id_count=len(orphan_topo),
+        stale_map_id_count=len(stale),
+        observed_map_count=len(observed),
+        materialized_map_count=mapped,
         coverage_pct=round(coverage, 1),
         missing_samples=missing_topo[:12],
-        stale_samples=orphan_topo[:12],
+        stale_samples=stale[:12],
+        observed_samples=observed[:12],
     )
 
     if missing_topo:
@@ -301,26 +331,37 @@ def audit_building_topology(
             )
         )
 
-    if orphan_topo:
-        preview, extra = _preview(orphan_topo)
+    if observed:
+        preview, extra = _preview(observed)
         msg = (
-            f"Topology: {len(orphan_topo)} vav_to_ahu_simple.csv id(s) have no VAV folder: "
-            f"{preview}{extra}"
+            f"Topology: {len(observed)} observed/virtual VAV relationship(s) have no VAV folder "
+            f"(not stale equipment): {preview}{extra}"
         )
         warnings.append(msg)
-        # Non-VAV ids in the VAV column are a stronger signal of a bad export
-        severity: Severity = (
-            "error"
-            if any(not s.upper().startswith("VAV") for s in orphan_topo)
-            else "warn"
+        issues.append(
+            ContractIssue(
+                code="topology.observed_map_ids",
+                severity="info",
+                message=msg,
+                count=len(observed),
+                samples=observed[:12],
+            )
         )
+
+    if stale:
+        preview, extra = _preview(stale)
+        msg = (
+            f"Topology: {len(stale)} vav_to_ahu_simple.csv id(s) are not VAV equipment "
+            f"and have no VAV folder: {preview}{extra}"
+        )
+        warnings.append(msg)
         issues.append(
             ContractIssue(
                 code="topology.stale_map_ids",
-                severity=severity,
+                severity="error",
                 message=msg,
-                count=len(orphan_topo),
-                samples=orphan_topo[:12],
+                count=len(stale),
+                samples=stale[:12],
             )
         )
     return warnings, topo, health, issues
@@ -479,6 +520,8 @@ def audit_package_dir(
     col_samples: list[str] = []
     quality_equip: set[str] = set()
     quality_samples: list[str] = []
+    sentinel_invalid = 0
+    plausibility_issues = 0
 
     for eid, df in frames.items():
         eq = by_id.get(eid)
@@ -505,6 +548,37 @@ def audit_package_dir(
                 if len(quality_samples) < 8:
                     quality_samples.append(eid)
 
+        try:
+            from open_fdd.quality import assess_frame
+
+            fq = assess_frame(df)
+            df.attrs["frame_quality"] = fq.summary()
+            # Do not keep FrameQuality on attrs — it holds raw/normalized
+            # copies of every column and OOMs Building 100.
+            reasons = fq.reason_counts or {}
+            sentinel_invalid += int(reasons.get("SENTINEL", 0))
+            plaus = int(reasons.get("IMPOSSIBLE_FOR_ROLE", 0)) + int(reasons.get("OUT_OF_RANGE", 0))
+            plausibility_issues += plaus
+            if fq.invalid_sample_count:
+                quality_equip.add(eid)
+                if len(quality_samples) < 8:
+                    quality_samples.append(eid)
+                issues.append(
+                    ContractIssue(
+                        code="quality.numeric_plausibility",
+                        severity="warn" if plaus or reasons.get("SENTINEL") else "info",
+                        message=(
+                            f"{eid}: {fq.invalid_sample_count} invalid sample(s) "
+                            f"(coverage {fq.valid_coverage:.1%}; reasons={reasons})"
+                        ),
+                        equipment_id=eid,
+                        count=int(fq.invalid_sample_count),
+                        samples=list(reasons)[:8],
+                    )
+                )
+        except Exception:
+            pass
+
     columns_health = ColumnsHealth(
         equipment_with_extras=col_equip,
         total_ignored_points=col_ignored,
@@ -513,6 +587,8 @@ def audit_package_dir(
     quality_health = QualityHealth(
         equipment_flagged=len(quality_equip),
         samples=quality_samples,
+        sentinel_invalid_count=sentinel_invalid,
+        plausibility_issue_count=plausibility_issues,
     )
     health = build_package_health(detail, issues, topology_health, columns_health, quality_health)
     return detail, health
