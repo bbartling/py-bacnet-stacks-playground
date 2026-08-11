@@ -1,0 +1,74 @@
+{
+  "months": [
+    "2026-01",
+    "2026-02"
+  ],
+  "strategies": [
+    "baseline",
+    "flat_24_7",
+    "deep_setback",
+    "stagger_preheat",
+    "morning_all_on"
+  ],
+  "n_scenarios": 295,
+  "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+  "promote": false,
+  "mode": "dry-run",
+  "sample": [
+    {
+      "day": "2026-01-01",
+      "month": "2026-01",
+      "begin": "2026-01-01",
+      "end": "2026-01-01",
+      "arm": "baseline",
+      "strategy_id": "baseline",
+      "control_regime": "baseline",
+      "pair_id": "2026-01-01__baseline",
+      "scenario_id": "2026-01-01_baseline"
+    },
+    {
+      "day": "2026-01-01",
+      "month": "2026-01",
+      "begin": "2026-01-01",
+      "end": "2026-01-01",
+      "arm": "dsm",
+      "strategy_id": "flat_24_7",
+      "control_regime": "flat_24_7",
+      "pair_id": "2026-01-01__flat_24_7",
+      "scenario_id": "2026-01-01_flat_24_7"
+    },
+    {
+      "day": "2026-01-01",
+      "month": "2026-01",
+      "begin": "2026-01-01",
+      "end": "2026-01-01",
+      "arm": "dsm",
+      "strategy_id": "deep_setback",
+      "control_regime": "deep_setback",
+      "pair_id": "2026-01-01__deep_setback",
+      "scenario_id": "2026-01-01_deep_setback"
+    },
+    {
+      "day": "2026-01-01",
+      "month": "2026-01",
+      "begin": "2026-01-01",
+      "end": "2026-01-01",
+      "arm": "dsm",
+      "strategy_id": "stagger_preheat",
+      "control_regime": "stagger_preheat",
+      "pair_id": "2026-01-01__stagger_preheat",
+      "scenario_id": "2026-01-01_stagger_preheat"
+    },
+    {
+      "day": "2026-01-01",
+      "month": "2026-01",
+      "begin": "2026-01-01",
+      "end": "2026-01-01",
+      "arm": "dsm",
+      "strategy_id": "morning_all_on",
+      "control_regime": "morning_all_on",
+      "pair_id": "2026-01-01__morning_all_on",
+      "scenario_id": "2026-01-01_morning_all_on"
+    }
+  ]
+}

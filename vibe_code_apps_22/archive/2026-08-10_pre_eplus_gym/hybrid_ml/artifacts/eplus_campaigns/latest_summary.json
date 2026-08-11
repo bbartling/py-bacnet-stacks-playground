@@ -1,0 +1,255 @@
+{
+  "run_id": "mp_smoke_20260808",
+  "campaign_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\mp_smoke_20260808",
+  "plan_only": false,
+  "run_eplus": true,
+  "smoke": false,
+  "parent_idf_sha256": "169BF9FE007C7A3963ECDE31FDF07D7503DE77B3C91C6F02A468715829A4A7EB",
+  "epw_sha256": "DBFD1148A6627B53A1C6D5BA5E7B5FE7C4733FBE03865873D707D04EE22608D3",
+  "n_planned_executable": 3,
+  "n_executed_attempted": 3,
+  "n_succeeded": 3,
+  "n_failed": 0,
+  "n_rejected": 0,
+  "n_planned_not_counted_as_success": 0,
+  "leaderboard": [
+    {
+      "trial_id": "MP_smoke_0_equip_mult1.0_lights_mult1.0_infil_mult1.0",
+      "knobs": {
+        "equip_mult": 1.0,
+        "lights_mult": 1.0,
+        "infil_mult": 1.0
+      },
+      "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
+      "utility_nmbe_pct": -0.05706675484830945,
+      "utility_cvrmse_pct": 11.44643099093257,
+      "utility_status": "pass",
+      "interval_monthly_status": "pass",
+      "chrono_val_hourly_cvrmse_pct": 92.85772871006984,
+      "chrono_val_hourly_rmse_kw": 80.42028041844341,
+      "chrono_val_hourly_status": "fail",
+      "all_period_hourly_cvrmse_pct": 96.97132546478839,
+      "rank_key": [
+        0,
+        0,
+        62.858
+      ],
+      "ranking_uses_holdout": false,
+      "promote_allowed": false,
+      "promote_block_reasons": [
+        "chrono_val_hourly=fail",
+        "locked_winter_hourly=fail",
+        "zone_temperature_comfort=insufficient_or_fail",
+        "operational_dsm_blocked_no_treatment_effect_evidence"
+      ]
+    },
+    {
+      "trial_id": "MP_smoke_2_equip_mult1.0_lights_mult0.9_infil_mult0.9",
+      "knobs": {
+        "equip_mult": 1.0,
+        "lights_mult": 0.9,
+        "infil_mult": 0.9
+      },
+      "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
+      "utility_nmbe_pct": 7.841065881315752,
+      "utility_cvrmse_pct": 13.815304621434247,
+      "utility_status": "fail",
+      "interval_monthly_status": "fail",
+      "chrono_val_hourly_cvrmse_pct": 86.98649982804761,
+      "chrono_val_hourly_rmse_kw": 75.33544925089099,
+      "chrono_val_hourly_status": "fail",
+      "all_period_hourly_cvrmse_pct": 90.57604142381336,
+      "rank_key": [
+        1,
+        1,
+        59.03
+      ],
+      "ranking_uses_holdout": false,
+      "promote_allowed": false,
+      "promote_block_reasons": [
+        "monthly_utility=fail",
+        "monthly_interval=fail",
+        "chrono_val_hourly=fail",
+        "locked_winter_hourly=fail",
+        "zone_temperature_comfort=insufficient_or_fail",
+        "operational_dsm_blocked_no_treatment_effect_evidence"
+      ]
+    },
+    {
+      "trial_id": "MP_smoke_1_equip_mult0.85_lights_mult0.9_infil_mult1.0",
+      "knobs": {
+        "equip_mult": 0.85,
+        "lights_mult": 0.9,
+        "infil_mult": 1.0
+      },
+      "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
+      "utility_nmbe_pct": 8.898039255886257,
+      "utility_cvrmse_pct": 14.154712241990394,
+      "utility_status": "fail",
+      "interval_monthly_status": "fail",
+      "chrono_val_hourly_cvrmse_pct": 90.2428973263026,
+      "chrono_val_hourly_rmse_kw": 78.15568191866659,
+      "chrono_val_hourly_status": "fail",
+      "all_period_hourly_cvrmse_pct": 93.47898510313058,
+      "rank_key": [
+        1,
+        1,
+        61.762
+      ],
+      "ranking_uses_holdout": false,
+      "promote_allowed": false,
+      "promote_block_reasons": [
+        "monthly_utility=fail",
+        "monthly_interval=fail",
+        "chrono_val_hourly=fail",
+        "locked_winter_hourly=fail",
+        "zone_temperature_comfort=insufficient_or_fail",
+        "operational_dsm_blocked_no_treatment_effect_evidence"
+      ]
+    }
+  ],
+  "utility_monthly_table": [
+    {
+      "trial_id": "MP_smoke_0_equip_mult1.0_lights_mult1.0_infil_mult1.0",
+      "nmbe_pct": -0.05706675484830945,
+      "cvrmse_pct": 11.44643099093257,
+      "status": "pass"
+    },
+    {
+      "trial_id": "MP_smoke_2_equip_mult1.0_lights_mult0.9_infil_mult0.9",
+      "nmbe_pct": 7.841065881315752,
+      "cvrmse_pct": 13.815304621434247,
+      "status": "fail"
+    },
+    {
+      "trial_id": "MP_smoke_1_equip_mult0.85_lights_mult0.9_infil_mult1.0",
+      "nmbe_pct": 8.898039255886257,
+      "cvrmse_pct": 14.154712241990394,
+      "status": "fail"
+    }
+  ],
+  "before_hourly": {
+    "nmbe_pct": 2.789432792798519,
+    "cvrmse_pct": 96.97132546478839,
+    "rmse_kw": 63.92435818498172,
+    "mae_kw": 44.21608463599965,
+    "status": "fail",
+    "n": 8064
+  },
+  "before_utility_trial_specific": {
+    "nmbe_pct": -0.05706675484830945,
+    "cvrmse_pct": 11.44643099093257,
+    "status": "pass",
+    "n": 10
+  },
+  "best_after": {
+    "trial_id": "MP_smoke_0_equip_mult1.0_lights_mult1.0_infil_mult1.0",
+    "knobs": {
+      "equip_mult": 1.0,
+      "lights_mult": 1.0,
+      "infil_mult": 1.0
+    },
+    "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
+    "utility_nmbe_pct": -0.05706675484830945,
+    "utility_cvrmse_pct": 11.44643099093257,
+    "utility_status": "pass",
+    "interval_monthly_status": "pass",
+    "chrono_val_hourly_cvrmse_pct": 92.85772871006984,
+    "chrono_val_hourly_rmse_kw": 80.42028041844341,
+    "chrono_val_hourly_status": "fail",
+    "all_period_hourly_cvrmse_pct": 96.97132546478839,
+    "rank_key": [
+      0,
+      0,
+      62.858
+    ],
+    "ranking_uses_holdout": false,
+    "promote_allowed": false,
+    "promote_block_reasons": [
+      "chrono_val_hourly=fail",
+      "locked_winter_hourly=fail",
+      "zone_temperature_comfort=insufficient_or_fail",
+      "operational_dsm_blocked_no_treatment_effect_evidence"
+    ]
+  },
+  "champion_locked_winter_evaluated_once": {
+    "resolution": "hourly",
+    "status": "fail",
+    "n": 744,
+    "p": 1,
+    "nmbe_pct": 9.52691672139037,
+    "cvrmse_pct": 100.52049882624254,
+    "mean_obs": 113.2137093391577,
+    "gates": {
+      "nmbe_abs_max_pct": 10.0,
+      "cvrmse_max_pct": 30.0
+    },
+    "labeled_as_gl14": false,
+    "partial_year_monthly": false,
+    "formula": "commonly cited calibrated-simulation thresholds (NREL / older G14 practice); ASHRAE G14-2023 text not purchased",
+    "distance_to_gate": 70.52,
+    "rmse_kw": 113.72647915011623,
+    "mae_kw": 91.1981610375997,
+    "mbe_kw": -10.771278795446655,
+    "p_rationale": "p=1 follows common calibrated-simulation reporting (one overall calibration degree of freedom). Not a purchased ASHRAE G14-2023 citation. n and p published with every score.",
+    "period": "locked_winter_holdout"
+  },
+  "structural": {
+    "physics": "IdealLoads + fixed-COP proxy (filename gshp is naming only)",
+    "n_executed_succeeded": 3,
+    "all_succeeded_fail_chrono_val_hourly": true,
+    "verdict": "BOUNDED_SEARCH_FAILED_HOURLY \u2014 IdealLoads+fixed-COP did not meet chrono-validation hourly screen under executed knobs; do not claim GSHP plant fidelity",
+    "recommendation": "A) Build physically meaningful plant/heat-pump model, or B) Restrict E+ to monthly/engineering benchmark; use measured-data ML for absolute facility kW and zone temperatures / grey-box translator",
+    "champion_locked_winter_holdout": {
+      "resolution": "hourly",
+      "status": "fail",
+      "n": 744,
+      "p": 1,
+      "nmbe_pct": 9.52691672139037,
+      "cvrmse_pct": 100.52049882624254,
+      "mean_obs": 113.2137093391577,
+      "gates": {
+        "nmbe_abs_max_pct": 10.0,
+        "cvrmse_max_pct": 30.0
+      },
+      "labeled_as_gl14": false,
+      "partial_year_monthly": false,
+      "formula": "commonly cited calibrated-simulation thresholds (NREL / older G14 practice); ASHRAE G14-2023 text not purchased",
+      "distance_to_gate": 70.52,
+      "rmse_kw": 113.72647915011623,
+      "mae_kw": 91.1981610375997,
+      "mbe_kw": -10.771278795446655,
+      "p_rationale": "p=1 follows common calibrated-simulation reporting (one overall calibration degree of freedom). Not a purchased ASHRAE G14-2023 citation. n and p published with every score.",
+      "period": "locked_winter_holdout"
+    },
+    "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP"
+  },
+  "validation_before_overall": {
+    "monthly_pass": true,
+    "monthly_utility_pass": true,
+    "monthly_interval_pass": true,
+    "hourly_pass": false,
+    "recommendation_allowed": false,
+    "blocker_reason": "hourly=fail",
+    "optimizer_ready": false,
+    "operational_dsm_readiness": "BLOCKED",
+    "operational_dsm_prohibited_until_gates_clear": true
+  },
+  "champion_protected": true,
+  "policy_id": "eplus_dsm_acceptance_policy_v1",
+  "locked_winter_holdout": {
+    "start": "2026-01-01 00:00:00+00:00",
+    "end": "2026-02-01 00:00:00+00:00",
+    "n": 744,
+    "role": "locked_no_tuning_evaluate_once",
+    "chosen_a_priori": true,
+    "rationale": "Full January 2026 locked before any trial ranking (cold-weather DSM)"
+  },
+  "annual_summer_generalization": {
+    "start": "2026-06-03 06:00:00+00:00",
+    "end": "2026-07-03 06:00:00+00:00",
+    "n": 721,
+    "role": "generalization_diagnostic_not_ranking"
+  },
+  "operational_dsm_readiness": "NO-GO"
+}

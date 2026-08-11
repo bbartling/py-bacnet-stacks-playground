@@ -1,0 +1,8 @@
+physics_family=W2A_PHYSICAL_DSM
+honesty=CONTROL_TWIN_LAB_V1
+provenance=SYNTHETIC_W2A_PROVENANCE
+promote=NON_PROMOTABLE
+seed=C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22\models\eplus\lakeside_w2a_a04_dual_champion.idf
+seed_sha256=212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683
+staged=C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22\ml\artifacts\w2a_dsm_lab\idf\w2a_ctl_lab_stagger_preheat_pr0_ts6.idf
+note=SYNTHETIC lab seed copy — not field plant truth

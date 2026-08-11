@@ -1,0 +1,128 @@
+{
+  "iter": 7,
+  "n": 10,
+  "n_pass": 10,
+  "plant_peak_cap_kw": 450.0,
+  "rows": [
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout__i07_ensemble_pair",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 7.269382562928465,
+      "peak_kw": 94.43010212391614,
+      "mae": 7.269382562928465,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout via ensemble_pair",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout",
+      "mutation": "ensemble_pair"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast__i07_wider",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 8.139704632588684,
+      "peak_kw": 100.52981000037583,
+      "mae": 8.139704632588684,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast via wider",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast",
+      "mutation": "wider"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout__i07_deeper",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 8.519644569492096,
+      "peak_kw": 103.56291141898829,
+      "mae": 8.519644569492096,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout via deeper",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout",
+      "mutation": "deeper"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast__i07_more_dropout",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.638739635195105,
+      "peak_kw": 103.69643041268395,
+      "mae": 9.638739635195105,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast via more_dropout",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast",
+      "mutation": "more_dropout"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout__i07_longer_horizon",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 10.066473583113709,
+      "peak_kw": 98.30160966320558,
+      "mae": 10.066473583113709,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout via longer_horizon",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_more_dropout",
+      "mutation": "longer_horizon"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast__i07_ablate_forecast",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 10.747525441157373,
+      "peak_kw": 94.72994133265546,
+      "mae": 10.747525441157373,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast via ablate_forecast",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast",
+      "mutation": "ablate_forecast"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper__i07_lower_lr",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 12.096298080216915,
+      "peak_kw": 97.68120752223042,
+      "mae": 12.096298080216915,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper via lower_lr",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper",
+      "mutation": "lower_lr"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast__i07_weaker_physics",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 12.835990590837843,
+      "peak_kw": 98.11239752766834,
+      "mae": 12.835990590837843,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast via weaker_physics",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider__i06_ablate_forecast",
+      "mutation": "weaker_physics"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper__i07_stronger_physics",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 13.69914661957932,
+      "peak_kw": 96.49128122821361,
+      "mae": 13.69914661957932,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper via stronger_physics",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper",
+      "mutation": "stronger_physics"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper__i07_ablate_strategy",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 14.141801855713817,
+      "peak_kw": 94.18362522764356,
+      "mae": 14.141801855713817,
+      "backend": "sklearn",
+      "theme": "iter7 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper via ablate_strategy",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair__i06_deeper",
+      "mutation": "ablate_strategy"
+    }
+  ]
+}

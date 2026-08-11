@@ -1,0 +1,3900 @@
+{
+  "contract_version": "hybrid_dsm_96_v1",
+  "honesty": "HYBRID_SCREENING",
+  "steps": [
+    {
+      "step_15": 0,
+      "baseline_facility_kw": 56.12139722198301,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.12139722198301,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59620480959718,
+        "zone_temp_1F_B_f": 65.58033185690853,
+        "zone_temp_1F_C_f": 65.77480945892734,
+        "zone_temp_1F_D_f": 63.8770713921278,
+        "zone_temp_2F_A_f": 66.63838640562436,
+        "zone_temp_2F_B_f": 65.89487347563906
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.16145279531051085,
+        "zone_temp_1F_B_f": 0.04492225675760989,
+        "zone_temp_1F_C_f": -0.1545028535860445,
+        "zone_temp_1F_D_f": -0.3418869579847523,
+        "zone_temp_2F_A_f": 0.15648523382239446,
+        "zone_temp_2F_B_f": 0.03287795444952495
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.75765760490769,
+        "zone_temp_1F_B_f": 65.62525411366614,
+        "zone_temp_1F_C_f": 65.6203066053413,
+        "zone_temp_1F_D_f": 63.53518443414305,
+        "zone_temp_2F_A_f": 66.79487163944675,
+        "zone_temp_2F_B_f": 65.92775143008859
+      },
+      "cumulative_kwh_baseline": 14.030349305495752,
+      "cumulative_kwh_hybrid": 14.030349305495752,
+      "running_peak_kw_baseline": 56.12139722198301,
+      "running_peak_kw_hybrid": 56.12139722198301,
+      "running_peak_step_baseline": 0,
+      "running_peak_step_hybrid": 0,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 5
+    },
+    {
+      "step_15": 1,
+      "baseline_facility_kw": 56.12139722198301,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.12139722198301,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.5875856326715,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.823551203160434,
+        "zone_temp_2F_A_f": 66.63838640562436,
+        "zone_temp_2F_B_f": 65.8871164453035
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.36281911219485846,
+        "zone_temp_1F_B_f": 0.0930260708831153,
+        "zone_temp_1F_C_f": -0.2194503377156161,
+        "zone_temp_1F_D_f": -0.5441384454583279,
+        "zone_temp_2F_A_f": 0.4025232036850201,
+        "zone_temp_2F_B_f": 0.1125127422844858
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.95040474486636,
+        "zone_temp_1F_B_f": 65.63974690925161,
+        "zone_temp_1F_C_f": 65.54653333490684,
+        "zone_temp_1F_D_f": 63.279412757702104,
+        "zone_temp_2F_A_f": 67.04090960930938,
+        "zone_temp_2F_B_f": 65.99962918758798
+      },
+      "cumulative_kwh_baseline": 28.060698610991505,
+      "cumulative_kwh_hybrid": 28.060698610991505,
+      "running_peak_kw_baseline": 56.12139722198301,
+      "running_peak_kw_hybrid": 56.12139722198301,
+      "running_peak_step_baseline": 0,
+      "running_peak_step_hybrid": 0,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 10
+    },
+    {
+      "step_15": 2,
+      "baseline_facility_kw": 56.302194663595714,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.302194663595714,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.5875856326715,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.63838640562436,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.4390967776599799,
+        "zone_temp_1F_B_f": 0.09793148680640282,
+        "zone_temp_1F_C_f": -0.24835821431370406,
+        "zone_temp_1F_D_f": -0.7850251955546564,
+        "zone_temp_2F_A_f": 0.4426832182309489,
+        "zone_temp_2F_B_f": 0.11315171468668422
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.02668241033149,
+        "zone_temp_1F_B_f": 65.6446523251749,
+        "zone_temp_1F_C_f": 65.51762545830876,
+        "zone_temp_1F_D_f": 63.01354155106699,
+        "zone_temp_2F_A_f": 67.08106962385531,
+        "zone_temp_2F_B_f": 65.95089614802913
+      },
+      "cumulative_kwh_baseline": 42.13624727689043,
+      "cumulative_kwh_hybrid": 42.13624727689043,
+      "running_peak_kw_baseline": 56.302194663595714,
+      "running_peak_kw_hybrid": 56.302194663595714,
+      "running_peak_step_baseline": 2,
+      "running_peak_step_hybrid": 2,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 15
+    },
+    {
+      "step_15": 3,
+      "baseline_facility_kw": 56.302194663595714,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.302194663595714,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59140177041363,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.481867572353584,
+        "zone_temp_1F_B_f": 0.09549372047498374,
+        "zone_temp_1F_C_f": -0.3873107007059325,
+        "zone_temp_1F_D_f": -0.9159519276118288,
+        "zone_temp_2F_A_f": 0.477867778865506,
+        "zone_temp_2F_B_f": 0.10727333462466193
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.0732693427672,
+        "zone_temp_1F_B_f": 65.64221455884348,
+        "zone_temp_1F_C_f": 65.37867297191652,
+        "zone_temp_1F_D_f": 62.882614819009824,
+        "zone_temp_2F_A_f": 67.10614800565993,
+        "zone_temp_2F_B_f": 65.94501776796712
+      },
+      "cumulative_kwh_baseline": 56.21179594278936,
+      "cumulative_kwh_hybrid": 56.21179594278936,
+      "running_peak_kw_baseline": 56.302194663595714,
+      "running_peak_kw_hybrid": 56.302194663595714,
+      "running_peak_step_baseline": 2,
+      "running_peak_step_hybrid": 2,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 20
+    },
+    {
+      "step_15": 4,
+      "baseline_facility_kw": 56.302194663595714,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.302194663595714,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59140177041363,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5112384635305509,
+        "zone_temp_1F_B_f": 0.0923324225269771,
+        "zone_temp_1F_C_f": -0.46593839459440356,
+        "zone_temp_1F_D_f": -0.9778798428167675,
+        "zone_temp_2F_A_f": 0.5049827779570176,
+        "zone_temp_2F_B_f": 0.10156198114867256
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.10264023394417,
+        "zone_temp_1F_B_f": 65.63905326089548,
+        "zone_temp_1F_C_f": 65.30004527802805,
+        "zone_temp_1F_D_f": 62.820686903804884,
+        "zone_temp_2F_A_f": 67.13326300475144,
+        "zone_temp_2F_B_f": 65.93930641449113
+      },
+      "cumulative_kwh_baseline": 70.28734460868829,
+      "cumulative_kwh_hybrid": 70.28734460868829,
+      "running_peak_kw_baseline": 56.302194663595714,
+      "running_peak_kw_hybrid": 56.302194663595714,
+      "running_peak_step_baseline": 2,
+      "running_peak_step_hybrid": 2,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 25
+    },
+    {
+      "step_15": 5,
+      "baseline_facility_kw": 56.302194663595714,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.302194663595714,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59140177041363,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5302117027723443,
+        "zone_temp_1F_B_f": 0.09068314483688486,
+        "zone_temp_1F_C_f": -0.4912905105911147,
+        "zone_temp_1F_D_f": -1.009899933537586,
+        "zone_temp_2F_A_f": 0.5229753785413287,
+        "zone_temp_2F_B_f": 0.09828298833207987
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.12161347318597,
+        "zone_temp_1F_B_f": 65.63740398320539,
+        "zone_temp_1F_C_f": 65.27469316203134,
+        "zone_temp_1F_D_f": 62.78866681308406,
+        "zone_temp_2F_A_f": 67.15125560533576,
+        "zone_temp_2F_B_f": 65.93602742167452
+      },
+      "cumulative_kwh_baseline": 84.36289327458721,
+      "cumulative_kwh_hybrid": 84.36289327458721,
+      "running_peak_kw_baseline": 56.302194663595714,
+      "running_peak_kw_hybrid": 56.302194663595714,
+      "running_peak_step_baseline": 2,
+      "running_peak_step_hybrid": 2,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 30
+    },
+    {
+      "step_15": 6,
+      "baseline_facility_kw": 56.628369320117194,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 56.628369320117194,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59140177041363,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5426173642948171,
+        "zone_temp_1F_B_f": 0.08904814134649751,
+        "zone_temp_1F_C_f": -0.5033180324049423,
+        "zone_temp_1F_D_f": -1.0228427171381758,
+        "zone_temp_2F_A_f": 0.5337422706853199,
+        "zone_temp_2F_B_f": 0.09484960010238196
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.13401913470844,
+        "zone_temp_1F_B_f": 65.635768979715,
+        "zone_temp_1F_C_f": 65.2626656402175,
+        "zone_temp_1F_D_f": 62.77572402948348,
+        "zone_temp_2F_A_f": 67.16202249747975,
+        "zone_temp_2F_B_f": 65.93259403344483
+      },
+      "cumulative_kwh_baseline": 98.51998560461651,
+      "cumulative_kwh_hybrid": 98.51998560461651,
+      "running_peak_kw_baseline": 56.628369320117194,
+      "running_peak_kw_hybrid": 56.628369320117194,
+      "running_peak_step_baseline": 6,
+      "running_peak_step_hybrid": 6,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 35
+    },
+    {
+      "step_15": 7,
+      "baseline_facility_kw": 57.468505235482056,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 57.468505235482056,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59641321271947,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.79856674662165,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.83774443334245
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5519462079489709,
+        "zone_temp_1F_B_f": 0.08777996840145091,
+        "zone_temp_1F_C_f": -0.5072153478865428,
+        "zone_temp_1F_D_f": -1.0355950431399525,
+        "zone_temp_2F_A_f": 0.5446386929368205,
+        "zone_temp_2F_B_f": 0.09300373630292612
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.14835942066844,
+        "zone_temp_1F_B_f": 65.63450080676995,
+        "zone_temp_1F_C_f": 65.25876832473591,
+        "zone_temp_1F_D_f": 62.7629717034817,
+        "zone_temp_2F_A_f": 67.17291891973125,
+        "zone_temp_2F_B_f": 65.93074816964538
+      },
+      "cumulative_kwh_baseline": 112.88711191348702,
+      "cumulative_kwh_hybrid": 112.88711191348702,
+      "running_peak_kw_baseline": 57.468505235482056,
+      "running_peak_kw_hybrid": 57.468505235482056,
+      "running_peak_step_baseline": 7,
+      "running_peak_step_hybrid": 7,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 40
+    },
+    {
+      "step_15": 8,
+      "baseline_facility_kw": 59.83256345488337,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 59.83256345488337,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59641321271947,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.80519838669043,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.84413794829236
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5594107166558561,
+        "zone_temp_1F_B_f": 0.08651640272452028,
+        "zone_temp_1F_C_f": -0.5083558882223277,
+        "zone_temp_1F_D_f": -1.0523059587056551,
+        "zone_temp_2F_A_f": 0.5511932158660315,
+        "zone_temp_2F_B_f": 0.09115033736194757
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.15582392937533,
+        "zone_temp_1F_B_f": 65.63323724109303,
+        "zone_temp_1F_C_f": 65.25762778440013,
+        "zone_temp_1F_D_f": 62.752892427984776,
+        "zone_temp_2F_A_f": 67.17947344266047,
+        "zone_temp_2F_B_f": 65.93528828565431
+      },
+      "cumulative_kwh_baseline": 127.84525277720786,
+      "cumulative_kwh_hybrid": 127.84525277720786,
+      "running_peak_kw_baseline": 59.83256345488337,
+      "running_peak_kw_hybrid": 59.83256345488337,
+      "running_peak_step_baseline": 8,
+      "running_peak_step_hybrid": 8,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 45
+    },
+    {
+      "step_15": 9,
+      "baseline_facility_kw": 63.041186882622824,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 63.041186882622824,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59641321271947,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.80519838669043,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.84413794829236
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5665769260350687,
+        "zone_temp_1F_B_f": 0.08532733657102919,
+        "zone_temp_1F_C_f": -0.5120720338822332,
+        "zone_temp_1F_D_f": -1.0734517140266033,
+        "zone_temp_2F_A_f": 0.5630551244569878,
+        "zone_temp_2F_B_f": 0.08945879116485775
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.16299013875454,
+        "zone_temp_1F_B_f": 65.63204817493953,
+        "zone_temp_1F_C_f": 65.25391163874022,
+        "zone_temp_1F_D_f": 62.731746672663824,
+        "zone_temp_2F_A_f": 67.19133535125142,
+        "zone_temp_2F_B_f": 65.93359673945722
+      },
+      "cumulative_kwh_baseline": 143.60554949786356,
+      "cumulative_kwh_hybrid": 143.60554949786356,
+      "running_peak_kw_baseline": 63.041186882622824,
+      "running_peak_kw_hybrid": 63.041186882622824,
+      "running_peak_step_baseline": 9,
+      "running_peak_step_hybrid": 9,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 50
+    },
+    {
+      "step_15": 10,
+      "baseline_facility_kw": 67.61257406315966,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 67.61257406315966,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59641321271947,
+        "zone_temp_1F_B_f": 65.5467208383685,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 63.9227081117841,
+        "zone_temp_2F_A_f": 66.62828022679443,
+        "zone_temp_2F_B_f": 65.88115148371351
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5689577602442512,
+        "zone_temp_1F_B_f": 0.08344602781519973,
+        "zone_temp_1F_C_f": -0.5209586880774466,
+        "zone_temp_1F_D_f": -1.086324314069705,
+        "zone_temp_2F_A_f": 0.5727624682474141,
+        "zone_temp_2F_B_f": 0.08726186247468591
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.16537097296371,
+        "zone_temp_1F_B_f": 65.6301668661837,
+        "zone_temp_1F_C_f": 65.24502498454501,
+        "zone_temp_1F_D_f": 62.83638379771439,
+        "zone_temp_2F_A_f": 67.20104269504185,
+        "zone_temp_2F_B_f": 65.9684133461882
+      },
+      "cumulative_kwh_baseline": 160.50869301365347,
+      "cumulative_kwh_hybrid": 160.50869301365347,
+      "running_peak_kw_baseline": 67.61257406315966,
+      "running_peak_kw_hybrid": 67.61257406315966,
+      "running_peak_step_baseline": 10,
+      "running_peak_step_hybrid": 10,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 55
+    },
+    {
+      "step_15": 11,
+      "baseline_facility_kw": 73.87924532530589,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 73.87924532530589,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.59810639653618,
+        "zone_temp_1F_B_f": 65.60048078686566,
+        "zone_temp_1F_C_f": 65.76598367262245,
+        "zone_temp_1F_D_f": 64.08847118423995,
+        "zone_temp_2F_A_f": 66.65467209886242,
+        "zone_temp_2F_B_f": 65.94691742433199
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5702292330126973,
+        "zone_temp_1F_B_f": 0.08087717302009777,
+        "zone_temp_1F_C_f": -0.523333059243435,
+        "zone_temp_1F_D_f": -1.0922386662445904,
+        "zone_temp_2F_A_f": 0.5799163639525972,
+        "zone_temp_2F_B_f": 0.08603309000288974
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.16833562954888,
+        "zone_temp_1F_B_f": 65.68135795988576,
+        "zone_temp_1F_C_f": 65.24265061337901,
+        "zone_temp_1F_D_f": 62.99623251799536,
+        "zone_temp_2F_A_f": 67.23458846281501,
+        "zone_temp_2F_B_f": 66.03295051433487
+      },
+      "cumulative_kwh_baseline": 178.97850434497994,
+      "cumulative_kwh_hybrid": 178.97850434497994,
+      "running_peak_kw_baseline": 73.87924532530589,
+      "running_peak_kw_hybrid": 73.87924532530589,
+      "running_peak_step_baseline": 11,
+      "running_peak_step_hybrid": 11,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 59
+    },
+    {
+      "step_15": 12,
+      "baseline_facility_kw": 80.10644119453406,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 80.10644119453406,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.60570636399741,
+        "zone_temp_1F_B_f": 65.64715864403638,
+        "zone_temp_1F_C_f": 65.79437670940145,
+        "zone_temp_1F_D_f": 64.28795963582019,
+        "zone_temp_2F_A_f": 66.66948791247445,
+        "zone_temp_2F_B_f": 66.03974756775204
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5729877390397482,
+        "zone_temp_1F_B_f": 0.07918517492979141,
+        "zone_temp_1F_C_f": -0.5263019618070172,
+        "zone_temp_1F_D_f": -1.0989737197755962,
+        "zone_temp_2F_A_f": 0.5834650626598169,
+        "zone_temp_2F_B_f": 0.08431734071696441
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.17869410303716,
+        "zone_temp_1F_B_f": 65.72634381896617,
+        "zone_temp_1F_C_f": 65.26807474759443,
+        "zone_temp_1F_D_f": 63.188985916044594,
+        "zone_temp_2F_A_f": 67.25295297513426,
+        "zone_temp_2F_B_f": 66.12406490846901
+      },
+      "cumulative_kwh_baseline": 199.00511464361347,
+      "cumulative_kwh_hybrid": 199.00511464361347,
+      "running_peak_kw_baseline": 80.10644119453406,
+      "running_peak_kw_hybrid": 80.10644119453406,
+      "running_peak_step_baseline": 12,
+      "running_peak_step_hybrid": 12,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 63
+    },
+    {
+      "step_15": 13,
+      "baseline_facility_kw": 86.09126728144739,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 86.09126728144739,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.64085084265676,
+        "zone_temp_1F_B_f": 65.70410552676051,
+        "zone_temp_1F_C_f": 65.80430854183408,
+        "zone_temp_1F_D_f": 64.53267452226642,
+        "zone_temp_2F_A_f": 66.67840788839136,
+        "zone_temp_2F_B_f": 66.08963113540008
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5767809389996056,
+        "zone_temp_1F_B_f": 0.07801738971062995,
+        "zone_temp_1F_C_f": -0.5280150519888419,
+        "zone_temp_1F_D_f": -1.1062631296828804,
+        "zone_temp_2F_A_f": 0.5851097397890407,
+        "zone_temp_2F_B_f": 0.08341761093390947
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.21763178165637,
+        "zone_temp_1F_B_f": 65.78212291647114,
+        "zone_temp_1F_C_f": 65.27629348984523,
+        "zone_temp_1F_D_f": 63.42641139258354,
+        "zone_temp_2F_A_f": 67.26351762818041,
+        "zone_temp_2F_B_f": 66.17304874633399
+      },
+      "cumulative_kwh_baseline": 220.5279314639753,
+      "cumulative_kwh_hybrid": 220.5279314639753,
+      "running_peak_kw_baseline": 86.09126728144739,
+      "running_peak_kw_hybrid": 86.09126728144739,
+      "running_peak_step_baseline": 13,
+      "running_peak_step_hybrid": 13,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 67
+    },
+    {
+      "step_15": 14,
+      "baseline_facility_kw": 91.81086498953232,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 91.81086498953232,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.72399112267,
+        "zone_temp_1F_B_f": 65.78127697000376,
+        "zone_temp_1F_C_f": 65.80575368852814,
+        "zone_temp_1F_D_f": 64.83262073951987,
+        "zone_temp_2F_A_f": 66.73137934929679,
+        "zone_temp_2F_B_f": 66.27949176853058
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5791700288151069,
+        "zone_temp_1F_B_f": 0.07662213208103008,
+        "zone_temp_1F_C_f": -0.52704008294969,
+        "zone_temp_1F_D_f": -1.1057407759444255,
+        "zone_temp_2F_A_f": 0.5891202845534321,
+        "zone_temp_2F_B_f": 0.0825821050943998
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.30316115148511,
+        "zone_temp_1F_B_f": 65.85789910208479,
+        "zone_temp_1F_C_f": 65.27871360557845,
+        "zone_temp_1F_D_f": 63.72687996357544,
+        "zone_temp_2F_A_f": 67.32049963385022,
+        "zone_temp_2F_B_f": 66.36207387362498
+      },
+      "cumulative_kwh_baseline": 243.4806477113584,
+      "cumulative_kwh_hybrid": 243.4806477113584,
+      "running_peak_kw_baseline": 91.81086498953232,
+      "running_peak_kw_hybrid": 91.81086498953232,
+      "running_peak_step_baseline": 14,
+      "running_peak_step_hybrid": 14,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 71
+    },
+    {
+      "step_15": 15,
+      "baseline_facility_kw": 98.78725993467002,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 98.78725993467002,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.85704806963624,
+        "zone_temp_1F_B_f": 65.97321835989327,
+        "zone_temp_1F_C_f": 65.81459906975205,
+        "zone_temp_1F_D_f": 65.14578912095028,
+        "zone_temp_2F_A_f": 66.7895564115205,
+        "zone_temp_2F_B_f": 66.50942329479535
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5789794807931595,
+        "zone_temp_1F_B_f": 0.07604207563357573,
+        "zone_temp_1F_C_f": -0.5266326291102791,
+        "zone_temp_1F_D_f": -1.1032394778985504,
+        "zone_temp_2F_A_f": 0.5905274982695339,
+        "zone_temp_2F_B_f": 0.08188786655171892
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.4360275504294,
+        "zone_temp_1F_B_f": 66.04926043552685,
+        "zone_temp_1F_C_f": 65.28796644064177,
+        "zone_temp_1F_D_f": 64.04254964305173,
+        "zone_temp_2F_A_f": 67.38008390979003,
+        "zone_temp_2F_B_f": 66.59131116134708
+      },
+      "cumulative_kwh_baseline": 268.1774626950259,
+      "cumulative_kwh_hybrid": 268.1774626950259,
+      "running_peak_kw_baseline": 98.78725993467002,
+      "running_peak_kw_hybrid": 98.78725993467002,
+      "running_peak_step_baseline": 15,
+      "running_peak_step_hybrid": 15,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 74
+    },
+    {
+      "step_15": 16,
+      "baseline_facility_kw": 106.14135750729196,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 106.14135750729196,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 64.98361423476611,
+        "zone_temp_1F_B_f": 66.13955908756623,
+        "zone_temp_1F_C_f": 65.83431817372603,
+        "zone_temp_1F_D_f": 65.38569937196087,
+        "zone_temp_2F_A_f": 66.80753177192679,
+        "zone_temp_2F_B_f": 66.6818812287912
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5797360547926813,
+        "zone_temp_1F_B_f": 0.0756025760736145,
+        "zone_temp_1F_C_f": -0.5264570965032493,
+        "zone_temp_1F_D_f": -1.103126561783106,
+        "zone_temp_2F_A_f": 0.5914931867852018,
+        "zone_temp_2F_B_f": 0.08121875038839878
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.56335028955878,
+        "zone_temp_1F_B_f": 66.21516166363985,
+        "zone_temp_1F_C_f": 65.30786107722278,
+        "zone_temp_1F_D_f": 64.28257281017777,
+        "zone_temp_2F_A_f": 67.39902495871199,
+        "zone_temp_2F_B_f": 66.7630999791796
+      },
+      "cumulative_kwh_baseline": 294.7128020718489,
+      "cumulative_kwh_hybrid": 294.7128020718489,
+      "running_peak_kw_baseline": 106.14135750729196,
+      "running_peak_kw_hybrid": 106.14135750729196,
+      "running_peak_step_baseline": 16,
+      "running_peak_step_hybrid": 16,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 77
+    },
+    {
+      "step_15": 17,
+      "baseline_facility_kw": 118.00248422052857,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 118.00248422052857,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.07246135626326,
+        "zone_temp_1F_B_f": 66.29235129749497,
+        "zone_temp_1F_C_f": 65.87906616740602,
+        "zone_temp_1F_D_f": 65.73355132204885,
+        "zone_temp_2F_A_f": 66.81924770097588,
+        "zone_temp_2F_B_f": 66.9660419830162
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5799738157016351,
+        "zone_temp_1F_B_f": 0.07517242124572864,
+        "zone_temp_1F_C_f": -0.5253184411885612,
+        "zone_temp_1F_D_f": -1.1006306527705383,
+        "zone_temp_2F_A_f": 0.5914715063715127,
+        "zone_temp_2F_B_f": 0.08084473463469805
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.6524351719649,
+        "zone_temp_1F_B_f": 66.3675237187407,
+        "zone_temp_1F_C_f": 65.35374772621746,
+        "zone_temp_1F_D_f": 64.63292066927832,
+        "zone_temp_2F_A_f": 67.4107192073474,
+        "zone_temp_2F_B_f": 67.04688671765089
+      },
+      "cumulative_kwh_baseline": 324.21342312698107,
+      "cumulative_kwh_hybrid": 324.21342312698107,
+      "running_peak_kw_baseline": 118.00248422052857,
+      "running_peak_kw_hybrid": 118.00248422052857,
+      "running_peak_step_baseline": 17,
+      "running_peak_step_hybrid": 17,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 80
+    },
+    {
+      "step_15": 18,
+      "baseline_facility_kw": 128.5393934346823,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 128.5393934346823,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.24466263870657,
+        "zone_temp_1F_B_f": 66.38588688833656,
+        "zone_temp_1F_C_f": 65.99464839600927,
+        "zone_temp_1F_D_f": 65.98788385661413,
+        "zone_temp_2F_A_f": 66.98193276660325,
+        "zone_temp_2F_B_f": 67.2572424611359
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.580163248527768,
+        "zone_temp_1F_B_f": 0.07504482040075848,
+        "zone_temp_1F_C_f": -0.5243719791310071,
+        "zone_temp_1F_D_f": -1.0967108597355328,
+        "zone_temp_2F_A_f": 0.591857854430639,
+        "zone_temp_2F_B_f": 0.08104149046413252
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.82482588723434,
+        "zone_temp_1F_B_f": 66.46093170873732,
+        "zone_temp_1F_C_f": 65.47027641687826,
+        "zone_temp_1F_D_f": 64.8911729968786,
+        "zone_temp_2F_A_f": 67.5737906210339,
+        "zone_temp_2F_B_f": 67.33828395160003
+      },
+      "cumulative_kwh_baseline": 356.34827148565165,
+      "cumulative_kwh_hybrid": 356.34827148565165,
+      "running_peak_kw_baseline": 128.5393934346823,
+      "running_peak_kw_hybrid": 128.5393934346823,
+      "running_peak_step_baseline": 18,
+      "running_peak_step_hybrid": 18,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 83
+    },
+    {
+      "step_15": 19,
+      "baseline_facility_kw": 138.9545642260494,
+      "delta_facility_kw": 0.0,
+      "hybrid_facility_kw": 138.9545642260494,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.50342142651128,
+        "zone_temp_1F_B_f": 66.47654289593709,
+        "zone_temp_1F_C_f": 66.07127047215928,
+        "zone_temp_1F_D_f": 66.21756059001358,
+        "zone_temp_2F_A_f": 67.06966839334056,
+        "zone_temp_2F_B_f": 67.45667915539667
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.5805632810148933,
+        "zone_temp_1F_B_f": 0.07544339186588528,
+        "zone_temp_1F_C_f": -0.5230701220623597,
+        "zone_temp_1F_D_f": -1.095589596746828,
+        "zone_temp_2F_A_f": 0.5923924687774068,
+        "zone_temp_2F_B_f": 0.08141278588873263
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.08398470752617,
+        "zone_temp_1F_B_f": 66.55198628780298,
+        "zone_temp_1F_C_f": 65.54820035009692,
+        "zone_temp_1F_D_f": 65.12197099326674,
+        "zone_temp_2F_A_f": 67.66206086211797,
+        "zone_temp_2F_B_f": 67.5380919412854
+      },
+      "cumulative_kwh_baseline": 391.086912542164,
+      "cumulative_kwh_hybrid": 391.086912542164,
+      "running_peak_kw_baseline": 138.9545642260494,
+      "running_peak_kw_hybrid": 138.9545642260494,
+      "running_peak_step_baseline": 19,
+      "running_peak_step_hybrid": 19,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 85
+    },
+    {
+      "step_15": 20,
+      "baseline_facility_kw": 146.9602066350809,
+      "delta_facility_kw": 151.06276942804502,
+      "hybrid_facility_kw": 298.02297606312595,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.6684150105769,
+        "zone_temp_1F_B_f": 66.6480860075269,
+        "zone_temp_1F_C_f": 66.19841717718047,
+        "zone_temp_1F_D_f": 66.38832226779414,
+        "zone_temp_2F_A_f": 67.18742038612744,
+        "zone_temp_2F_B_f": 67.70336153848964
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 18.751498779996226,
+        "zone_temp_1F_B_f": 0.08470203927026841,
+        "zone_temp_1F_C_f": -0.5108480186338756,
+        "zone_temp_1F_D_f": -1.0830127323232155,
+        "zone_temp_2F_A_f": 17.64869034829473,
+        "zone_temp_2F_B_f": 0.08889402442072951
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 84.41991379057312,
+        "zone_temp_1F_B_f": 66.73278804679717,
+        "zone_temp_1F_C_f": 65.6875691585466,
+        "zone_temp_1F_D_f": 65.30530953547093,
+        "zone_temp_2F_A_f": 84.83611073442216,
+        "zone_temp_2F_B_f": 67.79225556291037
+      },
+      "cumulative_kwh_baseline": 427.8269642009342,
+      "cumulative_kwh_hybrid": 465.5926565579455,
+      "running_peak_kw_baseline": 146.9602066350809,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 20,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 87
+    },
+    {
+      "step_15": 21,
+      "baseline_facility_kw": 152.30868094492902,
+      "delta_facility_kw": 49.084577890101556,
+      "hybrid_facility_kw": 201.39325883503057,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.865167852339,
+        "zone_temp_1F_B_f": 66.79314460682133,
+        "zone_temp_1F_C_f": 66.31011492667895,
+        "zone_temp_1F_D_f": 66.63148217929326,
+        "zone_temp_2F_A_f": 67.26179819334553,
+        "zone_temp_2F_B_f": 67.83983036573355
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 22.581936250896355,
+        "zone_temp_1F_B_f": 0.08783349687918549,
+        "zone_temp_1F_C_f": -0.4659995775859932,
+        "zone_temp_1F_D_f": -1.0234603330493781,
+        "zone_temp_2F_A_f": 21.327700401428398,
+        "zone_temp_2F_B_f": 0.09218431454842588
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 88.44710410323535,
+        "zone_temp_1F_B_f": 66.88097810370051,
+        "zone_temp_1F_C_f": 65.84411534909296,
+        "zone_temp_1F_D_f": 65.60802184624389,
+        "zone_temp_2F_A_f": 88.58949859477393,
+        "zone_temp_2F_B_f": 67.93201468028197
+      },
+      "cumulative_kwh_baseline": 465.9041344371664,
+      "cumulative_kwh_hybrid": 515.9409712667032,
+      "running_peak_kw_baseline": 152.30868094492902,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 21,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 89
+    },
+    {
+      "step_15": 22,
+      "baseline_facility_kw": 159.2225893925029,
+      "delta_facility_kw": 76.65142313290957,
+      "hybrid_facility_kw": 235.87401252541247,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.04397175941483,
+        "zone_temp_1F_B_f": 66.92276132239925,
+        "zone_temp_1F_C_f": 66.43359680233891,
+        "zone_temp_1F_D_f": 66.84760819074391,
+        "zone_temp_2F_A_f": 67.35517139612635,
+        "zone_temp_2F_B_f": 67.97571497008818
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 24.380002582714486,
+        "zone_temp_1F_B_f": 0.0787035731760622,
+        "zone_temp_1F_C_f": -0.4599708074542933,
+        "zone_temp_1F_D_f": -0.9906800073768557,
+        "zone_temp_2F_A_f": 23.608061461650106,
+        "zone_temp_2F_B_f": 0.08570683068309723
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 90.42397434212931,
+        "zone_temp_1F_B_f": 67.00146489557531,
+        "zone_temp_1F_C_f": 65.97362599488461,
+        "zone_temp_1F_D_f": 65.85692818336706,
+        "zone_temp_2F_A_f": 90.96323285777646,
+        "zone_temp_2F_B_f": 68.06142180077127
+      },
+      "cumulative_kwh_baseline": 505.70978178529214,
+      "cumulative_kwh_hybrid": 574.9094743980563,
+      "running_peak_kw_baseline": 159.2225893925029,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 22,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 91
+    },
+    {
+      "step_15": 23,
+      "baseline_facility_kw": 163.40993995477817,
+      "delta_facility_kw": 74.06682125380355,
+      "hybrid_facility_kw": 237.4767612085817,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.24955449674287,
+        "zone_temp_1F_B_f": 67.0826095979237,
+        "zone_temp_1F_C_f": 66.57106832468787,
+        "zone_temp_1F_D_f": 67.03125272059047,
+        "zone_temp_2F_A_f": 67.45514003414509,
+        "zone_temp_2F_B_f": 68.10682044789984
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 25.620760590672788,
+        "zone_temp_1F_B_f": 0.07156406184765836,
+        "zone_temp_1F_C_f": -0.46512111873277273,
+        "zone_temp_1F_D_f": -0.9965041662552546,
+        "zone_temp_2F_A_f": 24.917706554541915,
+        "zone_temp_2F_B_f": 0.0776612159010201
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 91.87031508741566,
+        "zone_temp_1F_B_f": 67.15417365977136,
+        "zone_temp_1F_C_f": 66.1059472059551,
+        "zone_temp_1F_D_f": 66.03474855433522,
+        "zone_temp_2F_A_f": 92.372846588687,
+        "zone_temp_2F_B_f": 68.18448166380085
+      },
+      "cumulative_kwh_baseline": 546.5622667739867,
+      "cumulative_kwh_hybrid": 634.2786647002017,
+      "running_peak_kw_baseline": 163.40993995477817,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 23,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 91
+    },
+    {
+      "step_15": 24,
+      "baseline_facility_kw": 169.08493948589611,
+      "delta_facility_kw": -153.1359790140529,
+      "hybrid_facility_kw": 15.948960471843208,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.48597748386595,
+        "zone_temp_1F_B_f": 67.28197945514164,
+        "zone_temp_1F_C_f": 66.75326480937026,
+        "zone_temp_1F_D_f": 67.16913080504091,
+        "zone_temp_2F_A_f": 67.60879748396793,
+        "zone_temp_2F_B_f": 68.28357492570282
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 9.558607001662514,
+        "zone_temp_1F_B_f": 1.598007631961831,
+        "zone_temp_1F_C_f": -14.77563068839444,
+        "zone_temp_1F_D_f": -15.54844486975178,
+        "zone_temp_2F_A_f": 9.951447987020986,
+        "zone_temp_2F_B_f": 1.6086834504032157
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 76.04458448552846,
+        "zone_temp_1F_B_f": 68.87998708710347,
+        "zone_temp_1F_C_f": 51.97763412097582,
+        "zone_temp_1F_D_f": 51.62068593528913,
+        "zone_temp_2F_A_f": 77.56024547098892,
+        "zone_temp_2F_B_f": 69.89225837610604
+      },
+      "cumulative_kwh_baseline": 588.8335016454607,
+      "cumulative_kwh_hybrid": 638.2659048181625,
+      "running_peak_kw_baseline": 169.08493948589611,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 24,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 93
+    },
+    {
+      "step_15": 25,
+      "baseline_facility_kw": 168.1700120353691,
+      "delta_facility_kw": -15.437635463527904,
+      "hybrid_facility_kw": 152.7323765718412,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.67406101900538,
+        "zone_temp_1F_B_f": 67.48355587938214,
+        "zone_temp_1F_C_f": 66.9726458864869,
+        "zone_temp_1F_D_f": 67.32807674019828,
+        "zone_temp_2F_A_f": 67.6315053371537,
+        "zone_temp_2F_B_f": 68.29610804739217
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 8.406551855433147,
+        "zone_temp_1F_B_f": 1.7141912834761308,
+        "zone_temp_1F_C_f": -17.585144698284452,
+        "zone_temp_1F_D_f": -20.0873163841693,
+        "zone_temp_2F_A_f": 9.0721849078474,
+        "zone_temp_2F_B_f": 1.6288422087323378
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 75.08061287443853,
+        "zone_temp_1F_B_f": 69.19774716285826,
+        "zone_temp_1F_C_f": 49.38750118820245,
+        "zone_temp_1F_D_f": 47.240760356028986,
+        "zone_temp_2F_A_f": 76.7036902450011,
+        "zone_temp_2F_B_f": 69.9249502561245
+      },
+      "cumulative_kwh_baseline": 630.876004654303,
+      "cumulative_kwh_hybrid": 676.4489989611228,
+      "running_peak_kw_baseline": 169.08493948589611,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 24,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 95
+    },
+    {
+      "step_15": 26,
+      "baseline_facility_kw": 170.70843392374795,
+      "delta_facility_kw": -41.11547689579346,
+      "hybrid_facility_kw": 129.59295702795447,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.8245349614736,
+        "zone_temp_1F_B_f": 67.66596212074134,
+        "zone_temp_1F_C_f": 67.07131543413973,
+        "zone_temp_1F_D_f": 67.47297984850479,
+        "zone_temp_2F_A_f": 67.61389686958094,
+        "zone_temp_2F_B_f": 68.29540312758441
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 8.183276495412624,
+        "zone_temp_1F_B_f": 1.854846478799032,
+        "zone_temp_1F_C_f": -20.130903956126954,
+        "zone_temp_1F_D_f": -22.296849835197577,
+        "zone_temp_2F_A_f": 8.860420500034492,
+        "zone_temp_2F_B_f": 1.9092341483716795
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 75.00781145688623,
+        "zone_temp_1F_B_f": 69.52080859954037,
+        "zone_temp_1F_C_f": 46.94041147801278,
+        "zone_temp_1F_D_f": 45.176130013307215,
+        "zone_temp_2F_A_f": 76.47431736961543,
+        "zone_temp_2F_B_f": 70.20463727595609
+      },
+      "cumulative_kwh_baseline": 673.55311313524,
+      "cumulative_kwh_hybrid": 708.8472382181114,
+      "running_peak_kw_baseline": 170.70843392374795,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 26,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 97
+    },
+    {
+      "step_15": 27,
+      "baseline_facility_kw": 172.4327983403701,
+      "delta_facility_kw": -13.72780050798921,
+      "hybrid_facility_kw": 158.7049978323809,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.00281783452947,
+        "zone_temp_1F_B_f": 67.78028407133036,
+        "zone_temp_1F_C_f": 67.25495591203554,
+        "zone_temp_1F_D_f": 67.60056924358462,
+        "zone_temp_2F_A_f": 67.63242660832084,
+        "zone_temp_2F_B_f": 68.29540312758441
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 7.8545967493416,
+        "zone_temp_1F_B_f": 1.9803278526222843,
+        "zone_temp_1F_C_f": -22.113538665548866,
+        "zone_temp_1F_D_f": -24.073752991927766,
+        "zone_temp_2F_A_f": 8.982187085644082,
+        "zone_temp_2F_B_f": 1.8021116224304863
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 74.85741458387106,
+        "zone_temp_1F_B_f": 69.76061192395264,
+        "zone_temp_1F_C_f": 45.141417246486675,
+        "zone_temp_1F_D_f": 43.526816251656854,
+        "zone_temp_2F_A_f": 76.61461369396493,
+        "zone_temp_2F_B_f": 70.0975147500149
+      },
+      "cumulative_kwh_baseline": 716.6613127203325,
+      "cumulative_kwh_hybrid": 748.5234876762066,
+      "running_peak_kw_baseline": 172.4327983403701,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 27,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 99
+    },
+    {
+      "step_15": 28,
+      "baseline_facility_kw": 176.65345630588524,
+      "delta_facility_kw": -26.739584095719973,
+      "hybrid_facility_kw": 149.91387221016527,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.07345353071472,
+        "zone_temp_1F_B_f": 67.79884288302641,
+        "zone_temp_1F_C_f": 67.25766936593435,
+        "zone_temp_1F_D_f": 67.68542483740293,
+        "zone_temp_2F_A_f": 67.7297696181594,
+        "zone_temp_2F_B_f": 68.29945656225168
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 3.4025296429779948,
+        "zone_temp_1F_B_f": 1.0312190545558928,
+        "zone_temp_1F_C_f": -1.36114023832638,
+        "zone_temp_1F_D_f": -19.66594908663826,
+        "zone_temp_2F_A_f": 5.200132596058247,
+        "zone_temp_2F_B_f": 0.21287986582501267
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 70.47598317369271,
+        "zone_temp_1F_B_f": 68.8300619375823,
+        "zone_temp_1F_C_f": 65.89652912760796,
+        "zone_temp_1F_D_f": 48.01947575076467,
+        "zone_temp_2F_A_f": 72.92990221421765,
+        "zone_temp_2F_B_f": 68.5123364280767
+      },
+      "cumulative_kwh_baseline": 760.8246767968038,
+      "cumulative_kwh_hybrid": 786.0019557287479,
+      "running_peak_kw_baseline": 176.65345630588524,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 28,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 101
+    },
+    {
+      "step_15": 29,
+      "baseline_facility_kw": 178.62044801497873,
+      "delta_facility_kw": -8.141383699527145,
+      "hybrid_facility_kw": 170.47906431545158,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.07804510726288,
+        "zone_temp_1F_B_f": 67.92190136823812,
+        "zone_temp_1F_C_f": 67.30155501593858,
+        "zone_temp_1F_D_f": 67.79146218487253,
+        "zone_temp_2F_A_f": 67.76025038815781,
+        "zone_temp_2F_B_f": 68.29945656225168
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 1.7939845966541272,
+        "zone_temp_1F_B_f": 0.20324177434221377,
+        "zone_temp_1F_C_f": -1.584017752813548,
+        "zone_temp_1F_D_f": -14.304389456280155,
+        "zone_temp_2F_A_f": 1.2651717987917808,
+        "zone_temp_2F_B_f": -0.12997872643241398
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 68.87202970391701,
+        "zone_temp_1F_B_f": 68.12514314258034,
+        "zone_temp_1F_C_f": 65.71753726312502,
+        "zone_temp_1F_D_f": 53.48707272859237,
+        "zone_temp_2F_A_f": 69.0254221869496,
+        "zone_temp_2F_B_f": 68.16947783581927
+      },
+      "cumulative_kwh_baseline": 805.4797888005485,
+      "cumulative_kwh_hybrid": 828.6217218076108,
+      "running_peak_kw_baseline": 178.62044801497873,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 29,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 103
+    },
+    {
+      "step_15": 30,
+      "baseline_facility_kw": 180.87955192074352,
+      "delta_facility_kw": -11.731373550430197,
+      "hybrid_facility_kw": 169.14817837031333,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04334005741356,
+        "zone_temp_1F_B_f": 67.90515698613346,
+        "zone_temp_1F_C_f": 67.29674616917272,
+        "zone_temp_1F_D_f": 67.87178908043116,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.28984123488239
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.14389534059544287,
+        "zone_temp_1F_B_f": -0.0898004465030751,
+        "zone_temp_1F_C_f": -0.8369346609348708,
+        "zone_temp_1F_D_f": -11.751930912225356,
+        "zone_temp_2F_A_f": -0.24186387859642436,
+        "zone_temp_2F_B_f": -0.37504471056637806
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.18723539800901,
+        "zone_temp_1F_B_f": 67.81535653963039,
+        "zone_temp_1F_C_f": 66.45981150823785,
+        "zone_temp_1F_D_f": 56.1198581682058,
+        "zone_temp_2F_A_f": 67.50766069430345,
+        "zone_temp_2F_B_f": 67.91479652431602
+      },
+      "cumulative_kwh_baseline": 850.6996767807343,
+      "cumulative_kwh_hybrid": 870.9087664001892,
+      "running_peak_kw_baseline": 180.87955192074352,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 30,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 104
+    },
+    {
+      "step_15": 31,
+      "baseline_facility_kw": 187.92592259369323,
+      "delta_facility_kw": -8.146922104890082,
+      "hybrid_facility_kw": 179.77900048880315,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04334005741356,
+        "zone_temp_1F_B_f": 67.89515780783174,
+        "zone_temp_1F_C_f": 67.29036758980745,
+        "zone_temp_1F_D_f": 67.9260564302274,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.27775116048853
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.055018417219356935,
+        "zone_temp_1F_B_f": -0.04804939423805443,
+        "zone_temp_1F_C_f": -0.6541165337281285,
+        "zone_temp_1F_D_f": -9.2741913247325,
+        "zone_temp_2F_A_f": -0.05926496247449591,
+        "zone_temp_2F_B_f": -0.009276085517205173
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.09835847463292,
+        "zone_temp_1F_B_f": 67.84710841359369,
+        "zone_temp_1F_C_f": 66.63625105607932,
+        "zone_temp_1F_D_f": 58.651865105494906,
+        "zone_temp_2F_A_f": 67.69025961042537,
+        "zone_temp_2F_B_f": 68.26847507497133
+      },
+      "cumulative_kwh_baseline": 897.6811574291576,
+      "cumulative_kwh_hybrid": 915.85351652239,
+      "running_peak_kw_baseline": 187.92592259369323,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 31,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 32,
+      "baseline_facility_kw": 187.92592259369323,
+      "delta_facility_kw": 7.7596539076359345,
+      "hybrid_facility_kw": 195.68557650132917,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.0632277638889,
+        "zone_temp_1F_B_f": 67.9024508682797,
+        "zone_temp_1F_C_f": 67.29036758980745,
+        "zone_temp_1F_D_f": 67.94335401748634,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.26343490908131
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.005562647626605852,
+        "zone_temp_1F_B_f": -0.048129704153263966,
+        "zone_temp_1F_C_f": -0.23730969818127,
+        "zone_temp_1F_D_f": 0.3299717387200184,
+        "zone_temp_2F_A_f": -0.03068808957355384,
+        "zone_temp_2F_B_f": -0.010562735389050391
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.06879041151551,
+        "zone_temp_1F_B_f": 67.85432116412643,
+        "zone_temp_1F_C_f": 67.05305789162618,
+        "zone_temp_1F_D_f": 68.27332575620636,
+        "zone_temp_2F_A_f": 67.71883648332631,
+        "zone_temp_2F_B_f": 68.25287217369227
+      },
+      "cumulative_kwh_baseline": 944.6626380775808,
+      "cumulative_kwh_hybrid": 964.7749106477223,
+      "running_peak_kw_baseline": 187.92592259369323,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 31,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 33,
+      "baseline_facility_kw": 190.66208431869447,
+      "delta_facility_kw": -2.490295551273614,
+      "hybrid_facility_kw": 188.17178876742085,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.05139759900938,
+        "zone_temp_1F_B_f": 67.89444220680743,
+        "zone_temp_1F_C_f": 67.29036758980745,
+        "zone_temp_1F_D_f": 67.94335401748634,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.24366428751955
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": -0.007342527213851684,
+        "zone_temp_1F_B_f": -0.009754594609818668,
+        "zone_temp_1F_C_f": 0.24088937540291294,
+        "zone_temp_1F_D_f": 0.04523339255530585,
+        "zone_temp_2F_A_f": -0.011120481023226464,
+        "zone_temp_2F_B_f": -0.008687604035392347
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04405507179553,
+        "zone_temp_1F_B_f": 67.88468761219761,
+        "zone_temp_1F_C_f": 67.53125696521036,
+        "zone_temp_1F_D_f": 67.98858741004165,
+        "zone_temp_2F_A_f": 67.73840409187665,
+        "zone_temp_2F_B_f": 68.23497668348416
+      },
+      "cumulative_kwh_baseline": 992.3281591572544,
+      "cumulative_kwh_hybrid": 1011.8178578395775,
+      "running_peak_kw_baseline": 190.66208431869447,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 33,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 34,
+      "baseline_facility_kw": 195.5971102297095,
+      "delta_facility_kw": 0.6251147210829777,
+      "hybrid_facility_kw": 196.22222495079248,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.05139759900938,
+        "zone_temp_1F_B_f": 67.89444220680743,
+        "zone_temp_1F_C_f": 67.29036758980745,
+        "zone_temp_1F_D_f": 67.92621949385372,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.24935545118845
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": -0.001838915328063978,
+        "zone_temp_1F_B_f": -0.0007691247979287312,
+        "zone_temp_1F_C_f": 0.23558629011258939,
+        "zone_temp_1F_D_f": 0.03124088726898243,
+        "zone_temp_2F_A_f": 0.004624649409048178,
+        "zone_temp_2F_B_f": 0.005673626451772976
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04955868368131,
+        "zone_temp_1F_B_f": 67.8936730820095,
+        "zone_temp_1F_C_f": 67.52595387992004,
+        "zone_temp_1F_D_f": 67.9574603811227,
+        "zone_temp_2F_A_f": 67.75414922230893,
+        "zone_temp_2F_B_f": 68.25502907764022
+      },
+      "cumulative_kwh_baseline": 1041.2274367146817,
+      "cumulative_kwh_hybrid": 1060.8734140772756,
+      "running_peak_kw_baseline": 195.5971102297095,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 34,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 35,
+      "baseline_facility_kw": 197.2856227555646,
+      "delta_facility_kw": -0.8380709813783059,
+      "hybrid_facility_kw": 196.44755177418628,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04652050697857,
+        "zone_temp_1F_B_f": 67.89444220680743,
+        "zone_temp_1F_C_f": 67.30318373116869,
+        "zone_temp_1F_D_f": 67.92621949385372,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.25206301450616
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": -0.004412559785783283,
+        "zone_temp_1F_B_f": 0.009486122080097302,
+        "zone_temp_1F_C_f": 0.24163657809697398,
+        "zone_temp_1F_D_f": 0.01891552113770805,
+        "zone_temp_2F_A_f": 0.006527324436282692,
+        "zone_temp_2F_B_f": 0.012952695458825068
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.04210794719279,
+        "zone_temp_1F_B_f": 67.90392832888752,
+        "zone_temp_1F_C_f": 67.54482030926566,
+        "zone_temp_1F_D_f": 67.94513501499144,
+        "zone_temp_2F_A_f": 67.75605189733615,
+        "zone_temp_2F_B_f": 68.26501570996498
+      },
+      "cumulative_kwh_baseline": 1090.548842403573,
+      "cumulative_kwh_hybrid": 1109.9853020208222,
+      "running_peak_kw_baseline": 197.2856227555646,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 35,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 36,
+      "baseline_facility_kw": 197.54077644684327,
+      "delta_facility_kw": -0.9493471342783786,
+      "hybrid_facility_kw": 196.59142931256488,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99605535294992,
+        "zone_temp_1F_B_f": 67.89585299538423,
+        "zone_temp_1F_C_f": 67.28719668047022,
+        "zone_temp_1F_D_f": 67.92621949385372,
+        "zone_temp_2F_A_f": 67.74952457289987,
+        "zone_temp_2F_B_f": 68.2544705970017
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": -0.0010723655221701667,
+        "zone_temp_1F_B_f": 0.014888065467610855,
+        "zone_temp_1F_C_f": 0.2853858181853252,
+        "zone_temp_1F_D_f": 0.015625247318430423,
+        "zone_temp_2F_A_f": 0.01358022736275827,
+        "zone_temp_2F_B_f": 0.014963697027212645
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99498298742775,
+        "zone_temp_1F_B_f": 67.91074106085185,
+        "zone_temp_1F_C_f": 67.57258249865554,
+        "zone_temp_1F_D_f": 67.94184474117215,
+        "zone_temp_2F_A_f": 67.76310480026262,
+        "zone_temp_2F_B_f": 68.26943429402891
+      },
+      "cumulative_kwh_baseline": 1139.9340365152839,
+      "cumulative_kwh_hybrid": 1159.1331593489635,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 37,
+      "baseline_facility_kw": 197.54077644684327,
+      "delta_facility_kw": -1.3448674545065726,
+      "hybrid_facility_kw": 196.19590899233668,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.9935904022433,
+        "zone_temp_1F_B_f": 67.88678449502741,
+        "zone_temp_1F_C_f": 67.26567833085092,
+        "zone_temp_1F_D_f": 67.92727533215196,
+        "zone_temp_2F_A_f": 67.74099449936219,
+        "zone_temp_2F_B_f": 68.24824407262288
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.0020273245334313937,
+        "zone_temp_1F_B_f": 0.01815820327797924,
+        "zone_temp_1F_C_f": 0.29374702931515123,
+        "zone_temp_1F_D_f": -0.006287851755750262,
+        "zone_temp_2F_A_f": 0.022289140614933377,
+        "zone_temp_2F_B_f": 0.01701925566753439
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99561772677673,
+        "zone_temp_1F_B_f": 67.90494269830539,
+        "zone_temp_1F_C_f": 67.55942536016607,
+        "zone_temp_1F_D_f": 67.92098748039622,
+        "zone_temp_2F_A_f": 67.76328363997712,
+        "zone_temp_2F_B_f": 68.26526332829042
+      },
+      "cumulative_kwh_baseline": 1189.3192306269948,
+      "cumulative_kwh_hybrid": 1208.1821365970477,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 38,
+      "baseline_facility_kw": 195.90208805906286,
+      "delta_facility_kw": -2.4311040230008714,
+      "hybrid_facility_kw": 193.470984036062,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.9935904022433,
+        "zone_temp_1F_B_f": 67.87264565813562,
+        "zone_temp_1F_C_f": 67.26567833085092,
+        "zone_temp_1F_D_f": 67.9289172014563,
+        "zone_temp_2F_A_f": 67.7212563888687,
+        "zone_temp_2F_B_f": 68.24824407262288
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.0031174059125268143,
+        "zone_temp_1F_B_f": 0.022186196588740763,
+        "zone_temp_1F_C_f": 0.297512555373625,
+        "zone_temp_1F_D_f": 0.011165147434610676,
+        "zone_temp_2F_A_f": 0.01870491399852917,
+        "zone_temp_2F_B_f": 0.020525483910035284
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99670780815583,
+        "zone_temp_1F_B_f": 67.89483185472436,
+        "zone_temp_1F_C_f": 67.56319088622455,
+        "zone_temp_1F_D_f": 67.94008234889091,
+        "zone_temp_2F_A_f": 67.73996130286723,
+        "zone_temp_2F_B_f": 68.26876955653292
+      },
+      "cumulative_kwh_baseline": 1238.2947526417606,
+      "cumulative_kwh_hybrid": 1256.5498826060632,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 39,
+      "baseline_facility_kw": 195.09101741386795,
+      "delta_facility_kw": -2.4404193140800747,
+      "hybrid_facility_kw": 192.65059809978786,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.9935904022433,
+        "zone_temp_1F_B_f": 67.87370316704454,
+        "zone_temp_1F_C_f": 67.25496684612384,
+        "zone_temp_1F_D_f": 67.90848219675141,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.003348514256803247,
+        "zone_temp_1F_B_f": 0.02509103084095666,
+        "zone_temp_1F_C_f": 0.3065239279676557,
+        "zone_temp_1F_D_f": 0.01343006540231227,
+        "zone_temp_2F_A_f": 0.02650952347214099,
+        "zone_temp_2F_B_f": 0.021398282126464142
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.9969389165001,
+        "zone_temp_1F_B_f": 67.8987941978855,
+        "zone_temp_1F_C_f": 67.5614907740915,
+        "zone_temp_1F_D_f": 67.92191226215373,
+        "zone_temp_2F_A_f": 67.75009637497944,
+        "zone_temp_2F_B_f": 68.25120873062112
+      },
+      "cumulative_kwh_baseline": 1287.0675069952276,
+      "cumulative_kwh_hybrid": 1304.7125321310102,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 40,
+      "baseline_facility_kw": 195.09101741386795,
+      "delta_facility_kw": -2.48372364558192,
+      "hybrid_facility_kw": 192.607293768286,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99803948546231,
+        "zone_temp_1F_B_f": 67.87672337839898,
+        "zone_temp_1F_C_f": 67.21165202429128,
+        "zone_temp_1F_D_f": 67.90848219675141,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.005274289168398584,
+        "zone_temp_1F_B_f": 0.027968809681510647,
+        "zone_temp_1F_C_f": 0.29218092117774874,
+        "zone_temp_1F_D_f": 0.013229882702445857,
+        "zone_temp_2F_A_f": 0.01872494622309734,
+        "zone_temp_2F_B_f": 0.024054711709529712
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.00331377463071,
+        "zone_temp_1F_B_f": 67.90469218808049,
+        "zone_temp_1F_C_f": 67.50383294546903,
+        "zone_temp_1F_D_f": 67.92171207945385,
+        "zone_temp_2F_A_f": 67.7423117977304,
+        "zone_temp_2F_B_f": 68.25386516020417
+      },
+      "cumulative_kwh_baseline": 1335.8402613486946,
+      "cumulative_kwh_hybrid": 1352.8643555730816,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 41,
+      "baseline_facility_kw": 195.09101741386795,
+      "delta_facility_kw": -2.6430408546036745,
+      "hybrid_facility_kw": 192.44797655926428,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99803948546231,
+        "zone_temp_1F_B_f": 67.87672337839898,
+        "zone_temp_1F_C_f": 67.23983923536005,
+        "zone_temp_1F_D_f": 67.91873283922695,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.007843349076789515,
+        "zone_temp_1F_B_f": 0.028648154651988035,
+        "zone_temp_1F_C_f": 0.30804914122295624,
+        "zone_temp_1F_D_f": 0.012832701527806809,
+        "zone_temp_2F_A_f": 0.02605940314553852,
+        "zone_temp_2F_B_f": 0.02288235404455645
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.00588283453911,
+        "zone_temp_1F_B_f": 67.90537153305097,
+        "zone_temp_1F_C_f": 67.547888376583,
+        "zone_temp_1F_D_f": 67.93156554075476,
+        "zone_temp_2F_A_f": 67.74964625465283,
+        "zone_temp_2F_B_f": 68.2526928025392
+      },
+      "cumulative_kwh_baseline": 1384.6130157021616,
+      "cumulative_kwh_hybrid": 1400.9763497128977,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 42,
+      "baseline_facility_kw": 195.09101741386795,
+      "delta_facility_kw": -2.6771806376080813,
+      "hybrid_facility_kw": 192.41383677625987,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99367462359153,
+        "zone_temp_1F_B_f": 67.87672337839898,
+        "zone_temp_1F_C_f": 67.17163780037183,
+        "zone_temp_1F_D_f": 67.93265566673261,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.01279885385186455,
+        "zone_temp_1F_B_f": 0.03156385027376875,
+        "zone_temp_1F_C_f": 0.3011975955949042,
+        "zone_temp_1F_D_f": 0.022518911120577394,
+        "zone_temp_2F_A_f": 0.01998338093275736,
+        "zone_temp_2F_B_f": 0.025842453905296662
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.0064734774434,
+        "zone_temp_1F_B_f": 67.90828722867275,
+        "zone_temp_1F_C_f": 67.47283539596673,
+        "zone_temp_1F_D_f": 67.95517457785319,
+        "zone_temp_2F_A_f": 67.74357023244005,
+        "zone_temp_2F_B_f": 68.25565290239994
+      },
+      "cumulative_kwh_baseline": 1433.3857700556287,
+      "cumulative_kwh_hybrid": 1449.0798089069626,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 43,
+      "baseline_facility_kw": 194.0833631569714,
+      "delta_facility_kw": -2.5589200913839583,
+      "hybrid_facility_kw": 191.52444306558743,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99367462359153,
+        "zone_temp_1F_B_f": 67.87672337839898,
+        "zone_temp_1F_C_f": 67.14492180058485,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.018377334616569655,
+        "zone_temp_1F_B_f": 0.03144076993738243,
+        "zone_temp_1F_C_f": 0.3181394671862972,
+        "zone_temp_1F_D_f": 0.027796885579754498,
+        "zone_temp_2F_A_f": 0.02720062806041879,
+        "zone_temp_2F_B_f": 0.03196011846282714
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.0120519582081,
+        "zone_temp_1F_B_f": 67.90816414833635,
+        "zone_temp_1F_C_f": 67.46306126777115,
+        "zone_temp_1F_D_f": 67.96650239617753,
+        "zone_temp_2F_A_f": 67.7507874795677,
+        "zone_temp_2F_B_f": 68.26177056695748
+      },
+      "cumulative_kwh_baseline": 1481.9066108448715,
+      "cumulative_kwh_hybrid": 1496.9609196733595,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 44,
+      "baseline_facility_kw": 194.0833631569714,
+      "delta_facility_kw": -2.56857661931662,
+      "hybrid_facility_kw": 191.51478653765477,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99367462359153,
+        "zone_temp_1F_B_f": 67.9020940001511,
+        "zone_temp_1F_C_f": 67.24088356707955,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.021841405473166816,
+        "zone_temp_1F_B_f": 0.035205024078166905,
+        "zone_temp_1F_C_f": 0.3230058348360029,
+        "zone_temp_1F_D_f": 0.03372205543468539,
+        "zone_temp_2F_A_f": 0.030172291928085442,
+        "zone_temp_2F_B_f": 0.045030522023317344
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.0155160290647,
+        "zone_temp_1F_B_f": 67.93729902422926,
+        "zone_temp_1F_C_f": 67.56388940191555,
+        "zone_temp_1F_D_f": 67.97242756603245,
+        "zone_temp_2F_A_f": 67.75375914343537,
+        "zone_temp_2F_B_f": 68.27484097051796
+      },
+      "cumulative_kwh_baseline": 1530.4274516341143,
+      "cumulative_kwh_hybrid": 1544.8396163077732,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 45,
+      "baseline_facility_kw": 194.0833631569714,
+      "delta_facility_kw": -2.2910733069166147,
+      "hybrid_facility_kw": 191.79228985005477,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.9020940001511,
+        "zone_temp_1F_C_f": 67.29041072603,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.02494857786368807,
+        "zone_temp_1F_B_f": 0.03681825478372685,
+        "zone_temp_1F_C_f": 0.33319087007318243,
+        "zone_temp_1F_D_f": 0.035381156961468034,
+        "zone_temp_2F_A_f": 0.029104756130139298,
+        "zone_temp_2F_B_f": 0.04844254755591569
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01718750513304,
+        "zone_temp_1F_B_f": 67.93891225493482,
+        "zone_temp_1F_C_f": 67.62360159610319,
+        "zone_temp_1F_D_f": 67.97408666755923,
+        "zone_temp_2F_A_f": 67.75269160763743,
+        "zone_temp_2F_B_f": 68.27825299605057
+      },
+      "cumulative_kwh_baseline": 1578.948292423357,
+      "cumulative_kwh_hybrid": 1592.7876887702869,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 46,
+      "baseline_facility_kw": 194.0833631569714,
+      "delta_facility_kw": -2.372262906418884,
+      "hybrid_facility_kw": 191.7111002505525,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.9020940001511,
+        "zone_temp_1F_C_f": 67.30642259768489,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.023099621270095235,
+        "zone_temp_1F_B_f": 0.03773451381139421,
+        "zone_temp_1F_C_f": 0.34854196046014324,
+        "zone_temp_1F_D_f": 0.03719541284562258,
+        "zone_temp_2F_A_f": 0.027156796690292043,
+        "zone_temp_2F_B_f": 0.04855160564640414
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01533854853945,
+        "zone_temp_1F_B_f": 67.9398285139625,
+        "zone_temp_1F_C_f": 67.65496455814502,
+        "zone_temp_1F_D_f": 67.97590092344339,
+        "zone_temp_2F_A_f": 67.75074364819758,
+        "zone_temp_2F_B_f": 68.27836205414106
+      },
+      "cumulative_kwh_baseline": 1627.4691332126,
+      "cumulative_kwh_hybrid": 1640.715463832925,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 47,
+      "baseline_facility_kw": 194.0833631569714,
+      "delta_facility_kw": -2.3648544556241253,
+      "hybrid_facility_kw": 191.71850870134728,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.91024062558014,
+        "zone_temp_1F_C_f": 67.30642259768489,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72358685150729,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.02247604004706347,
+        "zone_temp_1F_B_f": 0.0471493190979371,
+        "zone_temp_1F_C_f": 0.37033735180655597,
+        "zone_temp_1F_D_f": 0.037715285764079606,
+        "zone_temp_2F_A_f": 0.029708637999352024,
+        "zone_temp_2F_B_f": 0.04766626705644188
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01471496731642,
+        "zone_temp_1F_B_f": 67.95738994467808,
+        "zone_temp_1F_C_f": 67.67675994949144,
+        "zone_temp_1F_D_f": 67.97642079636185,
+        "zone_temp_2F_A_f": 67.75329548950664,
+        "zone_temp_2F_B_f": 68.27747671555109
+      },
+      "cumulative_kwh_baseline": 1675.9899740018427,
+      "cumulative_kwh_hybrid": 1688.645091008262,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 48,
+      "baseline_facility_kw": 193.00710324895584,
+      "delta_facility_kw": -2.3486666221286727,
+      "hybrid_facility_kw": 190.65843662682718,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.91024062558014,
+        "zone_temp_1F_C_f": 67.30642259768489,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72177091779206,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.02248583606323973,
+        "zone_temp_1F_B_f": 0.04928931977211728,
+        "zone_temp_1F_C_f": 0.3875932579699158,
+        "zone_temp_1F_D_f": 0.03837794112335186,
+        "zone_temp_2F_A_f": 0.029451712362165063,
+        "zone_temp_2F_B_f": 0.047904133184917604
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.0147247633326,
+        "zone_temp_1F_B_f": 67.95952994535226,
+        "zone_temp_1F_C_f": 67.6940158556548,
+        "zone_temp_1F_D_f": 67.97708345172113,
+        "zone_temp_2F_A_f": 67.75122263015422,
+        "zone_temp_2F_B_f": 68.27771458167956
+      },
+      "cumulative_kwh_baseline": 1724.2417498140817,
+      "cumulative_kwh_hybrid": 1736.3097001649687,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 49,
+      "baseline_facility_kw": 193.00710324895584,
+      "delta_facility_kw": -2.3620194650247557,
+      "hybrid_facility_kw": 190.64508378393109,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.91024062558014,
+        "zone_temp_1F_C_f": 67.30642259768489,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72177091779206,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.022740928428303168,
+        "zone_temp_1F_B_f": 0.050014009235107244,
+        "zone_temp_1F_C_f": 0.4085097803823507,
+        "zone_temp_1F_D_f": 0.03905288999681803,
+        "zone_temp_2F_A_f": 0.02861435749629021,
+        "zone_temp_2F_B_f": 0.05617764249923073
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01497985569766,
+        "zone_temp_1F_B_f": 67.96025463481526,
+        "zone_temp_1F_C_f": 67.71493237806723,
+        "zone_temp_1F_D_f": 67.9777584005946,
+        "zone_temp_2F_A_f": 67.75038527528835,
+        "zone_temp_2F_B_f": 68.28598809099388
+      },
+      "cumulative_kwh_baseline": 1772.4935256263207,
+      "cumulative_kwh_hybrid": 1783.9709711109515,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 50,
+      "baseline_facility_kw": 192.92234285831356,
+      "delta_facility_kw": -2.3971484816911053,
+      "hybrid_facility_kw": 190.52519437662244,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.9020940001511,
+        "zone_temp_1F_C_f": 67.30642259768489,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72177091779206,
+        "zone_temp_2F_B_f": 68.22981044849465
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.024756608881396167,
+        "zone_temp_1F_B_f": 0.05009687523133646,
+        "zone_temp_1F_C_f": 0.40100837319052735,
+        "zone_temp_1F_D_f": 0.04403834880964281,
+        "zone_temp_2F_A_f": 0.03449242992040698,
+        "zone_temp_2F_B_f": 0.05664572734742478
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01699553615074,
+        "zone_temp_1F_B_f": 67.95219087538243,
+        "zone_temp_1F_C_f": 67.70743097087541,
+        "zone_temp_1F_D_f": 67.9827438594074,
+        "zone_temp_2F_A_f": 67.75626334771246,
+        "zone_temp_2F_B_f": 68.28645617584208
+      },
+      "cumulative_kwh_baseline": 1820.724111340899,
+      "cumulative_kwh_hybrid": 1831.6022697051071,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 51,
+      "baseline_facility_kw": 192.92234285831356,
+      "delta_facility_kw": -2.384813127456876,
+      "hybrid_facility_kw": 190.53752973085668,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.90718643027418,
+        "zone_temp_1F_C_f": 67.296040109943,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72177091779206,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.023610534692256456,
+        "zone_temp_1F_B_f": 0.04720025257128346,
+        "zone_temp_1F_C_f": 0.4035275238876853,
+        "zone_temp_1F_D_f": 0.0449100402237126,
+        "zone_temp_2F_A_f": 0.037925876558523704,
+        "zone_temp_2F_B_f": 0.057244795199494235
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01584946196161,
+        "zone_temp_1F_B_f": 67.95438668284547,
+        "zone_temp_1F_C_f": 67.69956763383068,
+        "zone_temp_1F_D_f": 67.98361555082148,
+        "zone_temp_2F_A_f": 67.75969679435057,
+        "zone_temp_2F_B_f": 68.28434768037643
+      },
+      "cumulative_kwh_baseline": 1868.9546970554775,
+      "cumulative_kwh_hybrid": 1879.2366521378212,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 52,
+      "baseline_facility_kw": 192.92234285831356,
+      "delta_facility_kw": -2.371182654627064,
+      "hybrid_facility_kw": 190.5511602036865,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.90963965489114,
+        "zone_temp_1F_C_f": 67.31750117213477,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.022845751205664976,
+        "zone_temp_1F_B_f": 0.052382577724707634,
+        "zone_temp_1F_C_f": 0.40248672719329515,
+        "zone_temp_1F_D_f": 0.04646016471779961,
+        "zone_temp_2F_A_f": 0.040558537879512926,
+        "zone_temp_2F_B_f": 0.059853136591018666
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01508467847502,
+        "zone_temp_1F_B_f": 67.96202223261585,
+        "zone_temp_1F_C_f": 67.71998789932806,
+        "zone_temp_1F_D_f": 67.98516567531557,
+        "zone_temp_2F_A_f": 67.764791905333,
+        "zone_temp_2F_B_f": 68.28695602176795
+      },
+      "cumulative_kwh_baseline": 1917.185282770056,
+      "cumulative_kwh_hybrid": 1926.874442188743,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 53,
+      "baseline_facility_kw": 192.92234285831356,
+      "delta_facility_kw": -2.281625876723884,
+      "hybrid_facility_kw": 190.64071698158966,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.88588161389244,
+        "zone_temp_1F_C_f": 67.27430759254551,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.023727368798311492,
+        "zone_temp_1F_B_f": 0.0516817185399536,
+        "zone_temp_1F_C_f": 0.37878031812721696,
+        "zone_temp_1F_D_f": 0.03936694538289091,
+        "zone_temp_2F_A_f": 0.03725230684126143,
+        "zone_temp_2F_B_f": 0.062189245282173296
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01596629606766,
+        "zone_temp_1F_B_f": 67.93756333243239,
+        "zone_temp_1F_C_f": 67.65308791067272,
+        "zone_temp_1F_D_f": 67.97807245598067,
+        "zone_temp_2F_A_f": 67.76148567429475,
+        "zone_temp_2F_B_f": 68.2892921304591
+      },
+      "cumulative_kwh_baseline": 1965.4158684846343,
+      "cumulative_kwh_hybrid": 1974.5346214341403,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 54,
+      "baseline_facility_kw": 192.39092566572677,
+      "delta_facility_kw": -1.9414983491054645,
+      "hybrid_facility_kw": 190.4494273166213,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.88588161389244,
+        "zone_temp_1F_C_f": 67.25552981340422,
+        "zone_temp_1F_D_f": 67.93870551059777,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.02544226800087369,
+        "zone_temp_1F_B_f": 0.050573750219284404,
+        "zone_temp_1F_C_f": 0.3728289147568487,
+        "zone_temp_1F_D_f": 0.03689413275626368,
+        "zone_temp_2F_A_f": 0.03430868127370049,
+        "zone_temp_2F_B_f": 0.056580257338741474
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01768119527023,
+        "zone_temp_1F_B_f": 67.93645536411172,
+        "zone_temp_1F_C_f": 67.62835872816107,
+        "zone_temp_1F_D_f": 67.97559964335403,
+        "zone_temp_2F_A_f": 67.75854204872718,
+        "zone_temp_2F_B_f": 68.28368314251567
+      },
+      "cumulative_kwh_baseline": 2013.513599901066,
+      "cumulative_kwh_hybrid": 2022.1469782632955,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 55,
+      "baseline_facility_kw": 189.6315953021019,
+      "delta_facility_kw": -1.8683108126831278,
+      "hybrid_facility_kw": 187.7632844894188,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.99223892726936,
+        "zone_temp_1F_B_f": 67.88588161389244,
+        "zone_temp_1F_C_f": 67.30460887752761,
+        "zone_temp_1F_D_f": 67.93122603888585,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.026645142631539318,
+        "zone_temp_1F_B_f": 0.04709920083082479,
+        "zone_temp_1F_C_f": 0.3667922001559745,
+        "zone_temp_1F_D_f": 0.03662614946951351,
+        "zone_temp_2F_A_f": 0.03090264261576071,
+        "zone_temp_2F_B_f": 0.05141546672376512
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01888406990089,
+        "zone_temp_1F_B_f": 67.93298081472327,
+        "zone_temp_1F_C_f": 67.67140107768358,
+        "zone_temp_1F_D_f": 67.96785218835537,
+        "zone_temp_2F_A_f": 67.75513601006924,
+        "zone_temp_2F_B_f": 68.2785183519007
+      },
+      "cumulative_kwh_baseline": 2060.9214987265914,
+      "cumulative_kwh_hybrid": 2069.08779938565,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 56,
+      "baseline_facility_kw": 187.2684816979666,
+      "delta_facility_kw": -1.7206962030434143,
+      "hybrid_facility_kw": 185.54778549492318,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.98803440694061,
+        "zone_temp_1F_B_f": 67.88588161389244,
+        "zone_temp_1F_C_f": 67.30460887752761,
+        "zone_temp_1F_D_f": 67.9228859038447,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22710288517693
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.024597761425614033,
+        "zone_temp_1F_B_f": 0.044621182388796275,
+        "zone_temp_1F_C_f": 0.3643929277842307,
+        "zone_temp_1F_D_f": 0.03681357630342571,
+        "zone_temp_2F_A_f": 0.02944815046674015,
+        "zone_temp_2F_B_f": 0.05042559699807934
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.01263216836622,
+        "zone_temp_1F_B_f": 67.93050279628123,
+        "zone_temp_1F_C_f": 67.66900180531185,
+        "zone_temp_1F_D_f": 67.95969948014813,
+        "zone_temp_2F_A_f": 67.75368151792021,
+        "zone_temp_2F_B_f": 68.27752848217501
+      },
+      "cumulative_kwh_baseline": 2107.738619151083,
+      "cumulative_kwh_hybrid": 2115.474745759381,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 57,
+      "baseline_facility_kw": 182.16884399424669,
+      "delta_facility_kw": -1.532648115948555,
+      "hybrid_facility_kw": 180.63619587829814,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.98803440694061,
+        "zone_temp_1F_B_f": 67.87917660301594,
+        "zone_temp_1F_C_f": 67.30158721596227,
+        "zone_temp_1F_D_f": 67.90395063219073,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22141172150803
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.021242065150724854,
+        "zone_temp_1F_B_f": 0.04523403210795687,
+        "zone_temp_1F_C_f": 0.3620307859900212,
+        "zone_temp_1F_D_f": 0.03681357630342571,
+        "zone_temp_2F_A_f": 0.027661159258419634,
+        "zone_temp_2F_B_f": 0.0501079326829745
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 67.00927647209134,
+        "zone_temp_1F_B_f": 67.92441063512389,
+        "zone_temp_1F_C_f": 67.66361800195229,
+        "zone_temp_1F_D_f": 67.94076420849416,
+        "zone_temp_2F_A_f": 67.7518945267119,
+        "zone_temp_2F_B_f": 68.27151965419101
+      },
+      "cumulative_kwh_baseline": 2153.2808301496448,
+      "cumulative_kwh_hybrid": 2160.6337947289558,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 58,
+      "baseline_facility_kw": 181.37836593469234,
+      "delta_facility_kw": -1.528318365085701,
+      "hybrid_facility_kw": 179.85004756960663,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.97012463369735,
+        "zone_temp_1F_B_f": 67.83522907409207,
+        "zone_temp_1F_C_f": 67.27030768000306,
+        "zone_temp_1F_D_f": 67.89465036213014,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22141172150803
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.018259959969488686,
+        "zone_temp_1F_B_f": 0.046061516624143796,
+        "zone_temp_1F_C_f": 0.3596506475391506,
+        "zone_temp_1F_D_f": 0.03681357630342571,
+        "zone_temp_2F_A_f": 0.026156075977880156,
+        "zone_temp_2F_B_f": 0.049671918236743766
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.98838459366684,
+        "zone_temp_1F_B_f": 67.88129059071622,
+        "zone_temp_1F_C_f": 67.62995832754221,
+        "zone_temp_1F_D_f": 67.93146393843357,
+        "zone_temp_2F_A_f": 67.75038944343136,
+        "zone_temp_2F_B_f": 68.27108363974477
+      },
+      "cumulative_kwh_baseline": 2198.6254216333177,
+      "cumulative_kwh_hybrid": 2205.5963066213576,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 59,
+      "baseline_facility_kw": 178.23365520244568,
+      "delta_facility_kw": -1.4877294988559777,
+      "hybrid_facility_kw": 176.7459257035897,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.84702389749502,
+        "zone_temp_1F_B_f": 67.8299667168866,
+        "zone_temp_1F_C_f": 67.27030768000306,
+        "zone_temp_1F_D_f": 67.83899525168808,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.22141172150803
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.01664909151095355,
+        "zone_temp_1F_B_f": 0.04426634573068514,
+        "zone_temp_1F_C_f": 0.3596182672551462,
+        "zone_temp_1F_D_f": 0.03634072381965399,
+        "zone_temp_2F_A_f": 0.026259087535781662,
+        "zone_temp_2F_B_f": 0.04937499891853438
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.86367298900598,
+        "zone_temp_1F_B_f": 67.8742330626173,
+        "zone_temp_1F_C_f": 67.6299259472582,
+        "zone_temp_1F_D_f": 67.87533597550772,
+        "zone_temp_2F_A_f": 67.75049245498926,
+        "zone_temp_2F_B_f": 68.27078672042657
+      },
+      "cumulative_kwh_baseline": 2243.1838354339293,
+      "cumulative_kwh_hybrid": 2249.782788047255,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 60,
+      "baseline_facility_kw": 174.08547749636534,
+      "delta_facility_kw": -1.4690888766543213,
+      "hybrid_facility_kw": 172.61638861971102,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.84527962571369,
+        "zone_temp_1F_B_f": 67.81652863868035,
+        "zone_temp_1F_C_f": 67.27030768000306,
+        "zone_temp_1F_D_f": 67.81189138160268,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.20293385659801
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.012732045220542724,
+        "zone_temp_1F_B_f": 0.04282816594479785,
+        "zone_temp_1F_C_f": 0.3596182672551462,
+        "zone_temp_1F_D_f": 0.03634072381965399,
+        "zone_temp_2F_A_f": 0.022209677141231933,
+        "zone_temp_2F_B_f": 0.04913885118525978
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.85801167093423,
+        "zone_temp_1F_B_f": 67.85935680462515,
+        "zone_temp_1F_C_f": 67.6299259472582,
+        "zone_temp_1F_D_f": 67.84823210542233,
+        "zone_temp_2F_A_f": 67.74644304459471,
+        "zone_temp_2F_B_f": 68.25207270778327
+      },
+      "cumulative_kwh_baseline": 2286.7052048080204,
+      "cumulative_kwh_hybrid": 2292.936885202183,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 61,
+      "baseline_facility_kw": 168.58637979033682,
+      "delta_facility_kw": -1.4769673671259083,
+      "hybrid_facility_kw": 167.10941242321093,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.83919913859597,
+        "zone_temp_1F_B_f": 67.80917602697828,
+        "zone_temp_1F_C_f": 67.26940112969577,
+        "zone_temp_1F_D_f": 67.68325908678862,
+        "zone_temp_2F_A_f": 67.72423336745348,
+        "zone_temp_2F_B_f": 68.1528007592572
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.010938946340445703,
+        "zone_temp_1F_B_f": 0.03875718327708064,
+        "zone_temp_1F_C_f": 0.3596182672551462,
+        "zone_temp_1F_D_f": 0.03634072381965399,
+        "zone_temp_2F_A_f": 0.02048108036205355,
+        "zone_temp_2F_B_f": 0.046526546499031714
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.85013808493642,
+        "zone_temp_1F_B_f": 67.84793321025536,
+        "zone_temp_1F_C_f": 67.62901939695091,
+        "zone_temp_1F_D_f": 67.71959981060827,
+        "zone_temp_2F_A_f": 67.74471444781554,
+        "zone_temp_2F_B_f": 68.19932730575624
+      },
+      "cumulative_kwh_baseline": 2328.8517997556046,
+      "cumulative_kwh_hybrid": 2334.714238307986,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 62,
+      "baseline_facility_kw": 166.80375661264287,
+      "delta_facility_kw": -1.4851659128842989,
+      "hybrid_facility_kw": 165.31859069975857,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.80232804325675,
+        "zone_temp_1F_B_f": 67.80811851806936,
+        "zone_temp_1F_C_f": 67.2707430825553,
+        "zone_temp_1F_D_f": 67.55794240385498,
+        "zone_temp_2F_A_f": 67.69413576750534,
+        "zone_temp_2F_B_f": 68.10375154929518
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.009795745341467118,
+        "zone_temp_1F_B_f": 0.04261951706909831,
+        "zone_temp_1F_C_f": 0.3604855746377995,
+        "zone_temp_1F_D_f": 0.03632789558881243,
+        "zone_temp_2F_A_f": 0.023123390344245143,
+        "zone_temp_2F_B_f": 0.05084545501484449
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.81212378859821,
+        "zone_temp_1F_B_f": 67.85073803513846,
+        "zone_temp_1F_C_f": 67.6312286571931,
+        "zone_temp_1F_D_f": 67.59427029944379,
+        "zone_temp_2F_A_f": 67.71725915784958,
+        "zone_temp_2F_B_f": 68.15459700431003
+      },
+      "cumulative_kwh_baseline": 2370.552738908765,
+      "cumulative_kwh_hybrid": 2376.0438859829255,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 63,
+      "baseline_facility_kw": 162.66135384703415,
+      "delta_facility_kw": -1.7982662084841268,
+      "hybrid_facility_kw": 160.86308763855,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.6532641122384,
+        "zone_temp_1F_B_f": 67.69512957258826,
+        "zone_temp_1F_C_f": 67.22601910432016,
+        "zone_temp_1F_D_f": 67.44688521186559,
+        "zone_temp_2F_A_f": 67.6572020885619,
+        "zone_temp_2F_B_f": 68.10375154929518
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.01171061127752587,
+        "zone_temp_1F_B_f": 0.039221677268931915,
+        "zone_temp_1F_C_f": 0.35952375483318827,
+        "zone_temp_1F_D_f": 0.03913475771759577,
+        "zone_temp_2F_A_f": 0.020610274093547355,
+        "zone_temp_2F_B_f": 0.0528323513070648
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.66497472351593,
+        "zone_temp_1F_B_f": 67.73435124985718,
+        "zone_temp_1F_C_f": 67.58554285915335,
+        "zone_temp_1F_D_f": 67.48601996958318,
+        "zone_temp_2F_A_f": 67.67781236265544,
+        "zone_temp_2F_B_f": 68.15658390060224
+      },
+      "cumulative_kwh_baseline": 2411.2180773705236,
+      "cumulative_kwh_hybrid": 2416.259657892563,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 64,
+      "baseline_facility_kw": 158.18352018882197,
+      "delta_facility_kw": -0.0017804597419362384,
+      "hybrid_facility_kw": 158.18173972908005,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.4680766124621,
+        "zone_temp_1F_B_f": 67.50385223454785,
+        "zone_temp_1F_C_f": 67.17090112013547,
+        "zone_temp_1F_D_f": 67.34422086067941,
+        "zone_temp_2F_A_f": 67.6274792817215,
+        "zone_temp_2F_B_f": 68.04906491843509
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.2299927430385987,
+        "zone_temp_1F_B_f": 0.13408422677164963,
+        "zone_temp_1F_C_f": 0.13637426888695478,
+        "zone_temp_1F_D_f": -0.23167310116802084,
+        "zone_temp_2F_A_f": 0.2546397987800021,
+        "zone_temp_2F_B_f": 0.18713969810495584
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.69806935550069,
+        "zone_temp_1F_B_f": 67.6379364613195,
+        "zone_temp_1F_C_f": 67.30727538902242,
+        "zone_temp_1F_D_f": 67.11254775951139,
+        "zone_temp_2F_A_f": 67.88211908050151,
+        "zone_temp_2F_B_f": 68.23620461654005
+      },
+      "cumulative_kwh_baseline": 2450.763957417729,
+      "cumulative_kwh_hybrid": 2455.805092824833,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 65,
+      "baseline_facility_kw": 151.99986046021485,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 151.99810834625018,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.34587841154601,
+        "zone_temp_1F_B_f": 67.38971336942916,
+        "zone_temp_1F_C_f": 67.12854104951701,
+        "zone_temp_1F_D_f": 67.13990463130031,
+        "zone_temp_2F_A_f": 67.48978213101725,
+        "zone_temp_2F_B_f": 67.85095785591994
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.6394130688133133,
+        "zone_temp_1F_B_f": 0.20119777358774513,
+        "zone_temp_1F_C_f": 0.013157949465177824,
+        "zone_temp_1F_D_f": -0.2711841191648609,
+        "zone_temp_2F_A_f": 0.7035760196759752,
+        "zone_temp_2F_B_f": 0.2374486611310913
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.98529148035932,
+        "zone_temp_1F_B_f": 67.59091114301691,
+        "zone_temp_1F_C_f": 67.14169899898219,
+        "zone_temp_1F_D_f": 66.86872051213545,
+        "zone_temp_2F_A_f": 68.19335815069323,
+        "zone_temp_2F_B_f": 68.08840651705104
+      },
+      "cumulative_kwh_baseline": 2488.763922532783,
+      "cumulative_kwh_hybrid": 2493.8046199113955,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 66,
+      "baseline_facility_kw": 146.73445963331633,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 146.73270751935166,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.27797935294038,
+        "zone_temp_1F_B_f": 67.22594326573706,
+        "zone_temp_1F_C_f": 67.0675328559092,
+        "zone_temp_1F_D_f": 66.93786145494568,
+        "zone_temp_2F_A_f": 67.4774519245738,
+        "zone_temp_2F_B_f": 67.71046216217042
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7074195518016808,
+        "zone_temp_1F_B_f": 0.19455315040307594,
+        "zone_temp_1F_C_f": -0.12491570047421575,
+        "zone_temp_1F_D_f": -0.4373545434016805,
+        "zone_temp_2F_A_f": 0.7170090964815536,
+        "zone_temp_2F_B_f": 0.24060296100993098
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.98539890474206,
+        "zone_temp_1F_B_f": 67.42049641614014,
+        "zone_temp_1F_C_f": 66.94261715543499,
+        "zone_temp_1F_D_f": 66.500506911544,
+        "zone_temp_2F_A_f": 68.19446102105535,
+        "zone_temp_2F_B_f": 67.95106512318034
+      },
+      "cumulative_kwh_baseline": 2525.447537441112,
+      "cumulative_kwh_hybrid": 2530.4877967912334,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 67,
+      "baseline_facility_kw": 142.45091379273953,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 142.44916167877486,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.20598889391881,
+        "zone_temp_1F_B_f": 67.07699823416797,
+        "zone_temp_1F_C_f": 67.03845707385427,
+        "zone_temp_1F_D_f": 66.71686624983248,
+        "zone_temp_2F_A_f": 67.41985684076252,
+        "zone_temp_2F_B_f": 67.57457755781579
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7474747579399363,
+        "zone_temp_1F_B_f": 0.18648009787914557,
+        "zone_temp_1F_C_f": -0.1439187076850144,
+        "zone_temp_1F_D_f": -0.5903332250550571,
+        "zone_temp_2F_A_f": 0.7407501537294177,
+        "zone_temp_2F_B_f": 0.24708546489877187
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.95346365185875,
+        "zone_temp_1F_B_f": 67.26347833204711,
+        "zone_temp_1F_C_f": 66.89453836616926,
+        "zone_temp_1F_D_f": 66.12653302477742,
+        "zone_temp_2F_A_f": 68.16060699449194,
+        "zone_temp_2F_B_f": 67.82166302271456
+      },
+      "cumulative_kwh_baseline": 2561.060265889297,
+      "cumulative_kwh_hybrid": 2566.100087210927,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 105
+    },
+    {
+      "step_15": 68,
+      "baseline_facility_kw": 142.45091379273953,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 142.44916167877486,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.09852513278386,
+        "zone_temp_1F_B_f": 66.967031815844,
+        "zone_temp_1F_C_f": 66.89100136844053,
+        "zone_temp_1F_D_f": 66.48122714136561,
+        "zone_temp_2F_A_f": 67.30848202205536,
+        "zone_temp_2F_B_f": 67.44365958266766
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7638345948980345,
+        "zone_temp_1F_B_f": 0.17567448285696752,
+        "zone_temp_1F_C_f": -0.22969275517465298,
+        "zone_temp_1F_D_f": -0.7947435605244204,
+        "zone_temp_2F_A_f": 0.7617782275447802,
+        "zone_temp_2F_B_f": 0.24349450819233226
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.86235972768189,
+        "zone_temp_1F_B_f": 67.14270629870096,
+        "zone_temp_1F_C_f": 66.66130861326587,
+        "zone_temp_1F_D_f": 65.68648358084118,
+        "zone_temp_2F_A_f": 68.07026024960014,
+        "zone_temp_2F_B_f": 67.68715409085999
+      },
+      "cumulative_kwh_baseline": 2596.672994337482,
+      "cumulative_kwh_hybrid": 2601.7123776306207,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 106
+    },
+    {
+      "step_15": 69,
+      "baseline_facility_kw": 142.19580354649656,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 142.1940514325319,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.96160025435243,
+        "zone_temp_1F_B_f": 66.86835512329715,
+        "zone_temp_1F_C_f": 66.85320437177383,
+        "zone_temp_1F_D_f": 66.26290532292586,
+        "zone_temp_2F_A_f": 67.20303175110254,
+        "zone_temp_2F_B_f": 67.37982738567706
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7824677782972406,
+        "zone_temp_1F_B_f": 0.16421523379986905,
+        "zone_temp_1F_C_f": -0.35718232691803975,
+        "zone_temp_1F_D_f": -0.873573797132049,
+        "zone_temp_2F_A_f": 0.767167547432844,
+        "zone_temp_2F_B_f": 0.21720062413624314
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.74406803264968,
+        "zone_temp_1F_B_f": 67.03257035709701,
+        "zone_temp_1F_C_f": 66.49602204485579,
+        "zone_temp_1F_D_f": 65.3893315257938,
+        "zone_temp_2F_A_f": 67.97019929853539,
+        "zone_temp_2F_B_f": 67.5970280098133
+      },
+      "cumulative_kwh_baseline": 2632.221945224106,
+      "cumulative_kwh_hybrid": 2637.260890488754,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 107
+    },
+    {
+      "step_15": 70,
+      "baseline_facility_kw": 142.04443782573847,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 142.0426857117738,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.91258471866777,
+        "zone_temp_1F_B_f": 66.76285391077496,
+        "zone_temp_1F_C_f": 66.6934315153166,
+        "zone_temp_1F_D_f": 66.09519518781596,
+        "zone_temp_2F_A_f": 67.10643134004782,
+        "zone_temp_2F_B_f": 67.2977204269373
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7784373403060694,
+        "zone_temp_1F_B_f": 0.1413299242742294,
+        "zone_temp_1F_C_f": -0.4521820075499345,
+        "zone_temp_1F_D_f": -1.0015272941770408,
+        "zone_temp_2F_A_f": 0.7729517689410815,
+        "zone_temp_2F_B_f": 0.17536948313719955
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.69102205897384,
+        "zone_temp_1F_B_f": 66.9041838350492,
+        "zone_temp_1F_C_f": 66.24124950776667,
+        "zone_temp_1F_D_f": 65.09366789363892,
+        "zone_temp_2F_A_f": 67.8793831089889,
+        "zone_temp_2F_B_f": 67.4730899100745
+      },
+      "cumulative_kwh_baseline": 2667.7330546805406,
+      "cumulative_kwh_hybrid": 2672.7715619166975,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 108
+    },
+    {
+      "step_15": 71,
+      "baseline_facility_kw": 138.73164374303119,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 138.72989162906651,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.84899542722219,
+        "zone_temp_1F_B_f": 66.64804287691155,
+        "zone_temp_1F_C_f": 66.64315342848968,
+        "zone_temp_1F_D_f": 65.89523533099155,
+        "zone_temp_2F_A_f": 67.10643134004782,
+        "zone_temp_2F_B_f": 67.18522268976542
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7785076161459373,
+        "zone_temp_1F_B_f": 0.13655957951776518,
+        "zone_temp_1F_C_f": -0.500527393372692,
+        "zone_temp_1F_D_f": -1.1172475352253792,
+        "zone_temp_2F_A_f": 0.780349722743799,
+        "zone_temp_2F_B_f": 0.1506000009010324
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.62750304336814,
+        "zone_temp_1F_B_f": 66.78460245642931,
+        "zone_temp_1F_C_f": 66.14262603511699,
+        "zone_temp_1F_D_f": 64.77798779576618,
+        "zone_temp_2F_A_f": 67.88678106279161,
+        "zone_temp_2F_B_f": 67.33582269066646
+      },
+      "cumulative_kwh_baseline": 2702.4159656162983,
+      "cumulative_kwh_hybrid": 2707.4540348239643,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 109
+    },
+    {
+      "step_15": 72,
+      "baseline_facility_kw": 139.77722378857484,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 139.77547167461017,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.77032267591625,
+        "zone_temp_1F_B_f": 66.53070106049763,
+        "zone_temp_1F_C_f": 66.49690648634763,
+        "zone_temp_1F_D_f": 65.83097700407984,
+        "zone_temp_2F_A_f": 67.10788412179183,
+        "zone_temp_2F_B_f": 67.08931424428069
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7795644730496424,
+        "zone_temp_1F_B_f": 0.12668371270411238,
+        "zone_temp_1F_C_f": -0.5531406151785432,
+        "zone_temp_1F_D_f": -1.1899210171662924,
+        "zone_temp_2F_A_f": 0.7874545146235354,
+        "zone_temp_2F_B_f": 0.13284595519490194
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.5498871489659,
+        "zone_temp_1F_B_f": 66.65738477320174,
+        "zone_temp_1F_C_f": 65.94376587116908,
+        "zone_temp_1F_D_f": 64.64105598691354,
+        "zone_temp_2F_A_f": 67.89533863641536,
+        "zone_temp_2F_B_f": 67.22216019947558
+      },
+      "cumulative_kwh_baseline": 2737.360271563442,
+      "cumulative_kwh_hybrid": 2742.3979027426167,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 111
+    },
+    {
+      "step_15": 73,
+      "baseline_facility_kw": 128.2316178060593,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 128.22986569209462,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.48312540351093,
+        "zone_temp_1F_C_f": 66.46395291620624,
+        "zone_temp_1F_D_f": 65.70950508427171,
+        "zone_temp_2F_A_f": 67.10788412179183,
+        "zone_temp_2F_B_f": 67.07677445241045
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7840293321677354,
+        "zone_temp_1F_B_f": 0.11415230936340068,
+        "zone_temp_1F_C_f": -0.5856352149698958,
+        "zone_temp_1F_D_f": -1.2522507120939639,
+        "zone_temp_2F_A_f": 0.7891581193517467,
+        "zone_temp_2F_B_f": 0.11986900871436958
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54783989119568,
+        "zone_temp_1F_B_f": 66.59727771287433,
+        "zone_temp_1F_C_f": 65.87831770123634,
+        "zone_temp_1F_D_f": 64.45725437217774,
+        "zone_temp_2F_A_f": 67.89704224114357,
+        "zone_temp_2F_B_f": 67.19664346112482
+      },
+      "cumulative_kwh_baseline": 2769.4181760149568,
+      "cumulative_kwh_hybrid": 2774.45536916564,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 113
+    },
+    {
+      "step_15": 74,
+      "baseline_facility_kw": 124.19910939591551,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 124.19735728195086,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.33798614055398,
+        "zone_temp_1F_D_f": 65.60862944463196,
+        "zone_temp_2F_A_f": 67.10788412179183,
+        "zone_temp_2F_B_f": 67.07677445241045
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.786026050607007,
+        "zone_temp_1F_B_f": 0.10388447529318492,
+        "zone_temp_1F_C_f": -0.6142527923227703,
+        "zone_temp_1F_D_f": -1.2920886246478216,
+        "zone_temp_2F_A_f": 0.7894104668107911,
+        "zone_temp_2F_B_f": 0.11287668062146547
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54983660963495,
+        "zone_temp_1F_B_f": 66.52515021008978,
+        "zone_temp_1F_C_f": 65.7237333482312,
+        "zone_temp_1F_D_f": 64.31654081998414,
+        "zone_temp_2F_A_f": 67.89729458860262,
+        "zone_temp_2F_B_f": 67.18965113303192
+      },
+      "cumulative_kwh_baseline": 2800.4679533639355,
+      "cumulative_kwh_hybrid": 2805.504708486128,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 115
+    },
+    {
+      "step_15": 75,
+      "baseline_facility_kw": 118.88234856699162,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 118.88059645302697,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.24918994479405,
+        "zone_temp_1F_D_f": 65.46767738317772,
+        "zone_temp_2F_A_f": 67.10788412179183,
+        "zone_temp_2F_B_f": 67.07677445241045
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.786181702800305,
+        "zone_temp_1F_B_f": 0.09850286699201892,
+        "zone_temp_1F_C_f": -0.6362867353387733,
+        "zone_temp_1F_D_f": -1.319391430199756,
+        "zone_temp_2F_A_f": 0.7891405263019762,
+        "zone_temp_2F_B_f": 0.1072249131746082
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54999226182825,
+        "zone_temp_1F_B_f": 66.51976860178861,
+        "zone_temp_1F_C_f": 65.61290320945528,
+        "zone_temp_1F_D_f": 64.14828595297796,
+        "zone_temp_2F_A_f": 67.8970246480938,
+        "zone_temp_2F_B_f": 67.18399936558505
+      },
+      "cumulative_kwh_baseline": 2830.1885405056832,
+      "cumulative_kwh_hybrid": 2835.224857599385,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 117
+    },
+    {
+      "step_15": 76,
+      "baseline_facility_kw": 113.65024832156976,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 113.6484962076051,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.25313640785183,
+        "zone_temp_1F_D_f": 65.35410885959351,
+        "zone_temp_2F_A_f": 67.10788412179183,
+        "zone_temp_2F_B_f": 67.06139339555082
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7847694027968252,
+        "zone_temp_1F_B_f": 0.09532473723076655,
+        "zone_temp_1F_C_f": -0.6493622751952646,
+        "zone_temp_1F_D_f": -1.348482206612128,
+        "zone_temp_2F_A_f": 0.7877234928184524,
+        "zone_temp_2F_B_f": 0.10206375735807978
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54857996182477,
+        "zone_temp_1F_B_f": 66.51659047202736,
+        "zone_temp_1F_C_f": 65.60377413265657,
+        "zone_temp_1F_D_f": 64.00562665298138,
+        "zone_temp_2F_A_f": 67.89560761461028,
+        "zone_temp_2F_B_f": 67.1634571529089
+      },
+      "cumulative_kwh_baseline": 2858.6011025860757,
+      "cumulative_kwh_hybrid": 2863.636981651286,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 119
+    },
+    {
+      "step_15": 77,
+      "baseline_facility_kw": 113.65024832156976,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 113.6484962076051,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.25313640785183,
+        "zone_temp_1F_D_f": 65.3020589812173,
+        "zone_temp_2F_A_f": 67.11260609580016,
+        "zone_temp_2F_B_f": 66.97354691457376
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7829763347376788,
+        "zone_temp_1F_B_f": 0.09366135761275292,
+        "zone_temp_1F_C_f": -0.6610067792329344,
+        "zone_temp_1F_D_f": -1.3737112447539097,
+        "zone_temp_2F_A_f": 0.7856054042191262,
+        "zone_temp_2F_B_f": 0.09946946175089598
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54678689376563,
+        "zone_temp_1F_B_f": 66.51492709240935,
+        "zone_temp_1F_C_f": 65.59212962861889,
+        "zone_temp_1F_D_f": 63.928347736463394,
+        "zone_temp_2F_A_f": 67.89821150001929,
+        "zone_temp_2F_B_f": 67.07301637632466
+      },
+      "cumulative_kwh_baseline": 2887.0136646664682,
+      "cumulative_kwh_hybrid": 2892.0491057031873,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 121
+    },
+    {
+      "step_15": 78,
+      "baseline_facility_kw": 110.88187049057618,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 110.88011837661152,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.76381055902795,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.26131154059478,
+        "zone_temp_1F_D_f": 65.19369959537126,
+        "zone_temp_2F_A_f": 67.11260609580016,
+        "zone_temp_2F_B_f": 66.97354691457376
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7818045963642342,
+        "zone_temp_1F_B_f": 0.09290410148413693,
+        "zone_temp_1F_C_f": -0.6606388338550668,
+        "zone_temp_1F_D_f": -1.38868530608152,
+        "zone_temp_2F_A_f": 0.7831475919718552,
+        "zone_temp_2F_B_f": 0.09870097616029323
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.54561515539218,
+        "zone_temp_1F_B_f": 66.51416983628073,
+        "zone_temp_1F_C_f": 65.60067270673972,
+        "zone_temp_1F_D_f": 63.80501428928974,
+        "zone_temp_2F_A_f": 67.89575368777201,
+        "zone_temp_2F_B_f": 67.07224789073405
+      },
+      "cumulative_kwh_baseline": 2914.7341322891125,
+      "cumulative_kwh_hybrid": 2919.76913529734,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 123
+    },
+    {
+      "step_15": 79,
+      "baseline_facility_kw": 106.71001247968321,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 106.70826036571856,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.70898415250862,
+        "zone_temp_1F_B_f": 66.42126573479659,
+        "zone_temp_1F_C_f": 66.25592728684283,
+        "zone_temp_1F_D_f": 65.06332756768042,
+        "zone_temp_2F_A_f": 67.10654034254776,
+        "zone_temp_2F_B_f": 66.97354691457376
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7791436803817858,
+        "zone_temp_1F_B_f": 0.0925734234034818,
+        "zone_temp_1F_C_f": -0.663009977835806,
+        "zone_temp_1F_D_f": -1.394182552172525,
+        "zone_temp_2F_A_f": 0.7814106057385158,
+        "zone_temp_2F_B_f": 0.0979712561751787
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.4881278328904,
+        "zone_temp_1F_B_f": 66.51383915820007,
+        "zone_temp_1F_C_f": 65.59291730900702,
+        "zone_temp_1F_D_f": 63.669145015507894,
+        "zone_temp_2F_A_f": 67.88795094828627,
+        "zone_temp_2F_B_f": 67.07151817074894
+      },
+      "cumulative_kwh_baseline": 2941.4116354090334,
+      "cumulative_kwh_hybrid": 2946.4462003887697,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 125
+    },
+    {
+      "step_15": 80,
+      "baseline_facility_kw": 104.06524080984458,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 104.06348869587993,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.5793141962726,
+        "zone_temp_1F_B_f": 66.42834563090504,
+        "zone_temp_1F_C_f": 66.25417204665281,
+        "zone_temp_1F_D_f": 65.0038814343717,
+        "zone_temp_2F_A_f": 67.10844249086865,
+        "zone_temp_2F_B_f": 66.97354691457376
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7750641325987238,
+        "zone_temp_1F_B_f": 0.09178134565815488,
+        "zone_temp_1F_C_f": -0.6637834013241714,
+        "zone_temp_1F_D_f": -1.3915618669335965,
+        "zone_temp_2F_A_f": 0.7780005121845585,
+        "zone_temp_2F_B_f": 0.09750723569430554
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.35437832887133,
+        "zone_temp_1F_B_f": 66.52012697656319,
+        "zone_temp_1F_C_f": 65.59038864532864,
+        "zone_temp_1F_D_f": 63.61231956743811,
+        "zone_temp_2F_A_f": 67.88644300305322,
+        "zone_temp_2F_B_f": 67.07105415026807
+      },
+      "cumulative_kwh_baseline": 2967.4279456114946,
+      "cumulative_kwh_hybrid": 2972.4620725627396,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 127
+    },
+    {
+      "step_15": 81,
+      "baseline_facility_kw": 104.19849346457795,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 104.1967413506133,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.53633926012888,
+        "zone_temp_1F_B_f": 66.43768384964088,
+        "zone_temp_1F_C_f": 66.2549814995486,
+        "zone_temp_1F_D_f": 64.97050225615864,
+        "zone_temp_2F_A_f": 67.1329024373421,
+        "zone_temp_2F_B_f": 66.99765348783512
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7723730399373154,
+        "zone_temp_1F_B_f": 0.09158100430710167,
+        "zone_temp_1F_C_f": -0.6594421459573859,
+        "zone_temp_1F_D_f": -1.3892845040035045,
+        "zone_temp_2F_A_f": 0.7743841287311859,
+        "zone_temp_2F_B_f": 0.09661563828141402
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.3087123000662,
+        "zone_temp_1F_B_f": 66.52926485394798,
+        "zone_temp_1F_C_f": 65.59553935359122,
+        "zone_temp_1F_D_f": 63.58121775215513,
+        "zone_temp_2F_A_f": 67.90728656607328,
+        "zone_temp_2F_B_f": 67.09426912611654
+      },
+      "cumulative_kwh_baseline": 2993.477568977639,
+      "cumulative_kwh_hybrid": 2998.511257900393,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 129
+    },
+    {
+      "step_15": 82,
+      "baseline_facility_kw": 102.98286025983867,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 102.98110814587402,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.429435901652,
+        "zone_temp_1F_B_f": 66.46653388120548,
+        "zone_temp_1F_C_f": 66.26310756019403,
+        "zone_temp_1F_D_f": 64.91939053685508,
+        "zone_temp_2F_A_f": 67.13693604532297,
+        "zone_temp_2F_B_f": 66.99765348783512
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7680010234383975,
+        "zone_temp_1F_B_f": 0.09133752119187366,
+        "zone_temp_1F_C_f": -0.6574143801438898,
+        "zone_temp_1F_D_f": -1.3871332887159835,
+        "zone_temp_2F_A_f": 0.7710075216669506,
+        "zone_temp_2F_B_f": 0.09639923919760886
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.1974369250904,
+        "zone_temp_1F_B_f": 66.55787140239735,
+        "zone_temp_1F_C_f": 65.60569318005014,
+        "zone_temp_1F_D_f": 63.53225724813909,
+        "zone_temp_2F_A_f": 67.90794356698991,
+        "zone_temp_2F_B_f": 67.09405272703273
+      },
+      "cumulative_kwh_baseline": 3019.2232840425986,
+      "cumulative_kwh_hybrid": 3024.2565349368615,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 131
+    },
+    {
+      "step_15": 83,
+      "baseline_facility_kw": 101.18548555355349,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 101.18373343958883,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.43490404400806,
+        "zone_temp_1F_B_f": 66.46653388120548,
+        "zone_temp_1F_C_f": 66.25400257729181,
+        "zone_temp_1F_D_f": 64.8622071630462,
+        "zone_temp_2F_A_f": 67.13693604532297,
+        "zone_temp_2F_B_f": 67.01306300202216
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7632687488104968,
+        "zone_temp_1F_B_f": 0.09104220664813378,
+        "zone_temp_1F_C_f": -0.6582571919008434,
+        "zone_temp_1F_D_f": -1.3808440958600208,
+        "zone_temp_2F_A_f": 0.7673024939711408,
+        "zone_temp_2F_B_f": 0.0962167676795671
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.19817279281857,
+        "zone_temp_1F_B_f": 66.55757608785362,
+        "zone_temp_1F_C_f": 65.59574538539097,
+        "zone_temp_1F_D_f": 63.48136306718617,
+        "zone_temp_2F_A_f": 67.90423853929411,
+        "zone_temp_2F_B_f": 67.10927976970173
+      },
+      "cumulative_kwh_baseline": 3044.519655430987,
+      "cumulative_kwh_hybrid": 3049.552468296759,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 133
+    },
+    {
+      "step_15": 84,
+      "baseline_facility_kw": 101.18548555355349,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 101.18373343958883,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.43292611077598,
+        "zone_temp_1F_B_f": 66.46600125815368,
+        "zone_temp_1F_C_f": 66.25400257729181,
+        "zone_temp_1F_D_f": 64.80417214269771,
+        "zone_temp_2F_A_f": 67.13628952937678,
+        "zone_temp_2F_B_f": 67.01537255524943
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7593790883691479,
+        "zone_temp_1F_B_f": 0.09089561269883345,
+        "zone_temp_1F_C_f": -0.6572441885950272,
+        "zone_temp_1F_D_f": -1.3706816325747881,
+        "zone_temp_2F_A_f": 0.7605221476986007,
+        "zone_temp_2F_B_f": 0.09572062320221938
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.19230519914512,
+        "zone_temp_1F_B_f": 66.55689687085251,
+        "zone_temp_1F_C_f": 65.59675838869678,
+        "zone_temp_1F_D_f": 63.43349051012292,
+        "zone_temp_2F_A_f": 67.89681167707538,
+        "zone_temp_2F_B_f": 67.11109317845165
+      },
+      "cumulative_kwh_baseline": 3069.816026819375,
+      "cumulative_kwh_hybrid": 3074.8484016566563,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 135
+    },
+    {
+      "step_15": 85,
+      "baseline_facility_kw": 96.00871046518398,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 96.00695835121932,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.43467038255731,
+        "zone_temp_1F_B_f": 66.46465172370647,
+        "zone_temp_1F_C_f": 66.25103058918607,
+        "zone_temp_1F_D_f": 64.80417214269771,
+        "zone_temp_2F_A_f": 67.12576975828284,
+        "zone_temp_2F_B_f": 67.02576526092041
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7532124127729194,
+        "zone_temp_1F_B_f": 0.09055665469774436,
+        "zone_temp_1F_C_f": -0.6528080824885338,
+        "zone_temp_1F_D_f": -1.3632642925687686,
+        "zone_temp_2F_A_f": 0.7564381938320228,
+        "zone_temp_2F_B_f": 0.09487876844577091
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.18788279533024,
+        "zone_temp_1F_B_f": 66.55520837840422,
+        "zone_temp_1F_C_f": 65.59822250669754,
+        "zone_temp_1F_D_f": 63.44090785012894,
+        "zone_temp_2F_A_f": 67.88220795211487,
+        "zone_temp_2F_B_f": 67.12064402936618
+      },
+      "cumulative_kwh_baseline": 3093.8182044356713,
+      "cumulative_kwh_hybrid": 3098.850141244461,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 137
+    },
+    {
+      "step_15": 86,
+      "baseline_facility_kw": 92.63562312481432,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 92.63387101084966,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.46542584497331,
+        "zone_temp_1F_C_f": 66.25103058918607,
+        "zone_temp_1F_D_f": 64.80417214269771,
+        "zone_temp_2F_A_f": 67.12576975828284,
+        "zone_temp_2F_B_f": 67.02785042703559
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7488706232638549,
+        "zone_temp_1F_B_f": 0.09012000973707004,
+        "zone_temp_1F_C_f": -0.6483544103517858,
+        "zone_temp_1F_D_f": -1.356394496426021,
+        "zone_temp_2F_A_f": 0.7514800847184219,
+        "zone_temp_2F_B_f": 0.09457440895958678
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.1751855087297,
+        "zone_temp_1F_B_f": 66.55554585471037,
+        "zone_temp_1F_C_f": 65.60267617883429,
+        "zone_temp_1F_D_f": 63.44777764627169,
+        "zone_temp_2F_A_f": 67.87724984300127,
+        "zone_temp_2F_B_f": 67.12242483599518
+      },
+      "cumulative_kwh_baseline": 3116.9771102168747,
+      "cumulative_kwh_hybrid": 3122.0086089971737,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 139
+    },
+    {
+      "step_15": 87,
+      "baseline_facility_kw": 87.96740121892105,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 87.9656491049564,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.4758801900268,
+        "zone_temp_1F_C_f": 66.24897863858476,
+        "zone_temp_1F_D_f": 64.79799766514948,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 67.00782044714124
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.74336643906216,
+        "zone_temp_1F_B_f": 0.08974260304172844,
+        "zone_temp_1F_C_f": -0.6439455488588948,
+        "zone_temp_1F_D_f": -1.3472634151756,
+        "zone_temp_2F_A_f": 0.7462689713504774,
+        "zone_temp_2F_B_f": 0.09411682748306437
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.169681324528,
+        "zone_temp_1F_B_f": 66.56562279306853,
+        "zone_temp_1F_C_f": 65.60503308972586,
+        "zone_temp_1F_D_f": 63.450734249973884,
+        "zone_temp_2F_A_f": 67.86646051482991,
+        "zone_temp_2F_B_f": 67.1019372746243
+      },
+      "cumulative_kwh_baseline": 3138.968960521605,
+      "cumulative_kwh_hybrid": 3144.000021273413,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 141
+    },
+    {
+      "step_15": 88,
+      "baseline_facility_kw": 86.02838886093305,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 86.02663674696839,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.47265476065131,
+        "zone_temp_1F_C_f": 66.24897863858476,
+        "zone_temp_1F_D_f": 64.79799766514948,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 67.00573528102606
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7381745275218718,
+        "zone_temp_1F_B_f": 0.08949006309268596,
+        "zone_temp_1F_C_f": -0.6386812601895245,
+        "zone_temp_1F_D_f": -1.3327907990296843,
+        "zone_temp_2F_A_f": 0.7428739163223107,
+        "zone_temp_2F_B_f": 0.09377368019897923
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.16448941298772,
+        "zone_temp_1F_B_f": 66.56214482374399,
+        "zone_temp_1F_C_f": 65.61029737839523,
+        "zone_temp_1F_D_f": 63.4652068661198,
+        "zone_temp_2F_A_f": 67.86306545980175,
+        "zone_temp_2F_B_f": 67.09950896122504
+      },
+      "cumulative_kwh_baseline": 3160.4760577368384,
+      "cumulative_kwh_hybrid": 3165.506680460155,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 143
+    },
+    {
+      "step_15": 89,
+      "baseline_facility_kw": 83.44800678077017,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 83.44625466680552,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.46665239553927,
+        "zone_temp_1F_C_f": 66.24897863858476,
+        "zone_temp_1F_D_f": 64.79799766514948,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 67.00573528102606
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7336120342522677,
+        "zone_temp_1F_B_f": 0.08902161880640369,
+        "zone_temp_1F_C_f": -0.6321991329761174,
+        "zone_temp_1F_D_f": -1.3223588831686421,
+        "zone_temp_2F_A_f": 0.7400816299947365,
+        "zone_temp_2F_B_f": 0.09362184289341284
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.15992691971812,
+        "zone_temp_1F_B_f": 66.55567401434567,
+        "zone_temp_1F_C_f": 65.61677950560865,
+        "zone_temp_1F_D_f": 63.47563878198084,
+        "zone_temp_2F_A_f": 67.86027317347417,
+        "zone_temp_2F_B_f": 67.09935712391948
+      },
+      "cumulative_kwh_baseline": 3181.338059432031,
+      "cumulative_kwh_hybrid": 3186.3682441268566,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 145
+    },
+    {
+      "step_15": 90,
+      "baseline_facility_kw": 82.7226830250756,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 82.72093091111094,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.46810301619755,
+        "zone_temp_1F_C_f": 66.24897863858476,
+        "zone_temp_1F_D_f": 64.79799766514948,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 67.00573528102606
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7297672974253031,
+        "zone_temp_1F_B_f": 0.08874477753662643,
+        "zone_temp_1F_C_f": -0.6264192820281652,
+        "zone_temp_1F_D_f": -1.3106863135269742,
+        "zone_temp_2F_A_f": 0.7349196993528619,
+        "zone_temp_2F_B_f": 0.09348487215685436
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.15608218289114,
+        "zone_temp_1F_B_f": 66.55684779373418,
+        "zone_temp_1F_C_f": 65.6225593565566,
+        "zone_temp_1F_D_f": 63.48731135162251,
+        "zone_temp_2F_A_f": 67.8551112428323,
+        "zone_temp_2F_B_f": 67.09922015318291
+      },
+      "cumulative_kwh_baseline": 3202.0187301882997,
+      "cumulative_kwh_hybrid": 3207.0484768546344,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 147
+    },
+    {
+      "step_15": 91,
+      "baseline_facility_kw": 80.29291417565476,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 80.2911620616901,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.46810301619755,
+        "zone_temp_1F_C_f": 66.24897863858476,
+        "zone_temp_1F_D_f": 64.79799766514948,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 67.00573528102606
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7257347455025747,
+        "zone_temp_1F_B_f": 0.08864527333135123,
+        "zone_temp_1F_C_f": -0.6226802794878794,
+        "zone_temp_1F_D_f": -1.2996510290200733,
+        "zone_temp_2F_A_f": 0.72925800310591,
+        "zone_temp_2F_B_f": 0.09338815135956664
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.15204963096842,
+        "zone_temp_1F_B_f": 66.5567482895289,
+        "zone_temp_1F_C_f": 65.62629835909688,
+        "zone_temp_1F_D_f": 63.498346636129405,
+        "zone_temp_2F_A_f": 67.84944954658535,
+        "zone_temp_2F_B_f": 67.09912343238562
+      },
+      "cumulative_kwh_baseline": 3222.0919587322132,
+      "cumulative_kwh_hybrid": 3227.121267370057,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 149
+    },
+    {
+      "step_15": 92,
+      "baseline_facility_kw": 76.57520686866663,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 76.57345475470197,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.44029974644415,
+        "zone_temp_1F_C_f": 66.24753349189069,
+        "zone_temp_1F_D_f": 64.759795759941,
+        "zone_temp_2F_A_f": 67.12019154347944,
+        "zone_temp_2F_B_f": 66.96506617766033
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7211750506758773,
+        "zone_temp_1F_B_f": 0.0886094054440516,
+        "zone_temp_1F_C_f": -0.6164034983126926,
+        "zone_temp_1F_D_f": -1.2906669010862069,
+        "zone_temp_2F_A_f": 0.7256019848883779,
+        "zone_temp_2F_B_f": 0.09337214371971742
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.14748993614172,
+        "zone_temp_1F_B_f": 66.5289091518882,
+        "zone_temp_1F_C_f": 65.631129993578,
+        "zone_temp_1F_D_f": 63.469128858854795,
+        "zone_temp_2F_A_f": 67.8457935283678,
+        "zone_temp_2F_B_f": 67.05843832138005
+      },
+      "cumulative_kwh_baseline": 3241.23576044938,
+      "cumulative_kwh_hybrid": 3246.2646310587324,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 151
+    },
+    {
+      "step_15": 93,
+      "baseline_facility_kw": 73.8143885183617,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 73.81263640439704,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.42631488546584,
+        "zone_temp_1F_B_f": 66.40956632857532,
+        "zone_temp_1F_C_f": 66.24753349189069,
+        "zone_temp_1F_D_f": 64.63715396467585,
+        "zone_temp_2F_A_f": 67.11743080501977,
+        "zone_temp_2F_B_f": 66.96275662443307
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7186720283633331,
+        "zone_temp_1F_B_f": 0.0885099718898239,
+        "zone_temp_1F_C_f": -0.6127884981204584,
+        "zone_temp_1F_D_f": -1.2796346861956924,
+        "zone_temp_2F_A_f": 0.7231367085423349,
+        "zone_temp_2F_B_f": 0.09330112921252569
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.14498691382917,
+        "zone_temp_1F_B_f": 66.49807630046514,
+        "zone_temp_1F_C_f": 65.63474499377024,
+        "zone_temp_1F_D_f": 63.357519278480154,
+        "zone_temp_2F_A_f": 67.8405675135621,
+        "zone_temp_2F_B_f": 67.05605775364559
+      },
+      "cumulative_kwh_baseline": 3259.6893575789704,
+      "cumulative_kwh_hybrid": 3264.7177901598316,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 153
+    },
+    {
+      "step_15": 94,
+      "baseline_facility_kw": 71.92868969199455,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 71.9269375780299,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.41486045970622,
+        "zone_temp_1F_B_f": 66.40956632857532,
+        "zone_temp_1F_C_f": 66.24642744576295,
+        "zone_temp_1F_D_f": 64.4888988408606,
+        "zone_temp_2F_A_f": 67.11743080501977,
+        "zone_temp_2F_B_f": 66.96275662443307
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7163251304993634,
+        "zone_temp_1F_B_f": 0.08860314623059672,
+        "zone_temp_1F_C_f": -0.6068630748177181,
+        "zone_temp_1F_D_f": -1.2706653034144586,
+        "zone_temp_2F_A_f": 0.7215964493487022,
+        "zone_temp_2F_B_f": 0.09299180427798161
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.13118559020558,
+        "zone_temp_1F_B_f": 66.49816947480592,
+        "zone_temp_1F_C_f": 65.63956437094522,
+        "zone_temp_1F_D_f": 63.21823353744614,
+        "zone_temp_2F_A_f": 67.83902725436846,
+        "zone_temp_2F_B_f": 67.05574842871106
+      },
+      "cumulative_kwh_baseline": 3277.671530001969,
+      "cumulative_kwh_hybrid": 3282.699524554339,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 155
+    },
+    {
+      "step_15": 95,
+      "baseline_facility_kw": 70.57566948026813,
+      "delta_facility_kw": -0.0017521139646563323,
+      "hybrid_facility_kw": 70.57391736630348,
+      "baseline_zone_temps_f": {
+        "zone_temp_1F_A_f": 65.41660262787326,
+        "zone_temp_1F_B_f": 66.40956632857532,
+        "zone_temp_1F_C_f": 66.24642744576295,
+        "zone_temp_1F_D_f": 64.40551481811869,
+        "zone_temp_2F_A_f": 67.11743080501977,
+        "zone_temp_2F_B_f": 66.95428496040384
+      },
+      "delta_zone_temps_f": {
+        "zone_temp_1F_A_f": 0.7145662434533829,
+        "zone_temp_1F_B_f": 0.08850069746083404,
+        "zone_temp_1F_C_f": -0.6046562516389647,
+        "zone_temp_1F_D_f": -1.265514152838804,
+        "zone_temp_2F_A_f": 0.7180873728318444,
+        "zone_temp_2F_B_f": 0.09283064788233356
+      },
+      "hybrid_zone_temps_f": {
+        "zone_temp_1F_A_f": 66.13116887132664,
+        "zone_temp_1F_B_f": 66.49806702603615,
+        "zone_temp_1F_C_f": 65.64177119412398,
+        "zone_temp_1F_D_f": 63.140000665279885,
+        "zone_temp_2F_A_f": 67.83551817785161,
+        "zone_temp_2F_B_f": 67.04711560828618
+      },
+      "cumulative_kwh_baseline": 3295.315447372036,
+      "cumulative_kwh_hybrid": 3300.343003895915,
+      "running_peak_kw_baseline": 197.54077644684327,
+      "running_peak_kw_hybrid": 298.02297606312595,
+      "running_peak_step_baseline": 36,
+      "running_peak_step_hybrid": 20,
+      "comfort_sp_f": 68.0,
+      "comfort_violations_cum": 157
+    }
+  ],
+  "summary": {
+    "cumulative_kwh_baseline": 3295.315447372036,
+    "cumulative_kwh_hybrid": 3300.343003895915,
+    "peak_kw_baseline": 197.54077644684327,
+    "peak_kw_hybrid": 298.02297606312595,
+    "peak_step_baseline": 36,
+    "peak_step_hybrid": 20,
+    "comfort_violations": 157,
+    "delta_peak_kw": 100.48219961628268,
+    "delta_kwh": 5.027556523878957
+  },
+  "champion_baseline": "gradient_boosting",
+  "champion_delta": "extra_trees",
+  "baseline_cv": {
+    "random_forest": {
+      "facility_kw": {
+        "mae": 11.318326960476144,
+        "rmse": 17.040161303429176,
+        "mae_peak_05_09": 15.979031683855814,
+        "rmse_peak_05_09": 22.207510904098203
+      },
+      "zone_temp_1F_A_f": {
+        "mae": 0.37615154960780045,
+        "rmse": 0.5811785548118287,
+        "mae_peak_05_09": 0.3687888880218486,
+        "rmse_peak_05_09": 0.5799401435674963
+      },
+      "zone_temp_1F_B_f": {
+        "mae": 0.5263538501241416,
+        "rmse": 0.8356519074966382,
+        "mae_peak_05_09": 0.5126724594895017,
+        "rmse_peak_05_09": 0.8411757309225045
+      },
+      "zone_temp_1F_C_f": {
+        "mae": 0.4364255756580578,
+        "rmse": 0.7027638470139671,
+        "mae_peak_05_09": 0.4145155448625791,
+        "rmse_peak_05_09": 0.6843859385532721
+      },
+      "zone_temp_1F_D_f": {
+        "mae": 0.29890130282079425,
+        "rmse": 0.47337749273823015,
+        "mae_peak_05_09": 0.2971824943362369,
+        "rmse_peak_05_09": 0.4713136710426821
+      },
+      "zone_temp_2F_A_f": {
+        "mae": 0.4223808011491166,
+        "rmse": 0.6784196781903469,
+        "mae_peak_05_09": 0.419109092377046,
+        "rmse_peak_05_09": 0.6788613429377913
+      },
+      "zone_temp_2F_B_f": {
+        "mae": 0.5386291533152225,
+        "rmse": 0.8982542725480819,
+        "mae_peak_05_09": 0.5173765148454675,
+        "rmse_peak_05_09": 0.8857658663204017
+      },
+      "facility_kw_mae": 11.318326960476144,
+      "facility_kw_mae_peak_05_09": 15.979031683855814,
+      "zone_temp_mae_mean": 0.43314037211252227
+    },
+    "extra_trees": {
+      "facility_kw": {
+        "mae": 11.288741378702603,
+        "rmse": 17.383582161906222,
+        "mae_peak_05_09": 16.26522189304065,
+        "rmse_peak_05_09": 22.786170964354557
+      },
+      "zone_temp_1F_A_f": {
+        "mae": 0.4474465466909014,
+        "rmse": 0.6646950857201473,
+        "mae_peak_05_09": 0.4196464842742293,
+        "rmse_peak_05_09": 0.653170157521257
+      },
+      "zone_temp_1F_B_f": {
+        "mae": 0.5849502217917902,
+        "rmse": 0.8970438663249589,
+        "mae_peak_05_09": 0.5553836064258298,
+        "rmse_peak_05_09": 0.8973469143885829
+      },
+      "zone_temp_1F_C_f": {
+        "mae": 0.5216667767676255,
+        "rmse": 0.8043315596894213,
+        "mae_peak_05_09": 0.4780230057498498,
+        "rmse_peak_05_09": 0.7632660127251963
+      },
+      "zone_temp_1F_D_f": {
+        "mae": 0.3893111106248183,
+        "rmse": 0.570080334907325,
+        "mae_peak_05_09": 0.35010770200837515,
+        "rmse_peak_05_09": 0.5479767486099401
+      },
+      "zone_temp_2F_A_f": {
+        "mae": 0.5459523354015348,
+        "rmse": 0.823757215985757,
+        "mae_peak_05_09": 0.5406576270087484,
+        "rmse_peak_05_09": 0.813516225487255
+      },
+      "zone_temp_2F_B_f": {
+        "mae": 0.61749829275812,
+        "rmse": 0.99356940380452,
+        "mae_peak_05_09": 0.5937999196547431,
+        "rmse_peak_05_09": 0.9843440685398965
+      },
+      "facility_kw_mae": 11.288741378702603,
+      "facility_kw_mae_peak_05_09": 16.26522189304065,
+      "zone_temp_mae_mean": 0.5178042140057982
+    },
+    "gradient_boosting": {
+      "facility_kw": {
+        "mae": 10.852563715749648,
+        "rmse": 16.483370959729864,
+        "mae_peak_05_09": 15.678217953991101,
+        "rmse_peak_05_09": 21.593571115705018
+      },
+      "zone_temp_1F_A_f": {
+        "mae": 0.3989125459914313,
+        "rmse": 0.6093383919971022,
+        "mae_peak_05_09": 0.3918387560028072,
+        "rmse_peak_05_09": 0.6178392075558866
+      },
+      "zone_temp_1F_B_f": {
+        "mae": 0.565484604799512,
+        "rmse": 0.8815093425288295,
+        "mae_peak_05_09": 0.5574093647095926,
+        "rmse_peak_05_09": 0.9003208379857913
+      },
+      "zone_temp_1F_C_f": {
+        "mae": 0.44978513740728937,
+        "rmse": 0.7155442539169224,
+        "mae_peak_05_09": 0.4277194959213348,
+        "rmse_peak_05_09": 0.7004558929671648
+      },
+      "zone_temp_1F_D_f": {
+        "mae": 0.34775357889846403,
+        "rmse": 0.5429770342877294,
+        "mae_peak_05_09": 0.3481784187911446,
+        "rmse_peak_05_09": 0.5479808157202589
+      },
+      "zone_temp_2F_A_f": {
+        "mae": 0.46725509138983695,
+        "rmse": 0.7276413457632271,
+        "mae_peak_05_09": 0.4585563599574516,
+        "rmse_peak_05_09": 0.7268421009324705
+      },
+      "zone_temp_2F_B_f": {
+        "mae": 0.590637410968678,
+        "rmse": 0.9634613112252762,
+        "mae_peak_05_09": 0.5709316838281621,
+        "rmse_peak_05_09": 0.9556583034046785
+      },
+      "facility_kw_mae": 10.852563715749648,
+      "facility_kw_mae_peak_05_09": 15.678217953991101,
+      "zone_temp_mae_mean": 0.4699713949092019
+    }
+  },
+  "delta_cv": {
+    "random_forest": {
+      "mae_delta_kw": 3.3470031798209057,
+      "rmse_delta_kw": 13.815589522465666,
+      "mae_delta_kw_peak": 14.207229685550566,
+      "mae_delta_temp_mean": 0.16467446013428969
+    },
+    "extra_trees": {
+      "mae_delta_kw": 3.6674033191610644,
+      "rmse_delta_kw": 14.997273635578026,
+      "mae_delta_kw_peak": 13.379273154486619,
+      "mae_delta_temp_mean": 0.2360218437771419
+    },
+    "gradient_boosting": {
+      "mae_delta_kw": 7.734310953932341,
+      "rmse_delta_kw": 30.757487444316343,
+      "mae_delta_kw_peak": 29.548002481072462,
+      "mae_delta_temp_mean": 0.3721203054946602
+    }
+  },
+  "baseline_cv_recursive_96_heldout": {
+    "facility_kw_mae": 20.891771789214673,
+    "facility_kw_mae_peak_05_09": 29.366962557757546,
+    "facility_kw_rmse": 26.02933595071006,
+    "facility_kw_cv_rmse": 0.41127952815812213,
+    "facility_kw_nmbe": 0.11996000258783467,
+    "zone_temp_mae_mean": 1.2694277902530042,
+    "n_heldout_days": 216
+  },
+  "delta_cv_recursive_96_heldout": {
+    "mae_delta_kw": 36.1251093754303,
+    "mae_delta_kw_peak": 50.94708482312881,
+    "mae_delta_temp_mean": 5.947793345207825,
+    "cv_rmse_delta_kw": 5.8969481525962575,
+    "nmbe_delta_kw": 2.042103916355713,
+    "rmse_delta_kw": 62.34991203526535,
+    "n_heldout_days": 18
+  },
+  "mv_precision": {
+    "primary": [
+      "nmbe",
+      "cv_rmse"
+    ],
+    "secondary": [
+      "mae",
+      "rmse",
+      "mae_peak_05_09"
+    ],
+    "precision_pm_kw": 29.366962557757546,
+    "precision_label": "screening +/- kW from held-out morning-peak MAE (not a CI)",
+    "g14_monthly_reference": {
+      "nmbe_abs_max": 0.05,
+      "cv_rmse_max": 0.15,
+      "note": "ASHRAE Guideline 14 monthly calibrated reference (|NMBE|<=5%, CV(RMSE)<=15%); hybrid 15-min held-out metrics are screening only, not a monthly G14 compliance claim"
+    },
+    "champion_baseline": "gradient_boosting",
+    "champion_delta": "extra_trees",
+    "baseline": {
+      "nmbe": 0.11996000258783467,
+      "cv_rmse": 0.41127952815812213,
+      "mae": 20.891771789214673,
+      "rmse": 26.02933595071006,
+      "mae_peak_05_09": 29.366962557757546,
+      "zone_temp_mae_mean": 1.2694277902530042,
+      "n_heldout_days": 216
+    },
+    "delta": {
+      "nmbe": 2.042103916355713,
+      "cv_rmse": 5.8969481525962575,
+      "mae": 36.1251093754303,
+      "rmse": 62.34991203526535,
+      "mae_peak_05_09": 50.94708482312881,
+      "n_heldout_days": 18
+    }
+  },
+  "promoted_via": "cli",
+  "pair_count": 6,
+  "idealloads_cop_disclaimer": "IdealLoads + fixed COP \u2260 GSHP/GLHE plant; hybrid screening only.",
+  "multires_gate": {
+    "ok": true,
+    "operational": false,
+    "reason": "hourly=fail",
+    "path": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\desktop\\artifacts\\mvm\\eplus_multires_validation.json",
+    "waiver": false
+  },
+  "operational_dsm": false,
+  "watermark": "UNDERPOWERED_SMOKE_FARM",
+  "ship_mode": "smoke_artifact",
+  "honesty_note": "UNDERPOWERED_SMOKE_FARM: usable both-arm pairs=6 < 12; screening-only smoke artifact, not a client-grade result",
+  "outcome_flag": "REJECTED_DSM_OUTCOME"
+}

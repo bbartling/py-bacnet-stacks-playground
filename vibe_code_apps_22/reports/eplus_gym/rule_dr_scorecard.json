@@ -1,0 +1,28 @@
+{
+  "strategies": [
+    {
+      "strategy_id": "baseline",
+      "day": "2026-01-09",
+      "mode": "lookup",
+      "provenance": "FARM_LOOKUP_EMULATOR",
+      "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+      "promote": false,
+      "peak_kw": 347.5707327381955,
+      "kwh": 2155.1100698575647,
+      "parquet": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\reports\\eplus_gym\\traj_baseline_2026-01-09.parquet"
+    },
+    {
+      "strategy_id": "deep_setback",
+      "day": "2026-01-09",
+      "mode": "lookup",
+      "provenance": "FARM_LOOKUP_EMULATOR",
+      "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+      "promote": false,
+      "peak_kw": 347.5707327381955,
+      "kwh": 2843.0082275561,
+      "parquet": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\reports\\eplus_gym\\traj_deep_setback_2026-01-09.parquet"
+    }
+  ],
+  "figure": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\reports\\eplus_gym\\figures\\rule_dr_overlay.png",
+  "note": "IdealLoads = STRUCTURAL_LOAD_DIAGNOSTIC; lookup \u2260 live closed-loop"
+}

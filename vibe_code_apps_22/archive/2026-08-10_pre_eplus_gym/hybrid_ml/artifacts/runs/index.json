@@ -1,0 +1,115 @@
+{
+  "profile": "full_evaluation",
+  "max_days": null,
+  "arms": [
+    "sklearn_winter",
+    "sklearn_allyear",
+    "torch_winter",
+    "torch_allyear"
+  ],
+  "wall_seconds": 5398.405461600007,
+  "results": [
+    {
+      "arm": "sklearn_allyear",
+      "returncode": 0,
+      "launcher_wall_seconds": 5398.3919733000075,
+      "log": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_allyear\\launcher.log",
+      "result": {
+        "arm": "sklearn_allyear",
+        "ok": true,
+        "wall_seconds": 5396.048098999992,
+        "wall_hms": "1h 29m 56s",
+        "winter_only": false,
+        "profile": "full_evaluation",
+        "max_days": null,
+        "out_dir": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_allyear",
+        "run_id": "sklearn_allyear_20260810T133045Z_f04da3",
+        "champion": "gradient_boosting",
+        "card": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_allyear\\real_baseline_15min_v1_model_card.json",
+        "timing_hms": "1h 29m 56s",
+        "n_days": 335,
+        "peak_mae_kw": 30.741901482787632,
+        "zone_mae": 1.3626344048362573
+      },
+      "ok": true
+    },
+    {
+      "arm": "sklearn_winter",
+      "returncode": 0,
+      "launcher_wall_seconds": 2882.2953373000055,
+      "log": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_winter\\launcher.log",
+      "result": {
+        "arm": "sklearn_winter",
+        "ok": true,
+        "wall_seconds": 2879.7302731999953,
+        "wall_hms": "0h 47m 60s",
+        "winter_only": true,
+        "profile": "full_evaluation",
+        "max_days": null,
+        "out_dir": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_winter",
+        "run_id": "sklearn_winter_20260810T133045Z_b6eb73",
+        "champion": "extra_trees",
+        "card": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\sklearn_winter\\real_baseline_15min_v1_model_card.json",
+        "timing_hms": "0h 47m 60s",
+        "n_days": 152,
+        "peak_mae_kw": 35.76211257899166,
+        "zone_mae": 1.1555069437020438
+      },
+      "ok": true
+    },
+    {
+      "arm": "torch_allyear",
+      "returncode": 0,
+      "launcher_wall_seconds": 408.9644837999949,
+      "log": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_allyear\\launcher.log",
+      "result": {
+        "arm": "torch_allyear",
+        "ok": true,
+        "wall_seconds": 406.1248198999965,
+        "wall_hms": "0h 06m 46s",
+        "winter_only": false,
+        "profile": "full_evaluation",
+        "max_days": null,
+        "out_dir": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_allyear",
+        "run_id": "torch_20260810T133048Z_b68dc8",
+        "family": "resmlp_dualhead",
+        "card": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_allyear\\real_baseline_15min_torch_v1_model_card.json",
+        "timing_hms": "0h 06m 44s",
+        "n_days": 335,
+        "peak_mae_kw": 38.759850780312654,
+        "zone_mae": 1.9463939274618853
+      },
+      "ok": true
+    },
+    {
+      "arm": "torch_winter",
+      "returncode": 0,
+      "launcher_wall_seconds": 220.00405829999363,
+      "log": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_winter\\launcher.log",
+      "result": {
+        "arm": "torch_winter",
+        "ok": true,
+        "wall_seconds": 217.16361259999394,
+        "wall_hms": "0h 03m 37s",
+        "winter_only": true,
+        "profile": "full_evaluation",
+        "max_days": null,
+        "out_dir": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_winter",
+        "run_id": "torch_20260810T133047Z_18b00d",
+        "family": "resmlp_dualhead",
+        "card": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_winter\\real_baseline_15min_torch_v1_model_card.json",
+        "timing_hms": "0h 03m 35s",
+        "n_days": 152,
+        "peak_mae_kw": 69.02749202919073,
+        "zone_mae": 2.6605830803081276
+      },
+      "ok": true
+    }
+  ],
+  "ok_count": 4,
+  "fail_count": 0,
+  "viewer_notebooks": [
+    "notebooks/lakeside_heating_dsm_sklearn.ipynb",
+    "notebooks/lakeside_heating_dsm_torch.ipynb"
+  ]
+}

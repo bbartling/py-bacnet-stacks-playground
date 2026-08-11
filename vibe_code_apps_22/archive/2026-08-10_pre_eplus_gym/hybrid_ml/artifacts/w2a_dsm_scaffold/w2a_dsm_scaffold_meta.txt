@@ -1,0 +1,4 @@
+physics_family=W2A_PHYSICAL_DSM
+seed=C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22\models\eplus\lakeside_w2a_a04_dual_champion.idf
+staged=C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22\ml\artifacts\w2a_dsm_scaffold\w2a_dsm_scaffold_ts4.idf
+note=NOT a validated treatment model; IdealLoads farm remains STRUCTURAL_LOAD_DIAGNOSTIC

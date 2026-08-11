@@ -1,0 +1,256 @@
+Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.08.10 13:49
+! This file shows details about the branches, nodes, and other
+! elements of the flow connections.
+! This file is intended for use in "debugging" potential problems
+! that may also be detected by the program, but may be more easily
+! identified by "eye".
+! This file is also intended to support software which draws a
+! schematic diagram of the HVAC system.
+! ===============================================================
+! #Nodes,<Number of Unique Nodes>
+ #Nodes,36
+! <Node>,<NodeNumber>,<Node Name>,<Node Fluid Type>,<# Times Node Referenced After Definition>
+ Node,1,1F_LIBRARY_IMC_ZONENODE,Air,0
+ Node,2,1F_LIBRARY_IMC_INNODE,Air,1
+ Node,3,1F_LIBRARY_IMC_EXNODE,Air,1
+ Node,4,1F_CAFE_KITCHEN_ZONENODE,Air,0
+ Node,5,1F_CAFE_KITCHEN_INNODE,Air,1
+ Node,6,1F_CAFE_KITCHEN_EXNODE,Air,1
+ Node,7,1F_GYM_ZONENODE,Air,0
+ Node,8,1F_GYM_INNODE,Air,1
+ Node,9,1F_GYM_EXNODE,Air,1
+ Node,10,1F_AREA_A_ZONENODE,Air,0
+ Node,11,1F_AREA_A_INNODE,Air,1
+ Node,12,1F_AREA_A_EXNODE,Air,1
+ Node,13,1F_AREA_B_ZONENODE,Air,0
+ Node,14,1F_AREA_B_INNODE,Air,1
+ Node,15,1F_AREA_B_EXNODE,Air,1
+ Node,16,1F_AREA_C_ZONENODE,Air,0
+ Node,17,1F_AREA_C_INNODE,Air,1
+ Node,18,1F_AREA_C_EXNODE,Air,1
+ Node,19,1F_AREA_D_ZONENODE,Air,0
+ Node,20,1F_AREA_D_INNODE,Air,1
+ Node,21,1F_AREA_D_EXNODE,Air,1
+ Node,22,2F_AREA_A_ZONENODE,Air,0
+ Node,23,2F_AREA_A_INNODE,Air,1
+ Node,24,2F_AREA_A_EXNODE,Air,1
+ Node,25,2F_AREA_B_ZONENODE,Air,0
+ Node,26,2F_AREA_B_INNODE,Air,1
+ Node,27,2F_AREA_B_EXNODE,Air,1
+ Node,28,1F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,29,1F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,30,1F_AREA_C_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,31,1F_AREA_D_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,32,1F_CAFE_KITCHEN_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,33,1F_GYM_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,34,1F_LIBRARY_IMC_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,35,2F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,Air,1
+ Node,36,2F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,Air,1
+! ===============================================================
+! Suspicious nodes have 0 references.  It is normal for some nodes, however.
+! Listing nodes with 0 references (culled from previous list):
+! <Suspicious Node>,<NodeNumber>,<Node Name>,<Node Fluid Type>,<# Times Node Referenced After Definition>
+ Suspicious Node,1,1F_LIBRARY_IMC_ZONENODE,Air,0
+ Suspicious Node,4,1F_CAFE_KITCHEN_ZONENODE,Air,0
+ Suspicious Node,7,1F_GYM_ZONENODE,Air,0
+ Suspicious Node,10,1F_AREA_A_ZONENODE,Air,0
+ Suspicious Node,13,1F_AREA_B_ZONENODE,Air,0
+ Suspicious Node,16,1F_AREA_C_ZONENODE,Air,0
+ Suspicious Node,19,1F_AREA_D_ZONENODE,Air,0
+ Suspicious Node,22,2F_AREA_A_ZONENODE,Air,0
+ Suspicious Node,25,2F_AREA_B_ZONENODE,Air,0
+! ===============================================================
+! <#Branch Lists>,<Number of Branch Lists>
+ #Branch Lists,0
+! <Branch List>,<Branch List Count>,<Branch List Name>,<Loop Name>,<Loop Type>,<Number of Branches>
+! <Branch>,<Branch Count>,<Branch Name>,<Loop Name>,<Loop Type>,<Branch Inlet Node Name>,<Branch Outlet Node Name>
+! ===============================================================
+! <#Supply Air Paths>,<Number of Supply Air Paths>
+ #Supply Air Paths,0
+! <Supply Air Path>,<Supply Air Path Count>,<Supply Air Path Name>,<AirLoopHVAC Name>
+! <#Components on Supply Air Path>,<Number of Components>
+! <Supply Air Path Component>,<Component Count>,<Component Type>,<Component Name>,<AirLoopHVAC Name>
+! <#Outlet Nodes on Supply Air Path Component>,<Number of Nodes>
+! <Supply Air Path Component Nodes>,<Node Count>,<Component Type>,<Component Name>,<Inlet Node Name>,<Outlet Node Name>,<AirLoopHVAC Name>
+! ===============================================================
+! <#Return Air Paths>,<Number of Return Air Paths>
+ #Return Air Paths,0
+! <Return Air Path>,<Return Air Path Count>,<Return Air Path Name>,<AirLoopHVAC Name>
+! <#Components on Return Air Path>,<Number of Components>
+! <Return Air Path Component>,<Component Count>,<Component Type>,<Component Name>,<AirLoopHVAC Name>
+! <#Inlet Nodes on Return Air Path Component>,<Number of Nodes>
+! <Return Air Path Component Nodes>,<Node Count>,<Component Type>,<Component Name>,<Inlet Node Name>,<Outlet Node Name>,<AirLoopHVAC Name>
+! ===============================================================
+! #Outdoor Air Nodes,<Number of Outdoor Air Nodes>
+ #Outdoor Air Nodes,9
+! <Outdoor Air Node>,<NodeNumber>,<Node Name>
+ Outdoor Air Node,28,1F_AREA_A_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,29,1F_AREA_B_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,30,1F_AREA_C_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,31,1F_AREA_D_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,32,1F_CAFE_KITCHEN_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,33,1F_GYM_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,34,1F_LIBRARY_IMC_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,35,2F_AREA_A_IDEAL OUTDOOR AIR INLET NODE
+ Outdoor Air Node,36,2F_AREA_B_IDEAL OUTDOOR AIR INLET NODE
+! ===============================================================
+! <#Component Sets>,<Number of Component Sets>
+ #Component Sets,0
+! <Component Set>,<Component Set Count>,<Parent Object Type>,<Parent Object Name>,<Component Type>,<Component Name>,<Inlet Node ID>,<Outlet Node ID>,<Description>
+! ===============================================================
+! <# Plant Loops>,<Number of Plant Loops>
+ #Plant Loops,0
+! <Plant Loop>,<Plant Loop Name>,<Loop Type>,<Inlet Node Name>,<Outlet Node Name>,<Branch List>,<Connector List>
+! <Plant Loop Connector>,<Connector Type>,<Connector Name>,<Loop Name>,<Loop Type>,<Number of Inlets/Outlets>
+! <Plant Loop Connector Branches>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Branch>,<Outlet Branch>,<Loop Name>,<Loop Type>
+! <Plant Loop Connector Nodes>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Node>,<Outlet Node>,<Loop Name>,<Loop Type>
+! <Plant Loop Supply Connection>,<Plant Loop Name>,<Supply Side Outlet Node Name>,<Demand Side Inlet Node Name>
+! <Plant Loop Return Connection>,<Plant Loop Name>,<Demand Side Outlet Node Name>,<Supply Side Inlet Node Name>
+! ===============================================================
+! <# Condenser Loops>,<Number of Condenser Loops>
+ #Condenser Loops,0
+! <Condenser Loop>,<Condenser Loop Name>,<Loop Type>,<Inlet Node Name>,<Outlet Node Name>,<Branch List>,<Connector List>
+! <Condenser Loop Connector>,<Connector Type>,<Connector Name>,<Loop Name>,<Loop Type>,<Number of Inlets/Outlets>
+! <Condenser Loop Connector Branches>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Branch>,<Outlet Branch>,<Loop Name>,<Loop Type>
+! <Condenser Loop Connector Nodes>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Node>,<Outlet Node>,<Loop Name>,<Loop Type>
+! <Condenser Loop Supply Connection>,<Condenser Loop Name>,<Supply Side Outlet Node Name>,<Demand Side Inlet Node Name>
+! <Condenser Loop Return Connection>,<Condenser Loop Name>,<Demand Side Outlet Node Name>,<Supply Side Inlet Node Name>
+! ===============================================================
+! <# Controlled Zones>,<Number of Controlled Zones>
+ #Controlled Zones,9
+! <Controlled Zone>,<Controlled Zone Name>,<Equip List Name>,<Control List Name>,<Zone Node Name>,<# Inlet Nodes>,<# Exhaust Nodes>,<# Return Nodes>
+! <Controlled Zone Inlet>,<Inlet Node Count>,<Controlled Zone Name>,<Supply Air Inlet Node Name>,<SD Sys:Cooling/Heating [DD:Cooling] Inlet Node Name>,<DD Sys:Heating Inlet Node Name>
+! <Controlled Zone Exhaust>,<Exhaust Node Count>,<Controlled Zone Name>,<Exhaust Air Node Name>
+ Controlled Zone,1F_LIBRARY_IMC,1F_LIBRARY_IMC_EQLIST,,1F_LIBRARY_IMC_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_LIBRARY_IMC,1F_LIBRARY_IMC_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_LIBRARY_IMC,1F_LIBRARY_IMC_EXNODE
+ Controlled Zone,1F_CAFE_KITCHEN,1F_CAFE_KITCHEN_EQLIST,,1F_CAFE_KITCHEN_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_CAFE_KITCHEN,1F_CAFE_KITCHEN_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_CAFE_KITCHEN,1F_CAFE_KITCHEN_EXNODE
+ Controlled Zone,1F_GYM,1F_GYM_EQLIST,,1F_GYM_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_GYM,1F_GYM_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_GYM,1F_GYM_EXNODE
+ Controlled Zone,1F_AREA_A,1F_AREA_A_EQLIST,,1F_AREA_A_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_AREA_A,1F_AREA_A_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_AREA_A,1F_AREA_A_EXNODE
+ Controlled Zone,1F_AREA_B,1F_AREA_B_EQLIST,,1F_AREA_B_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_AREA_B,1F_AREA_B_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_AREA_B,1F_AREA_B_EXNODE
+ Controlled Zone,1F_AREA_C,1F_AREA_C_EQLIST,,1F_AREA_C_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_AREA_C,1F_AREA_C_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_AREA_C,1F_AREA_C_EXNODE
+ Controlled Zone,1F_AREA_D,1F_AREA_D_EQLIST,,1F_AREA_D_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,1F_AREA_D,1F_AREA_D_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,1F_AREA_D,1F_AREA_D_EXNODE
+ Controlled Zone,2F_AREA_A,2F_AREA_A_EQLIST,,2F_AREA_A_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,2F_AREA_A,2F_AREA_A_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,2F_AREA_A,2F_AREA_A_EXNODE
+ Controlled Zone,2F_AREA_B,2F_AREA_B_EQLIST,,2F_AREA_B_ZONENODE,1,1,0
+   Controlled Zone Inlet,1,2F_AREA_B,2F_AREA_B_INNODE,Undefined,N/A
+   Controlled Zone Exhaust,1,2F_AREA_B,2F_AREA_B_EXNODE
+! ===============================================================
+! <#Zone Equipment Lists>,<Number of Zone Equipment Lists>
+ #Zone Equipment Lists,9
+! <Zone Equipment List>,<Zone Equipment List Count>,<Zone Equipment List Name>,<Zone Name>,<Number of Components>
+! <Zone Equipment Component>,<Component Count>,<Component Type>,<Component Name>,<Zone Name>,<Heating Priority>,<Cooling Priority>
+ Zone Equipment List,1,1F_LIBRARY_IMC_EQLIST,1F_LIBRARY_IMC,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_LIBRARY_IMC_IDEAL,1F_LIBRARY_IMC,1,1
+ Zone Equipment List,2,1F_CAFE_KITCHEN_EQLIST,1F_CAFE_KITCHEN,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_CAFE_KITCHEN_IDEAL,1F_CAFE_KITCHEN,1,1
+ Zone Equipment List,3,1F_GYM_EQLIST,1F_GYM,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_GYM_IDEAL,1F_GYM,1,1
+ Zone Equipment List,4,1F_AREA_A_EQLIST,1F_AREA_A,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_A_IDEAL,1F_AREA_A,1,1
+ Zone Equipment List,5,1F_AREA_B_EQLIST,1F_AREA_B,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_B_IDEAL,1F_AREA_B,1,1
+ Zone Equipment List,6,1F_AREA_C_EQLIST,1F_AREA_C,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_C_IDEAL,1F_AREA_C,1,1
+ Zone Equipment List,7,1F_AREA_D_EQLIST,1F_AREA_D,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_D_IDEAL,1F_AREA_D,1,1
+ Zone Equipment List,8,2F_AREA_A_EQLIST,2F_AREA_A,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_A_IDEAL,2F_AREA_A,1,1
+ Zone Equipment List,9,2F_AREA_B_EQLIST,2F_AREA_B,1
+   Zone Equipment Component,1,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_B_IDEAL,2F_AREA_B,1,1
+! ===============================================================
+! <#AirLoopHVACs>,<Number of AirLoopHVACs>
+ #AirLoopHVACs,0
+! <AirLoopHVAC>,<Air Loop Name>,<# Return Nodes>,<# Supply Nodes>,<# Zones Cooled>,<# Zones Heated>,<Outdoor Air Used>
+! <AirLoop Return Connections>,<Connection Count>,<AirLoopHVAC Name>,<Zn Eqp Return Node #>,<Zn Eqp Return Node Name>,<AirLoop Return Node #>,<Air Loop Return Node Name>
+! <AirLoop Supply Connections>,<Connection Count>,<AirLoopHVAC Name>,<Zn Eqp Supply Node #>,<Zn Eqp Supply Node Name>,<AirLoop Supply Node #>,<Air Loop Supply Node Name>
+! <Cooled Zone Info>,<Cooled Zone Count>,<Cooled Zone Name>,<Cooled Zone Inlet Node #>,<Cooled Zone Inlet Node Name>,<AirLoopHVAC Name>
+! <Heated Zone Info>,<Heated Zone Count>,<Heated Zone Name>,<Heated Zone Inlet Node #>,<Heated Zone Inlet Node Name>,<AirLoopHVAC Name>
+! <Outdoor Air Connections>,<OA Inlet Node #>,<OA Return Air Inlet Node Name>,<OA Outlet Node #>,<OA Mixed Air Outlet Node Name>,<AirLoopHVAC Name>
+! <AirLoopHVAC Connector>,<Connector Type>,<Connector Name>,<Loop Name>,<Loop Type>,<Number of Inlets/Outlets>
+! <AirLoopHVAC Connector Branches>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Branch>,<Outlet Branch>,<Loop Name>,<Loop Type>
+! <AirLoopHVAC Connector Nodes>,<Connector Node Count>,<Connector Type>,<Connector Name>,<Inlet Node>,<Outlet Node>,<Loop Name>,<Loop Type>
+! ===============================================================
+! <#Parent Node Connections>,<Number of Parent Node Connections>
+ #Parent Node Connections,0
+! <Parent Node Connection>,<Node Name>,<Node ObjectType>,<Node ObjectName>,<Node ConnectionType>,<Node FluidStream>
+! ===============================================================
+! <#Non-Parent Node Connections>,<Number of Non-Parent Node Connections>
+ #Non-Parent Node Connections,63
+! <Non-Parent Node Connection>,<Node Name>,<Node ObjectType>,<Node ObjectName>,<Node ConnectionType>,<Node FluidStream>
+ Non-Parent Node Connection,1F_LIBRARY_IMC_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_LIBRARY_IMC,ZoneNode,1
+ Non-Parent Node Connection,1F_LIBRARY_IMC_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_LIBRARY_IMC,ZoneInlet,1
+ Non-Parent Node Connection,1F_LIBRARY_IMC_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_LIBRARY_IMC,ZoneExhaust,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_CAFE_KITCHEN,ZoneNode,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_CAFE_KITCHEN,ZoneInlet,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_CAFE_KITCHEN,ZoneExhaust,1
+ Non-Parent Node Connection,1F_GYM_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_GYM,ZoneNode,1
+ Non-Parent Node Connection,1F_GYM_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_GYM,ZoneInlet,1
+ Non-Parent Node Connection,1F_GYM_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_GYM,ZoneExhaust,1
+ Non-Parent Node Connection,1F_AREA_A_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_A,ZoneNode,1
+ Non-Parent Node Connection,1F_AREA_A_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_A,ZoneInlet,1
+ Non-Parent Node Connection,1F_AREA_A_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_A,ZoneExhaust,1
+ Non-Parent Node Connection,1F_AREA_B_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_B,ZoneNode,1
+ Non-Parent Node Connection,1F_AREA_B_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_B,ZoneInlet,1
+ Non-Parent Node Connection,1F_AREA_B_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_B,ZoneExhaust,1
+ Non-Parent Node Connection,1F_AREA_C_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_C,ZoneNode,1
+ Non-Parent Node Connection,1F_AREA_C_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_C,ZoneInlet,1
+ Non-Parent Node Connection,1F_AREA_C_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_C,ZoneExhaust,1
+ Non-Parent Node Connection,1F_AREA_D_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_D,ZoneNode,1
+ Non-Parent Node Connection,1F_AREA_D_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_D,ZoneInlet,1
+ Non-Parent Node Connection,1F_AREA_D_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,1F_AREA_D,ZoneExhaust,1
+ Non-Parent Node Connection,2F_AREA_A_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_A,ZoneNode,1
+ Non-Parent Node Connection,2F_AREA_A_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_A,ZoneInlet,1
+ Non-Parent Node Connection,2F_AREA_A_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_A,ZoneExhaust,1
+ Non-Parent Node Connection,2F_AREA_B_ZONENODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_B,ZoneNode,1
+ Non-Parent Node Connection,2F_AREA_B_INNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_B,ZoneInlet,1
+ Non-Parent Node Connection,2F_AREA_B_EXNODE,ZONEHVAC:EQUIPMENTCONNECTIONS,2F_AREA_B,ZoneExhaust,1
+ Non-Parent Node Connection,1F_AREA_A_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_A_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_A_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_A_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_A_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,1
+ Non-Parent Node Connection,1F_AREA_B_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_B_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_B_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_B_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_B_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,2
+ Non-Parent Node Connection,1F_AREA_C_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_C_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_C_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_C_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_AREA_C_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_C_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_C_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,3
+ Non-Parent Node Connection,1F_AREA_D_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_D_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_D_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_D_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_AREA_D_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_AREA_D_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_AREA_D_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,4
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_CAFE_KITCHEN_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_CAFE_KITCHEN_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_CAFE_KITCHEN_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_CAFE_KITCHEN_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,5
+ Non-Parent Node Connection,1F_GYM_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_GYM_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_GYM_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_GYM_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_GYM_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_GYM_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_GYM_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,6
+ Non-Parent Node Connection,1F_LIBRARY_IMC_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_LIBRARY_IMC_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_LIBRARY_IMC_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_LIBRARY_IMC_IDEAL,Inlet,1
+ Non-Parent Node Connection,1F_LIBRARY_IMC_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,1F_LIBRARY_IMC_IDEAL,Outlet,1
+ Non-Parent Node Connection,1F_LIBRARY_IMC_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,7
+ Non-Parent Node Connection,2F_AREA_A_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_A_IDEAL,Outlet,1
+ Non-Parent Node Connection,2F_AREA_A_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_A_IDEAL,Inlet,1
+ Non-Parent Node Connection,2F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_A_IDEAL,Outlet,1
+ Non-Parent Node Connection,2F_AREA_A_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,8
+ Non-Parent Node Connection,2F_AREA_B_INNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_B_IDEAL,Outlet,1
+ Non-Parent Node Connection,2F_AREA_B_EXNODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_B_IDEAL,Inlet,1
+ Non-Parent Node Connection,2F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,ZONEHVAC:IDEALLOADSAIRSYSTEM,2F_AREA_B_IDEAL,Outlet,1
+ Non-Parent Node Connection,2F_AREA_B_IDEAL OUTDOOR AIR INLET NODE,OUTDOORAIR:NODE,OutdoorAir:Node,OutdoorAir,9

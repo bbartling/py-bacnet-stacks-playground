@@ -1,0 +1,1418 @@
+
+ Meters for 7,1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 128,1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 165,1F_GYM_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_GYM [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_GYM [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_GYM [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 202,1F_AREA_A_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 239,1F_AREA_B_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 276,1F_AREA_C_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_C [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 313,1F_AREA_D_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_D [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 350,2F_AREA_A_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 387,2F_AREA_B_LIGHTS:Lights Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorLights:Electricity [J]
+  OnMeter=InteriorLights:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=InteriorLights:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorLights:Electricity [J]
+  OnMeter=General:InteriorLights:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=General:InteriorLights:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 424,1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 497,1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 534,1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 559,1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Kitchen:InteriorEquipment:Electricity [J]
+  OnMeter=Kitchen:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Kitchen:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 596,1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 609,1F_GYM_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_GYM [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_GYM [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_GYM [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 634,1F_GYM_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_GYM [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_GYM [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_GYM [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 647,1F_AREA_A_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 672,1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_A [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 685,1F_AREA_B_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 710,1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_B [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 723,1F_AREA_C_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_C [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 748,1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_C [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_C [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 761,1F_AREA_D_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_D [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 786,1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:1F_AREA_D [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_D [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 799,2F_AREA_A_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 824,2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_A [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:2F_AREA_A [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 837,2F_AREA_B_EQUIP:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=General:InteriorEquipment:Electricity [J]
+  OnMeter=General:InteriorEquipment:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 862,2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy [J]
+  OnMeter=Electricity:Facility [J]
+  OnMeter=Electricity:Building [J]
+  OnMeter=Electricity:Zone:2F_AREA_B [J]
+  OnMeter=Electricity:SpaceType:GENERAL [J]
+  OnMeter=InteriorEquipment:Electricity [J]
+  OnMeter=InteriorEquipment:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+  OnMeter=Fans:InteriorEquipment:Electricity [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:Zone:2F_AREA_B [J]
+  OnMeter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J]
+
+ Meters for 884,1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+
+ Meters for 969,1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_LIBRARY_IMC [J]
+
+ Meters for 1018,1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+
+ Meters for 1055,1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J]
+
+ Meters for 1080,1F_GYM:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_GYM [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_GYM [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_GYM [J]
+
+ Meters for 1117,1F_GYM:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_GYM [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_GYM [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_GYM [J]
+
+ Meters for 1142,1F_AREA_A:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_A [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_AREA_A [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_AREA_A [J]
+
+ Meters for 1179,1F_AREA_A:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_A [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_AREA_A [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_AREA_A [J]
+
+ Meters for 1204,1F_AREA_B:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_B [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_AREA_B [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_AREA_B [J]
+
+ Meters for 1241,1F_AREA_B:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_B [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_AREA_B [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_AREA_B [J]
+
+ Meters for 1266,1F_AREA_C:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_C [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_AREA_C [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_AREA_C [J]
+
+ Meters for 1303,1F_AREA_C:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_C [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_AREA_C [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_AREA_C [J]
+
+ Meters for 1328,1F_AREA_D:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_D [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:1F_AREA_D [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:1F_AREA_D [J]
+
+ Meters for 1365,1F_AREA_D:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:1F_AREA_D [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:1F_AREA_D [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:1F_AREA_D [J]
+
+ Meters for 1390,2F_AREA_A:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:2F_AREA_A [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:2F_AREA_A [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:2F_AREA_A [J]
+
+ Meters for 1427,2F_AREA_A:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:2F_AREA_A [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:2F_AREA_A [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:2F_AREA_A [J]
+
+ Meters for 1452,2F_AREA_B:Zone Air System Sensible Heating Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:2F_AREA_B [J]
+  OnMeter=Heating:EnergyTransfer [J]
+  OnMeter=Heating:EnergyTransfer:Zone:2F_AREA_B [J]
+  OnMeter=General:Heating:EnergyTransfer [J]
+  OnMeter=General:Heating:EnergyTransfer:Zone:2F_AREA_B [J]
+
+ Meters for 1489,2F_AREA_B:Zone Air System Sensible Cooling Energy [J]
+  OnMeter=EnergyTransfer:Facility [J]
+  OnMeter=EnergyTransfer:Building [J]
+  OnMeter=EnergyTransfer:Zone:2F_AREA_B [J]
+  OnMeter=Cooling:EnergyTransfer [J]
+  OnMeter=Cooling:EnergyTransfer:Zone:2F_AREA_B [J]
+  OnMeter=General:Cooling:EnergyTransfer [J]
+  OnMeter=General:Cooling:EnergyTransfer:Zone:2F_AREA_B [J]
+
+ Meters for 1514,Whole Building:Facility Total Purchased Electricity Energy [J]
+  OnMeter=ElectricityPurchased:Facility [J]
+  OnMeter=ElectricityPurchased:Plant [J]
+  OnMeter=Cogeneration:ElectricityPurchased [J]
+  OnMeter=General:Cogeneration:ElectricityPurchased [J]
+
+ Meters for 1563,Whole Building:Facility Total Surplus Electricity Energy [J]
+  OnMeter=ElectricitySurplusSold:Facility [J]
+  OnMeter=ElectricitySurplusSold:Plant [J]
+  OnMeter=Cogeneration:ElectricitySurplusSold [J]
+  OnMeter=General:Cogeneration:ElectricitySurplusSold [J]
+
+ Meters for 1612,Whole Building:Facility Net Purchased Electricity Energy [J]
+  OnMeter=ElectricityNet:Facility [J]
+  OnMeter=ElectricityNet:Plant [J]
+  OnMeter=Cogeneration:ElectricityNet [J]
+  OnMeter=General:Cogeneration:ElectricityNet [J]
+
+ Meters for 1663,1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1712,1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1763,1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1764,1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1767,1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1768,1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1771,1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1772,1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1775,1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1776,1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1779,1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1780,1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1783,1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1784,1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1787,2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1788,2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1791,2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy [J]
+  OnMeter=DistrictHeatingWater:Facility [J]
+  OnMeter=DistrictHeatingWater:HVAC [J]
+  OnMeter=Heating:DistrictHeatingWater [J]
+  OnMeter=General:Heating:DistrictHeatingWater [J]
+
+ Meters for 1792,2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy [J]
+  OnMeter=DistrictCooling:Facility [J]
+  OnMeter=DistrictCooling:HVAC [J]
+  OnMeter=Cooling:DistrictCooling [J]
+  OnMeter=General:Cooling:DistrictCooling [J]
+
+ Meters for 1793,Site:Environmental Impact Total N2O Emissions Carbon Equivalent Mass [kg]
+  OnMeter=Carbon Equivalent:Facility [kg]
+  OnMeter=CarbonEquivalentEmissions:Carbon Equivalent [kg]
+
+ Meters for 1818,Site:Environmental Impact Total CH4 Emissions Carbon Equivalent Mass [kg]
+  OnMeter=Carbon Equivalent:Facility [kg]
+  OnMeter=CarbonEquivalentEmissions:Carbon Equivalent [kg]
+
+ Meters for 1819,Site:Environmental Impact Total CO2 Emissions Carbon Equivalent Mass [kg]
+  OnMeter=Carbon Equivalent:Facility [kg]
+  OnMeter=CarbonEquivalentEmissions:Carbon Equivalent [kg]
+
+ For Meter=Electricity:Facility [J], ResourceType=Electricity, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=Electricity:Building [J], ResourceType=Electricity, Group=Building, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity [J], ResourceType=Electricity, EndUse=InteriorLights, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+
+ For Meter=InteriorLights:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorLights, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity [J], ResourceType=Electricity, EndUse=InteriorLights, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorLights, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_GYM [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_GYM_LIGHTS:Lights Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_GYM [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_GYM_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_GYM [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_GYM_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_A_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_C_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, Group=Zone, contents are:
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  1F_AREA_D_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, Group=Zone, contents are:
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  2F_AREA_A_LIGHTS:Lights Electricity Energy
+
+ For Meter=Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, Group=Zone, contents are:
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorLights:Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=General:InteriorLights:Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorLights, Group=Zone, contents are:
+  2F_AREA_B_LIGHTS:Lights Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity [J], ResourceType=Electricity, EndUse=InteriorEquipment, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity [J], ResourceType=Electricity, EndUse=InteriorEquipment, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity [J], ResourceType=Electricity, EndUse=InteriorEquipment, contents are:
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_LIBRARY_IMC [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=SpaceType, contents are:
+  1F_LIBRARY_IMC_FANPROXY:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Kitchen:InteriorEquipment:Electricity [J], ResourceType=Electricity, EndUse=InteriorEquipment, contents are:
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+
+ For Meter=Kitchen:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+
+ For Meter=Kitchen:InteriorEquipment:Electricity:SpaceType:GENERAL [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=SpaceType, contents are:
+  1F_CAFE_KITCHEN_KITCHEN:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_CAFE_KITCHEN [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_CAFE_KITCHEN_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_GYM [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_GYM [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_GYM_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_GYM [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_GYM_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_C_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_C [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_C_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_D_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:1F_AREA_D [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  1F_AREA_D_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_A_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:2F_AREA_A [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_A_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=InteriorEquipment:Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=General:InteriorEquipment:Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_B_EQUIP:Electric Equipment Electricity Energy
+
+ For Meter=Fans:InteriorEquipment:Electricity:Zone:2F_AREA_B [J], ResourceType=Electricity, EndUse=InteriorEquipment, Group=Zone, contents are:
+  2F_AREA_B_FANPROXY:Electric Equipment Electricity Energy
+
+ For Meter=EnergyTransfer:Facility [J], ResourceType=EnergyTransfer, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+  1F_GYM:Zone Air System Sensible Heating Energy
+  1F_GYM:Zone Air System Sensible Cooling Energy
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Building [J], ResourceType=EnergyTransfer, Group=Building, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+  1F_GYM:Zone Air System Sensible Heating Energy
+  1F_GYM:Zone Air System Sensible Cooling Energy
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_LIBRARY_IMC [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer [J], ResourceType=EnergyTransfer, EndUse=Heating, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+  1F_GYM:Zone Air System Sensible Heating Energy
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_LIBRARY_IMC [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer [J], ResourceType=EnergyTransfer, EndUse=Heating, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+  1F_GYM:Zone Air System Sensible Heating Energy
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_LIBRARY_IMC [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer [J], ResourceType=EnergyTransfer, EndUse=Cooling, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+  1F_GYM:Zone Air System Sensible Cooling Energy
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_LIBRARY_IMC [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer [J], ResourceType=EnergyTransfer, EndUse=Cooling, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+  1F_GYM:Zone Air System Sensible Cooling Energy
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_LIBRARY_IMC [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_LIBRARY_IMC:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_CAFE_KITCHEN [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_CAFE_KITCHEN:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_CAFE_KITCHEN [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_CAFE_KITCHEN:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_GYM [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_GYM:Zone Air System Sensible Heating Energy
+  1F_GYM:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_GYM [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_GYM:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_GYM [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_GYM:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_GYM [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_GYM:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_GYM [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_GYM:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_AREA_A [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_A:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_AREA_B [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_AREA_C [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_AREA_C [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_AREA_C [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_C:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_AREA_C [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_AREA_C [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_C:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:1F_AREA_D [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:1F_AREA_D [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:1F_AREA_D [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  1F_AREA_D:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:1F_AREA_D [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:1F_AREA_D [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  1F_AREA_D:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:2F_AREA_A [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:2F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:2F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  2F_AREA_A:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:2F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:2F_AREA_A [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  2F_AREA_A:Zone Air System Sensible Cooling Energy
+
+ For Meter=EnergyTransfer:Zone:2F_AREA_B [J], ResourceType=EnergyTransfer, Group=Zone, contents are:
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=Heating:EnergyTransfer:Zone:2F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=General:Heating:EnergyTransfer:Zone:2F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Heating, Group=Zone, contents are:
+  2F_AREA_B:Zone Air System Sensible Heating Energy
+
+ For Meter=Cooling:EnergyTransfer:Zone:2F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=General:Cooling:EnergyTransfer:Zone:2F_AREA_B [J], ResourceType=EnergyTransfer, EndUse=Cooling, Group=Zone, contents are:
+  2F_AREA_B:Zone Air System Sensible Cooling Energy
+
+ For Meter=ElectricityPurchased:Facility [J], ResourceType=ElectricityPurchased, contents are:
+  Whole Building:Facility Total Purchased Electricity Energy
+
+ For Meter=ElectricityPurchased:Plant [J], ResourceType=ElectricityPurchased, Group=Plant, contents are:
+  Whole Building:Facility Total Purchased Electricity Energy
+
+ For Meter=Cogeneration:ElectricityPurchased [J], ResourceType=ElectricityPurchased, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Total Purchased Electricity Energy
+
+ For Meter=General:Cogeneration:ElectricityPurchased [J], ResourceType=ElectricityPurchased, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Total Purchased Electricity Energy
+
+ For Meter=ElectricitySurplusSold:Facility [J], ResourceType=ElectricitySurplusSold, contents are:
+  Whole Building:Facility Total Surplus Electricity Energy
+
+ For Meter=ElectricitySurplusSold:Plant [J], ResourceType=ElectricitySurplusSold, Group=Plant, contents are:
+  Whole Building:Facility Total Surplus Electricity Energy
+
+ For Meter=Cogeneration:ElectricitySurplusSold [J], ResourceType=ElectricitySurplusSold, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Total Surplus Electricity Energy
+
+ For Meter=General:Cogeneration:ElectricitySurplusSold [J], ResourceType=ElectricitySurplusSold, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Total Surplus Electricity Energy
+
+ For Meter=ElectricityNet:Facility [J], ResourceType=ElectricityNet, contents are:
+  Whole Building:Facility Net Purchased Electricity Energy
+
+ For Meter=ElectricityNet:Plant [J], ResourceType=ElectricityNet, Group=Plant, contents are:
+  Whole Building:Facility Net Purchased Electricity Energy
+
+ For Meter=Cogeneration:ElectricityNet [J], ResourceType=ElectricityNet, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Net Purchased Electricity Energy
+
+ For Meter=General:Cogeneration:ElectricityNet [J], ResourceType=ElectricityNet, EndUse=Cogeneration, contents are:
+  Whole Building:Facility Net Purchased Electricity Energy
+
+ For Meter=DistrictHeatingWater:Facility [J], ResourceType=DistrictHeatingWater, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+
+ For Meter=DistrictHeatingWater:HVAC [J], ResourceType=DistrictHeatingWater, Group=HVAC, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+
+ For Meter=Heating:DistrictHeatingWater [J], ResourceType=DistrictHeatingWater, EndUse=Heating, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+
+ For Meter=General:Heating:DistrictHeatingWater [J], ResourceType=DistrictHeatingWater, EndUse=Heating, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Heating Fuel Energy
+
+ For Meter=DistrictCooling:Facility [J], ResourceType=DistrictCooling, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+
+ For Meter=DistrictCooling:HVAC [J], ResourceType=DistrictCooling, Group=HVAC, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+
+ For Meter=Cooling:DistrictCooling [J], ResourceType=DistrictCooling, EndUse=Cooling, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+
+ For Meter=General:Cooling:DistrictCooling [J], ResourceType=DistrictCooling, EndUse=Cooling, contents are:
+  1F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_C_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_AREA_D_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_CAFE_KITCHEN_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_GYM_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  1F_LIBRARY_IMC_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_A_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+  2F_AREA_B_IDEAL:Zone Ideal Loads Supply Air Total Cooling Fuel Energy
+
+ For Meter=Carbon Equivalent:Facility [kg], ResourceType=Carbon Equivalent, contents are:
+  Site:Environmental Impact Total N2O Emissions Carbon Equivalent Mass
+  Site:Environmental Impact Total CH4 Emissions Carbon Equivalent Mass
+  Site:Environmental Impact Total CO2 Emissions Carbon Equivalent Mass
+
+ For Meter=CarbonEquivalentEmissions:Carbon Equivalent [kg], ResourceType=Carbon Equivalent, EndUse=CarbonEquivalentEmissions, contents are:
+  Site:Environmental Impact Total N2O Emissions Carbon Equivalent Mass
+  Site:Environmental Impact Total CH4 Emissions Carbon Equivalent Mass
+  Site:Environmental Impact Total CO2 Emissions Carbon Equivalent Mass

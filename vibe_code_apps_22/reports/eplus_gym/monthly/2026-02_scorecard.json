@@ -1,0 +1,114 @@
+{
+  "month": "2026-02",
+  "strategies": [
+    "baseline",
+    "flat_24_7",
+    "deep_setback",
+    "stagger_preheat",
+    "morning_all_on"
+  ],
+  "coverage": {
+    "month": "2026-02",
+    "wanted_days": [
+      "2026-02-01",
+      "2026-02-02",
+      "2026-02-03",
+      "2026-02-04",
+      "2026-02-05",
+      "2026-02-06",
+      "2026-02-07",
+      "2026-02-08",
+      "2026-02-09",
+      "2026-02-10",
+      "2026-02-11",
+      "2026-02-12",
+      "2026-02-13",
+      "2026-02-14",
+      "2026-02-15",
+      "2026-02-16",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-21",
+      "2026-02-22",
+      "2026-02-23",
+      "2026-02-24",
+      "2026-02-25",
+      "2026-02-26",
+      "2026-02-27",
+      "2026-02-28"
+    ],
+    "n_wanted_days": 28,
+    "strategies": {
+      "baseline": {
+        "days_present": [],
+        "n_days": 0,
+        "coverage_frac": 0.0
+      },
+      "flat_24_7": {
+        "days_present": [],
+        "n_days": 0,
+        "coverage_frac": 0.0
+      },
+      "deep_setback": {
+        "days_present": [],
+        "n_days": 0,
+        "coverage_frac": 0.0
+      },
+      "stagger_preheat": {
+        "days_present": [],
+        "n_days": 0,
+        "coverage_frac": 0.0
+      },
+      "morning_all_on": {
+        "days_present": [],
+        "n_days": 0,
+        "coverage_frac": 0.0
+      }
+    },
+    "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+    "provenance": "FARM_LOOKUP_EMULATOR",
+    "promote": false
+  },
+  "kpis": [
+    {
+      "strategy_id": "baseline",
+      "month": "2026-02",
+      "n_days": 0,
+      "peak_kw": null,
+      "kwh": null
+    },
+    {
+      "strategy_id": "flat_24_7",
+      "month": "2026-02",
+      "n_days": 0,
+      "peak_kw": null,
+      "kwh": null
+    },
+    {
+      "strategy_id": "deep_setback",
+      "month": "2026-02",
+      "n_days": 0,
+      "peak_kw": null,
+      "kwh": null
+    },
+    {
+      "strategy_id": "stagger_preheat",
+      "month": "2026-02",
+      "n_days": 0,
+      "peak_kw": null,
+      "kwh": null
+    },
+    {
+      "strategy_id": "morning_all_on",
+      "month": "2026-02",
+      "n_days": 0,
+      "peak_kw": null,
+      "kwh": null
+    }
+  ],
+  "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+  "promote": false,
+  "note": "IdealLoads STRUCTURAL_LOAD_DIAGNOSTIC \u2014 not BAS meter truth"
+}

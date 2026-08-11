@@ -1,11 +1,12 @@
-"""Canonical 15-minute interval contract for BAS / E+ / Python / Rust parity.
+"""Canonical 15-minute interval contract for BAS / E+ / Python parity.
 
-Contract (hybrid_dsm_96_v1):
-  q0  = [00:00, 00:15), prediction stamped 00:15  → step_15=0, hour_ending=0.25
-  q95 = [23:45, 24:00), prediction stamped 24:00  → step_15=95, hour_ending=24.0
+Clock (shared by farm parquet, gym lookup, and twin scripts):
+  q0  = [00:00, 00:15), stamped 00:15  → step_15=0, hour_ending=0.25
+  q95 = [23:45, 24:00), stamped 24:00  → step_15=95, hour_ending=24.0
   96 intervals = exactly 24 h; duration_s = 900
 
 Joins prefer UTC. Local civil / local-standard are derived metadata only.
+(Former hybrid_dsm_96_v1 JSON contract → archive/2026-08-10_pre_eplus_gym/contracts/.)
 """
 from __future__ import annotations
 

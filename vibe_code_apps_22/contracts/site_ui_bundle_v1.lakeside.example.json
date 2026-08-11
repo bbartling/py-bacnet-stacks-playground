@@ -1,0 +1,91 @@
+{
+  "schema_version": "site_ui_bundle_v1",
+  "campus_json": "utilities/campus_utility.json",
+  "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
+  "utility_peak_kw": 284.8,
+  "default_model_id": "A04",
+  "current_model_id": "A04",
+  "dsm_champion": "A04",
+  "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+  "farm_parquet": "eplus/dsm_farm_paired/heating_dsm_eplus_paired_15min_v1.parquet",
+  "dsm_farm_parquet": "eplus/dsm_farm_w2a/heating_dsm_w2a_15min_v1.parquet",
+  "epw": "eplus/weather/madison_amy_202508_202607.epw",
+  "honesty": {
+    "bas": "BAS_INTERVAL_METER",
+    "dial_ladder": "W2A_PHYSICAL_DSM",
+    "farm": "STRUCTURAL_LOAD_DIAGNOSTIC",
+    "massing": "PUBLISHED_IDF_GEOMETRY"
+  },
+  "model_catalog": [
+    {
+      "id": "A04",
+      "label": "A04 W2A dual champion",
+      "family": "W2A_PHYSICAL_DSM",
+      "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+      "scorecard": "models/eplus/best_scorecard_a04_dual.json",
+      "champion": true,
+      "dial_id": "A04"
+    },
+    {
+      "id": "E20",
+      "label": "E20 W2A prior dual",
+      "family": "W2A_PHYSICAL_DSM",
+      "idf_pin": "lakeside_w2a_e20_l22_enhanced_champion.idf",
+      "scorecard": null,
+      "dial_id": "E20"
+    },
+    {
+      "id": "L22",
+      "label": "L22 W2A lowbase opt-start",
+      "family": "W2A_PHYSICAL_DSM",
+      "idf_pin": "lakeside_w2a_l22_lowbase_optstart_champion.idf",
+      "scorecard": null,
+      "dial_id": null
+    },
+    {
+      "id": "IDEAL_INTERVAL",
+      "label": "IdealLoads interval (structural)",
+      "family": "STRUCTURAL_LOAD_DIAGNOSTIC",
+      "idf_pin": "lakeside_6zone_gshp_best.idf",
+      "scorecard": "models/eplus/best_scorecard.json"
+    },
+    {
+      "id": "IDEAL_UTILITY",
+      "label": "IdealLoads utility G14",
+      "family": "STRUCTURAL_LOAD_DIAGNOSTIC",
+      "idf_pin": "lakeside_6zone_gshp_best_utility.idf",
+      "scorecard": "models/eplus/best_scorecard_utility.json"
+    }
+  ],
+  "dial_ladder": {
+    "peak_day": "2026-01-26",
+    "precomputed_closeness_csv": "plots/analytics/eplus_gl14_vs_peak285/winter_shape_closeness_a04_ladder.csv",
+    "models": [
+      {
+        "id": "E20",
+        "label": "E20",
+        "honesty": "W2A_PHYSICAL_DSM",
+        "sim_dir": "eplus/campaigns/w2a_l22_enhanced_20260808T205123Z/trials/E20_peakplant_eq075_li110_cop120/sim"
+      },
+      {
+        "id": "SC02",
+        "label": "SC02",
+        "honesty": "W2A_PHYSICAL_DSM",
+        "sim_dir": "eplus/campaigns/w2a_e20_soft_cop_trim_20260809T131911Z/trials/SC02_cop45/sim"
+      },
+      {
+        "id": "R02",
+        "label": "R02",
+        "honesty": "W2A_PHYSICAL_DSM",
+        "sim_dir": "eplus/campaigns/w2a_sc02_gl14_recover_20260809T132941Z/trials/R02_eq060_li095/sim"
+      },
+      {
+        "id": "A04",
+        "label": "A04 champion",
+        "honesty": "W2A_PHYSICAL_DSM",
+        "champion": true,
+        "sim_dir": "eplus/campaigns/w2a_sc02_aug_in_session_20260809T134542Z/trials/A04_r02_sum040_clg48_augSchool/sim"
+      }
+    ]
+  }
+}

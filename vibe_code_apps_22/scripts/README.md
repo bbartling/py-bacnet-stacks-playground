@@ -1,48 +1,37 @@
 # vibe22 scripts map
 
-**Train / ship SoT (2026-08-07):** CLI, not Jupyter kernels.
+**Product SoT (2026-08-11):** [`eplus_gym`](../eplus_gym/) + human DSM console.  
+Agent loop: [`../vibe22_agent_spec/AGENT_LOOP.md`](../vibe22_agent_spec/AGENT_LOOP.md).  
+Archived hybrid/greybox/lab scripts: [`../archive/2026-08-10_pre_eplus_gym/scripts/`](../archive/2026-08-10_pre_eplus_gym/scripts/).
+
+## Product
 
 | Script | Role |
 | --- | --- |
-| `train_four_arms.py` | Parallel sklearn/torch × winter/allyear → `ml/artifacts/runs/` |
-| `train_arm.py` | One arm worker (spawned by four-arm launcher) |
-| `ship_best_to_desktop.py` | Pick best sklearn arm (held-out peak MAE only) → promote → `cargo run --release`; `--allow-smoke-promote` for &lt;12 pairs |
-| `promote_hybrid_ship.py` | Hybrid walk + copy into `desktop/artifacts/` (smoke &lt;12 pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` or ship `--allow-smoke-promote`) |
-| `validate_eplus_multires.py` | Monthly / hourly / 15-min DSM multi-res validation JSON |
-| `_gen_results_viewer_notebooks.py` | Regen sklearn/torch **viewer** notebooks |
-| `_gen_load_profile_analysis_nb.py` | Regen load-profile analysis notebook |
-| `_gen_desktop_sim_playground_nb.py` | Regen desktop ONNX playground notebook |
+| `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
+| `run_eplus_gym_rules.py` | Rule DR (`--family w2a\|idealloads`, `lookup` / `live` / `auto`) |
+| `run_eplus_gym_month_farm.py` | IdealLoads calendar-month farm grow (structural) |
+| `run_eplus_gym_month_live.py` | CLI-only closed-loop month (staged IdealLoads IDF) |
 
-## Data / farm / desktop helpers (live)
+UI: `streamlit run eplus_gym_app/streamlit_app.py --server.port 8765`
+
+## Twin foundation (live)
 
 | Script | Role |
 | --- | --- |
-| `build_real_15min_store.py` | Real BAS parquet store |
-| `eplus_heating_dsm_farm.py` | Paired E+ DSM farm (`--crossed` / `--pre-roll-days` / weather fail-closed) |
-| `eplus_w2a_dsm_farm_scaffold.py` | Stage W2A_PHYSICAL_DSM IDF copy (no champion overwrite) |
-| `spinup_sensitivity.py` | Pre-roll 0/3/7/14 scaffold CSV (`--from-farm-root`) |
-| `timestep_sensitivity.py` | Timestep 4/6/12 scaffold (`--stage-w2a`) |
-| `inventory_greybox_sensors.py` | Grey-box sensor manifest (UNKNOWN ok) |
-| `run_control_twin_lab.py` | W2A Control Twin Lab smoke/full (SYNTHETIC provenance; never overwrite A04) |
-| `mine_plant_point_candidates.py` | Sensor archaeology from site FDD/Haystack (no invented BACnet IDs) |
-| `train_greybox_identification_v1.py` | Blocking ID honesty gates (deployable vs diagnostic; nonzero exit) |
-| `train_greybox_shadow_v1.py` | Diagnostic-only one-zone fit (meter Q holdout ≠ deployable) |
-| `export_nearest_day_library.py` | Nearest-day library for desktop |
-| `export_control_contracts.py` | Control strategy contracts |
-| `validate_mvm.py` | MVM hourly + 15-min (delegates formulas to `ml/eplus_multires_metrics`) |
-| `eplus_calibrate_multires.py` | Versioned multi-res calibration campaign runner |
-| `demand_weather_charts.py` | Load/weather analytics PNGs |
-| E+ / OpenStudio / utility scripts | Calibration + GL14 campaign |
+| `process_lakeside.py` | ALC → openfdd package |
+| `demand_weather_charts.py` / `thermal_zone_analytics.py` | Site analytics |
+| `eplus_observed_targets.py` | BAS→E+ targets |
+| `eplus_gl14.py` / `eplus_campaign*.py` / `eplus_calibrate_multires.py` | IdealLoads G14 |
+| `eplus_w2a_plant_calib.py` / `eplus_w2a_peak_monthly_dial.py` | W2A dial (never overwrite A04) |
+| `eplus_heating_dsm_farm.py` | Paired IdealLoads farm (feeds gym **lookup**) |
+| `eplus_w2a_dsm_farm_scaffold.py` | Stage W2A copy (no champion overwrite) |
+| `build_real_15min_store.py` | Real BAS parquet (site analytics) |
+| `export_control_contracts.py` | Strategy contracts for gym controllers |
+| `validate_mvm.py` / `validate_eplus_multires.py` | Multi-res validation |
+| `ingest_utility_bills.py` | Utility G14 inputs |
 
-## Legacy (keep for delta retrain / emergency)
+## Removed from live tree (archived)
 
-| Script | Role |
-| --- | --- |
-| `run_sklearn_tutorial_train.py` | Single-process A (baseline) + B (delta) + optional smoke promote. Prefer `train_four_arms` for baselines; use this when **retraining delta**. |
-
-## Removed (dead)
-
-- `_gen_tutorial_notebooks.py` — regenerated in-kernel **train** notebooks (clobbered viewers)
-- `_run_tutorial_notebooks.py` / `_exec_tutorial_nb.py` — executed train-in-notebook
-- `_lean_cli_regen.py` — one-off lean regen → replaced by `train_arm`
-- `run_torch_tutorial_train.py` — replaced by `train_arm --arm torch_*`
+`train_four_arms`, `ship_best_to_desktop`, `promote_hybrid_ship`, greybox trainers,
+`run_control_twin_lab`, notebook generators, one-off W2A dial helpers — see archive.

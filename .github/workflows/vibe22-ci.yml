@@ -26,23 +26,9 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install pytest pandas numpy pyarrow joblib scikit-learn matplotlib
+          pip install -r requirements.txt pytest
       - name: Pytest (full vibe22 suite)
         run: python -m pytest tests -q --tb=short
 
-  desktop-rust:
-    # Linux runners are far more available than windows-latest; ort/eframe compile fine here.
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: vibe_code_apps_22/desktop
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: System deps (egui / winit)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-            libxkbcommon-dev libssl-dev pkg-config libgtk-3-dev
-      - name: Cargo test
-        run: cargo test --quiet
+  # desktop-rust removed: hybrid ONNX egui app archived under
+  # vibe_code_apps_22/archive/2026-08-10_pre_eplus_gym/desktop_onnx/

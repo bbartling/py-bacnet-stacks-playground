@@ -1,16 +1,16 @@
-# Archive — superseded vibe22 helpers
+# Archive — vibe22 archaeology
 
-Snapshots of logic **replaced** during the hybrid contract rebuild (2026-08-10).
-Do **not** import from here in production paths. Kept for archaeology and CodeRabbit
-context when reviewing interval / weather / IdealLoads honesty fixes.
+**Do not import from `archive/` in live product paths.**
 
-| Path | Replaced by | Why archived |
-|---|---|---|
-| `legacy_quarter_index.py` | [`ml/interval15.py`](../ml/interval15.py) | Mapped 00:15/00:30 → `hour_ending=24`; disagreed with extract |
-| `legacy_hybrid_calendar.py` | `interval15.calendar_features_for_step` | `hour_ending = step/4` → step0=`0.0` vs contract 0.25 |
-| `legacy_billing_peak_day.py` | [`ml/billing_counterfactual.py`](../ml/billing_counterfactual.py) | Used actual-day peak as pre-existing billing peak |
-| `legacy_same_row_lag_fill.md` | `feature_compile_15min` + real_store cross-midnight shift | q0 lags filled from `y[q0]` (DEF-STEP0-LAG) |
+## Current cut
 
-Live audits: [`docs/audits/interval_semantics_audit.md`](../docs/audits/interval_semantics_audit.md),
-[`docs/audits/simulation_root_cause_audit.md`](../docs/audits/simulation_root_cause_audit.md),
-[`docs/audits/lag_train_serve_parity.md`](../docs/audits/lag_train_serve_parity.md).
+**[`2026-08-10_pre_eplus_gym/`](2026-08-10_pre_eplus_gym/README.md)** — full ledger of hybrid ONNX desktop, grey-box, control-twin lab, phys-LSTM notebooks, and related scripts/tests. Product replaced by [`../eplus_gym/`](../eplus_gym/) + [`../eplus_gym_app/`](../eplus_gym_app/).
+
+Follow-up sweep (same day): moved remaining live hybrid contracts
+(`hybrid_dsm_96_v1/v2.json`), `ml/simulation_contract.py`, `ml/notebook_plots.py`,
+`ml/feature_compile_15min.py`, leftover `ml/artifacts`, and hybrid/greybox audits
+into that tree (`contracts/`, `ml_modules/`, `docs/live_docs_sweep/`).
+
+Earlier interval/billing legacies sit under that tree as `legacy_pre/`.
+
+Live audits: [`../docs/audits/`](../docs/audits/) (gym + plant candidates only).
