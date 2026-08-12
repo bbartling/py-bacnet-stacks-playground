@@ -82,6 +82,8 @@ class BuildingDataModelTree:
                     "relation": "fedBy",
                     "related_ids": ahu_id,
                     "related_count": 1,
+                    "parent_ahu": ahu_id,
+                    "vav_id": vav_id,
                 }
             )
         return rows
