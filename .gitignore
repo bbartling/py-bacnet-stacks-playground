@@ -14,6 +14,7 @@ __pycache__/
 !vibe_code_apps_20/tests/fixtures/**/*.csv
 !vibe_code_apps_22/dsm/exports/**/*.csv
 !vibe_code_apps_22/data/sample/**/*.csv
+!vibe_code_apps_22/tests/fixtures/**/*.csv
 !vibe_code_apps_23/utilities/**/*.csv
 !vibe_code_apps_23/scorecards/**/*.csv
 
