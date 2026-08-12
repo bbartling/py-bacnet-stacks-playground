@@ -737,12 +737,21 @@ def export_agent_bundle(
 
     # Analytic-tab CSVs (topology, data model, sensor health, RCx comfort, meters)
     try:
+        from app.data_contract import load_vav_to_ahu_map
         from app.data_model_tree import build_data_model_tree
+
+        vav_to_ahu: dict[str, str] = {}
+        if dataset.source_path:
+            try:
+                vav_to_ahu = load_vav_to_ahu_map(Path(dataset.source_path))
+            except Exception:
+                vav_to_ahu = {}
 
         tree = build_data_model_tree(
             dataset.frames,
             dataset.role_map,
             building_id=dataset.building_id,
+            vav_to_ahu=vav_to_ahu,
         )
         topo = pd.DataFrame(tree.topology_rows())
         if not topo.empty:
@@ -754,8 +763,10 @@ def export_agent_bundle(
             path = out / "data_model.csv"
             dm.to_csv(path, index=False)
             written["data_model"] = path
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("topology/data_model export failed: %s", exc)
 
     try:
         from app.analytics import sensor_fault_summary, sensor_health_matrix
