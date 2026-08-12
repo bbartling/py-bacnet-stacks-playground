@@ -10,19 +10,23 @@ Unified **code** workspace for **any building** (practice pack: Lakeside ES /
 - Future BACnet live app slot (`bacnet/`) — **no writes**
 
 **GitHub is source + contracts + tutorials.** Site data / farm tables are local —
-see [`data/DATA.md`](data/DATA.md). Set **`SITE_ROOT`** (alias `LAKESIDE_SITE_ROOT`).
+see [`data/DATA.md`](data/DATA.md). For local prototype, edit **`config.py`**
+(copy from [`config.example.py`](config.example.py)). Env `SITE_ROOT` still
+overrides when set (CI).
 
 ## Quick start
 
 ```powershell
 cd vibe_code_apps_22
 pip install -r requirements.txt
-$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"  # practice
+copy config.example.py config.py   # once; edit SITE_ROOT inside
 
-python -u scripts\ingest_site_pack.py --src $env:SITE_ROOT
+python -u scripts\ingest_site_pack.py
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+streamlit run eplus_gym_app\streamlit_app.py --server.port 8766 --server.address 127.0.0.1
 ```
+
+No `$env:SITE_ROOT=...` needed once `config.py` points at your pack.
 
 ## Learn more
 

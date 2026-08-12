@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,37 @@ STRATEGY_LABELS = {
     "stagger_preheat": "Stagger preheat",
     "morning_all_on": "Morning all-on",
 }
+
+
+def pick_frame(
+    frames: dict[str, pd.DataFrame], *keys: str
+) -> pd.DataFrame | None:
+    """Return the first mapped DataFrame without using DataFrame truthiness."""
+    for key in keys:
+        if key in frames:
+            df = frames[key]
+            if df is not None:
+                return df
+    return None
+
+
+def frame_map(value: Any) -> dict[str, pd.DataFrame]:
+    """Coerce session/disk payload to a str→DataFrame map (never bool(DataFrame))."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, pd.DataFrame] = {}
+    for key, val in value.items():
+        if isinstance(val, pd.DataFrame):
+            out[str(key)] = val
+    return out
+
+
+def coalesce_frame(*candidates: Any) -> pd.DataFrame | None:
+    """First non-None DataFrame among candidates (no DataFrame truthiness)."""
+    for cand in candidates:
+        if isinstance(cand, pd.DataFrame):
+            return cand
+    return None
 
 
 def calendar_month_options(bundle: "SiteUiBundle") -> list[str]:
@@ -414,6 +446,100 @@ def stage_idf_for_day(src: Path, dest: Path, day: str) -> Path:
     return stage_idf_for_period(src, dest, day, day)
 
 
+def format_hms(seconds: float) -> str:
+    """Human elapsed for status / Results (0s, 12s, 3m 05s, 1h 02m 01s)."""
+    s = max(0, int(round(float(seconds))))
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    if h:
+        return f"{h}h {m:02d}m {sec:02d}s"
+    if m:
+        return f"{m}m {sec:02d}s"
+    return f"{sec}s"
+
+
+def live_log_tail(log: Path, *, n: int = 24) -> str:
+    if not log.is_file():
+        return ""
+    try:
+        lines = log.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return ""
+    return "\n".join(lines[-n:])
+
+
+def summarize_eplus_failure(log: Path, *, exit_code: int | None = None) -> str:
+    """Pull a short human diagnosis from live.log (Terminated / traceback)."""
+    text = live_log_tail(log, n=80)
+    if not text.strip():
+        return f"CLI exited {exit_code}" if exit_code not in (None, 0) else "EnergyPlus failed (empty live.log)"
+    lowered = text.lower()
+    bits: list[str] = []
+    if "energyplus terminated" in lowered or "error(s) detected" in lowered:
+        bits.append("EnergyPlus terminated with errors during reset/startup")
+    if "nonetype" in lowered and "values" in lowered:
+        bits.append("gym received no observation after E+ abort (obs is None)")
+    if "will not fall back to idealloads" in lowered:
+        bits.append("no IdealLoads fallback")
+    # last non-empty meaningful line
+    for line in reversed(text.splitlines()):
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("File ") or s.startswith("Traceback"):
+            continue
+        bits.append(s[:220])
+        break
+    if exit_code not in (None, 0):
+        bits.insert(0, f"exit code {exit_code}")
+    return " · ".join(dict.fromkeys(bits)) or text[-300:]
+
+
+def wait_live_subprocess(
+    proc: subprocess.Popen,
+    *,
+    status: Any,
+    job_label: str,
+    campaign_t0: float,
+    job_t0: float,
+    job_index: int,
+    job_total: int,
+    poll_s: float = 1.0,
+    log_path: Path | None = None,
+    log_handle: Any | None = None,
+) -> tuple[int, float]:
+    """Poll EnergyPlus until exit; refresh status with live job + campaign timers."""
+    try:
+        while proc.poll() is None:
+            job_elapsed = time.perf_counter() - job_t0
+            camp_elapsed = time.perf_counter() - campaign_t0
+            health = ""
+            if log_path is not None and log_path.is_file():
+                try:
+                    snippet = log_path.read_text(encoding="utf-8", errors="ignore")[-500:].lower()
+                except OSError:
+                    snippet = ""
+                if "energyplus terminated" in snippet or "error(s) detected" in snippet:
+                    health = " · E+ ERROR in log"
+            status.update(
+                label=(
+                    f"{job_label} · sim {job_index}/{job_total} · "
+                    f"job {format_hms(job_elapsed)} · total {format_hms(camp_elapsed)}"
+                    f"{health}"
+                ),
+                state="running",
+            )
+            time.sleep(max(0.2, float(poll_s)))
+        code = int(proc.returncode if proc.returncode is not None else 0)
+        return code, time.perf_counter() - job_t0
+    finally:
+        if log_handle is not None:
+            try:
+                log_handle.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def start_live_subprocess(
     *,
     site: Path,
@@ -425,7 +551,7 @@ def start_live_subprocess(
     begin: str | None = None,
     end: str | None = None,
     max_steps: int = 96,
-) -> subprocess.Popen:
+) -> tuple[subprocess.Popen, Any, Path]:
     """Launch CLI live W2A run (do not bind pyenergyplus into Streamlit)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     begin = begin or day
@@ -455,13 +581,14 @@ def start_live_subprocess(
         cmd.extend(["--end", end])
     log = out_dir / "live.log"
     handle = log.open("w", encoding="utf-8")
-    return subprocess.Popen(
+    proc = subprocess.Popen(
         cmd,
         cwd=str(_APP),
         stdout=handle,
         stderr=subprocess.STDOUT,
         text=True,
     )
+    return proc, handle, log
 
 
 def _resolve_epw(bundle: SiteUiBundle) -> Path | None:
@@ -469,7 +596,9 @@ def _resolve_epw(bundle: SiteUiBundle) -> Path | None:
     return inv.get("amy") or inv.get("tmy")
 
 
-def _eplus_with_oat_f(df: pd.DataFrame) -> pd.DataFrame:
+def _eplus_with_oat_f(df: pd.DataFrame | None) -> pd.DataFrame:
+    if df is None:
+        return pd.DataFrame()
     out = df.copy()
     if "oat_c" in out.columns and "oat_f" not in out.columns:
         out["oat_f"] = out["oat_c"].astype(float) * 9.0 / 5.0 + 32.0
@@ -577,7 +706,9 @@ def load_last_run(bundle: SiteUiBundle) -> dict[str, Any] | None:
             except Exception:  # noqa: BLE001
                 continue
     pq = Path(str(doc.get("parquet") or ""))
-    df = frames.get(KIND_AMY) or (next(iter(frames.values())) if frames else None)
+    df = pick_frame(frames, KIND_AMY)
+    if df is None and frames:
+        df = next(iter(frames.values()))
     if df is None and pq.is_file():
         try:
             df = pd.read_parquet(pq)
@@ -649,7 +780,7 @@ def _store_run(
         strategies=strategies,
         kpis_by_strategy=kpis_by_strategy,
     )
-    if frames:
+    if isinstance(frames, dict) and frames:
         payload["frames"] = frames
     st.session_state["dsm_last"] = payload
     st.session_state["lakeside_main_tabs"] = "Run DSM"
@@ -686,8 +817,6 @@ def _collect_traj(out_dir: Path) -> Path | None:
 
 
 def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
-    import time
-
     import streamlit as st
 
     from eplus_gym_app.plots import (
@@ -775,13 +904,13 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         f"**Will simulate closed-loop all {n_strat} strategies** `{spec['begin']}` → `{spec['end']}` · "
         f"**{spec['n_days']} days** · **{spec['max_steps']} steps** (15 min) · "
         f"**{len(jobs)} live runs** ({n_strat} × {n_wx} weather). "
-        f"Winter × 5 × AMY is typically 5–25 min; Both doubles that. "
+        f"Year/winter × 5 × AMY is long; Both doubles that. "
         f"Meter-peak day inside the window: `{day}` — {ctx['why']}."
     )
     if mode == "lookup":
         live_note = (
             f"**Lookup is peak-day only** (`{day}`, 96 steps) for all five strategies. "
-            "Grow a W2A farm or use live E+ for the full week/month/winter window."
+            "Grow a W2A farm or use live E+ for the full week/month/winter/year window."
         )
     st.markdown(live_note)
     st.caption(
@@ -826,7 +955,9 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                 st.error("No W2A farm days for any of the five strategies.")
                 return
             attach_baseline_deltas(kpis_by)
-            primary = frames_by.get("baseline:lookup") or next(iter(frames_by.values()))
+            primary = pick_frame(frames_by, "baseline:lookup")
+            if primary is None:
+                primary = next(iter(frames_by.values()))
             _store_run(
                 site=bundle.site,
                 df=primary,
@@ -869,6 +1000,59 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             kpis_by: dict[str, Any] = {}
             last_out = None
             last_meta: dict[str, Any] = {}
+            campaign_t0 = time.perf_counter()
+            n_jobs = len(jobs)
+            try:
+                st.html(
+                    f"""
+<div style="font:600 1.05rem ui-monospace,Consolas,monospace;padding:0.35rem 0;line-height:1.45;">
+  <div>DSM run timer: <span id="dsm-run-timer">0s</span></div>
+  <div>E+ sims: <span id="dsm-run-sims">0 / {n_jobs}</span> complete</div>
+  <div>E+ health: <span id="dsm-run-health">starting…</span></div>
+</div>
+<script>
+(() => {{
+  const timerEl = document.getElementById('dsm-run-timer');
+  const simsEl = document.getElementById('dsm-run-sims');
+  const healthEl = document.getElementById('dsm-run-health');
+  if (!timerEl) return;
+  const t0 = Date.now();
+  const total = {n_jobs};
+  window.__dsmSimsDone = 0;
+  const fmt = (sec) => {{
+    sec = Math.max(0, sec|0);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h) return h + 'h ' + String(m).padStart(2,'0') + 'm ' + String(s).padStart(2,'0') + 's';
+    if (m) return m + 'm ' + String(s).padStart(2,'0') + 's';
+    return s + 's';
+  }};
+  const paint = () => {{
+    timerEl.textContent = fmt((Date.now() - t0) / 1000);
+    if (simsEl) simsEl.textContent = (window.__dsmSimsDone || 0) + ' / ' + total + ' complete';
+  }};
+  paint();
+  window.__dsmRunTimer = setInterval(paint, 250);
+  window.__dsmBumpSim = () => {{
+    window.__dsmSimsDone = Math.min(total, (window.__dsmSimsDone || 0) + 1);
+    paint();
+  }};
+  window.__dsmSetHealth = (msg) => {{
+    if (healthEl) healthEl.textContent = msg;
+  }};
+}})();
+</script>
+                    """,
+                    unsafe_allow_javascript=True,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            sims_counter = st.empty()
+            health_box = st.empty()
+            sims_counter.metric("E+ sims complete", f"0 / {n_jobs}")
+            health_box.info("E+ health: starting…")
+            progress = st.progress(0, text="Starting live EnergyPlus…")
             with st.status("Live EnergyPlus (subprocess)…", expanded=True) as status:
                 for i, job in enumerate(jobs, start=1):
                     sid = job["strategy_id"]
@@ -882,15 +1066,30 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                         / f"{stamp}_{sid}_{kind}"
                     )
                     last_out = out_dir
-                    t0 = time.perf_counter()
+                    job_t0 = time.perf_counter()
+                    job_label = (
+                        f"{sid} · {kind} · {spec['begin']}→{spec['end']} · "
+                        f"{spec['max_steps']} steps"
+                    )
+                    done_before = i - 1
                     status.update(
                         label=(
-                            f"{sid} · {kind} · {i}/{len(jobs)} · "
-                            f"{spec['begin']}→{spec['end']} · {spec['max_steps']} steps…"
+                            f"{job_label} · sim {i}/{n_jobs} · "
+                            f"job 0s · total {format_hms(time.perf_counter() - campaign_t0)}"
                         ),
                         state="running",
                     )
-                    proc = start_live_subprocess(
+                    sims_counter.metric(
+                        "E+ sims complete",
+                        f"{done_before} / {n_jobs}",
+                        delta=f"running {sid}",
+                    )
+                    health_box.info(f"E+ health: running `{sid}` ({i}/{n_jobs})…")
+                    progress.progress(
+                        done_before / max(n_jobs, 1),
+                        text=f"Running {sid} ({i}/{n_jobs})…",
+                    )
+                    proc, log_handle, log = start_live_subprocess(
                         site=bundle.site,
                         strategy_id=sid,
                         epw=Path(job["epw"]),
@@ -901,22 +1100,65 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                         end=spec["end"],
                         max_steps=int(spec["max_steps"]),
                     )
-                    code = proc.wait()
-                    elapsed_s = time.perf_counter() - t0
+                    code, elapsed_s = wait_live_subprocess(
+                        proc,
+                        status=status,
+                        job_label=job_label,
+                        campaign_t0=campaign_t0,
+                        job_t0=job_t0,
+                        job_index=i,
+                        job_total=n_jobs,
+                        log_path=log,
+                        log_handle=log_handle,
+                    )
                     elapsed_by[key] = elapsed_s
-                    log = out_dir / "live.log"
-                    if log.is_file():
-                        tail = "\n".join(
-                            log.read_text(encoding="utf-8", errors="ignore").splitlines()[-12:]
+                    tail = live_log_tail(log, n=16)
+                    if tail:
+                        st.code(f"[{sid} {kind} {format_hms(elapsed_s)}]\n{tail}")
+                    failed = code != 0
+                    if not failed and "energyplus terminated" in tail.lower():
+                        failed = True
+                    if failed:
+                        diagnosis = summarize_eplus_failure(log, exit_code=code)
+                        progress.progress(i / max(n_jobs, 1), text=f"Failed {sid}")
+                        sims_counter.metric(
+                            "E+ sims complete",
+                            f"{done_before} / {n_jobs}",
+                            delta="failed",
                         )
-                        st.code(f"[{sid} {kind} {elapsed_s:.1f}s]\n{tail or '(empty log)'}")
-                    if code != 0:
-                        status.update(label=f"Live run failed ({sid} {kind})", state="error")
-                        st.error(f"CLI exited {code} for {sid} / {kind}")
+                        health_box.error(f"E+ health: FAILED · {diagnosis}")
+                        status.update(
+                            label=(
+                                f"Live run FAILED ({sid} {kind}) after "
+                                f"{format_hms(time.perf_counter() - campaign_t0)} · {diagnosis}"
+                            ),
+                            state="error",
+                        )
+                        st.error(
+                            f"**EnergyPlus unhealthy** for `{sid}` / `{kind}`.\n\n"
+                            f"{diagnosis}\n\n"
+                            f"Log: `{log}`"
+                        )
+                        if tail:
+                            with st.expander("live.log tail", expanded=True):
+                                st.code(tail)
                         return
                     pq = _collect_traj(out_dir)
                     if pq is None:
-                        st.warning(f"Live finished but no trajectory parquet under {out_dir}")
+                        diagnosis = summarize_eplus_failure(log, exit_code=code)
+                        health_box.error(
+                            f"E+ health: FAILED · finished without trajectory · {diagnosis}"
+                        )
+                        status.update(
+                            label=f"No trajectory after {sid} · {diagnosis}",
+                            state="error",
+                        )
+                        st.error(
+                            f"Live finished but no trajectory parquet under `{out_dir}`.\n\n{diagnosis}"
+                        )
+                        if tail:
+                            with st.expander("live.log tail", expanded=True):
+                                st.code(tail)
                         return
                     df_job = pd.read_parquet(pq)
                     frames_by[key] = df_job
@@ -932,15 +1174,29 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                             pass
                     st.write(
                         f"{sid} · {kind}: {spec['n_days']} days · {spec['max_steps']} steps · "
-                        f"{elapsed_s:.1f}s · `{pq}`"
+                        f"{format_hms(elapsed_s)} · `{pq}`"
                     )
-                bits = " · ".join(f"{k} {v:.1f}s" for k, v in elapsed_by.items())
-                status.update(label=f"Live EnergyPlus finished ({bits})", state="complete")
+                    sims_counter.metric("E+ sims complete", f"{i} / {n_jobs}")
+                    health_box.success(f"E+ health: OK · `{sid}` finished ({i}/{n_jobs})")
+                    progress.progress(
+                        i / max(n_jobs, 1),
+                        text=f"Finished {sid} ({i}/{n_jobs}) · total {format_hms(time.perf_counter() - campaign_t0)}",
+                    )
+                total_s = time.perf_counter() - campaign_t0
+                bits = " · ".join(f"{k} {format_hms(v)}" for k, v in elapsed_by.items())
+                status.update(
+                    label=f"Live EnergyPlus finished in {format_hms(total_s)} · {n_jobs}/{n_jobs} sims ({bits})",
+                    state="complete",
+                )
+                sims_counter.metric("E+ sims complete", f"{n_jobs} / {n_jobs}", delta="done")
+                health_box.success(f"E+ health: OK · all {n_jobs} sims complete · {format_hms(total_s)}")
+                progress.progress(1.0, text=f"Complete · {n_jobs} sims · {format_hms(total_s)}")
+            # fall through to KPI store (keep existing block below)
             base_peak = None
             for sid in DEPLOYABLE_STRATEGIES:
                 key_amy = f"{sid}:{KIND_AMY}"
                 key_tmy = f"{sid}:{KIND_TMY_MSN}"
-                df_sid = frames_by.get(key_amy) or frames_by.get(key_tmy)
+                df_sid = pick_frame(frames_by, key_amy, key_tmy)
                 if df_sid is None:
                     continue
                 meta = {
@@ -992,12 +1248,12 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             st.rerun()
 
     last = st.session_state.get("dsm_last")
-    if not last or last.get("frame") is None:
+    if not isinstance(last, dict) or last.get("frame") is None:
         loaded = load_last_run(bundle)
         if loaded:
             st.session_state["dsm_last"] = loaded
             last = loaded
-    if not last:
+    if not isinstance(last, dict):
         return
     stale = (
         last.get("day") != day
@@ -1015,20 +1271,35 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     if not kpis_by and last.get("kpis"):
         kpis_by = {str(last.get("strategy") or "run"): last["kpis"]}
     actual = last.get("actual")
-    frames = dict(last.get("frames") or {})
-    if not frames and last.get("frame") is not None:
-        sid0 = str(last.get("strategy") or "baseline")
-        frames = {f"{sid0}:{last.get('weather_kind') or KIND_AMY}": last["frame"]}
-    eplus = _eplus_with_oat_f(last["frame"])
+    if not isinstance(actual, pd.DataFrame):
+        actual = None
+    frames = frame_map(last.get("frames"))
+    if not frames:
+        primary = coalesce_frame(last.get("frame"))
+        if primary is not None:
+            sid0 = str(last.get("strategy") or "baseline")
+            kind0 = str(last.get("weather_kind") or KIND_AMY)
+            frames = {f"{sid0}:{kind0}": primary}
+    primary_frame = coalesce_frame(last.get("frame"), pick_frame(frames, *list(frames.keys())))
+    if primary_frame is None:
+        st.info("Last run pointer found but no trajectory frame on disk.")
+        return
+    eplus = _eplus_with_oat_f(primary_frame)
     actual_peak_show = None
-    if actual is not None and not getattr(actual, "empty", True) and "kw_avg" in actual.columns:
+    if actual is not None and not actual.empty and "kw_avg" in actual.columns:
         actual_peak_show = float(actual["kw_avg"].max())
     elapsed_map = last.get("elapsed_by_weather") or {}
     if elapsed_map:
-        elapsed_bit = f" · {sum(elapsed_map.values()):.1f}s total ({len(elapsed_map)} runs)"
+        elapsed_bit = (
+            f" · {format_hms(sum(elapsed_map.values()))} total ({len(elapsed_map)} runs)"
+        )
     else:
         elapsed = last.get("elapsed_s")
-        elapsed_bit = f" · EnergyPlus wall {elapsed:.1f}s" if isinstance(elapsed, (int, float)) else ""
+        elapsed_bit = (
+            f" · EnergyPlus wall {format_hms(elapsed)}"
+            if isinstance(elapsed, (int, float))
+            else ""
+        )
     ran = list(last.get("strategies") or kpis_by.keys()) or ["all"]
     st.header("Results")
     st.info(
@@ -1045,6 +1316,8 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     score_rows = []
     for sid in ran:
         row = kpis_by.get(sid) or {}
+        if not isinstance(row, dict):
+            row = {}
         score_rows.append(
             {
                 "strategy_id": sid,
@@ -1059,7 +1332,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     if score_rows:
         st.dataframe(pd.DataFrame(score_rows), width="stretch", hide_index=True)
         st.caption(
-            "Window totals for the selected period (peak day / month / winter / year). "
+            "Window totals for the selected period (peak day / week / month / winter / year). "
             "**kW trim** = baseline peak − strategy peak (+ trimmed demand). "
             "**kWh penalty** = strategy kWh − baseline kWh (+ used more energy)."
         )
@@ -1080,11 +1353,13 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             if last.get("period"):
                 b, _, e = str(last["period"]).partition("/")
                 if b and e:
-                    span = {
+                    spanned = {
                         d
                         for d in bas_win["local_day"].astype(str)
                         if b <= d <= e
-                    } or span
+                    }
+                    if spanned:
+                        span = spanned
             daily = (
                 bas_win.loc[bas_win["local_day"].astype(str).isin(span)]
                 .groupby("local_day", as_index=False)["kw_avg"]
@@ -1099,7 +1374,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             sid, kind = split_frame_key(key)
             wx = _WX_LABEL.get(kind, kind) if kind and kind != "lookup" else ""
             eplus_daily[f"{sid} {wx}".strip()] = daily_peaks_from_traj(frame)
-        if not daily.empty or any(not v.empty for v in eplus_daily.values()):
+        if (not daily.empty) or any(not v.empty for v in eplus_daily.values()):
             st.plotly_chart(
                 period_daily_peak_figure(
                     daily,
@@ -1127,8 +1402,9 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         extra.append((f"{sid} {wx}".strip(), COLORS.get(sid, "#2a9d8f"), sl))
     primary_slice = None
     for prefer in (f"baseline:{KIND_AMY}", "baseline:lookup"):
-        if prefer in peak_slices and not peak_slices[prefer].empty:
-            primary_slice = peak_slices[prefer]
+        sl = peak_slices.get(prefer)
+        if sl is not None and not sl.empty:
+            primary_slice = sl
             break
     if primary_slice is None:
         primary_slice = next(
@@ -1168,7 +1444,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             primary_slice if primary_slice is not None else eplus,
             actual=actual,
             title=f"Peak-day 15-min overlay · {last.get('day')} · Actual vs all 5 strategies",
-            extra_eplus=extra or None,
+            extra_eplus=extra if extra else None,
         ),
         width="stretch",
         key=f"dsm_overlay_{last.get('day')}_all_{last.get('preset')}_{last.get('mode')}",

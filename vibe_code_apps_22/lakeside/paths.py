@@ -4,24 +4,24 @@ Code lives in vibe_code_apps_22. Historian / packages / E+ runs stay on the
 site workspace. Lakeside / Creekside / ``sp_creekside`` are **practice packs**,
 not code defaults.
 
-Env (any one works; first wins):
-  SITE_ROOT                 # preferred
-  LAKESIDE_SITE_ROOT        # alias (practice packs)
-  VIBE22_SITE_ROOT
-  VIBE22_CREEKSIDE_ROOT     # legacy
-  VIBE23_CREEKSIDE_ROOT     # legacy
+Resolution order:
+  1. Env: SITE_ROOT / LAKESIDE_SITE_ROOT / VIBE22_* (CI / one-off)
+  2. Local ``config.py`` ``SITE_ROOT`` (prototype — copy from config.example.py)
+  3. Gitignored ``.site_root`` pin
+  4. Sibling practice-pack folder heuristics
 
-No personal machine-path fallbacks in git. Set an env var, write ``.site_root``
-(gitignored) next to this app, or place a practice pack next to the repo parent.
+No personal machine-path fallbacks in git. Prefer editing ``config.py``.
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 SITE_ROOT_PIN = APP_ROOT / ".site_root"
+_LOCAL_CONFIG = APP_ROOT / "config.py"
 
 # Practice-pack identity only (example data under Desktop sp_creekside).
 # Live product code must not require these.
@@ -82,6 +82,25 @@ def _pinned_site_root() -> Path | None:
     return p if _valid_site(p) else None
 
 
+def _config_site_root() -> Path | None:
+    """Load SITE_ROOT from local config.py next to the app (prototype)."""
+    if not _LOCAL_CONFIG.is_file():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("vibe22_local_config", _LOCAL_CONFIG)
+        if spec is None or spec.loader is None:
+            return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception:  # noqa: BLE001
+        return None
+    raw = getattr(mod, "SITE_ROOT", None)
+    if raw is None or raw == "":
+        return None
+    p = Path(raw).expanduser()
+    return p if _valid_site(p) else None
+
+
 def site_root() -> Path:
     for key in (
         "SITE_ROOT",
@@ -97,6 +116,10 @@ def site_root() -> Path:
                 raise FileNotFoundError(f"{key}={val} is not a directory")
             return p
 
+    cfg = _config_site_root()
+    if cfg is not None:
+        return cfg
+
     pinned = _pinned_site_root()
     if pinned is not None:
         return pinned
@@ -111,8 +134,8 @@ def site_root() -> Path:
         if _valid_site(c):
             return c
     raise FileNotFoundError(
-        "Set SITE_ROOT (or LAKESIDE_SITE_ROOT / VIBE22_SITE_ROOT) to the site "
-        "workspace (expected reports/ under the site root)."
+        "Set SITE_ROOT in config.py (copy config.example.py), or set env "
+        "SITE_ROOT / LAKESIDE_SITE_ROOT to a site workspace (expected reports/)."
     )
 
 

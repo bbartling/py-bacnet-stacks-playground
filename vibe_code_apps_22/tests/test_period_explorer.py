@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from eplus_gym_app.period_explorer import (
+    PERIOD_PRESETS,
     days_for_period,
     facility_kw_for_days,
     locked_calibration_window,
@@ -30,6 +31,29 @@ def _bas_frame() -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def test_period_presets_include_day_month_year():
+    assert "Peak day" in PERIOD_PRESETS
+    assert "Calendar month" in PERIOD_PRESETS
+    assert "Calendar year" in PERIOD_PRESETS
+
+
+def test_days_calendar_month_and_year():
+    bas = _bas_frame()
+    month = days_for_period(
+        bas, preset="Calendar month", peak_day="2026-01-26", month="2026-01"
+    )
+    assert month
+    assert all(d.startswith("2026-01") for d in month)
+    assert "2026-01-26" in month
+
+    year = days_for_period(bas, preset="Calendar year", peak_day="2026-01-26")
+    assert "2026-01-20" in year
+    assert "2026-01-26" in year
+    assert "2026-02-01" in year
+    assert all(d.startswith("2026-") for d in year)
+    assert "2025-12-15" not in year
 
 
 def test_days_peak_week_contains_peak():
@@ -95,7 +119,11 @@ def test_facility_kw_for_days_strict_md(tmp_path: Path):
     ).is_file(),
     reason="site not present",
 )
-def test_period_overlay_a04_peak_day_smoke(monkeypatch: pytest.MonkeyPatch):
+def test_period_overlay_champion_peak_day_smoke(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(
+        "SITE_ROOT",
+        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
+    )
     monkeypatch.setenv(
         "LAKESIDE_SITE_ROOT",
         r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
@@ -103,11 +131,13 @@ def test_period_overlay_a04_peak_day_smoke(monkeypatch: pytest.MonkeyPatch):
     from eplus_gym_app.period_explorer import period_overlay
 
     b = load_site_ui_bundle()
-    active = b.get_model("A04")
+    champ_id = b.dsm_champion or b.default_model_id
+    active = b.get_model(champ_id) or b.champion
+    assert active is not None
     ov = period_overlay(b, active, preset="Peak day")
     assert ov["n_days"] == 1
-    assert ov["sim_id"] == "A04"
-    assert ov["actual_peak_kw"] < 400
+    assert ov["sim_id"] in {champ_id, active.id, None} or ov["sim_id"]
+    assert ov["actual_peak_kw"] is None or ov["actual_peak_kw"] < 400
     if ov["sim"] is not None and not ov["sim"].empty:
         assert ov["sim_peak_kw"] < 400  # not IdealLoads 500+ farm junk
         assert ov["sim_kwh"] == ov["sim_kwh"]

@@ -23,6 +23,7 @@ PERIOD_PRESETS = (
     "Peak week",
     "Calendar month",
     "Winter (Dec–Feb)",
+    "Calendar year",
 )
 
 
@@ -80,11 +81,19 @@ def days_for_period(
             or d.startswith(f"{jan_y}-01")
             or d.startswith(f"{jan_y}-02")
         ]
+    elif preset == "Calendar year":
+        y = str(pd0.year)
+        wanted = [d for d in available if d.startswith(f"{y}-")]
+        if not wanted:
+            wanted = [
+                date(pd0.year, 1, 1).isoformat(),
+                date(pd0.year, 12, 31).isoformat(),
+            ]
     else:
         wanted = [peak_day]
 
-    # Prefer intersection with BAS when non-empty for month/winter
-    if preset in ("Calendar month", "Winter (Dec–Feb)", "Peak week"):
+    # Prefer intersection with BAS when non-empty for multi-day presets
+    if preset in ("Calendar month", "Winter (Dec–Feb)", "Peak week", "Calendar year"):
         inter = [d for d in wanted if d in avail_set]
         if inter:
             return inter

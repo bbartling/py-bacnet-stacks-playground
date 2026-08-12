@@ -2,8 +2,9 @@
 """Ingest a site pack (zip or folder) and publish site_ui_bundle_v1.
 
 Examples:
+  python -u scripts/ingest_site_pack.py
   python -u scripts/ingest_site_pack.py --src PATH\\site.zip
-  python -u scripts/ingest_site_pack.py --src PATH\\pack_dir --dest %LAKESIDE_SITE_ROOT%
+  python -u scripts/ingest_site_pack.py --src PATH\\pack_dir --dest PATH\\site
 """
 from __future__ import annotations
 
@@ -22,12 +23,17 @@ from lakeside.paths import site_root  # noqa: E402
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--src", type=Path, required=True, help="zip or folder site pack")
+    ap.add_argument(
+        "--src",
+        type=Path,
+        default=None,
+        help="zip or folder site pack (default: SITE_ROOT from config.py / env)",
+    )
     ap.add_argument(
         "--dest",
         type=Path,
         default=None,
-        help="site root (default LAKESIDE_SITE_ROOT)",
+        help="site root (default: same as --src folder, or config/env SITE_ROOT)",
     )
     ap.add_argument(
         "--inventory-only",
@@ -36,7 +42,8 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    src = Path(args.src)
+    default_site = site_root()
+    src = Path(args.src) if args.src is not None else default_site
     if args.inventory_only:
         root = src if src.is_dir() else src
         from eplus_gym_app.site_pack import extract_pack
@@ -66,7 +73,8 @@ def main() -> int:
         )
         return 0 if inv.fuel_ready else 2
 
-    dest = Path(args.dest) if args.dest else site_root()
+    dest = Path(args.dest) if args.dest else (src if src.is_dir() else default_site)
+    os.environ.setdefault("SITE_ROOT", str(dest))
     os.environ.setdefault("LAKESIDE_SITE_ROOT", str(dest))
     try:
         inv = ingest_site_pack(src, dest)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import time
 
 from eplus_gym.controllers import RuleController
 from eplus_gym.lookup_emulator import STEPS
@@ -13,12 +14,15 @@ from eplus_gym.simulate import day_for_step
 from eplus_gym.month_calendar import DEPLOYABLE_STRATEGIES
 from eplus_gym_app.dsm_console import (
     attach_baseline_deltas,
+    coalesce_frame,
     daily_peaks_from_traj,
     default_calendar_month,
     dsm_kpis,
+    frame_map,
     live_run_jobs,
     meter_peak_day_for_period,
     period_run_spec,
+    pick_frame,
     resolve_dsm_mode,
     run_dsm_lookup,
     stage_idf_for_day,
@@ -138,6 +142,63 @@ def test_stage_idf_for_period_writes_window_without_touching_source(tmp_path: Pa
     assert "28," in staged
     with pytest.raises(ValueError, match="overwrite"):
         stage_idf_for_period(src, src, "2025-12-01", "2026-02-28")
+
+
+def test_pick_frame_avoids_dataframe_truthiness():
+    amy = pd.DataFrame({"facility_kw": [1.0, 2.0]})
+    tmy = pd.DataFrame({"facility_kw": [3.0]})
+    frames = {
+        f"baseline:{KIND_AMY}": amy,
+        f"baseline:{KIND_TMY_MSN}": tmy,
+    }
+    got = pick_frame(frames, f"baseline:{KIND_AMY}", f"baseline:{KIND_TMY_MSN}")
+    assert got is amy
+    only_tmy = pick_frame(
+        {f"baseline:{KIND_TMY_MSN}": tmy},
+        f"baseline:{KIND_AMY}",
+        f"baseline:{KIND_TMY_MSN}",
+    )
+    assert only_tmy is tmy
+    assert pick_frame({}, f"baseline:{KIND_AMY}") is None
+
+
+def test_frame_map_and_coalesce_ignore_dataframe_truthiness():
+    amy = pd.DataFrame({"facility_kw": [1.0, 2.0]})
+    assert frame_map(amy) == {}
+    assert frame_map({"baseline:amy": amy, "skip": 1}) == {"baseline:amy": amy}
+    assert coalesce_frame(None, amy, pd.DataFrame({"facility_kw": [9.0]})) is amy
+    assert coalesce_frame(None, "x", None) is None
+    # Regression: these used to raise ValueError on bool(DataFrame)
+    assert frame_map({"k": amy}).get("k") is amy
+
+
+def test_period_run_spec_day_month_year_step_counts():
+    day_ctx = {"day": "2026-01-26", "window_days": ["2026-01-26"]}
+    day = period_run_spec(day_ctx, "Peak day")
+    assert day["n_days"] == 1
+    assert day["max_steps"] == 96
+    assert day["period"] == "2026-01-26/2026-01-26"
+
+    month_days = [f"2026-01-{d:02d}" for d in range(1, 32)]
+    month = period_run_spec(
+        {"day": "2026-01-26", "window_days": month_days}, "Calendar month"
+    )
+    assert month["begin"] == "2026-01-01"
+    assert month["end"] == "2026-01-31"
+    assert month["n_days"] == 31
+    assert month["max_steps"] == 31 * 96
+
+    year = period_run_spec(
+        {
+            "day": "2026-01-26",
+            "window_days": ["2026-01-01", "2026-06-15", "2026-12-31"],
+        },
+        "Calendar year",
+    )
+    assert year["begin"] == "2026-01-01"
+    assert year["end"] == "2026-12-31"
+    assert year["n_days"] == 365
+    assert year["max_steps"] == 365 * 96
 
 
 def test_period_run_spec_three_day_window_is_288_steps():
@@ -365,6 +426,52 @@ def test_meter_index_zero_from_api_csv():
     assert "SITE OUTDOOR AIR DRYBULB TEMPERATURE" not in idx
 
 
+def test_format_hms_and_wait_live_subprocess_updates_status():
+    from eplus_gym_app.dsm_console import format_hms, wait_live_subprocess
+
+    assert format_hms(0) == "0s"
+    assert format_hms(12.4) == "12s"
+    assert format_hms(65) == "1m 05s"
+    assert format_hms(3661) == "1h 01m 01s"
+
+    class _FakeProc:
+        def __init__(self):
+            self._n = 0
+            self.returncode = None
+
+        def poll(self):
+            self._n += 1
+            if self._n >= 3:
+                self.returncode = 0
+                return 0
+            return None
+
+    class _FakeStatus:
+        def __init__(self):
+            self.labels: list[str] = []
+
+        def update(self, *, label: str, state: str):
+            self.labels.append(label)
+            assert state == "running"
+
+    status = _FakeStatus()
+    code, elapsed = wait_live_subprocess(
+        _FakeProc(),
+        status=status,
+        job_label="baseline · AMY",
+        campaign_t0=time.perf_counter(),
+        job_t0=time.perf_counter(),
+        job_index=1,
+        job_total=5,
+        poll_s=0.01,
+    )
+    assert code == 0
+    assert elapsed >= 0
+    assert status.labels
+    assert "1/5" in status.labels[-1]
+    assert "total" in status.labels[-1]
+
+
 def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkeypatch):
     from eplus_gym_app.dsm_console import start_live_subprocess
 
@@ -382,7 +489,7 @@ def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkey
     idf = tmp_path / "champ.idf"
     epw.write_text("EPW", encoding="utf-8")
     idf.write_text("IDF", encoding="utf-8")
-    start_live_subprocess(
+    proc, handle, log = start_live_subprocess(
         site=tmp_path,
         strategy_id="baseline",
         epw=epw,
@@ -392,6 +499,9 @@ def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkey
         end="2026-02-28",
         max_steps=8640,
     )
+    handle.close()
+    assert proc is not None
+    assert log.name == "live.log"
     cmd = captured["cmd"]
     assert "--mode" in cmd and "live" in cmd
     assert "--family" in cmd and "w2a" in cmd
@@ -399,6 +509,23 @@ def test_start_live_subprocess_passes_begin_end_max_steps(tmp_path: Path, monkey
     assert cmd[cmd.index("--end") + 1] == "2026-02-28"
     assert cmd[cmd.index("--max-steps") + 1] == "8640"
     assert cmd[cmd.index("--day") + 1] == "2025-12-01"
+
+
+def test_summarize_eplus_failure_from_live_log(tmp_path: Path):
+    from eplus_gym_app.dsm_console import summarize_eplus_failure
+
+    log = tmp_path / "live.log"
+    log.write_text(
+        "Program terminated: EnergyPlus Terminated--Error(s) Detected.\n"
+        "AttributeError: 'NoneType' object has no attribute 'values'\n"
+        "FileNotFoundError: W2A live EnergyPlus failed; will not fall back to IdealLoads\n",
+        encoding="utf-8",
+    )
+    msg = summarize_eplus_failure(log, exit_code=1)
+    assert "exit code 1" in msg
+    assert "terminated" in msg.lower()
+    assert "IdealLoads" in msg or "obs" in msg.lower() or "None" in msg
+
 
 
 def test_strategy_library_lists_five_desktop_contracts():
