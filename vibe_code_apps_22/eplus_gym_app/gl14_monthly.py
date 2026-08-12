@@ -54,37 +54,50 @@ def observed_monthly_path(site: Path) -> Path | None:
 
 
 def load_observed_monthly(
-    site: Path, *, campus_elec: pd.DataFrame | None = None
+    site: Path,
+    *,
+    campus_elec: pd.DataFrame | None = None,
+    campus_fuel: pd.DataFrame | None = None,
+    fuel: str = "electricity",
 ) -> pd.DataFrame:
-    """Utility-bill months: ``month``, ``kwh_obs``, optional ``peak_kw_obs``."""
-    path = observed_monthly_path(site)
-    if path is not None:
-        raw = pd.read_csv(path)
-        cols = {str(c).strip().lower(): c for c in raw.columns}
-        month_c = cols.get("month") or cols.get("yyyy-mm") or list(raw.columns)[0]
-        kwh_c = (
-            cols.get("kwh_obs")
-            or cols.get("observed_kwh")
-            or cols.get("kwh")
-            or cols.get("usage")
-        )
-        peak_c = cols.get("peak_kw_obs") or cols.get("demand_kw") or cols.get("peak_kw")
-        out = pd.DataFrame(
-            {
-                "month": raw[month_c].astype(str).str.strip().str[:7],
-                "kwh_obs": pd.to_numeric(raw[kwh_c], errors="coerce") if kwh_c else float("nan"),
-            }
-        )
-        if peak_c is not None:
-            out["peak_kw_obs"] = pd.to_numeric(raw[peak_c], errors="coerce")
-        return out.dropna(subset=["month"]).sort_values("month").reset_index(drop=True)
+    """Utility-bill months: ``month``, ``kwh_obs``, optional ``peak_kw_obs``.
 
-    if campus_elec is not None and not campus_elec.empty and "usage" in campus_elec.columns:
-        g = campus_elec.groupby("month", as_index=False).agg(
+    For electricity, prefers ``observed_monthly_utility.csv`` then campus bills.
+    For gas, uses ``campus_fuel`` / ``campus_elec`` bill frames (usage as obs).
+    """
+    bills = campus_fuel if campus_fuel is not None else campus_elec
+    fuel_l = (fuel or "electricity").strip().lower()
+    if fuel_l in ("electricity", "elec", "electric"):
+        path = observed_monthly_path(site)
+        if path is not None:
+            raw = pd.read_csv(path)
+            cols = {str(c).strip().lower(): c for c in raw.columns}
+            month_c = cols.get("month") or cols.get("yyyy-mm") or list(raw.columns)[0]
+            kwh_c = (
+                cols.get("kwh_obs")
+                or cols.get("observed_kwh")
+                or cols.get("kwh")
+                or cols.get("usage")
+            )
+            peak_c = cols.get("peak_kw_obs") or cols.get("demand_kw") or cols.get("peak_kw")
+            out = pd.DataFrame(
+                {
+                    "month": raw[month_c].astype(str).str.strip().str[:7],
+                    "kwh_obs": pd.to_numeric(raw[kwh_c], errors="coerce")
+                    if kwh_c
+                    else float("nan"),
+                }
+            )
+            if peak_c is not None:
+                out["peak_kw_obs"] = pd.to_numeric(raw[peak_c], errors="coerce")
+            return out.dropna(subset=["month"]).sort_values("month").reset_index(drop=True)
+
+    if bills is not None and not bills.empty and "usage" in bills.columns:
+        g = bills.groupby("month", as_index=False).agg(
             kwh_obs=("usage", "sum"),
             **(
                 {"peak_kw_obs": ("demand_kw", "max")}
-                if "demand_kw" in campus_elec.columns
+                if "demand_kw" in bills.columns
                 else {}
             ),
         )
@@ -93,12 +106,27 @@ def load_observed_monthly(
     return pd.DataFrame(columns=["month", "kwh_obs"])
 
 
-def monthly_sim_from_mtr(sim_dir: Path, *, peak_day: str) -> pd.DataFrame:
-    """Monthly facility kWh + hourly peak kW from published ``eplusmtr.csv``."""
+def _facility_meter_token(fuel: str) -> str:
+    f = (fuel or "electricity").strip().lower()
+    if f in ("gas", "natural_gas", "naturalgas", "ng"):
+        return "naturalgas:facility"
+    return "electricity:facility"
+
+
+def monthly_sim_from_mtr(
+    sim_dir: Path, *, peak_day: str, fuel: str = "electricity"
+) -> pd.DataFrame:
+    """Monthly facility energy + hourly peak from published ``eplusmtr.csv``.
+
+    ``fuel`` selects Electricity:Facility (default) or NaturalGas:Facility.
+    Gas values are reported as kWh-equivalent of the meter Joules column
+    (same J→kWh conversion) so joins stay column-compatible with bills.
+    """
     path = _find_mtr(sim_dir)
     empty = pd.DataFrame(columns=["month", "kwh_sim", "peak_kw_sim"])
     if path is None:
         return empty
+    meter = _facility_meter_token(fuel)
     with path.open(encoding="utf-8", errors="replace", newline="") as fh:
         reader = csv.reader(fh)
         try:
@@ -111,7 +139,7 @@ def monthly_sim_from_mtr(sim_dir: Path, *, peak_day: str) -> pd.DataFrame:
             (
                 i
                 for i, h in enumerate(headers)
-                if "electricity:facility" in h and "monthly" in h
+                if meter in h and "monthly" in h
             ),
             None,
         )
@@ -119,7 +147,7 @@ def monthly_sim_from_mtr(sim_dir: Path, *, peak_day: str) -> pd.DataFrame:
             (
                 i
                 for i, h in enumerate(headers)
-                if "electricity:facility" in h and "hourly" in h
+                if meter in h and "hourly" in h
             ),
             None,
         )
@@ -178,12 +206,23 @@ def champion_gl14_monthly(
     active: ModelCatalogEntry | None,
     *,
     campus_elec: pd.DataFrame | None = None,
+    campus_fuel: pd.DataFrame | None = None,
+    fuel: str = "electricity",
 ) -> pd.DataFrame:
-    """Join utility bills to published A04 (or active dial) monthly E+."""
-    obs = load_observed_monthly(bundle.site, campus_elec=campus_elec)
+    """Join utility bills to published champion (or active dial) monthly E+."""
+    obs = load_observed_monthly(
+        bundle.site,
+        campus_elec=campus_elec,
+        campus_fuel=campus_fuel,
+        fuel=fuel,
+    )
     pin = resolve_dial_sim(bundle, active)
     sim = (
-        monthly_sim_from_mtr(pin.sim_dir, peak_day=bundle.dial_ladder.peak_day)
+        monthly_sim_from_mtr(
+            pin.sim_dir,
+            peak_day=bundle.dial_ladder.peak_day,
+            fuel=fuel,
+        )
         if pin and pin.sim_dir is not None
         else pd.DataFrame(columns=["month", "kwh_sim", "peak_kw_sim"])
     )

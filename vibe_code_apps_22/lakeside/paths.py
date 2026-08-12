@@ -1,17 +1,18 @@
-"""Lakeside Elementary — site data + app path resolution.
+"""Site workspace path resolution (any building).
 
 Code lives in vibe_code_apps_22. Historian / packages / E+ runs stay on the
-site workspace.
+site workspace. Lakeside / Creekside / ``sp_creekside`` are **practice packs**,
+not code defaults.
 
 Env (any one works; first wins):
-  LAKESIDE_SITE_ROOT
+  SITE_ROOT                 # preferred
+  LAKESIDE_SITE_ROOT        # alias (practice packs)
   VIBE22_SITE_ROOT
-  VIBE22_CREEKSIDE_ROOT   # legacy
-  VIBE23_CREEKSIDE_ROOT   # legacy
+  VIBE22_CREEKSIDE_ROOT     # legacy
+  VIBE23_CREEKSIDE_ROOT     # legacy
 
 No personal machine-path fallbacks in git. Set an env var, write ``.site_root``
-(gitignored) next to this app, or place the site next to the repo parent as
-``sp_creekside`` / ``sp_lakeside``.
+(gitignored) next to this app, or place a practice pack next to the repo parent.
 """
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ from pathlib import Path
 APP_ROOT = Path(__file__).resolve().parents[1]
 SITE_ROOT_PIN = APP_ROOT / ".site_root"
 
+# Practice-pack identity only (example data under Desktop sp_creekside).
+# Live product code must not require these.
 BUILDING_ID = "LAKESIDE_ES"
 BUILDING_LABEL = "Lakeside Elementary School"
 SITE_REF = "spasd_lakeside_es"
@@ -53,7 +56,7 @@ def _valid_site(path: Path) -> bool:
 
 
 def remember_site_root(path: Path | str) -> Path:
-    """Persist site root to ``.site_root`` and ``LAKESIDE_SITE_ROOT`` for this process."""
+    """Persist site root to ``.site_root`` and env for this process."""
     p = Path(path).expanduser()
     if not _valid_site(p):
         raise FileNotFoundError(
@@ -61,6 +64,7 @@ def remember_site_root(path: Path | str) -> Path:
         )
     resolved = p.resolve()
     SITE_ROOT_PIN.write_text(str(resolved) + "\n", encoding="utf-8")
+    os.environ["SITE_ROOT"] = str(resolved)
     os.environ["LAKESIDE_SITE_ROOT"] = str(resolved)
     return resolved
 
@@ -80,6 +84,7 @@ def _pinned_site_root() -> Path | None:
 
 def site_root() -> Path:
     for key in (
+        "SITE_ROOT",
         "LAKESIDE_SITE_ROOT",
         "VIBE22_SITE_ROOT",
         "VIBE22_CREEKSIDE_ROOT",
@@ -106,13 +111,34 @@ def site_root() -> Path:
         if _valid_site(c):
             return c
     raise FileNotFoundError(
-        "Set LAKESIDE_SITE_ROOT (or VIBE22_SITE_ROOT) to the site workspace "
-        "(expected reports/ under the site root)."
+        "Set SITE_ROOT (or LAKESIDE_SITE_ROOT / VIBE22_SITE_ROOT) to the site "
+        "workspace (expected reports/ under the site root)."
     )
 
 
+def site_slug(site: Path | None = None) -> str:
+    """Filesystem-safe slug for AMY EPW names (from campus_id or folder)."""
+    root = Path(site) if site is not None else site_root()
+    campus = root / "utilities" / "campus_utility.json"
+    if not campus.is_file():
+        campus = root / "utilities" / "campus.json"
+    if campus.is_file():
+        try:
+            import json
+
+            doc = json.loads(campus.read_text(encoding="utf-8"))
+            cid = str(doc.get("campus_id") or "").strip()
+            if cid:
+                return "".join(c if c.isalnum() or c in "-_" else "_" for c in cid).strip(
+                    "_-"
+                ).lower() or root.name.lower()
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    return root.name.lower().replace(" ", "_")
+
+
 def clean_data_building_dir() -> Path:
-    """Prefer LAKESIDE_ES; fall back to legacy CREEKSIDE_ES if not yet renamed."""
+    """Prefer practice LAKESIDE_ES; fall back to legacy CREEKSIDE_ES."""
     root = site_root() / "clean_data"
     preferred = root / BUILDING_ID
     if preferred.is_dir():

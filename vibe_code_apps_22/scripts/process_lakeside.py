@@ -754,19 +754,14 @@ def validate_vibe19_zip(zip_path: Path) -> None:
 
 
 def validate_vibe20() -> None:
-    v20 = Path(r"C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_20")
-    if not (UTIL / "campus.json").is_file() or not v20.is_dir():
+    """Optional local check via cloned Campus (no wattlab import)."""
+    if not (UTIL / "campus.json").is_file():
         return
-    import sys
-
-    sys.path.insert(0, str(v20))
-    from wattlab.benchmarks.meters import Campus
-    from wattlab.energy_use.package import load_energy_use_package
+    from eplus_gym_app.campus_fuel import Campus
 
     c = Campus.from_json(UTIL / "campus.json")
-    pkg = load_energy_use_package(UTIL)
     print(
-        f"vibe20 validate: meters={len(c.meters)} fuel_ready={pkg.fuel_ready} "
+        f"campus validate: meters={len(c.meters)} fuels={c.fuel_kinds()} "
         f"months={len(c.meters[0].bills) if c.meters else 0}"
     )
 

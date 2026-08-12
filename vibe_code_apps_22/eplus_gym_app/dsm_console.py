@@ -42,7 +42,7 @@ def calendar_month_options(bundle: "SiteUiBundle") -> list[str]:
     peak = str(getattr(getattr(bundle, "dial_ladder", None), "peak_day", "") or "")
     if len(peak) >= 7:
         months.add(peak[:7])
-    months.update(("2026-01", "2026-02"))
+    months.update(("2026-01", "2026-02"))  # practice-pack months; BAS months dominate when present
     try:
         from eplus_gym_app.load_profiles import load_bas_demand_oat
 
@@ -123,12 +123,12 @@ def resolve_dsm_mode(site: Path, *, family: str = FAMILY_W2A) -> tuple[str, str]
     if family != FAMILY_W2A:
         return "error", "human DSM console is W2A-only"
     if w2a_farm_ready(site):
-        return "lookup", "A04 farm present under eplus/dsm_farm_w2a"
+        return "lookup", "champion farm present under eplus/dsm_farm_w2a"
     if energyplus_available():
-        return "live", "no A04 farm; live EnergyPlus via CLI subprocess"
+        return "live", "no champion farm; live EnergyPlus via CLI subprocess"
     return (
         "error",
-        "No A04 farm (eplus/dsm_farm_w2a) and EnergyPlus is unavailable. "
+        "No champion farm (eplus/dsm_farm_w2a) and EnergyPlus is unavailable. "
         "Will not fall back to IdealLoads. Agent: grow a sparse W2A farm or set ENERGYPLUS_ROOT.",
     )
 
@@ -525,7 +525,7 @@ def persist_last_run(
         "kpis": kpis,
         "frame": df,
         "actual": actual,
-        "title": f"E+ A04 {strategy} vs Actual meter · {day} · {preset}",
+        "title": f"E+ champion {strategy} vs Actual meter · {day} · {preset}",
         "strategy": strategy,
         "day": day,
         "preset": preset,
@@ -858,7 +858,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                 return
             if not pairs:
                 st.error(
-                    "No AMY or Madison TMY EPW. Agent must publish madison_amy*.epw. "
+                    "No AMY or site TMY EPW. Agent must publish {site_slug}_amy_*.epw. "
                     "Chicago screening is not used."
                 )
                 return
@@ -1038,7 +1038,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         f"{last.get('max_steps') or '?'} steps{elapsed_bit}. "
         f"Black = **Actual BAS meter**"
         f"{f' (peak {actual_peak_show:.0f} kW)' if actual_peak_show is not None else ''}. "
-        f"Colored lines = E+ A04 strategies (AMY / TMY labeled). "
+        f"Colored lines = E+ champion strategies (AMY / TMY labeled). "
         f"loop=`CLOSED_LOOP_RULE_DR` · weekend_sp=`repeat_96_step_profile` · promote=False. "
         f"Files: `{last.get('epw_name')}`."
     )
@@ -1153,9 +1153,9 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         st.plotly_chart(
             dsm_panel_figure(
                 primary_slice if primary_slice is not None else eplus,
-                title=f"EnergyPlus A04 baseline · {last.get('day')}",
+                title=f"EnergyPlus champion baseline · {last.get('day')}",
                 ycol="facility_kw",
-                name="E+ A04 baseline kW",
+                name="E+ champion baseline kW",
                 color=COLORS.get("baseline", "#2a9d8f"),
                 oat_col="oat_f",
                 oat_name="E+ EPW OAT °F",

@@ -49,7 +49,7 @@ class DialLadder:
     peak_day: str
     models: tuple[DialModelPin, ...]
     precomputed_closeness_csv: Path | None = None
-    utility_peak_kw: float = 284.8
+    utility_peak_kw: float | None = None
 
 
 @dataclass(frozen=True)
@@ -104,9 +104,9 @@ class SiteUiBundle:
     idf_path: Path | None
     dial_ladder: DialLadder
     model_catalog: tuple[ModelCatalogEntry, ...] = ()
-    default_model_id: str = "A04"
-    current_model_id: str = "A04"
-    dsm_champion: str = "A04"
+    default_model_id: str = "CHAMPION"
+    current_model_id: str = "CHAMPION"
+    dsm_champion: str = "CHAMPION"
     epw: Path | None = None
     dsm_farm_parquet: Path | None = None
     honesty: dict[str, str] = field(default_factory=dict)
@@ -259,9 +259,8 @@ def _default_doc() -> dict[str, Any]:
         "schema_version": SCHEMA,
         "campus_json": "utilities/campus.json",
         "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
-        "utility_peak_kw": 284.8,
-        "default_model_id": "A04",
-        "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+        "default_model_id": "CHAMPION",
+        "idf_pin": "",
         "farm_parquet": "eplus/dsm_farm_paired/heating_dsm_eplus_paired_15min_v1.parquet",
         "honesty": {
             "bas": "BAS_INTERVAL_METER",
@@ -270,11 +269,8 @@ def _default_doc() -> dict[str, Any]:
         },
         "model_catalog": [],
         "dial_ladder": {
-            "peak_day": "2026-01-26",
-            "precomputed_closeness_csv": (
-                "plots/analytics/eplus_gl14_vs_peak285/"
-                "winter_shape_closeness_a04_ladder.csv"
-            ),
+            "peak_day": "",
+            "precomputed_closeness_csv": None,
             "models": [],
         },
     }
@@ -383,10 +379,12 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
                     epw = leftover[0]
 
     catalog = _load_catalog(site, doc, warnings)
-    default_model_id = str(doc.get("default_model_id") or "A04")
+    champ = next((m for m in catalog if m.champion), catalog[0] if catalog else None)
+    default_model_id = str(
+        doc.get("default_model_id") or (champ.id if champ else "CHAMPION")
+    )
     if catalog and not any(m.id == default_model_id for m in catalog):
-        champ = next((m for m in catalog if m.champion), catalog[0])
-        default_model_id = champ.id
+        default_model_id = champ.id if champ else catalog[0].id
         warnings.append(f"default_model_id missing; using {default_model_id}")
     current_model_id = str(doc.get("current_model_id") or default_model_id)
     dsm_champion = str(doc.get("dsm_champion") or default_model_id)
@@ -433,8 +431,17 @@ def load_site_ui_bundle(site: Path | None = None) -> SiteUiBundle:
         warnings.append(f"precomputed_closeness_csv missing: {closeness}")
         closeness = None
 
-    utility_peak = float(doc.get("utility_peak_kw") or dl.get("utility_peak_kw") or 284.8)
-    peak_day = str(dl.get("peak_day") or "2026-01-26")
+    raw_peak = doc.get("utility_peak_kw")
+    if raw_peak is None:
+        raw_peak = dl.get("utility_peak_kw")
+    utility_peak: float | None
+    try:
+        utility_peak = float(raw_peak) if raw_peak is not None else None
+    except (TypeError, ValueError):
+        utility_peak = None
+    peak_day = str(dl.get("peak_day") or "")
+    if not peak_day:
+        warnings.append("dial_ladder.peak_day missing; UI will use BAS peak day")
 
     honesty = {str(k): str(v) for k, v in (doc.get("honesty") or {}).items()}
     honesty.setdefault("bas", "BAS_INTERVAL_METER")

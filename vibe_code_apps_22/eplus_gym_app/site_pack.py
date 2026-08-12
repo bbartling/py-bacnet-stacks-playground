@@ -20,8 +20,18 @@ from eplus_gym_app.site_bundle import SCHEMA, _EXAMPLE
 
 DSM_FARM_REL = "eplus/dsm_farm_w2a/heating_dsm_w2a_15min_v1.parquet"
 IDEAL_FARM_REL = "eplus/dsm_farm_paired/heating_dsm_eplus_paired_15min_v1.parquet"
-CHAMPION_MODEL_ID = "A04"
-A04_IDF = "lakeside_w2a_a04_dual_champion.idf"
+
+
+def _model_id_from_idf(path: Path) -> str:
+    """Derive a short model id from an IDF filename (practice packs may use A04)."""
+    low = path.stem.lower()
+    for token in ("a04", "e20", "l22", "r02", "sc02"):
+        if token in low:
+            return token.upper()
+    if "champion" in low:
+        return "CHAMPION"
+    clean = "".join(c if c.isalnum() else "_" for c in path.stem)
+    return (clean[:40] or "CHAMPION").upper()
 
 
 class SitePackError(ValueError):
@@ -166,10 +176,10 @@ def _pick_champion_idf(idfs: list[Path]) -> Path | None:
     if not idfs:
         return None
     for p in idfs:
-        if "a04" in p.name.lower():
+        if "champion" in p.name.lower():
             return p
     for p in idfs:
-        if "champion" in p.name.lower():
+        if "a04" in p.name.lower():
             return p
     return sorted(idfs, key=lambda p: p.name.lower())[0]
 
@@ -300,7 +310,7 @@ def inventory_site_pack(root: Path) -> SitePackInventory:
         "idf",
         inv.champion_idf is not None,
         inv.champion_idf,
-        "at least one .idf required (prefer A04 champion)",
+        "at least one .idf required (prefer *champion*)",
         inv.champion_idf.name if inv.champion_idf else "",
     )
     _item(
@@ -407,8 +417,46 @@ def publish_site_ui_bundle(
         except (OSError, json.JSONDecodeError):
             pass
 
-    idf_pin = A04_IDF
-    if inv.champion_idf is not None:
+    idf_pin = inv.champion_idf.name if inv.champion_idf is not None else ""
+    model_id = _model_id_from_idf(inv.champion_idf) if inv.champion_idf else "CHAMPION"
+    # Prefer inventory IDF. Only adopt a catalog champion when its idf_pin matches
+    # (keeps practice packs on A04; avoids lakeside example overriding generic IDFs).
+    for raw in doc.get("model_catalog") or []:
+        if not (isinstance(raw, dict) and raw.get("champion") and raw.get("id")):
+            continue
+        cat_pin = str(raw.get("idf_pin") or "")
+        if inv.champion_idf is not None and cat_pin and cat_pin != inv.champion_idf.name:
+            continue
+        model_id = str(raw["id"])
+        if cat_pin:
+            idf_pin = cat_pin
+        break
+    if inv.champion_idf is not None and (
+        not any(
+            isinstance(r, dict)
+            and r.get("champion")
+            and str(r.get("idf_pin") or "") == inv.champion_idf.name
+            for r in (doc.get("model_catalog") or [])
+        )
+    ):
+        # Generic / non-example pack: publish a one-row catalog for this IDF.
+        model_id = _model_id_from_idf(inv.champion_idf)
+        idf_pin = inv.champion_idf.name
+        doc["model_catalog"] = [
+            {
+                "id": model_id,
+                "label": f"{model_id} champion",
+                "family": "W2A_PHYSICAL_DSM",
+                "idf_pin": idf_pin,
+                "champion": True,
+                "dial_id": model_id,
+            }
+        ]
+        doc["dial_ladder"] = {
+            "peak_day": (doc.get("dial_ladder") or {}).get("peak_day") or "2026-01-26",
+            "models": [],
+        }
+    if not idf_pin and inv.champion_idf is not None:
         idf_pin = inv.champion_idf.name
 
     campus_rel = _rel_to(site, dest_campus) if dest_campus.is_file() else f"utilities/{dest_campus.name}"
@@ -433,9 +481,9 @@ def publish_site_ui_bundle(
             "schema_version": SCHEMA,
             "campus_json": campus_rel.replace("\\", "/"),
             "bas_demand_oat_csv": interval_rel.replace("\\", "/"),
-            "default_model_id": CHAMPION_MODEL_ID,
-            "current_model_id": CHAMPION_MODEL_ID,
-            "dsm_champion": CHAMPION_MODEL_ID,
+            "default_model_id": model_id,
+            "current_model_id": model_id,
+            "dsm_champion": model_id,
             "idf_pin": idf_pin,
             "farm_parquet": IDEAL_FARM_REL,
             "dsm_farm_parquet": DSM_FARM_REL,

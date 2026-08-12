@@ -77,7 +77,7 @@ Console **Calendar month** defaults to the BAS peak-day month.
 Scorecard: **kW trim** (baseline peak − strategy peak) and **kWh penalty**
 (strategy kWh − baseline kWh) over the **entire selected window**.
 No live `ml/` package — helpers live in `archive/ml/`.
-Skill: [`../skills/lakeside-open-meteo-epw/SKILL.md`](../skills/lakeside-open-meteo-epw/SKILL.md).
+Skill: [`../skills/open-meteo-epw/SKILL.md`](../skills/open-meteo-epw/SKILL.md).
 
 ## Twin foundation (still live)
 

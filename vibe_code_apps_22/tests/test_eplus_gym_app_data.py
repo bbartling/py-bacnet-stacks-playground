@@ -221,7 +221,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     )
     at.run(timeout=90)
     assert not at.exception
-    assert any("Lakeside DSM" in str(t.value) for t in at.title)
+    assert any("Site DSM" in str(t.value) for t in at.title)
     labels = " ".join(str(getattr(w, "label", "")) for w in list(at.radio) + list(at.selectbox))
     assert "IDF source" not in labels
     assert "campus.json" not in labels.lower()
@@ -284,3 +284,17 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "E+ vs Actual kWh" in cal
     assert "GL14 fuel bills" in cal
     assert "Locked to last Run DSM" in cal or "Follows the Run DSM tab" in cal
+
+    at.session_state["lakeside_main_tabs"] = "Fuel"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    fuel = _copy()
+    assert "Fuel" in fuel or "GL14" in fuel or "bill" in fuel.lower() or "EUI" in fuel
+
+    at.session_state["lakeside_main_tabs"] = "ECMs"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    ecm = _copy()
+    assert "ecm" in ecm.lower() or "ECM" in ecm or "measure" in ecm.lower()

@@ -14,6 +14,8 @@ from typing import Any
 import pandas as pd
 
 KBTU_PER_KWH = 3.412
+KBTU_PER_THERM = 100.0
+THERMS_PER_MCF = 10.37
 
 
 def _find_col(cols: list[str], *needles: str) -> str | None:
@@ -157,26 +159,62 @@ class Campus:
         )
 
     def electric_monthly(self) -> pd.DataFrame:
+        return self.fuel_monthly("electricity")
+
+    def gas_monthly(self) -> pd.DataFrame:
+        return self.fuel_monthly("gas")
+
+    def fuel_kinds(self) -> list[str]:
+        seen: list[str] = []
+        for m in self.meters:
+            if m.fuel not in seen:
+                seen.append(m.fuel)
+        return seen
+
+    def fuel_monthly(self, fuel: str) -> pd.DataFrame:
         frames = []
         for m in self.meters:
-            if m.fuel != "electricity":
+            if m.fuel != fuel:
                 continue
             f = m.bills.copy()
             f["meter_id"] = m.meter_id
             f["unit"] = m.unit
+            f["fuel"] = m.fuel
             frames.append(f)
         if not frames:
-            return pd.DataFrame(columns=["month", "usage", "cost_usd", "meter_id"])
+            return pd.DataFrame(columns=["month", "usage", "cost_usd", "meter_id", "fuel"])
         return pd.concat(frames, ignore_index=True)
+
+    def _usage_to_kbtu(self, fuel: str, unit: str, usage: float) -> float:
+        u = (unit or "").lower()
+        if fuel == "electricity" or u == "kwh":
+            return float(usage) * KBTU_PER_KWH
+        if u in ("therm", "therms"):
+            return float(usage) * KBTU_PER_THERM
+        if u == "mcf":
+            return float(usage) * THERMS_PER_MCF * KBTU_PER_THERM
+        return float("nan")
 
     def site_eui_kbtu_ft2(self, window: list[str] | None = None) -> float | None:
         area = sum(b.floor_area_ft2 for b in self.buildings)
         if area <= 0:
             return None
-        elec = self.electric_monthly()
-        if elec.empty:
+        total_kbtu = 0.0
+        any_fuel = False
+        for m in self.meters:
+            bills = m.bills
+            if bills.empty:
+                continue
+            work = bills
+            if window:
+                work = work[work["month"].isin(window)]
+            if work.empty:
+                continue
+            for usage in work["usage"].dropna():
+                kbtu = self._usage_to_kbtu(m.fuel, m.unit, float(usage))
+                if kbtu == kbtu:
+                    total_kbtu += kbtu
+                    any_fuel = True
+        if not any_fuel:
             return None
-        if window:
-            elec = elec[elec["month"].isin(window)]
-        kwh = float(elec["usage"].sum())
-        return (kwh * KBTU_PER_KWH) / area
+        return total_kbtu / area

@@ -7,7 +7,8 @@
 Building id remains `LAKESIDE_ES` / disk `sp_creekside`.
 
 **Tutorial notebook:** [`../notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`](../notebooks/lakeside_eplus_gl14_vs_peak285.ipynb)  
-**Agent skill:** [`../skills/lakeside-w2a-plant-dial/SKILL.md`](../skills/lakeside-w2a-plant-dial/SKILL.md)
+**Agent skill:** [`../skills/w2a-plant-dial/SKILL.md`](../skills/w2a-plant-dial/SKILL.md) ·
+[`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md)
 
 ## Product question
 

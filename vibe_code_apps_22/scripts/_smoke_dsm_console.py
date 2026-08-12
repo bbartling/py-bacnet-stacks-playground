@@ -22,7 +22,7 @@ def _apptest() -> int:
         return 2
     titles = [str(t.value) for t in at.title]
     print("TITLE", titles)
-    assert any("Lakeside DSM" in t for t in titles)
+    assert any("Site DSM" in t for t in titles)
     labels = " ".join(str(getattr(w, "label", "")) for w in list(at.radio) + list(at.selectbox))
     assert "IDF source" not in labels
     errs = [str(e.value) for e in at.error]

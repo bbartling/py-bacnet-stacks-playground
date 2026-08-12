@@ -1,4 +1,4 @@
-"""Resolve AMY vs Madison TMY EPWs. Never auto-pick Chicago screening as TMY."""
+"""Resolve AMY vs site TMY EPWs. Never auto-pick Chicago screening as TMY."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,7 +24,7 @@ def classify_epw(path: Path | str | None) -> str:
     if "tmy" in name and ("madison" in name or "msn" in name):
         return KIND_TMY_MSN
     if "tmy" in name:
-        return KIND_TMY_SCREENING
+        return KIND_TMY_MSN
     return KIND_UNKNOWN
 
 
@@ -39,7 +39,15 @@ def resolve_amy_epw(site: Path, *, published: Path | None = None) -> Path | None
     weather = _weather_dir(site)
     if not weather.is_dir():
         return None
-    cands = [p for p in weather.glob("madison_amy*.epw") if p.is_file()]
+    try:
+        from lakeside.paths import site_slug
+
+        slug = site_slug(site)
+    except Exception:  # noqa: BLE001
+        slug = Path(site).name.lower()
+    cands = [p for p in weather.glob(f"{slug}_amy*.epw") if p.is_file()]
+    if not cands:
+        cands = [p for p in weather.glob("madison_amy*.epw") if p.is_file()]
     if not cands:
         cands = [p for p in weather.glob("*amy*.epw") if p.is_file()]
     if not cands:
@@ -49,22 +57,37 @@ def resolve_amy_epw(site: Path, *, published: Path | None = None) -> Path | None
 
 
 def resolve_tmy_msn_epw(site: Path) -> Path | None:
-    """Madison MSN TMY only — excludes Chicago / screening stand-ins."""
+    """Prefer Madison MSN TMY when present; else any non-Chicago TMY."""
     weather = _weather_dir(site)
     if not weather.is_dir():
         return None
     hits: list[Path] = []
-    for pat in ("*Madison*TMY*.epw", "*MSN*TMY*.epw", "*madison*tmy*.epw", "*msn*tmy*.epw"):
+    for pat in (
+        "*Madison*TMY*.epw",
+        "*MSN*TMY*.epw",
+        "*madison*tmy*.epw",
+        "*msn*tmy*.epw",
+        "*TMY*.epw",
+        "*tmy*.epw",
+    ):
         hits.extend(weather.glob(pat))
     seen: set[str] = set()
+    preferred: Path | None = None
     for p in sorted(hits):
         key = str(p.resolve()).lower()
         if key in seen:
             continue
         seen.add(key)
-        if classify_epw(p) == KIND_TMY_MSN:
-            return p
-    return None
+        kind = classify_epw(p)
+        if kind == KIND_TMY_SCREENING:
+            continue
+        if kind == KIND_TMY_MSN:
+            name = p.name.lower()
+            if "madison" in name or "msn" in name:
+                return p
+            if preferred is None:
+                preferred = p
+    return preferred
 
 
 def weather_inventory(site: Path, *, published: Path | None = None) -> dict[str, Any]:
@@ -80,9 +103,9 @@ def weather_inventory(site: Path, *, published: Path | None = None) -> dict[str,
             None
             if tmy
             else (
-                "No Madison MSN TMY3/TMYx under eplus/weather. "
+                "No site TMY under eplus/weather. "
                 "AMY (Open-Meteo actual year) is the M&V file. "
-                "Download MSN TMY to enable Both / typical-year. "
+                "Download a local TMY to enable Both / typical-year. "
                 "Chicago O'Hare screening EPW is not used."
             )
         ),

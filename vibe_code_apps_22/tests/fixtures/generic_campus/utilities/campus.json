@@ -1,0 +1,32 @@
+{
+  "campus_id": "generic_demo",
+  "label": "Generic Demo Campus",
+  "lat": 43.07,
+  "lon": -89.40,
+  "buildings": [
+    {
+      "building_id": "b1",
+      "label": "Main",
+      "floor_area_ft2": 50000,
+      "property_type": "office"
+    }
+  ],
+  "meters": [
+    {
+      "meter_id": "elec",
+      "fuel": "electricity",
+      "unit": "kwh",
+      "file": "electricity.csv",
+      "serves": ["b1"],
+      "bill_columns": {"month": "Bill Month", "usage": "kWh Total"}
+    },
+    {
+      "meter_id": "gas",
+      "fuel": "gas",
+      "unit": "therms",
+      "file": "gas.csv",
+      "serves": ["b1"],
+      "bill_columns": {"month": "Bill Month", "usage": "Therms"}
+    }
+  ]
+}

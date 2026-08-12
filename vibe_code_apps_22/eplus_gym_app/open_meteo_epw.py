@@ -322,20 +322,28 @@ def amy_stale(
     return end < need
 
 
-def _dated_amy_name(start: date, end: date) -> str:
-    return f"madison_amy_{start:%Y%m}_{end:%Y%m}.epw"
+def _dated_amy_name(slug: str, start: date, end: date) -> str:
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in slug).strip("_-") or "site"
+    return f"{safe}_amy_{start:%Y%m}_{end:%Y%m}.epw"
 
 
-def _prune_old_amy(weather: Path, keep: Path) -> list[str]:
+def _prune_old_amy(weather: Path, keep: Path, *, slug: str) -> list[str]:
     keep_key = keep.resolve()
     leftover: list[str] = []
-    for p in weather.glob("madison_amy*.epw"):
-        if p.resolve() == keep_key:
-            continue
-        try:
-            p.unlink(missing_ok=True)
-        except OSError:
-            leftover.append(p.name)
+    patterns = [f"{slug}_amy*.epw", "madison_amy*.epw"]
+    seen: set[str] = set()
+    for pat in patterns:
+        for p in weather.glob(pat):
+            key = str(p.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            if p.resolve() == keep_key:
+                continue
+            try:
+                p.unlink(missing_ok=True)
+            except OSError:
+                leftover.append(p.name)
     return leftover
 
 
@@ -349,11 +357,17 @@ def refresh_amy_epw(
     lag_days: int = 5,
     fetch: FetchFn | None = None,
 ) -> dict[str, Any]:
-    """Fetch Open-Meteo at site lat/lon and write ``eplus/weather/madison_amy_*.epw``.
+    """Fetch Open-Meteo at site lat/lon and write ``eplus/weather/{slug}_amy_*.epw``.
 
     Never writes Chicago / screening TMY. Inject ``fetch`` in tests.
     """
     site = Path(site)
+    try:
+        from lakeside.paths import site_slug
+
+        slug = site_slug(site)
+    except Exception:  # noqa: BLE001
+        slug = site.name.lower()
     geo = site_geo(site)
     existing = resolve_amy_epw(site)
     if not force and not amy_stale(existing, as_of=as_of, lag_days=lag_days):
@@ -389,7 +403,7 @@ def refresh_amy_epw(
     weather.mkdir(parents=True, exist_ok=True)
     raw.to_csv(weather / "open_meteo_amy_hourly.csv", index=False)
 
-    stub = weather / "madison_amy_open_meteo.epw"
+    stub = weather / f"{slug}_amy_open_meteo.epw"
     meta = write_epw(
         lst,
         stub,
@@ -403,12 +417,12 @@ def refresh_amy_epw(
     span = parse_epw_span(stub)
     if span["start"] is None or span["end"] is None:
         raise RuntimeError("wrote EPW but could not parse data span")
-    final = weather / _dated_amy_name(span["start"], span["end"])
+    final = weather / _dated_amy_name(slug, span["start"], span["end"])
     if final.resolve() != stub.resolve():
         if final.exists():
             final.unlink()
         stub.replace(final)
-    leftover = _prune_old_amy(weather, final)
+    leftover = _prune_old_amy(weather, final, slug=slug)
     if leftover:
         meta["prune_locked"] = leftover
     meta["epw"] = str(final)
@@ -416,5 +430,6 @@ def refresh_amy_epw(
     meta["fetched_utc"] = datetime.now(timezone.utc).isoformat()
     meta["request_start"] = win_start
     meta["request_end"] = win_end
+    meta["site_slug"] = slug
     (weather / "amy_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return meta

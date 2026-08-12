@@ -36,6 +36,19 @@ def test_monthly_sim_from_mtr_skips_partial(tmp_path: Path):
     assert jan["peak_kw_sim"] == pytest.approx(200.0)
 
 
+def test_monthly_sim_from_mtr_gas(tmp_path: Path):
+    sim = tmp_path / "sim"
+    sim.mkdir()
+    (sim / "eplusmtr.csv").write_text(
+        "Date/Time,NaturalGas:Facility [J](Monthly),NaturalGas:Facility [J](Hourly)\n"
+        " 01/31  24:00:00,3600000000,7200000\n",
+        encoding="utf-8",
+    )
+    df = monthly_sim_from_mtr(sim, peak_day="2026-01-26", fuel="gas")
+    assert list(df["month"]) == ["2026-01"]
+    assert df.iloc[0]["kwh_sim"] == pytest.approx(3600000000 / 3_600_000.0)
+
+
 def test_join_bills_to_sim(tmp_path: Path):
     reports = tmp_path / "reports" / "eplus"
     reports.mkdir(parents=True)

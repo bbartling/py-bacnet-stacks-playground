@@ -121,8 +121,9 @@ def test_refresh_writes_epw_csv_meta_and_skips_chicago(tmp_path: Path):
     assert calls == [(43.16521, -89.25408, "2026-01-26", "2026-01-27")]
     epw = Path(meta["epw"])
     assert epw.is_file()
-    assert epw.name.startswith("madison_amy_")
+    assert "_amy_" in epw.name
     assert classify_epw(epw) == KIND_AMY
+    assert meta.get("site_slug")
     assert (tmp_path / "eplus" / "weather" / "open_meteo_amy_hourly.csv").is_file()
     sidecar = json.loads((tmp_path / "eplus" / "weather" / "amy_meta.json").read_text(encoding="utf-8"))
     assert sidecar["source"] == "open-meteo-archive"
@@ -219,7 +220,7 @@ def test_prune_old_amy_reports_locked_files(tmp_path: Path, monkeypatch: pytest.
         raise OSError("locked")
 
     monkeypatch.setattr(Path, "unlink", locked)
-    leftover = _prune_old_amy(weather, keep)
+    leftover = _prune_old_amy(weather, keep, slug="madison")
     assert leftover == ["madison_amy_202508_202607.epw"]
 
 

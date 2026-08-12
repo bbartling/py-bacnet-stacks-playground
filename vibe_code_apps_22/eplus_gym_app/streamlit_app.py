@@ -1,4 +1,4 @@
-"""Lakeside DSM — human console (published pack only).
+"""Site DSM — human console (published pack only).
 
 Agents ingest/publish ``site_ui_bundle_v1``. This app shows the current IDF +
 fuel and runs DSM on the W2A champion. No file pickers. No live E+ in-process.
@@ -16,6 +16,8 @@ if str(_APP) not in sys.path:
     sys.path.insert(0, str(_APP))
 
 from eplus_gym_app.campus_fuel import Campus
+from eplus_gym_app.ecm_panel import ecm_compare_table, load_ecm_compare
+from eplus_gym_app.fuel_dashboard import eui_peer_band, hdd_cdd_monthly
 from eplus_gym_app.geom_tables import envelope_table, knobs_table, zones_table
 from eplus_gym_app.idf_geometry import idf_massing_figure, parse_idf_geometry
 from eplus_gym_app.load_profiles import (
@@ -132,17 +134,18 @@ def _render_overview(bundle: SiteUiBundle, campus: Campus | None) -> None:
         if met and met.gl14_pass is True
         else ("FAIL" if met and met.gl14_pass is False else "—")
     )
+    campus_bit = f"**{campus.label}** · " if campus is not None else ""
     eui = campus.site_eui_kbtu_ft2() if campus is not None else None
     eui_bit = f" · site EUI **{eui:.1f} kBtu/ft²**" if eui is not None else ""
     physics = (
-        "This is the **A04 W2A plant twin** (water-to-air heat pumps). "
+        "This is the **published W2A plant twin** (water-to-air heat pumps). "
         "It is **not** the IdealLoads / BOPTEST structural gym "
         "(`STRUCTURAL_LOAD_DIAGNOSTIC` is CLI-only)."
         if family == "W2A_PHYSICAL_DSM"
-        else "This pack is **not** the published A04 W2A plant twin."
+        else "This pack is **not** the published W2A plant twin."
     )
     st.info(
-        f"**Model:** `{idf_name}` · **{bundle.dsm_champion}** · `{family}`. "
+        f"{campus_bit}**Model:** `{idf_name}` · **{bundle.dsm_champion}** · `{family}`. "
         f"{physics} GL14 **{gl14_label}** · scorecard peak "
         f"**{_fmt_kw(met.peak_kw if met else None)} kW**{eui_bit} · promote=False."
     )
@@ -185,7 +188,7 @@ def _render_calibration_tab(
 
     st.subheader("GL14 fuel bills · Actual vs EnergyPlus")
     st.caption(
-        "Utility bills vs published A04 W2A monthly facility (eplusmtr). "
+        "Utility bills vs published champion monthly facility (eplusmtr). "
         "Not a DSM strategy run and not the IdealLoads C02 / structural farm."
     )
     elec = campus.electric_monthly() if campus is not None else pd.DataFrame()
@@ -223,7 +226,11 @@ def _render_calibration_tab(
                 value=default_fuel,
                 key="cal_fuel_month",
             )
-        sim_id = str(pairs["sim_id"].dropna().iloc[0]) if "sim_id" in pairs.columns else "A04"
+        sim_id = (
+            str(pairs["sim_id"].dropna().iloc[0])
+            if "sim_id" in pairs.columns and pairs["sim_id"].notna().any()
+            else (bundle.dsm_champion or "champion")
+        )
         if pick:
             row = pairs.loc[pairs["month"].astype(str) == pick]
             if not row.empty:
@@ -252,16 +259,16 @@ def _render_calibration_tab(
         show = pairs.drop(columns=["sim_id"], errors="ignore")
         st.dataframe(show.round(2), width="stretch", hide_index=True)
     elif campus is not None and not elec.empty:
-        st.info("No published A04 monthly E+ meter table on this pack — bills only.")
+        st.info("No published champion monthly E+ meter table on this pack — bills only.")
         st.plotly_chart(
             fuel_monthly_figure(elec, title=f"{campus.label} · monthly electric"),
             width="stretch",
         )
         st.dataframe(elec, width="stretch", hide_index=True)
     elif campus is None:
-        st.warning("No vibe20 campus on the published pack.")
+        st.warning("No campus on the published pack.")
     else:
-        st.info("No monthly utility bills or published A04 monthly E+ on this pack.")
+        st.info("No monthly utility bills or published champion monthly E+ on this pack.")
 
     try:
         bas = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
@@ -322,7 +329,7 @@ def _render_calibration_tab(
 
     st.subheader("Actual vs champion (published dial)")
     st.caption(
-        "Interval meter vs published A04 dial sim from the pack. "
+        "Interval meter vs published champion dial sim from the pack. "
         "Not a DSM strategy run and not the structural IdealLoads farm. "
         "Period is locked to the last **Run DSM** window (change it there and Run)."
     )
@@ -423,13 +430,161 @@ def _hint_site_path() -> str:
     return ""
 
 
+def _render_fuel_tab(bundle: SiteUiBundle, campus: Campus | None) -> None:
+    st.caption(
+        "Monthly utility bills vs published champion EnergyPlus facility. "
+        "Electric uses GL14 pairs; gas shows bills when present."
+    )
+    if campus is None:
+        st.warning("No campus on the published pack.")
+        return
+
+    st.markdown(f"**{campus.label}** (`{campus.campus_id}`)")
+    eui = campus.site_eui_kbtu_ft2()
+    prop = campus.buildings[0].property_type if campus.buildings else "office"
+    peer = eui_peer_band(prop)
+    m1, m2, m3, m4 = st.columns(4)
+    if eui is not None:
+        m1.metric("Site EUI", f"{eui:.1f} kBtu/ft²")
+    else:
+        m1.metric("Site EUI", "—")
+    m2.metric("Peer p50", f"{peer['p50']:.1f}")
+    m3.metric("Peer p20", f"{peer['p20']:.1f}")
+    m4.metric("Peer p80", f"{peer['p80']:.1f}")
+    st.caption(
+        f"Peer band for `{peer['property_type']}` · {peer.get('source', 'screening')}"
+    )
+
+    kinds = campus.fuel_kinds() or ["electricity"]
+    active = bundle.champion()
+    all_months: list[str] = []
+    for fuel in kinds:
+        bills = campus.fuel_monthly(fuel)
+        if not bills.empty:
+            all_months.extend(bills["month"].astype(str).str[:7].tolist())
+    months = sorted({m for m in all_months if m and m != "nan"})
+    pick = None
+    if months:
+        default = (
+            bundle.dial_ladder.peak_day[:7]
+            if bundle.dial_ladder.peak_day[:7] in months
+            else months[-1]
+        )
+        pick = st.select_slider(
+            "Billing month",
+            options=months,
+            value=default,
+            key="fuel_tab_month",
+        )
+
+    dd = hdd_cdd_monthly(
+        campus.lat,
+        campus.lon,
+        months,
+        bas_csv=bundle.bas_demand_oat_csv,
+    )
+    if not dd.empty:
+        st.caption("HDD/CDD from BAS oat_f (65°F base).")
+        st.dataframe(dd.round(1), width="stretch", hide_index=True)
+
+    for fuel in kinds:
+        st.subheader(fuel.title())
+        bills = campus.fuel_monthly(fuel)
+        if bills.empty:
+            st.info(f"No {fuel} bills on campus.")
+            continue
+        unit = str(bills["unit"].dropna().iloc[0]) if "unit" in bills.columns else ""
+        y_label = unit or ("kWh" if fuel == "electricity" else "usage")
+        if fuel == "electricity":
+            pairs = champion_gl14_monthly(
+                bundle,
+                active,
+                campus_elec=bills,
+                fuel="electricity",
+            )
+            has_sim = not pairs.empty and pairs["kwh_sim"].notna().any()
+            if has_sim:
+                plot_pairs = pairs.dropna(subset=["kwh_obs", "kwh_sim"], how="all")
+                sim_id = (
+                    str(pairs["sim_id"].dropna().iloc[0])
+                    if pairs["sim_id"].notna().any()
+                    else (bundle.dsm_champion or "champion")
+                )
+                if pick:
+                    row = pairs.loc[pairs["month"].astype(str) == pick]
+                    if not row.empty:
+                        r0 = row.iloc[0]
+                        f1, f2, f3 = st.columns(3)
+                        f1.metric("Bill", _fmt_kwh(r0.get("kwh_obs")))
+                        f2.metric("E+", _fmt_kwh(r0.get("kwh_sim")))
+                        f3.metric("E+ vs bill", _fmt_pct(r0.get("pct_error")))
+                st.plotly_chart(
+                    gl14_monthly_kwh_figure(plot_pairs, highlight=pick, sim_id=sim_id),
+                    width="stretch",
+                )
+                show = pairs.drop(columns=["sim_id"], errors="ignore")
+                st.dataframe(show.round(2), width="stretch", hide_index=True)
+            else:
+                st.plotly_chart(
+                    fuel_monthly_figure(
+                        bills, title=f"{campus.label} · monthly {fuel} ({y_label})"
+                    ),
+                    width="stretch",
+                )
+                st.dataframe(bills, width="stretch", hide_index=True)
+        else:
+            st.plotly_chart(
+                fuel_monthly_figure(
+                    bills, title=f"{campus.label} · monthly {fuel} ({y_label})"
+                ),
+                width="stretch",
+            )
+            if pick:
+                row = bills.loc[bills["month"].astype(str) == pick]
+                if not row.empty:
+                    usage = float(row["usage"].sum())
+                    st.metric(f"Bill {y_label}", f"{usage:,.1f}")
+            gas_pairs = champion_gl14_monthly(
+                bundle,
+                active,
+                campus_fuel=bills,
+                fuel="gas",
+            )
+            if gas_pairs.empty or not gas_pairs["kwh_sim"].notna().any():
+                st.caption("No published E+ NaturalGas:Facility monthly on this pack.")
+            else:
+                st.dataframe(
+                    gas_pairs.drop(columns=["sim_id"], errors="ignore").round(2),
+                    width="stretch",
+                    hide_index=True,
+                )
+            st.dataframe(bills, width="stretch", hide_index=True)
+
+
+def _render_ecm_tab(bundle: SiteUiBundle) -> None:
+    st.caption(
+        "Published ECM compare table. Agents write `reports/ecm_compare.json` after runs."
+    )
+    payload = load_ecm_compare(bundle.site)
+    table = ecm_compare_table(payload)
+    if table.empty:
+        st.info(
+            "No ECM measures yet. Agents publish `reports/ecm_compare.json` "
+            "under the site workspace when ECM sims finish."
+        )
+        return
+    st.dataframe(table, width="stretch", hide_index=True)
+    if payload.get("note"):
+        st.caption(str(payload["note"]))
+
+
 def _render_missing_site(exc: BaseException) -> None:
     from lakeside.paths import remember_site_root
 
     st.error(f"Site root not set: {exc}")
     st.caption(
-        "This console reads the published pack under the site workspace. "
-        "Paste the folder that contains `reports/` (usually Desktop `testing/sp_creekside`)."
+        "This console reads the published pack under a site workspace with `reports/`. "
+        "Paste that folder path (example practice pack: Desktop `testing/sp_creekside`)."
     )
     typed = st.text_input(
         "Site workspace",
@@ -447,8 +602,8 @@ def _render_missing_site(exc: BaseException) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Lakeside DSM", layout="wide")
-    st.title("Lakeside DSM")
+    st.set_page_config(page_title="Site DSM", layout="wide")
+    st.title("Site DSM")
 
     try:
         from lakeside.paths import site_root
@@ -472,15 +627,19 @@ def main() -> None:
 
     # Track tab state. Default on_change="ignore" resets to the first tab on
     # every rerun — so Run results vanished after clicking Run.
-    tab_run, tab_cal = st.tabs(
-        ["Run DSM", "Calibration"],
-        key="lakeside_main_tabs",
+    tab_run, tab_cal, tab_fuel, tab_ecm = st.tabs(
+        ["Run DSM", "Calibration", "Fuel", "ECMs"],
+        key="site_dsm_main_tabs",
         on_change="rerun",
     )
     with tab_run:
         _render_run_dsm_tab(bundle)
     with tab_cal:
         _render_calibration_tab(bundle, campus, bundle.champion())
+    with tab_fuel:
+        _render_fuel_tab(bundle, campus)
+    with tab_ecm:
+        _render_ecm_tab(bundle)
 
 
 if __name__ == "__main__":

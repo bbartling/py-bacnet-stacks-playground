@@ -1,24 +1,27 @@
-# Vibe Code App 22 — Lakeside Elementary School
+# Vibe Code App 22 — Site DSM + GL14 console
 
-Unified **code** workspace for Lakeside ES (southern Wisconsin):
+Unified **code** workspace for **any building** (practice pack: Lakeside ES /
+`sp_creekside`, southern Wisconsin):
 
-- ALC WebCTRL → openfdd package + thermal zones
+- Site pack ingest → `site_ui_bundle_v1` (humans never pick IDF/campus files)
 - EnergyPlus IdealLoads / W2A twin pins (G14 foundation)
 - **EnergyPlus control gym** — rule demand-response (`eplus_gym/`), optional RL later
+- Streamlit **Site DSM** console (`eplus_gym_app/`)
 - Future BACnet live app slot (`bacnet/`) — **no writes**
 
 **GitHub is source + contracts + tutorials.** Site data / farm tables are local —
-see [`data/DATA.md`](data/DATA.md).
+see [`data/DATA.md`](data/DATA.md). Set **`SITE_ROOT`** (alias `LAKESIDE_SITE_ROOT`).
 
 ## Quick start
 
 ```powershell
 cd vibe_code_apps_22
 pip install -r requirements.txt
-$env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"  # practice
 
-python -u scripts\run_eplus_gym_rules.py --mode lookup
-# Notebook: notebooks\lakeside_eplus_gym_playground.ipynb
+python -u scripts\ingest_site_pack.py --src $env:SITE_ROOT
+python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
+streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
 ## Learn more
@@ -26,7 +29,8 @@ python -u scripts\run_eplus_gym_rules.py --mode lookup
 | Doc | Topic |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | Agent entry / mission |
-| [`vibe22_agent_spec/EPLUS_GYM.md`](vibe22_agent_spec/EPLUS_GYM.md) | Product SoT |
+| [`vibe22_agent_spec/`](vibe22_agent_spec/README.md) | Spec index (loop, data contract, QA) |
+| [`skills/`](skills/site-pack/SKILL.md) | site-pack · eplus-gym · open-meteo-epw · … |
 | [`docs/audits/eplus_gym_v1.md`](docs/audits/eplus_gym_v1.md) | Honesty / vs rllib-energyplus |
 | [`archive/2026-08-10_pre_eplus_gym/`](archive/2026-08-10_pre_eplus_gym/README.md) | Archived hybrid/desktop/greybox/lab |
 

@@ -35,8 +35,8 @@ must not overwrite `*_best_utility.idf`.
 
 | Twin | Current dual champion | Spec / skill |
 | --- | --- | --- |
-| IdealLoads + COP | util_103 / staged `DSM_ELIGIBLE` | this doc · `lakeside-utility-gl14` |
-| W2A plant | **A04** (~287 kW Jan‑26, GL14 pass +1.0%/10.4%) | [`W2A_PLANT_DIAL.md`](W2A_PLANT_DIAL.md) · `lakeside-w2a-plant-dial` |
+| IdealLoads + COP | util_103 / staged `DSM_ELIGIBLE` | this doc · `utility-gl14` |
+| W2A plant | **A04** (~287 kW Jan‑26, GL14 pass +1.0%/10.4%) | [`W2A_PLANT_DIAL.md`](W2A_PLANT_DIAL.md) · `w2a-plant-dial` |
 
 Tutorial: `notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`.
 

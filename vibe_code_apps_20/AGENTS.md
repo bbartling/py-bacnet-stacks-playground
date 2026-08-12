@@ -1,5 +1,10 @@
 ﻿# AGENTS.md — OpenFDD WattLab (agent OS)
 
+> **Deprecated for new EnergyPlus / DSM / GL14 product work.** Prefer
+> [`../vibe_code_apps_22/AGENTS.md`](../vibe_code_apps_22/AGENTS.md) (Site DSM +
+> GL14 console). This vibe20 tree stays for WattLab Studio / ECM engineering
+> archive — see [`ARCHIVE.md`](ARCHIVE.md). Do **not** delete vibe20 code.
+
 **Single entrypoint for agents.** Prefer this file over scattered notes. Domain skills under `.agents/skills/` remain the procedure detail; routing is `.agents/routing.md`.
 
 **Product:** OpenFDD WattLab — AI helper that turns **Open-FDD / Vibe App 19** findings into auditable **EnergyPlus** ECM energy screens (Dockerized via LBNL EnergyPlus-MCP).

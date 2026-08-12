@@ -235,7 +235,11 @@ def period_overlay_figure(overlay: Mapping[str, Any]) -> go.Figure:
     fig = go.Figure()
     actual = overlay.get("actual")
     sim = overlay.get("sim")
-    util = float(overlay.get("utility_peak_kw") or 284.8)
+    raw_util = overlay.get("utility_peak_kw")
+    try:
+        util = float(raw_util) if raw_util is not None else float("nan")
+    except (TypeError, ValueError):
+        util = float("nan")
     preset = overlay.get("preset", "")
     n_days = overlay.get("n_days", 0)
     sim_id = overlay.get("sim_id") or overlay.get("model_id") or "Sim"
@@ -260,13 +264,14 @@ def period_overlay_figure(overlay: Mapping[str, Any]) -> go.Figure:
                 line=dict(color="#e76f51", width=2.2),
             )
         )
-    fig.add_hline(
-        y=util,
-        line_dash="dot",
-        line_color="#6c757d",
-        annotation_text=f"Utility {util:.1f} kW",
-        annotation_position="top left",
-    )
+    if util == util:  # skip None / nan (do not invent a default peak)
+        fig.add_hline(
+            y=util,
+            line_dash="dot",
+            line_color="#6c757d",
+            annotation_text=f"Utility {util:.1f} kW",
+            annotation_position="top left",
+        )
     fig.update_layout(
         title=f"{preset} · {n_days} day(s) · Actual vs {sim_id}",
         xaxis_title="Hours from period start",
@@ -439,7 +444,11 @@ def dial_progression_figure(overlay: Mapping[str, Any]) -> go.Figure:
     fig = go.Figure()
     series: dict = overlay.get("series") or {}
     day = overlay.get("day", "")
-    util = float(overlay.get("utility_peak_kw") or 284.8)
+    raw_util = overlay.get("utility_peak_kw")
+    try:
+        util = float(raw_util) if raw_util is not None else float("nan")
+    except (TypeError, ValueError):
+        util = float("nan")
     for name, frame in series.items():
         if frame is None or getattr(frame, "empty", True):
             continue
@@ -460,15 +469,16 @@ def dial_progression_figure(overlay: Mapping[str, Any]) -> go.Figure:
                 ),
             )
         )
-    fig.add_hline(
-        y=util,
-        line_dash="dot",
-        line_color="#888",
-        annotation_text=f"Utility {util:.1f} kW",
-        annotation_position="top left",
-    )
+    if util == util:
+        fig.add_hline(
+            y=util,
+            line_dash="dot",
+            line_color="#888",
+            annotation_text=f"Utility {util:.1f} kW",
+            annotation_position="top left",
+        )
     fig.update_layout(
-        title=f"Peak day {day} — dial progression to A04",
+        title=f"Peak day {day} — dial progression to champion",
         xaxis_title="Hour",
         yaxis_title="kW",
         template="plotly_white",
@@ -484,6 +494,7 @@ _EPLUS_SERIES_COLORS = {
     "TMY_SCREENING": "#9b2226",
     "E+ AMY": "#2a9d8f",
     "E+ TMY": "#e9c46a",
+    "E+ champion (this run)": "#2a9d8f",
     "E+ A04 (this run)": "#2a9d8f",
 }
 
@@ -507,7 +518,7 @@ def dsm_trajectory_figure(
     fig = go.Figure()
     frames = list(extra_eplus or [])
     if not frames and df is not None and not getattr(df, "empty", True):
-        frames = [("E+ A04 (this run)", "#2a9d8f", df)]
+        frames = [("E+ champion (this run)", "#2a9d8f", df)]
     if not frames and (actual is None or getattr(actual, "empty", True)):
         fig.update_layout(title="No DSM trajectory", template="plotly_white", height=400)
         return fig
@@ -599,7 +610,7 @@ def period_daily_peak_figure(
             y=float(eplus_peak_kw),
             line_dash="dot",
             line_color="#2a9d8f",
-            annotation_text=f"E+ A04 peak {float(eplus_peak_kw):.0f} kW",
+            annotation_text=f"E+ champion peak {float(eplus_peak_kw):.0f} kW",
             annotation_position="top left",
         )
     fig.update_layout(

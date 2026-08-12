@@ -58,7 +58,10 @@ def test_streamlit_app_uses_width_stretch():
     assert "use_container_width" not in src
     assert 'width="stretch"' in src
     assert "IDF source" not in src
-    assert "Lakeside DSM" in src
+    assert "Site DSM" in src
+    assert "Lakeside DSM" not in src
+    assert '"Fuel"' in src or "'Fuel'" in src
+    assert '"ECMs"' in src or "'ECMs'" in src
     assert "Farm month" not in src
     assert "_render_farm_diagnostic" not in src
     assert "Building and fuel" not in src
