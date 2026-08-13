@@ -48,9 +48,15 @@ def validate_live_trajectory_calendar(
     rows: List[Dict[str, Any]],
     *,
     expected_day: Optional[str] = None,
+    expected_end: Optional[str] = None,
     expect_steps: int = 96,
 ) -> Dict[str, Any]:
-    """Fail closed on sizing contamination / synthetic dating / wrong count."""
+    """Fail closed on sizing contamination / synthetic dating / wrong count.
+
+    One-day runs (``expect_steps==96``): every scored row must land on
+    ``expected_day``. Multi-day runs: Runtime dates must fall inside
+    ``[expected_day, expected_end]`` (inclusive) and be monotonic.
+    """
     issues: List[str] = []
     if len(rows) != int(expect_steps):
         issues.append(f"expected {expect_steps} scored rows, got {len(rows)}")
@@ -63,21 +69,51 @@ def validate_live_trajectory_calendar(
     days = [runtime_day_from_obs(r) for r in rows]
     if any(d is None for d in days):
         issues.append("missing Runtime calendar fields on scored rows")
-    if expected_day and days and any(d != expected_day for d in days if d):
-        issues.append(f"calendar day != expected {expected_day}: {sorted(set(days))}")
-    # Contaminated Jan-26 OAT pattern detector (design-day then jump)
-    oats = [float(r["oat_c"]) for r in rows if "oat_c" in r and r["oat_c"] == r["oat_c"]]
-    if len(oats) >= 10:
-        first = oats[: max(1, len(oats) // 2)]
-        second = oats[len(oats) // 2 :]
-        if (
-            abs(sum(first) / len(first) + 17.8) < 1.5
-            and abs(sum(second) / len(second) - 24.65) < 2.0
-        ):
-            issues.append(
-                "contaminated OAT pattern (~−17.8°C then ~+24.65°C) — sizing-day signature"
-            )
-    # Monotonic 15-min stamps within day
+    valid_days = [d for d in days if d]
+    one_day = int(expect_steps) <= 96
+    if expected_day and valid_days:
+        if one_day:
+            if any(d != expected_day for d in valid_days):
+                issues.append(
+                    f"calendar day != expected {expected_day}: {sorted(set(valid_days))}"
+                )
+        else:
+            try:
+                begin_d = date.fromisoformat(str(expected_day)[:10])
+                end_s = expected_end or (
+                    begin_d + timedelta(days=max(0, (int(expect_steps) - 1) // 96))
+                ).isoformat()
+                end_d = date.fromisoformat(str(end_s)[:10])
+                out_of_range = [
+                    d
+                    for d in valid_days
+                    if not (begin_d <= date.fromisoformat(d) <= end_d)
+                ]
+                if out_of_range:
+                    issues.append(
+                        f"Runtime dates outside {begin_d.isoformat()}..{end_d.isoformat()}: "
+                        f"{sorted(set(out_of_range))[:8]}"
+                    )
+            except ValueError as exc:
+                issues.append(f"bad expected period bounds: {exc}")
+    # Contaminated OAT pattern only meaningful on a single weather day
+    if one_day:
+        oats = [
+            float(r["oat_c"])
+            for r in rows
+            if "oat_c" in r and r["oat_c"] == r["oat_c"]
+        ]
+        if len(oats) >= 10:
+            first = oats[: max(1, len(oats) // 2)]
+            second = oats[len(oats) // 2 :]
+            if (
+                abs(sum(first) / len(first) + 17.8) < 1.5
+                and abs(sum(second) / len(second) - 24.65) < 2.0
+            ):
+                issues.append(
+                    "contaminated OAT pattern (~−17.8°C then ~+24.65°C) — sizing-day signature"
+                )
+    # Monotonic 15-min stamps
     stamps = []
     for r in rows:
         try:
@@ -187,7 +223,17 @@ def _live_episode(
             break
     env.close()
     expected = begin.isoformat() if begin is not None else None
-    cal = validate_live_trajectory_calendar(rows, expected_day=expected, expect_steps=max_steps)
+    expected_end = None
+    if begin is not None and int(max_steps) > 96:
+        expected_end = (
+            begin + timedelta(days=max(0, (int(max_steps) - 1) // 96))
+        ).isoformat()
+    cal = validate_live_trajectory_calendar(
+        rows,
+        expected_day=expected,
+        expected_end=expected_end,
+        expect_steps=max_steps,
+    )
     meta["calendar_validation"] = cal
     if not cal["ok"]:
         raise ValueError(

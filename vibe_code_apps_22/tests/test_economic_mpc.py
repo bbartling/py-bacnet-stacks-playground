@@ -62,6 +62,57 @@ def test_reject_contaminated_oat_pattern():
     assert any("contaminated OAT" in x for x in cal["issues"])
 
 
+def test_multi_day_calendar_allows_period_span():
+    rows = []
+    # 2 days × 96 steps
+    for day_i, day in enumerate((1, 2)):
+        for i in range(96):
+            rows.append(
+                {
+                    "step": day_i * 96 + i,
+                    "kind_of_sim": 3,
+                    "warmup": 0.0,
+                    "ep_year": 2025,
+                    "ep_month": 12,
+                    "ep_day": day,
+                    "ep_hour": i // 4,
+                    "ep_minute": (i % 4) * 15,
+                    "oat_c": -10.0,
+                }
+            )
+    cal = validate_live_trajectory_calendar(
+        rows,
+        expected_day="2025-12-01",
+        expected_end="2025-12-02",
+        expect_steps=192,
+    )
+    assert cal["ok"], cal["issues"]
+
+
+def test_multi_day_rejects_single_day_equality_bug():
+    """Regression: winter period must not require every row == begin day."""
+    rows = []
+    for day in range(1, 4):
+        for i in range(96):
+            rows.append(
+                {
+                    "step": (day - 1) * 96 + i,
+                    "kind_of_sim": 3,
+                    "warmup": 0.0,
+                    "ep_year": 2025,
+                    "ep_month": 12,
+                    "ep_day": day,
+                    "ep_hour": i // 4,
+                    "ep_minute": (i % 4) * 15,
+                }
+            )
+    # Old bug path: expected_day only + expect_steps>96 without end still ok via inferred end
+    cal = validate_live_trajectory_calendar(
+        rows, expected_day="2025-12-01", expect_steps=288
+    )
+    assert cal["ok"], cal["issues"]
+
+
 def test_reject_synthetic_step_dating():
     begin = "2026-01-26"
     rows = [

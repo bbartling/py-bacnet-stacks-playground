@@ -166,11 +166,11 @@ def render_optimize_tomorrow_tab(bundle) -> None:
             )
             if c in show.columns
         ]
-        st.dataframe(show[cols] if cols else show, use_container_width=True)
+        st.dataframe(show[cols] if cols else show, width="stretch", hide_index=True)
 
     if pareto and pareto.get("frontier"):
         st.subheader("Pareto frontier")
-        st.dataframe(pd.DataFrame(pareto["frontier"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(pareto["frontier"]), width="stretch", hide_index=True)
 
     if rec:
         st.subheader("Recommendation (proposal only)")

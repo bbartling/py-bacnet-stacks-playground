@@ -54,8 +54,11 @@ def test_live_audits_are_gym_or_plant_only():
 
 
 def test_streamlit_app_uses_width_stretch():
-    src = (_ROOT / "eplus_gym_app" / "streamlit_app.py").read_text(encoding="utf-8")
-    assert "use_container_width" not in src
+    app_dir = _ROOT / "eplus_gym_app"
+    for path in app_dir.rglob("*.py"):
+        src = path.read_text(encoding="utf-8")
+        assert "use_container_width" not in src, f"{path.name} still uses use_container_width"
+    src = (app_dir / "streamlit_app.py").read_text(encoding="utf-8")
     assert 'width="stretch"' in src
     assert "IDF source" not in src
     assert "Site DSM" in src

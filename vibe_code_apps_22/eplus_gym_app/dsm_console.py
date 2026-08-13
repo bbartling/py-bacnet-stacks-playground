@@ -30,45 +30,41 @@ _APP = Path(__file__).resolve().parents[1]
 _CLI = _APP / "scripts" / "run_eplus_gym_rules.py"
 
 STRATEGY_LABELS = {
-    "baseline": "Baseline",
-    "flat_24_7": "Flat 24/7",
-    "deep_setback": "Deep setback",
-    "stagger_preheat": "Stagger preheat",
-    "morning_all_on": "Morning all-on",
+    "baseline": "E+ Site Config (twin)",
+    "flat_24_7": "E+ Flat 24/7",
+    "deep_setback": "E+ Deep setback",
+    "stagger_preheat": "E+ Stagger preheat",
+    "morning_all_on": "E+ Morning all-on",
+    "optimized": "E+ Optimized (proposal)",
 }
 
 # Short tutorial copy for Results strategy tabs (what the rule does to E+).
 STRATEGY_TUTORIALS: dict[str, str] = {
     "baseline": (
-        "**Baseline** is the school-day thermostat the Site Config setpoints define: "
-        "occupied heat during class hours, unoccupied heat nights/weekends. "
-        "EnergyPlus still steps every 15 minutes and writes `SCH_HtgSP`, but the profile "
-        "matches normal occupied/unoccupied operation - the reference for kW trim and "
-        "kWh penalty on other strategies."
+        "**E+ Site Config (twin)** is *not* the BAS meter. It is EnergyPlus replaying "
+        "the published W2A twin with your Site Config occupied/unoccupied heat. "
+        "Use it to judge how close the twin is to **Actual BAS**, and as the "
+        "reference when comparing other E+ strategies (kW trim / kWh penalty)."
     ),
     "flat_24_7": (
         "**Flat 24/7** holds occupied heat all day and night (no setback). "
-        "That removes night setback recovery spikes and usually raises overnight kWh "
-        "while often cutting the morning peak. Compare peak kW and daily kWh vs baseline "
-        "to see the classic flat-vs-setback tradeoff."
+        "Usually the highest peak and kWh — a 'what if we never set back' bound."
     ),
     "deep_setback": (
-        "**Deep setback** uses Site Config occupied heat when the building is occupied, "
-        "but drops **about 5 F below** Site Config unoccupied heat when empty "
-        "(deeper than baseline setback). Expect lower unoccupied heating energy and a "
-        "larger morning pickup load - useful for demand-response screening on cold peaks."
+        "**Deep setback** drops unoccupied heat further than Site Config "
+        "(deeper than the twin baseline). Expect lower unoccupied heating energy and a "
+        "possible morning recovery peak — compare peak kW and kWh vs the twin baseline "
+        "and vs Actual BAS."
     ),
     "stagger_preheat": (
-        "**Stagger preheat** keeps Site Config occ/unocc setpoints but advances morning "
-        "warmup in staggered zone waves (contract `stagger_min` / preheat lead). "
-        "The idea is to spread recovery amps so the campus peak is lower than everyone "
-        "pulling heat at once."
+        "**Stagger preheat** stages morning recovery across zones to shave coincident peak."
     ),
     "morning_all_on": (
-        "**Morning all-on** uses Site Config occ/unocc setpoints with an aggressive "
-        "morning recovery (longer preheat lead): zones come up together before occupancy. "
-        "Comfort arrives early; the bill is a taller morning peak unless you pair it with "
-        "another DR measure."
+        "**Morning all-on** pulls heating early together — often a peak-forming stress test."
+    ),
+    "optimized": (
+        "**Optimized (proposal)** comes from **Optimize Tomorrow** (economic screening). "
+        "It is a recommendation artifact only — not auto-written to Site Config or BACnet."
     ),
 }
 
@@ -799,6 +795,7 @@ def persist_last_run(
         "png": png,
         "elapsed_s": elapsed_s,
         "out_dir": out_dir,
+        "site": str(Path(site)),
         "weather_mode": weather_mode,
         "period": period,
         "max_steps": max_steps,
@@ -1015,9 +1012,10 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     site_cfg = load_site_dsm_config(bundle.site)
     st.caption(
         f"Champion `{bundle.dsm_champion}`  |  W2A_PHYSICAL_DSM  |  promote=False. "
-        "Default: **Peak day**  |  **AMY**  |  baseline + one strategy (2 jobs). "
-        "Live E+ is closed-loop (`CLOSED_LOOP_RULE_DR` / `SCH_HtgSP` every 15 min) via "
-        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status. "
+        "**Actual BAS** = meter truth. **E+ Site Config (twin)** = EnergyPlus with Site Config "
+        "(not the meter). Other strategies are alternate E+ controls. "
+        "AI optimization proposals live on **Optimize Tomorrow** (not auto-applied here). "
+        "Default: **Peak day**  |  **AMY**  |  twin + one strategy (2 jobs). "
         f"Site Config: {setpoints_summary(site_cfg)}."
     )
     mode, reason = resolve_dsm_mode(bundle.site)
@@ -1362,7 +1360,11 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         "Charts below."
     )
     if actual_peak_show is not None:
-        st.caption(f"Actual BAS meter peak this day: **{actual_peak_show:.1f} kW**.")
+        st.caption(
+            f"**Actual BAS meter peak** this day: **{actual_peak_show:.1f} kW** "
+            "(ground truth). Strategy tabs below are EnergyPlus sims — "
+            "‘E+ Site Config (twin)’ is not the meter."
+        )
     _render_dsm_results_charts(
         last=last,
         kpis_by=kpis_by,
@@ -1424,31 +1426,123 @@ def _render_dsm_results_charts(**kwargs):
 
     with tabs[0]:
         st.markdown(
-            "Scorecard vs **Actual BAS meter** (same calendar day) and vs baseline. "
-            "AMY weather = actual meteorological year for that day. "
-            "Open each strategy tab for SP detail."
+            """
+**How to read this page**
+
+| Row | What it is |
+| --- | --- |
+| **Actual BAS (meter)** | Real facility kW from the interval meter for this calendar day — the ground truth. |
+| **E+ Site Config (twin)** | EnergyPlus twin with Site Config heat — *not* the meter. Gap vs Actual = twin fidelity. |
+| **Other E+ strategies** | Alternate control rules on the same twin/weather (24/7, deep setback, …). |
+| **E+ Optimized** | Only if **Optimize Tomorrow** produced a proposal — never auto-applied to BACnet. |
+
+Peak % vs Actual uses the BAS meter peak. kW trim / kWh Δ use the **E+ twin baseline**, not the meter.
+            """.strip()
         )
         if not has_actual:
             st.warning(
                 "No BAS meter profile for this day — cannot overlay Actual. "
                 "Check demand/interval CSV coverage."
             )
+
+        # Optimization proposal status (separate from Run DSM strategies)
+        site_path = None
+        if last.get("site"):
+            site_path = Path(last["site"])
+        elif last.get("out_dir"):
+            # .../reports/eplus_gym/runs/<run_id>/... → site root is parents[3]
+            try:
+                site_path = Path(last["out_dir"]).resolve().parents[3]
+            except Exception:  # noqa: BLE001
+                site_path = None
+        if site_path is not None:
+            try:
+                from eplus_gym_app.optimize_tomorrow import list_studies
+
+                studies = list_studies(site_path)
+            except Exception:  # noqa: BLE001
+                studies = []
+            if studies:
+                rec_path = studies[0] / "recommendation.json"
+                appr = studies[0] / "approved_recommendation.json"
+                if appr.is_file():
+                    st.success(
+                        f"Approved optimization proposal: `{studies[0].name}` — still not "
+                        "written to Site Config / BACnet. Review on **Optimize Tomorrow**."
+                    )
+                elif rec_path.is_file():
+                    st.info(
+                        f"Optimization proposal available: `{studies[0].name}`. "
+                        "Open **Optimize Tomorrow** to review / approve. "
+                        "Run DSM does not auto-apply the optimized schedule."
+                    )
+                else:
+                    st.caption(
+                        "Optimization study folder exists but has no recommendation.json yet."
+                    )
+            else:
+                st.caption(
+                    "No Optimize Tomorrow study on this site yet — agent screening lives "
+                    "on that tab, not inside these Run DSM strategy tabs."
+                )
         if kpis_by:
+            actual_kwh = None
+            if has_actual and "kw_avg" in actual.columns:
+                # 15-min intervals → kWh
+                actual_kwh = float(actual["kw_avg"].sum() * 0.25)
             rows = []
-            for sid, row in kpis_by.items():
+            if actual_peak_kw is not None:
                 rows.append(
                     {
-                        "strategy": sid,
-                        "peak_kw": row.get("peak_kw"),
-                        "kwh": row.get("kwh"),
-                        "kw_trim": row.get("kw_trim"),
-                        "kwh_penalty": row.get("kwh_penalty"),
-                        "vs_baseline_pct": row.get("vs_baseline_pct"),
-                        "vs_actual_pct": row.get("vs_actual_pct"),
-                        "actual_peak_kw": row.get("actual_peak_kw") or actual_peak_kw,
+                        "source": "Actual BAS (meter)",
+                        "kind": "meter",
+                        "peak_kW": round(float(actual_peak_kw), 1),
+                        "kWh": round(actual_kwh, 0) if actual_kwh is not None else None,
+                        "Δpeak_vs_Actual_%": 0.0,
+                        "Δpeak_vs_E+_twin_kW": None,
+                        "ΔkWh_vs_E+_twin": None,
+                        "note": "Ground truth for this calendar day",
                     }
                 )
+            for sid, row in kpis_by.items():
+                peak = row.get("peak_kw")
+                kwh = row.get("kwh")
+                vs_act = row.get("vs_actual_pct")
+                rows.append(
+                    {
+                        "source": STRATEGY_LABELS.get(sid, sid),
+                        "kind": "EnergyPlus sim",
+                        "peak_kW": round(float(peak), 1) if peak is not None else None,
+                        "kWh": round(float(kwh), 0) if kwh is not None else None,
+                        "Δpeak_vs_Actual_%": (
+                            round(float(vs_act), 2) if vs_act is not None else None
+                        ),
+                        "Δpeak_vs_E+_twin_kW": (
+                            round(float(row["kw_trim"]), 1)
+                            if row.get("kw_trim") is not None
+                            else None
+                        ),
+                        "ΔkWh_vs_E+_twin": (
+                            round(float(row["kwh_penalty"]), 0)
+                            if row.get("kwh_penalty") is not None
+                            else None
+                        ),
+                        "note": (
+                            "Twin fidelity vs meter"
+                            if sid == "baseline"
+                            else "Compare to Actual + E+ twin"
+                        ),
+                    }
+                )
+            st.subheader("Scorecard")
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+            st.caption(
+                "Δpeak_vs_Actual_% = (E+ peak − Actual peak) / Actual × 100. "
+                "Negative means the sim peak is below the meter. "
+                "Δpeak_vs_E+_twin_kW = twin peak − this strategy (+ = trimmed vs twin). "
+                "Costs: use **Optimize Tomorrow** (PHYSICAL_ONLY / verified tariff) — "
+                "Run DSM does not invent bill dollars."
+            )
 
         overlay_series = []
         for sid in ran:
@@ -1499,16 +1593,18 @@ def _render_dsm_results_charts(**kwargs):
                     f"{kpi['kwh']:.0f}" if kpi.get("kwh") is not None else "-",
                 )
                 m3.metric(
-                    "vs Actual peak %",
+                    "Δ peak vs Actual BAS %",
                     (
                         f"{kpi['vs_actual_pct']:+.1f}%"
                         if kpi.get("vs_actual_pct") is not None
                         else "-"
                     ),
+                    help="(E+ peak − Actual meter peak) / Actual × 100",
                 )
                 m4.metric(
-                    "kW trim vs baseline",
+                    "kW trim vs E+ twin",
                     f"{kpi['kw_trim']:+.1f}" if kpi.get("kw_trim") is not None else "-",
+                    help="E+ Site Config twin peak − this strategy (+ = lower peak than twin)",
                 )
 
             sl = _slice_for(sid)

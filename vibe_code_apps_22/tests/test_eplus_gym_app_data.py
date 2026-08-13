@@ -293,8 +293,9 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert sliders, "expected Period select_slider"
     copy = _copy()
     assert "typical-year EPW on that date" not in copy
-    assert "CLOSED_LOOP_RULE_DR" in copy
-    assert "baseline + one strategy" in copy or "Will run" in copy
+    assert "Actual BAS" in copy or "meter" in copy.lower()
+    assert "Optimize Tomorrow" in copy or "E+ Site Config" in copy or "twin" in copy.lower()
+    assert "baseline + one strategy" in copy or "Will run" in copy or "twin + one strategy" in copy
     # Winter window still resolved in period_run_spec / caption.
     assert "2025-12" in copy or "Winter" in copy
     for sid in ("baseline", "deep_setback"):
