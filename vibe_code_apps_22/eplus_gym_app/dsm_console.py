@@ -880,8 +880,8 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     st.caption(
         f"Champion `{bundle.dsm_champion}` · W2A_PHYSICAL_DSM · promote=False. "
         "Default: **Peak day** · **AMY** · baseline + one strategy (2 jobs). "
-        "Live E+ runs in a durable campaign supervisor (`current_dsm_run.json`); "
-        "this page only polls status."
+        "Live E+ is closed-loop (`CLOSED_LOOP_RULE_DR` / `SCH_HtgSP` every 15 min) via "
+        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status."
     )
     mode, reason = resolve_dsm_mode(bundle.site)
     st.info(f"Mode: **{mode}** â€” {reason}")
