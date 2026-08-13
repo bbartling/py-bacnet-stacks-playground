@@ -11,6 +11,8 @@ python-docx>=1.1
 openpyxl>=3.1
 kaleido>=0.2.1
 matplotlib>=3.8
-# Pandas oracle + reporting from PyPI (not production DataFusion FDD)
-open-fdd[reporting]>=4.3.0,<5
+# Pandas oracle + reporting. Pin open-fdd tip that includes SCHED-1 portable occupancy
+# (bbartling/open-fdd#710). Zip URL works in slim Docker (no git binary required).
+# GHCR :latest tracks develop after merge via .github/workflows/vibe19-ghcr.yml.
+open-fdd[reporting] @ https://github.com/bbartling/open-fdd/archive/42ca508bbaa549db46f13041b7cac3df4636472e.zip
 pyarrow>=14.0
