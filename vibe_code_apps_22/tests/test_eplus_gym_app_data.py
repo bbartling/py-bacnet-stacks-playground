@@ -226,7 +226,8 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "IDF source" not in labels
     assert "campus.json" not in labels.lower()
     assert "Demand / interval CSV" not in labels
-    assert "Strategy" not in labels
+    # Humans pick one rule strategy (+ baseline); never IDF/campus/interval.
+    assert "Strategy (+ baseline)" in labels
     assert len(at.dataframe) >= 1
     def _copy() -> str:
         blobs = []
