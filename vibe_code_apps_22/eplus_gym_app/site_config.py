@@ -1,22 +1,31 @@
-"""Site DSM thermostat / occupancy config (staged IDF only).
+"""Site DSM thermostat / occupancy / HVAC config (staged IDF only).
 
 Persists ``{SITE_ROOT}/reports/eplus_gym/site_dsm_config.json``. Values patch
-``SCH_HtgSP`` / ``SCH_ClgSP`` on **staged** run IDFs - never overwrite the
-published champion on disk.
+schedules on **staged** run IDFs - never overwrite the published champion.
 """
 from __future__ import annotations
 
 import json
 import os
 from copy import deepcopy
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DAY_LABELS = {
+    "mon": "Monday",
+    "tue": "Tuesday",
+    "wed": "Wednesday",
+    "thu": "Thursday",
+    "fri": "Friday",
+    "sat": "Saturday",
+    "sun": "Sunday",
+}
+# EnergyPlus Schedule:Compact For: tokens
+_DAY_FOR = {
     "mon": "Monday",
     "tue": "Tuesday",
     "wed": "Wednesday",
@@ -33,28 +42,33 @@ DEFAULT_SETPOINTS_F = {
     "unoccupied_cooling_f": 85.0,
 }
 
-_WEEKDAY = {"occupied": True, "start": "06:45", "end": "15:30"}
-_WEEKEND = {"occupied": False, "start": "08:00", "end": "12:00"}
+_WEEKDAY_PEOPLE = {"occupied": True, "people_start": "06:45", "people_end": "15:30"}
+_WEEKEND_PEOPLE = {"occupied": False, "people_start": "08:00", "people_end": "12:00"}
+
+PEOPLE_SCHEDULE_NAMES = (
+    "SCH_Occ_Class",
+    "SCH_Occ_Library",
+    "SCH_Occ_Cafe",
+    "SCH_Occ_Gym",
+    "SCH_Occ",
+)
+PLUG_SCHEDULE_NAMES = ("SCH_Equip", "SCH_Kitchen")
+HVAC_SCHEDULE_NAMES = (
+    "SCH_HeatAvail",
+    "SCH_CoolAvail",
+    "SCH_FanProxy",
+    "SCH_HVAC",
+    "SCH_OA",
+)
 
 
-def default_occupancy_schedule() -> dict[str, Any]:
-    days = {d: dict(_WEEKDAY) for d in ("mon", "tue", "wed", "thu", "fri")}
-    days["sat"] = dict(_WEEKEND)
-    days["sun"] = dict(_WEEKEND)
-    return {"timezone": "America/Chicago", "days": days}
-
-
-def default_site_dsm_config() -> dict[str, Any]:
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "setpoints_f": dict(DEFAULT_SETPOINTS_F),
-        "occupancy_schedule": default_occupancy_schedule(),
-        "peak_day_override": None,
-    }
-
-
-def site_dsm_config_path(site: Path | str) -> Path:
-    return Path(site) / "reports" / "eplus_gym" / "site_dsm_config.json"
+def _shift_hhmm(hhmm: str, minutes: int) -> str:
+    t = datetime.strptime(_hhmm(hhmm, "06:45"), "%H:%M")
+    t2 = t + timedelta(minutes=int(minutes))
+    # Clamp to same civil day for schedule Until tokens
+    if t2.day != t.day:
+        return "00:00" if minutes < 0 else "23:59"
+    return f"{t2.hour:02d}:{t2.minute:02d}"
 
 
 def _hhmm(value: Any, fallback: str) -> str:
@@ -70,6 +84,52 @@ def _hhmm(value: Any, fallback: str) -> str:
     return fallback
 
 
+def _hhmm_to_time(hhmm: str) -> time:
+    s = _hhmm(hhmm, "06:45")
+    return time(int(s[:2]), int(s[3:5]))
+
+
+def default_day_block(*, weekday: bool) -> dict[str, Any]:
+    people = dict(_WEEKDAY_PEOPLE if weekday else _WEEKEND_PEOPLE)
+    # HVAC defaults: start 45 min before people, end 30 min after
+    hvac_start = _shift_hhmm(people["people_start"], -45)
+    hvac_end = _shift_hhmm(people["people_end"], 30)
+    return {
+        **people,
+        "hvac_start": hvac_start,
+        "hvac_end": hvac_end,
+    }
+
+
+def default_occupancy_schedule() -> dict[str, Any]:
+    days = {d: default_day_block(weekday=True) for d in ("mon", "tue", "wed", "thu", "fri")}
+    days["sat"] = default_day_block(weekday=False)
+    days["sun"] = default_day_block(weekday=False)
+    return {"timezone": "America/Chicago", "days": days}
+
+
+def default_site_dsm_config() -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "setpoints_f": dict(DEFAULT_SETPOINTS_F),
+        "occupancy_schedule": default_occupancy_schedule(),
+        "peak_day_override": None,
+        "apply_people_plug_schedules": True,
+        "apply_hvac_schedules": True,
+        "optimum_start": False,
+        "optimum_start_f_per_min": 0.10,
+        "optimum_start_max_h": 4.0,
+    }
+
+
+def site_dsm_config_path(site: Path | str) -> Path:
+    return Path(site) / "reports" / "eplus_gym" / "site_dsm_config.json"
+
+
+def site_config_apply_report_path(site: Path | str) -> Path:
+    return Path(site) / "reports" / "eplus_gym" / "site_config_apply_report.json"
+
+
 def normalize_occupancy_schedule(raw: Any) -> dict[str, Any]:
     base = default_occupancy_schedule()
     if not isinstance(raw, dict):
@@ -80,10 +140,28 @@ def normalize_occupancy_schedule(raw: Any) -> dict[str, Any]:
     for key in DAY_KEYS:
         src = days_in.get(key) if isinstance(days_in.get(key), dict) else {}
         fb = base["days"][key]
+        # Migrate legacy start/end -> people_*
+        people_start = src.get("people_start", src.get("start", fb["people_start"]))
+        people_end = src.get("people_end", src.get("end", fb["people_end"]))
+        people_start = _hhmm(people_start, fb["people_start"])
+        people_end = _hhmm(people_end, fb["people_end"])
+        hvac_start = _hhmm(
+            src.get("hvac_start"),
+            _shift_hhmm(people_start, -45) if "hvac_start" not in src else fb["hvac_start"],
+        )
+        hvac_end = _hhmm(
+            src.get("hvac_end"),
+            _shift_hhmm(people_end, 30) if "hvac_end" not in src else fb["hvac_end"],
+        )
         days_out[key] = {
             "occupied": bool(src.get("occupied", fb["occupied"])),
-            "start": _hhmm(src.get("start"), fb["start"]),
-            "end": _hhmm(src.get("end"), fb["end"]),
+            "people_start": people_start,
+            "people_end": people_end,
+            "hvac_start": hvac_start,
+            "hvac_end": hvac_end,
+            # Keep legacy keys for older readers
+            "start": people_start,
+            "end": people_end,
         }
     return {"timezone": tz, "days": days_out}
 
@@ -110,6 +188,25 @@ def normalize_site_dsm_config(raw: Any) -> dict[str, Any]:
             out["peak_day_override"] = date.fromisoformat(str(override)[:10]).isoformat()
         except ValueError:
             out["peak_day_override"] = None
+    for flag in (
+        "apply_people_plug_schedules",
+        "apply_hvac_schedules",
+        "optimum_start",
+    ):
+        if flag in raw:
+            out[flag] = bool(raw[flag])
+    try:
+        out["optimum_start_f_per_min"] = float(
+            raw.get("optimum_start_f_per_min", out["optimum_start_f_per_min"])
+        )
+    except (TypeError, ValueError):
+        pass
+    try:
+        out["optimum_start_max_h"] = float(
+            raw.get("optimum_start_max_h", out["optimum_start_max_h"])
+        )
+    except (TypeError, ValueError):
+        pass
     out["schema_version"] = int(raw.get("schema_version") or SCHEMA_VERSION)
     return out
 
@@ -122,7 +219,7 @@ def validate_setpoints_f(sp: dict[str, Any]) -> list[str]:
         oc = float(sp["occupied_cooling_f"])
         uc = float(sp["unoccupied_cooling_f"])
     except (KeyError, TypeError, ValueError):
-        return ["setpoints_f must include four numeric °F values"]
+        return ["setpoints_f must include four numeric F values"]
     if oh >= oc:
         errors.append(f"occupied heat ({oh}) must be < occupied cool ({oc})")
     if uh >= uc:
@@ -172,25 +269,199 @@ def setpoints_summary(cfg: dict[str, Any] | None = None) -> str:
     )
 
 
-def calendar_contract_from_site_config(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Shape accepted by schedule_calendar_repair setpoint patchers."""
+def optimum_start_lead_hours(cfg: dict[str, Any] | None = None) -> float:
+    """Lead hours from 0.10 F/min recovery and heating deadband (capped)."""
     doc = normalize_site_dsm_config(cfg or {})
-    return {"setpoints_f": deepcopy(doc["setpoints_f"])}
+    if not doc.get("optimum_start"):
+        return 0.0
+    sp = doc.get("setpoints_f") or {}
+    try:
+        deadband = abs(float(sp["occupied_heating_f"]) - float(sp["unoccupied_heating_f"]))
+    except (KeyError, TypeError, ValueError):
+        deadband = 10.0
+    if deadband <= 0:
+        deadband = 10.0
+    rate = float(doc.get("optimum_start_f_per_min") or 0.10)
+    max_h = float(doc.get("optimum_start_max_h") or 4.0)
+    if rate <= 0:
+        return 0.0
+    hours = deadband / (rate * 60.0)
+    return max(0.0, min(max_h, hours))
+
+
+def calendar_contract_from_site_config(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Full Site Config document for staged IDF patchers."""
+    return deepcopy(normalize_site_dsm_config(cfg or {}))
+
+
+def site_config_feedback_rows(cfg: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Rows for Calibration: what Site Config will write on next staged run."""
+    doc = normalize_site_dsm_config(cfg or {})
+    sp = doc["setpoints_f"]
+    rows: list[dict[str, Any]] = [
+        {
+            "object": "SCH_HtgSP",
+            "field": "occupied / unoccupied heating",
+            "site_config_source": "setpoints_f.occupied_heating_f / unoccupied_heating_f",
+            "value_written": f"{sp['occupied_heating_f']}F / {sp['unoccupied_heating_f']}F",
+            "note": "staged IDF only",
+        },
+        {
+            "object": "SCH_ClgSP",
+            "field": "occupied / unoccupied cooling",
+            "site_config_source": "setpoints_f.occupied_cooling_f / unoccupied_cooling_f",
+            "value_written": f"{sp['occupied_cooling_f']}F / {sp['unoccupied_cooling_f']}F",
+            "note": "staged IDF only",
+        },
+    ]
+    occ = doc["occupancy_schedule"]["days"]
+    if doc.get("apply_people_plug_schedules"):
+        for d in DAY_KEYS:
+            day = occ[d]
+            if not day.get("occupied"):
+                rows.append(
+                    {
+                        "object": ",".join(PEOPLE_SCHEDULE_NAMES),
+                        "field": f"{DAY_LABELS[d]} people",
+                        "site_config_source": f"occupancy_schedule.days.{d}",
+                        "value_written": "unoccupied (0)",
+                        "note": "staged IDF only",
+                    }
+                )
+                continue
+            rows.append(
+                {
+                    "object": ",".join(PEOPLE_SCHEDULE_NAMES[:2]) + ",...",
+                    "field": f"{DAY_LABELS[d]} people",
+                    "site_config_source": f"people_start/end.{d}",
+                    "value_written": f"{day['people_start']} -> {day['people_end']}",
+                    "note": "also drives SCH_Equip plugs",
+                }
+            )
+    if doc.get("apply_hvac_schedules"):
+        lead = optimum_start_lead_hours(doc)
+        for d in DAY_KEYS:
+            day = occ[d]
+            hvac_start = day["hvac_start"]
+            if lead > 0 and day.get("occupied"):
+                pulled = _shift_hhmm(day["people_start"], -int(round(lead * 60)))
+                # Earlier clock time wins (opt-start pull vs configured HVAC start)
+                if _hhmm_to_time(pulled) <= _hhmm_to_time(day["hvac_start"]):
+                    hvac_start = pulled
+            rows.append(
+                {
+                    "object": ",".join(HVAC_SCHEDULE_NAMES[:3]) + ",...",
+                    "field": f"{DAY_LABELS[d]} HVAC avail",
+                    "site_config_source": f"hvac_start/end.{d}"
+                    + (f" + opt-start lead {lead:.2f}h" if lead else ""),
+                    "value_written": f"{hvac_start} -> {day['hvac_end']}",
+                    "note": "schedule-based; no air-loop OptimumStart on W2A",
+                }
+            )
+    if doc.get("optimum_start"):
+        rows.append(
+            {
+                "object": "SCH_HeatAvail / SCH_FanProxy",
+                "field": "optimum_start lead",
+                "site_config_source": (
+                    f"{doc.get('optimum_start_f_per_min')} F/min, "
+                    f"max {doc.get('optimum_start_max_h')} h"
+                ),
+                "value_written": f"{optimum_start_lead_hours(doc):.2f} h before people",
+                "note": "ZoneHVAC WAHP schedule lead (0 air loops)",
+            }
+        )
+    if doc.get("peak_day_override"):
+        rows.append(
+            {
+                "object": "RunPeriod (via Run DSM)",
+                "field": "peak day override",
+                "site_config_source": "peak_day_override",
+                "value_written": str(doc["peak_day_override"]),
+                "note": "Peak day period only; ignores BAS meter peak",
+            }
+        )
+    return rows
+
+
+def save_apply_report(site: Path | str, report: dict[str, Any]) -> Path:
+    path = site_config_apply_report_path(site)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    return path
+
+
+def load_apply_report(site: Path | str) -> dict[str, Any] | None:
+    path = site_config_apply_report_path(site)
+    if not path.is_file():
+        return None
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def render_overview_staging_options(site: Path) -> dict[str, Any]:
+    """Overview checkboxes for people/HVAC/opt-start; persists on change via Save-less merge."""
+    import streamlit as st
+
+    cfg = load_site_dsm_config(site)
+    st.markdown("**DSM staging options** (staged IDF only)")
+    st.caption(
+        "W2A champion has ZoneHVAC water-to-air HPs and **no air loops**, so "
+        "optimum start is a **schedule lead** on HVAC availability "
+        "(not AvailabilityManager:OptimumStart)."
+    )
+    c1, c2, c3 = st.columns(3)
+    people = c1.checkbox(
+        "Apply people + plug schedules",
+        value=bool(cfg.get("apply_people_plug_schedules", True)),
+        key="ov_apply_people",
+    )
+    hvac = c2.checkbox(
+        "Apply HVAC run schedules",
+        value=bool(cfg.get("apply_hvac_schedules", True)),
+        key="ov_apply_hvac",
+    )
+    opt = c3.checkbox(
+        "HVAC optimum start (schedule lead)",
+        value=bool(cfg.get("optimum_start", False)),
+        key="ov_opt_start",
+    )
+    changed = (
+        people != bool(cfg.get("apply_people_plug_schedules", True))
+        or hvac != bool(cfg.get("apply_hvac_schedules", True))
+        or opt != bool(cfg.get("optimum_start", False))
+    )
+    if changed:
+        cfg["apply_people_plug_schedules"] = people
+        cfg["apply_hvac_schedules"] = hvac
+        cfg["optimum_start"] = opt
+        try:
+            save_site_dsm_config(site, cfg)
+            st.caption("Staging options saved.")
+        except ValueError as exc:
+            st.error(str(exc))
+    if opt:
+        st.caption(
+            f"Lead ~{optimum_start_lead_hours(cfg):.2f} h "
+            f"(@ {cfg.get('optimum_start_f_per_min')} F/min, "
+            f"max {cfg.get('optimum_start_max_h')} h)."
+        )
+    return cfg
 
 
 def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, Any]:
-    """Streamlit Site Config form. Returns the saved/normalized config.
-
-    Widgets live inside ``st.form`` so setpoint/occ edits do **not** full-rerun
-    the app until Save is clicked.
-    """
+    """Streamlit Site Config form. Returns the saved/normalized config."""
     import streamlit as st
 
     st.subheader("Site Config")
     st.caption(
-        "Thermostat setpoints and occupancy for **staged** DSM runs only. "
-        "Never overwrites the published champion IDF. "
-        "Edits apply on **Save** (no full-app rerun while tweaking)."
+        "Thermostat, **people** occupancy, and **HVAC** run hours for **staged** DSM runs only. "
+        "Never overwrites the published champion IDF. Edits apply on **Save**."
     )
     cfg = load_site_dsm_config(site)
     sp0 = dict(cfg["setpoints_f"])
@@ -256,33 +527,59 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
             "(occ cool - occ heat)"
         )
 
-        st.markdown("**Weekly occupancy**")
+        st.markdown("**Weekly people + HVAC**")
+        st.caption(
+            "People drives occupancy and plug loads. HVAC is the equipment availability "
+            "window (can start earlier / end later than people)."
+        )
         tz = st.text_input("Timezone", value=occ0["timezone"])
         days_out: dict[str, Any] = {}
         for d in DAY_KEYS:
             day = occ0["days"][d]
             st.markdown(f"**{DAY_LABELS[d]}**")
-            a, b, c = st.columns(3)
-            occupied = a.checkbox(
-                "Occupied", value=bool(day["occupied"]), key=f"site_cfg_occ_{d}"
+            occupied = st.checkbox(
+                "People occupied",
+                value=bool(day["occupied"]),
+                key=f"site_cfg_occ_{d}",
             )
-            start_t = b.time_input(
-                "Start",
-                value=time(int(day["start"][:2]), int(day["start"][3:5])),
-                key=f"site_cfg_occ_s_{d}",
+            p1, p2, h1, h2 = st.columns(4)
+            people_start = p1.time_input(
+                "People start",
+                value=_hhmm_to_time(day["people_start"]),
+                key=f"site_cfg_people_s_{d}",
             )
-            end_t = c.time_input(
-                "End",
-                value=time(int(day["end"][:2]), int(day["end"][3:5])),
-                key=f"site_cfg_occ_e_{d}",
+            people_end = p2.time_input(
+                "People end",
+                value=_hhmm_to_time(day["people_end"]),
+                key=f"site_cfg_people_e_{d}",
             )
+            hvac_start = h1.time_input(
+                "HVAC start",
+                value=_hhmm_to_time(day["hvac_start"]),
+                key=f"site_cfg_hvac_s_{d}",
+            )
+            hvac_end = h2.time_input(
+                "HVAC end",
+                value=_hhmm_to_time(day["hvac_end"]),
+                key=f"site_cfg_hvac_e_{d}",
+            )
+            ps = _hhmm(people_start, day["people_start"])
+            pe = _hhmm(people_end, day["people_end"])
             days_out[d] = {
                 "occupied": bool(occupied),
-                "start": _hhmm(start_t, day["start"]),
-                "end": _hhmm(end_t, day["end"]),
+                "people_start": ps,
+                "people_end": pe,
+                "hvac_start": _hhmm(hvac_start, day["hvac_start"]),
+                "hvac_end": _hhmm(hvac_end, day["hvac_end"]),
+                "start": ps,
+                "end": pe,
             }
 
         st.markdown("**Sim date override**")
+        st.caption(
+            "Force **Peak day** Run DSM to this calendar date (ignores BAS meter peak). "
+            "Does not change Calendar month / winter / year windows."
+        )
         use_override = st.checkbox(
             "Override peak day for Run DSM",
             value=bool(cfg.get("peak_day_override")),
@@ -313,6 +610,7 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
                 st.error(e)
         else:
             draft = {
+                **cfg,
                 "schema_version": SCHEMA_VERSION,
                 "setpoints_f": sp,
                 "occupancy_schedule": {"timezone": tz, "days": days_out},

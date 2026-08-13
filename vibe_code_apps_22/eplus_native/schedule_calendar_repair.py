@@ -370,6 +370,232 @@ def apply_site_setpoints(text: str, contract: dict[str, Any] | None = None) -> s
     return text
 
 
+def _until_token(hhmm: str) -> str:
+    """EnergyPlus Until: HH:MM (24:00 for end-of-day)."""
+    s = str(hhmm).strip()
+    if s in {"24:00", "00:00"} and s == "24:00":
+        return "24:00"
+    parts = s.split(":")
+    h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+    if h == 0 and m == 0:
+        return "00:00"
+    if h >= 24:
+        return "24:00"
+    return f"{h:02d}:{m:02d}"
+
+
+def _earlier_hhmm(a: str, b: str) -> str:
+    ta = tuple(int(x) for x in _until_token(a).split(":"))
+    tb = tuple(int(x) for x in _until_token(b).split(":"))
+    return a if ta <= tb else b
+
+
+def _shift_hhmm_str(hhmm: str, minutes: int) -> str:
+    from datetime import datetime, timedelta
+
+    base = _until_token(hhmm)
+    if base == "24:00":
+        t = datetime(2000, 1, 1, 23, 59)
+        delta = minutes - 1 if minutes < 0 else minutes
+    else:
+        h, m = (int(x) for x in base.split(":"))
+        t = datetime(2000, 1, 1, h, m)
+        delta = minutes
+    t2 = t + timedelta(minutes=int(delta))
+    if t2.day != t.day:
+        return "00:00" if minutes < 0 else "24:00"
+    if t2.hour == 23 and t2.minute == 59 and minutes > 0:
+        return "24:00"
+    return f"{t2.hour:02d}:{t2.minute:02d}"
+
+
+def _weekly_fraction_fields(
+    days: dict[str, Any],
+    *,
+    start_key: str,
+    end_key: str,
+    occupied_value: float = 1.0,
+    unoccupied_value: float = 0.0,
+    lead_hours: float = 0.0,
+    people_start_key: str = "people_start",
+) -> list[str]:
+    """Build Through/For/Until fraction schedule from Site Config day blocks."""
+    day_order = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    for_names = {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday",
+    }
+    occ = f"{occupied_value}"
+    un = f"{unoccupied_value}"
+    fields: list[str] = ["Through: 12/31"]
+    for key in day_order:
+        day = days.get(key) or {}
+        fields.append(f"For: {for_names[key]}")
+        if not day.get("occupied", False):
+            fields.extend(["Until: 24:00", un])
+            continue
+        start = str(day.get(start_key) or "06:00")
+        end = str(day.get(end_key) or "18:00")
+        if lead_hours > 0 and start_key.startswith("hvac"):
+            people_start = str(day.get(people_start_key) or start)
+            pulled = _shift_hhmm_str(people_start, -int(round(float(lead_hours) * 60)))
+            start = _earlier_hhmm(start, pulled)
+        start_t = _until_token(start)
+        end_t = _until_token(end)
+        if start_t not in {"00:00"}:
+            fields.extend([f"Until: {start_t}", un])
+        fields.extend([f"Until: {end_t}", occ])
+        if end_t != "24:00":
+            fields.extend(["Until: 24:00", un])
+    return fields
+
+
+_PEOPLE_SCHEDULE_NAMES = (
+    "SCH_Occ_Class",
+    "SCH_Occ_Library",
+    "SCH_Occ_Cafe",
+    "SCH_Occ_Gym",
+    "SCH_Occ",
+)
+_PLUG_SCHEDULE_NAMES = ("SCH_Equip", "SCH_Kitchen")
+_HVAC_SCHEDULE_NAMES = (
+    "SCH_HeatAvail",
+    "SCH_CoolAvail",
+    "SCH_FanProxy",
+    "SCH_HVAC",
+    "SCH_OA",
+)
+
+
+def _optimum_start_lead_hours(cfg: dict[str, Any]) -> float:
+    """Lead hours from deadband / (0.10 F/min), capped by optimum_start_max_h."""
+    if not cfg.get("optimum_start"):
+        return 0.0
+    sp = cfg.get("setpoints_f") or {}
+    try:
+        occ = float(sp.get("occupied_heating_f", 70.0))
+        unocc = float(sp.get("unoccupied_heating_f", 60.0))
+    except (TypeError, ValueError):
+        occ, unocc = 70.0, 60.0
+    deadband = max(0.0, occ - unocc)
+    if deadband <= 0:
+        deadband = 10.0
+    try:
+        rate = float(cfg.get("optimum_start_f_per_min", 0.10) or 0.10)
+    except (TypeError, ValueError):
+        rate = 0.10
+    rate = max(rate, 1e-6)
+    try:
+        max_h = float(cfg.get("optimum_start_max_h", 4.0) or 4.0)
+    except (TypeError, ValueError):
+        max_h = 4.0
+    return min(max_h, deadband / (rate * 60.0))
+
+
+def _schedule_name_present(text: str, name: str) -> bool:
+    """True if Schedule:Compact named ``name`` exists (not a prefix of another)."""
+    pat = re.compile(
+        rf"(?is)Schedule:Compact\s*,\s*{re.escape(name)}\s*,",
+    )
+    return bool(pat.search(text))
+
+
+def apply_site_people_hvac_schedules(
+    text: str,
+    site_cfg: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Patch people/plug/HVAC Compact schedules from Site Config. Returns (text, report)."""
+    cfg = site_cfg or {}
+    days = (cfg.get("occupancy_schedule") or {}).get("days") or {}
+    report: dict[str, Any] = {
+        "applied": [],
+        "skipped": [],
+        "optimum_start_lead_h": 0.0,
+        "flags": {
+            "apply_people_plug_schedules": bool(cfg.get("apply_people_plug_schedules")),
+            "apply_hvac_schedules": bool(cfg.get("apply_hvac_schedules")),
+            "optimum_start": bool(cfg.get("optimum_start")),
+        },
+    }
+    lead = (
+        _optimum_start_lead_hours(cfg)
+        if cfg.get("apply_hvac_schedules") and cfg.get("optimum_start")
+        else 0.0
+    )
+    report["optimum_start_lead_h"] = lead
+
+    if cfg.get("apply_people_plug_schedules"):
+        people_fields = _weekly_fraction_fields(
+            days,
+            start_key="people_start",
+            end_key="people_end",
+            occupied_value=0.95,
+            unoccupied_value=0.05,
+        )
+        plug_fields = _weekly_fraction_fields(
+            days,
+            start_key="people_start",
+            end_key="people_end",
+            occupied_value=1.0,
+            unoccupied_value=0.1,
+        )
+        for name in _PEOPLE_SCHEDULE_NAMES:
+            if not _schedule_name_present(text, name):
+                report["skipped"].append(name)
+                continue
+            text = upsert_schedule_compact(
+                text, name, _compact(name, "Fraction", people_fields)
+            )
+            report["applied"].append({"schedule": name, "kind": "people"})
+        for name in _PLUG_SCHEDULE_NAMES:
+            if not _schedule_name_present(text, name):
+                report["skipped"].append(name)
+                continue
+            text = upsert_schedule_compact(
+                text, name, _compact(name, "Fraction", plug_fields)
+            )
+            report["applied"].append({"schedule": name, "kind": "plug"})
+
+    if cfg.get("apply_hvac_schedules"):
+        hvac_fields = _weekly_fraction_fields(
+            days,
+            start_key="hvac_start",
+            end_key="hvac_end",
+            occupied_value=1.0,
+            unoccupied_value=0.0,
+            lead_hours=lead,
+        )
+        for name in _HVAC_SCHEDULE_NAMES:
+            if not _schedule_name_present(text, name):
+                report["skipped"].append(name)
+                continue
+            text = upsert_schedule_compact(
+                text, name, _compact(name, "Fraction", hvac_fields)
+            )
+            report["applied"].append(
+                {"schedule": name, "kind": "hvac", "lead_h": lead}
+            )
+
+    return text, report
+
+
+def apply_site_config_to_idf(
+    text: str,
+    site_cfg: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Setpoints + people/HVAC schedules from full Site Config document."""
+    cfg = site_cfg or {}
+    text = apply_site_setpoints(text, cfg)
+    text, report = apply_site_people_hvac_schedules(text, cfg)
+    report["setpoints_f"] = cfg.get("setpoints_f") or {}
+    return text, report
+
+
 def apply_schedule_calendar_repair(
     idf_text: str,
     *,

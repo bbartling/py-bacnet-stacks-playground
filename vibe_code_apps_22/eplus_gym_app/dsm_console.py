@@ -129,7 +129,7 @@ def default_calendar_month(months: list[str], peak_day: str | None) -> str:
 
 
 def strategy_library(site_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Desktop strategy cards + 96-step SP series (Site Config °F when provided)."""
+    """Desktop strategy cards + 96-step SP series (Site Config deg F when provided)."""
     from eplus_gym.controllers import RuleController, effective_htg_setpoints_f
 
     sp = (site_cfg or {}).get("setpoints_f") if isinstance(site_cfg, dict) else None
@@ -473,13 +473,13 @@ def stage_idf_for_period(
 ) -> Path:
     """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion.
 
-    When ``site_root`` or ``site_config`` is provided, also patch SCH_HtgSP /
-    SCH_ClgSP from Site Config onto the **staged** copy only.
+    When ``site_root`` or ``site_config`` is provided, patch setpoints + people/HVAC
+    schedules from Site Config onto the **staged** copy only.
     """
     from datetime import date
 
     from eplus_native.idf_stage import patch_run_period
-    from eplus_native.schedule_calendar_repair import apply_site_setpoints
+    from eplus_native.schedule_calendar_repair import apply_site_config_to_idf
 
     src = Path(src)
     dest = Path(dest)
@@ -504,6 +504,7 @@ def stage_idf_for_period(
             from eplus_gym_app.site_config import (
                 calendar_contract_from_site_config,
                 load_site_dsm_config,
+                save_apply_report,
             )
 
             cfg = calendar_contract_from_site_config(load_site_dsm_config(site_root))
@@ -516,11 +517,27 @@ def stage_idf_for_period(
             cfg = calendar_contract_from_site_config(cfg)
         except Exception:  # noqa: BLE001
             pass
+    report: dict[str, Any] = {}
     if cfg is not None:
-        text = apply_site_setpoints(text, cfg)
+        text, report = apply_site_config_to_idf(text, cfg)
+        if site_root is not None:
+            try:
+                from eplus_gym_app.site_config import save_apply_report
+
+                save_apply_report(
+                    site_root,
+                    {
+                        **report,
+                        "staged_idf": str(dest),
+                        "begin": str(begin)[:10],
+                        "end": str(end)[:10],
+                        "source_idf": str(src),
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
     dest.write_text(text, encoding="utf-8")
     return dest
-
 
 def stage_idf_for_day(
     src: Path,
@@ -986,7 +1003,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     lib = strategy_library(site_cfg)
     with st.expander("Strategy library (Site Config setpoints)", expanded=False):
         st.caption(
-            "Reference only. Live Run DSM actuates these °F via closed-loop SCH_HtgSP. "
+            "Reference only. Live Run DSM actuates these deg F via closed-loop SCH_HtgSP. "
             "Deep setback unocc is Site Config unocc minus 5 F."
         )
         st.dataframe(pd.DataFrame(lib["rows"]), width="stretch", hide_index=True)

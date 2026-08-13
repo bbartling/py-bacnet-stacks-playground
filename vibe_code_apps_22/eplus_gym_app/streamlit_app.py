@@ -155,6 +155,12 @@ def _render_overview(bundle: SiteUiBundle, campus: Campus | None) -> None:
     c2.metric("Family", family)
     c3.metric("GL14", gl14_label)
     c4.metric("Scorecard peak kW", _fmt_kw(met.peak_kw if met else None))
+    try:
+        from eplus_gym_app.site_config import render_overview_staging_options
+
+        render_overview_staging_options(bundle.site)
+    except Exception as exc:  # noqa: BLE001
+        st.caption(f"Staging options unavailable: {exc}")
 
 
 def _load_campus(bundle: SiteUiBundle) -> Campus | None:
@@ -423,6 +429,38 @@ def _render_calibration_tab(
             knobs_table(active.metrics.knobs), width="stretch", hide_index=True
         )
 
+    st.subheader("Site Config → staged IDF")
+    st.caption(
+        "Published champion IDF is untouched. Values below apply on the next "
+        "**Run DSM** staging pass (people / HVAC / setpoints / opt-start lead)."
+    )
+    try:
+        from eplus_gym_app.site_config import (
+            load_apply_report,
+            load_site_dsm_config,
+            site_config_feedback_rows,
+        )
+
+        cfg = load_site_dsm_config(bundle.site)
+        rows = site_config_feedback_rows(cfg)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+        report = load_apply_report(bundle.site)
+        if report:
+            applied = report.get("applied") or []
+            lead = report.get("optimum_start_lead_h")
+            st.caption(
+                f"Last staging apply report: **{len(applied)}** schedules patched"
+                + (f" · opt-start lead **{lead:.2f} h**" if lead else "")
+                + (
+                    f" · staged `{Path(str(report.get('staged_idf', ''))).name}`"
+                    if report.get("staged_idf")
+                    else ""
+                )
+            )
+    except Exception as exc:  # noqa: BLE001
+        st.caption(f"Site Config feedback unavailable: {exc}")
+
 
 def _hint_site_path() -> str:
     desktop = Path.home() / "OneDrive" / "Desktop" / "testing" / "sp_creekside"
@@ -678,8 +716,9 @@ def main() -> None:
 
     # Track tab state. Default on_change="ignore" resets to the first tab on
     # every rerun — so Run results vanished after clicking Run.
-    tab_cfg, tab_run, tab_cal, tab_fuel, tab_ecm = st.tabs(
-        ["Site Config", "Run DSM", "Calibration", "Fuel", "ECMs"],
+    # Order: Site Config · Calibration · Fuel · Run DSM (ECMs removed; DSM is ECM surface).
+    tab_cfg, tab_cal, tab_fuel, tab_run = st.tabs(
+        ["Site Config", "Calibration", "Fuel", "Run DSM"],
         key="site_dsm_main_tabs",
         on_change="rerun",
     )
@@ -687,14 +726,12 @@ def main() -> None:
         from eplus_gym_app.site_config import render_site_config_tab
 
         render_site_config_tab(site, bundle)
-    with tab_run:
-        _render_run_dsm_tab(bundle)
     with tab_cal:
         _render_calibration_tab(bundle, campus, bundle.champion())
     with tab_fuel:
         _render_fuel_tab(bundle, campus)
-    with tab_ecm:
-        _render_ecm_tab(bundle)
+    with tab_run:
+        _render_run_dsm_tab(bundle)
 
 
 if __name__ == "__main__":

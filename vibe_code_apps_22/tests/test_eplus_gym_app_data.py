@@ -235,6 +235,18 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "Site Config" in site_cfg_copy or any(
         "Occupied heat" in str(getattr(w, "label", "")) for w in at.number_input
     )
+    people_labels = " ".join(str(getattr(w, "label", "")) for w in list(at.time_input) + list(at.markdown))
+    assert "People start" in people_labels or "People" in people_labels
+    assert "HVAC start" in people_labels or "HVAC" in people_labels
+
+    at.session_state["site_dsm_main_tabs"] = "Calibration"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    cal_early = " ".join(
+        str(getattr(w, "value", w)) for w in list(at.subheader) + list(at.caption) + list(at.markdown)
+    )
+    assert "Site Config" in cal_early and ("staged" in cal_early.lower() or "IDF" in cal_early)
 
     at.session_state["site_dsm_main_tabs"] = "Run DSM"
     at.run(timeout=90)
@@ -268,6 +280,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "W2A_PHYSICAL_DSM" in home
     assert "not" in home.lower() and "IdealLoads" in home and "BOPTEST" in home
     assert "Building and fuel" not in home
+    assert "DSM staging options" in home or "Apply people" in home or "optimum start" in home.lower()
 
     at.session_state["site_dsm_main_tabs"] = "Run DSM"
     at.session_state["dsm_period"] = "Winter (Dec-Feb)"
@@ -299,6 +312,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "E+ vs Actual kWh" in cal
     assert "GL14 fuel bills" in cal
     assert "Locked to last Run DSM" in cal or "Follows the Run DSM tab" in cal
+    assert "Site Config" in cal and ("staged" in cal.lower() or "IDF" in cal)
 
     at.session_state["site_dsm_main_tabs"] = "Fuel"
     at.run(timeout=90)
@@ -313,9 +327,5 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     from eplus_gym_app.plots import eui_peer_bullet_figure as _peer_fig
 
     assert callable(_peer_fig)
-    at.session_state["site_dsm_main_tabs"] = "ECMs"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
-    ecm = _copy()
-    assert "ecm" in ecm.lower() or "ECM" in ecm or "measure" in ecm.lower()
+    # ECMs tab removed — DSM is the ECM surface
+    assert "ECMs" not in [str(getattr(t, "label", t)) for t in getattr(at, "tabs", [])]
