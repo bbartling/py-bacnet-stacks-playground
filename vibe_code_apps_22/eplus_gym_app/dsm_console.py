@@ -484,11 +484,14 @@ def stage_idf_for_period(
     *,
     site_root: Path | None = None,
     site_config: dict[str, Any] | None = None,
+    six_zone_actuators: bool = True,
 ) -> Path:
     """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion.
 
     When ``site_root`` or ``site_config`` is provided, patch setpoints + people/HVAC
     schedules from Site Config onto the **staged** copy only.
+    When ``six_zone_actuators`` (default True), split DualSP into six DSM heating
+    schedules for independent Gym actuators.
     """
     from datetime import date
 
@@ -498,6 +501,10 @@ def stage_idf_for_period(
         patch_run_period,
     )
     from eplus_native.schedule_calendar_repair import apply_site_config_to_idf
+    from eplus_native.six_zone_htg_stage import (
+        stage_six_zone_heating_actuators,
+        verify_six_zone_staging,
+    )
 
     src = Path(src)
     dest = Path(dest)
@@ -519,6 +526,13 @@ def stage_idf_for_period(
     # Operational weather-only scoring: never run sizing-period callbacks.
     text = disable_sizing_periods(text)
     text = ensure_zone_mean_air_temperature_outputs(text)
+    six_zone_prov: dict[str, Any] = {}
+    if six_zone_actuators:
+        text, six_zone_prov = stage_six_zone_heating_actuators(text)
+        verdict = verify_six_zone_staging(text)
+        if not verdict["ok"]:
+            raise ValueError("six-zone staging failed: " + "; ".join(verdict["issues"]))
+        six_zone_prov["verify"] = verdict
     cfg = site_config
     if cfg is None and site_root is not None:
         try:
@@ -538,9 +552,10 @@ def stage_idf_for_period(
             cfg = calendar_contract_from_site_config(cfg)
         except Exception:  # noqa: BLE001
             pass
-    report: dict[str, Any] = {}
+    report: dict[str, Any] = {"six_zone_actuators": six_zone_prov}
     if cfg is not None:
-        text, report = apply_site_config_to_idf(text, cfg)
+        text, sc_report = apply_site_config_to_idf(text, cfg)
+        report.update(sc_report)
         if site_root is not None:
             try:
                 from eplus_gym_app.site_config import save_apply_report

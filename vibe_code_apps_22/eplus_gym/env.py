@@ -31,26 +31,16 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
         self.observation_space = self.get_observation_space()
         self.action_space = self.get_action_space()
         self.last_obs: Dict[str, float] = {}
-        # Deterministic init — never action_space.sample(). Default occupied 70°F → °C
-        # unless env_config supplies default_action_c / occupied_heating_f.
-        if "default_action_c" in env_config:
-            self.default_action = float(self.post_process_action(env_config["default_action_c"]))
-        elif "occupied_heating_f" in env_config:
-            occ_f = float(env_config["occupied_heating_f"])
-            self.default_action = float(self.post_process_action((occ_f - 32.0) * 5.0 / 9.0))
-        else:
-            self.default_action = float(self.post_process_action(21.11111111111111))  # 70°F
+        self._obs_keys: List[str] = []
+        # Deterministic init — never action_space.sample().
+        self.default_action = self._resolve_default_action(env_config)
         self.default_action_provenance = {
-            "default_action_c": self.default_action,
-            "source": (
-                "env_config.default_action_c"
-                if "default_action_c" in env_config
-                else (
-                    "env_config.occupied_heating_f"
-                    if "occupied_heating_f" in env_config
-                    else "baseline_70F"
-                )
+            "default_action": (
+                list(self.default_action)
+                if isinstance(self.default_action, (list, tuple, np.ndarray))
+                else float(self.default_action)
             ),
+            "source": str(env_config.get("default_action_source") or "baseline_70F"),
         }
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
@@ -107,15 +97,49 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
     def get_actuators(self) -> Dict[str, Tuple[str, str, str]]:
         ...
 
-    def post_process_action(self, action: Union[float, List[float], np.ndarray]) -> float:
-        if isinstance(action, (list, tuple, np.ndarray)):
-            return float(np.asarray(action).reshape(-1)[0])
-        return float(action)
+    def _resolve_default_action(self, env_config: Dict[str, Any]):
+        if "default_action_c" in env_config:
+            env_config.setdefault("default_action_source", "env_config.default_action_c")
+            return self.post_process_action(env_config["default_action_c"])
+        if "occupied_heating_f" in env_config:
+            env_config.setdefault("default_action_source", "env_config.occupied_heating_f")
+            occ_c = (float(env_config["occupied_heating_f"]) - 32.0) * 5.0 / 9.0
+            n = int(np.prod(self.action_space.shape)) if self.action_space.shape else 1
+            if n > 1:
+                return self.post_process_action([occ_c] * n)
+            return self.post_process_action(occ_c)
+        env_config.setdefault("default_action_source", "baseline_70F")
+        n = int(np.prod(self.action_space.shape)) if self.action_space.shape else 1
+        if n > 1:
+            return self.post_process_action([21.11111111111111] * n)
+        return self.post_process_action(21.11111111111111)
+
+    def post_process_action(self, action: Union[float, List[float], np.ndarray]):
+        """Preserve vector actions when action_space is multi-dimensional."""
+        n = int(np.prod(self.action_space.shape)) if getattr(self, "action_space", None) else 1
+        if n <= 1:
+            if isinstance(action, (list, tuple, np.ndarray)):
+                return float(np.asarray(action).reshape(-1)[0])
+            return float(action)
+        arr = np.asarray(action, dtype=np.float32).reshape(-1)
+        if arr.size == 1:
+            arr = np.full((n,), float(arr[0]), dtype=np.float32)
+        if arr.size != n:
+            raise ValueError(f"action length {arr.size} != action_space {n}")
+        if not np.isfinite(arr).all():
+            raise ValueError(f"non-finite action: {arr}")
+        return arr.astype(np.float32)
+
+    def _obs_vector(self, obs: Dict[str, float]) -> np.ndarray:
+        if not self._obs_keys:
+            self._obs_keys = list(obs.keys())
+        return np.array([float(obs.get(k, float("nan"))) for k in self._obs_keys], dtype=np.float32)
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None):
         super().reset(seed=seed)
         self.episode += 1
         self.timestep = 0
+        self._obs_keys = []
         if self.energyplus_runner is not None:
             self.energyplus_runner.stop()
 
@@ -150,11 +174,12 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
                 details=diag,
             )
         self.last_obs = obs
-        return np.array(list(obs.values()), dtype=np.float32), {
+        return self._obs_vector(obs), {
             "honesty": self.honesty,
             "provenance": self.provenance,
             "promote": self.promote,
             "default_action": self.default_action_provenance,
+            "obs_dict": obs,
         }
 
     def step(self, action):
@@ -187,14 +212,18 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
                 self.last_obs = obs
 
         reward = self.compute_reward(obs)
-        obs_vec = np.array(list(obs.values()), dtype=np.float32)
+        applied = self.post_process_action(action)
         info = {
             "honesty": self.honesty,
             "provenance": self.provenance,
             "obs_dict": obs,
-            "action_c": float(self.post_process_action(action)),
+            "action": (
+                [float(x) for x in applied]
+                if isinstance(applied, np.ndarray)
+                else float(applied)
+            ),
         }
-        return obs_vec, float(reward), done, truncated, info
+        return self._obs_vector(obs), float(reward), done, truncated, info
 
     def close(self):
         if self.energyplus_runner is not None:
