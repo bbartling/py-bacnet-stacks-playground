@@ -10,7 +10,11 @@ from .honesty import (  # noqa: F401
     PROMOTE,
     PROVENANCE_LIVE,
 )
-from .controllers import RuleController, list_strategies  # noqa: F401
+from .controllers import (  # noqa: F401
+    RuleController,
+    effective_htg_setpoints_f,
+    list_strategies,
+)
 from .simulate import run_rule_episode  # noqa: F401
 
 __all__ = [
@@ -19,6 +23,7 @@ __all__ = [
     "PROMOTE",
     "PROVENANCE_LIVE",
     "RuleController",
+    "effective_htg_setpoints_f",
     "list_strategies",
     "run_rule_episode",
 ]
