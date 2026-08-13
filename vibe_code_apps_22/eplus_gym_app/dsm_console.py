@@ -48,23 +48,23 @@ STRATEGY_TUTORIALS: dict[str, str] = {
     ),
     "flat_24_7": (
         "**Flat 24/7** holds occupied heat all day and night (no setback). "
-        "Usually the highest peak and kWh — a 'what if we never set back' bound."
+        "Usually the highest peak and kWh - a 'what if we never set back' bound."
     ),
     "deep_setback": (
         "**Deep setback** drops unoccupied heat further than Site Config "
         "(deeper than the twin baseline). Expect lower unoccupied heating energy and a "
-        "possible morning recovery peak — compare peak kW and kWh vs the twin baseline "
+        "possible morning recovery peak - compare peak kW and kWh vs the twin baseline "
         "and vs Actual BAS."
     ),
     "stagger_preheat": (
         "**Stagger preheat** stages morning recovery across zones to shave coincident peak."
     ),
     "morning_all_on": (
-        "**Morning all-on** pulls heating early together — often a peak-forming stress test."
+        "**Morning all-on** pulls heating early together - often a peak-forming stress test."
     ),
     "optimized": (
         "**Optimized (proposal)** comes from **Optimize Tomorrow** (economic screening). "
-        "It is a recommendation artifact only — not auto-written to Site Config or BACnet."
+        "It is a recommendation artifact only - not auto-written to Site Config or BACnet."
     ),
 }
 
@@ -283,7 +283,7 @@ def attach_actual_deltas(
     kpis_by: dict[str, dict[str, Any]],
     actual_peak_kw: float | None,
 ) -> dict[str, dict[str, Any]]:
-    """Fill vs_actual_pct from BAS meter peak when missing (AMY day ↔ meter day)."""
+    """Fill vs_actual_pct from BAS meter peak when missing (AMY day <-> meter day)."""
     if actual_peak_kw in (None, 0):
         return kpis_by
     ap = float(actual_peak_kw)

@@ -45,16 +45,14 @@ W2A `auto` **never** falls back to the IdealLoads farm.
 |---|---|
 | `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
 | `run_eplus_gym_rules.py --family w2a` | A04 lookup or live |
+| `scripts/vibe22.py` | CLI six-zone DSM screening (Streamlit REMOVED) |
 | `run_eplus_gym_month_farm.py` | IdealLoads farm grow (structural; CLI) |
-| `eplus_gym_app/streamlit_app.py` | Building and fuel · Run DSM · Calibration |
 
-### Streamlit (2026-08-11)
+### CLI (2026-08-13)
 
-No file pickers. Binds to `{site}/reports/site_ui_bundle_v1.json`.  
-Optional sidebar **Load site pack**. Live EnergyPlus is a **CLI subprocess**
-(not in-process `pyenergyplus`). Jupyter still must not start live E+.
-
-IdealLoads farm is **not** a human tab.
+Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**.  
+Entrypoint: `scripts/vibe22.py`. Streamlit archived under
+`archive/streamlit_ui_2026-08-13/`. IdealLoads farm is CLI-only.
 
 ## Explicit non-claims
 
@@ -67,4 +65,4 @@ IdealLoads farm is **not** a human tab.
 
 ## Archaeology
 
-[`archive/2026-08-10_pre_eplus_gym/README.md`](../../archive/2026-08-10_pre_eplus_gym/README.md)
+See [`../../archive/README.md`](../../archive/README.md) (hybrid lab purged).

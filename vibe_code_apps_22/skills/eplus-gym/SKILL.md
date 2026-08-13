@@ -16,8 +16,8 @@ description: >-
 [`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md) ·
 weather: [`../open-meteo-epw/SKILL.md`](../open-meteo-epw/SKILL.md)
 
-**Do not** revive hybrid ONNX / grey-box / control-twin lab from
-`archive/2026-08-10_pre_eplus_gym/` into the live path.
+**Do not** revive hybrid ONNX / grey-box / control-twin lab (purged; see
+`archive/README.md`) into the live path.
 
 ## Honesty
 

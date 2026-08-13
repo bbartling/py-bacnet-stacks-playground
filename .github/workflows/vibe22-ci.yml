@@ -30,5 +30,4 @@ jobs:
       - name: Pytest (full vibe22 suite)
         run: python -m pytest tests -q --tb=short
 
-  # desktop-rust removed: hybrid ONNX egui app archived under
-  # vibe_code_apps_22/archive/2026-08-10_pre_eplus_gym/desktop_onnx/
+  # desktop-rust removed: hybrid ONNX egui app purged (see archive/README.md)

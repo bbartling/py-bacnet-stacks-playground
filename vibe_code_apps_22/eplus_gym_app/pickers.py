@@ -1,7 +1,4 @@
-"""Discover publishable artifacts under the site for Streamlit pickers.
-
-Streamlit only **selects** paths agents already wrote — never runs EnergyPlus.
-"""
+"""Discover publishable artifacts under the site (CLI / agents — not file pickers)."""
 from __future__ import annotations
 
 from dataclasses import dataclass

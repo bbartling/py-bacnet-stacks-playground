@@ -37,6 +37,6 @@ No `$env:SITE_ROOT=...` needed once `config.py` points at your pack.
 | [`vibe22_agent_spec/`](vibe22_agent_spec/README.md) | Spec index (loop, data contract, QA) |
 | [`skills/`](skills/site-pack/SKILL.md) | site-pack · eplus-gym · open-meteo-epw · … |
 | [`docs/audits/eplus_gym_v1.md`](docs/audits/eplus_gym_v1.md) | Honesty / vs rllib-energyplus |
-| [`archive/2026-08-10_pre_eplus_gym/`](archive/2026-08-10_pre_eplus_gym/README.md) | Archived hybrid/desktop/greybox/lab |
+| [`archive/README.md`](archive/README.md) | archive/ml kept; hybrid lab purged; Streamlit archived |
 
 Inspiration: [airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus).

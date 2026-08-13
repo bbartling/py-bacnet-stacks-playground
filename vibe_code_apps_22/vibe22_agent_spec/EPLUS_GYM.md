@@ -89,10 +89,10 @@ Skill: [`../skills/open-meteo-epw/SKILL.md`](../skills/open-meteo-epw/SKILL.md).
 
 ## Site Config (staged setpoints)
 
-Human **Site Config** tab writes `reports/eplus_gym/site_dsm_config.json`
-(occ/unocc heat/cool °F + occupancy + optional peak-day override). Staging in
-`stage_idf_for_period` patches `SCH_HtgSP` / `SCH_ClgSP` on the **run copy**
-only — never overwrite published champions.
+`reports/eplus_gym/site_dsm_config.json` (occ/unocc heat/cool °F + occupancy +
+optional peak-day override). Staging in `stage_idf_for_period` patches schedules
+on the **run copy** only — never overwrite published champions. Six-zone path
+adds `DSM_HTG_SP_*` DualSPs via `eplus_native/six_zone_htg_stage.py`.
 
 ## EnergyPlus-MCP (agent inspect)
 
@@ -110,14 +110,14 @@ Cursor MCP `user-energyplus` is for inspect / RunPeriod / validate
 
 ## Archived product paths
 
-Hybrid ONNX desktop, grey-box 1R1C, control-twin lab, phys-LSTM notebooks:
-
-→ [`../archive/2026-08-10_pre_eplus_gym/README.md`](../archive/2026-08-10_pre_eplus_gym/README.md)
-
-Historical hybrid spec stub: [`HEATING_DSM.md`](HEATING_DSM.md).
+Hybrid ONNX desktop / greybox / control-twin lab: **PURGED** from the tree
+(see [`../archive/README.md`](../archive/README.md)). Historical stub:
+[`HEATING_DSM.md`](HEATING_DSM.md). Parked helpers remain in [`../archive/ml/`](../archive/ml/).
+Streamlit UI: [`../archive/streamlit_ui_2026-08-13/`](../archive/streamlit_ui_2026-08-13/).
 
 ## Non-goals (this cut)
 
 - No BACnet writes
 - No full PPO campaign
 - No claiming IdealLoads treatment = plant savings
+- No Streamlit product surface
