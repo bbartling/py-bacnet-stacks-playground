@@ -118,6 +118,24 @@ streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 Follow [`vibe22_agent_spec/AGENT_LOOP.md`](vibe22_agent_spec/AGENT_LOOP.md) for
 hypothesis → campaign folder → score → republish.
 
+### Site Config + winter AMY (2026-08-13)
+
+- Streamlit tabs: **Site Config · Run DSM · Calibration · Fuel · ECMs**.
+- Site Config persists `{SITE_ROOT}/reports/eplus_gym/site_dsm_config.json`
+  (occ/unocc heat/cool °F + weekly occupancy + optional peak-day override).
+  Values patch **staged** IDFs only (`SCH_HtgSP` / `SCH_ClgSP`) — never the
+  published champion.
+- Multi-year AMY EPW `DATA PERIODS` must be **year-aware** (`mm/dd/yyyy`).
+  Month/day-only headers (`8/1,8/7`) make EnergyPlus treat coverage as a short
+  noyear Aug window and reject winter peaks like `2026-01-26`. Staged RunPeriods
+  with years also set **Treat Weather as Actual=Yes**. Use
+  `repair_epw_data_periods` / preflight auto-repair.
+- EnergyPlus-MCP (`user-energyplus`) is the agent **inspect / RunPeriod /
+  validate** path (`inspect_schedules`, `modify_run_period`, `list_zones`,
+  `validate_idf`). MCP has **no** live setpoint-write tool — do not replace
+  gym Runtime actuators or campaign CLI with MCP. See
+  [`eplus_gym_app/eplus_mcp_bridge.py`](eplus_gym_app/eplus_mcp_bridge.py).
+
 ---
 
 ## Honesty

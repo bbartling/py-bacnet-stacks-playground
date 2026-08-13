@@ -216,12 +216,29 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         ]
     ).to_csv(close_dir / "winter_shape_closeness_a04_ladder.csv", index=False)
     monkeypatch.setenv("LAKESIDE_SITE_ROOT", str(tmp_path))
+    monkeypatch.setenv("SITE_ROOT", str(tmp_path))
     at = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py")
     )
     at.run(timeout=90)
     assert not at.exception
     assert any("Site DSM" in str(t.value) for t in at.title)
+
+    # Default first tab is Site Config
+    at.session_state["site_dsm_main_tabs"] = "Site Config"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.exception)
+    site_cfg_copy = " ".join(
+        str(getattr(w, "value", w)) for w in list(at.subheader) + list(at.caption) + list(at.markdown)
+    )
+    assert "Site Config" in site_cfg_copy or any(
+        "Occupied heat" in str(getattr(w, "label", "")) for w in at.number_input
+    )
+
+    at.session_state["site_dsm_main_tabs"] = "Run DSM"
+    at.run(timeout=90)
+    assert not at.exception
     labels = " ".join(str(getattr(w, "label", "")) for w in list(at.radio) + list(at.selectbox))
     assert "IDF source" not in labels
     assert "campus.json" not in labels.lower()
@@ -252,8 +269,8 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "not" in home.lower() and "IdealLoads" in home and "BOPTEST" in home
     assert "Building and fuel" not in home
 
-    at.session_state["lakeside_main_tabs"] = "Run DSM"
-    at.session_state["dsm_period"] = "Winter (Dec–Feb)"
+    at.session_state["site_dsm_main_tabs"] = "Run DSM"
+    at.session_state["dsm_period"] = "Winter (Dec-Feb)"
     at.run(timeout=90)
     assert not at.exception
     assert not list(at.error)
@@ -269,7 +286,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "2025-12" in copy or "Winter" in copy
     for sid in ("baseline", "deep_setback"):
         assert sid in copy
-    at.session_state["lakeside_main_tabs"] = "Calibration"
+    at.session_state["site_dsm_main_tabs"] = "Calibration"
     at.run(timeout=90)
     assert not at.exception
     assert not list(at.error)
@@ -283,14 +300,14 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "GL14 fuel bills" in cal
     assert "Locked to last Run DSM" in cal or "Follows the Run DSM tab" in cal
 
-    at.session_state["lakeside_main_tabs"] = "Fuel"
+    at.session_state["site_dsm_main_tabs"] = "Fuel"
     at.run(timeout=90)
     assert not at.exception
     assert not list(at.error)
     fuel = _copy()
     assert "Fuel" in fuel or "GL14" in fuel or "bill" in fuel.lower() or "EUI" in fuel
 
-    at.session_state["lakeside_main_tabs"] = "ECMs"
+    at.session_state["site_dsm_main_tabs"] = "ECMs"
     at.run(timeout=90)
     assert not at.exception
     assert not list(at.error)

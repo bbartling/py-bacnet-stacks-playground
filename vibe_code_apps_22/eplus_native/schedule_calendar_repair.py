@@ -325,6 +325,51 @@ def _patch_htg_setpoints(text: str, contract: dict[str, Any]) -> str:
     return upsert_schedule_compact(text, "SCH_HtgSP", body)
 
 
+def _patch_clg_setpoints(text: str, contract: dict[str, Any]) -> str:
+    sp = contract.get("setpoints_f") or {}
+    occ_c = _f_to_c(float(sp.get("occupied_cooling_f", 75.0)))
+    unocc_c = _f_to_c(float(sp.get("unoccupied_cooling_f", 85.0)))
+    body = _compact(
+        "SCH_ClgSP",
+        "Temperature",
+        [
+            "Through: 12/31",
+            "For: SummerDesignDay",
+            "Until: 24:00",
+            f"{occ_c:.2f}",
+            "For: WinterDesignDay",
+            "Until: 24:00",
+            f"{unocc_c:.2f}",
+            "For: Weekends Holidays",
+            "Until: 24:00",
+            f"{unocc_c:.2f}",
+            "For: Thursday",
+            "Until: 06:45",
+            f"{unocc_c:.2f}",
+            "Until: 13:30",
+            f"{occ_c:.2f}",
+            "Until: 24:00",
+            f"{unocc_c:.2f}",
+            "For: AllOtherDays",
+            "Until: 06:45",
+            f"{unocc_c:.2f}",
+            "Until: 15:30",
+            f"{occ_c:.2f}",
+            "Until: 24:00",
+            f"{unocc_c:.2f}",
+        ],
+    )
+    return upsert_schedule_compact(text, "SCH_ClgSP", body)
+
+
+def apply_site_setpoints(text: str, contract: dict[str, Any] | None = None) -> str:
+    """Patch SCH_HtgSP + SCH_ClgSP from Site Config setpoints_f (deg F -> C)."""
+    cal = contract or {"setpoints_f": {}}
+    text = _patch_htg_setpoints(text, cal)
+    text = _patch_clg_setpoints(text, cal)
+    return text
+
+
 def apply_schedule_calendar_repair(
     idf_text: str,
     *,
@@ -385,6 +430,7 @@ def apply_schedule_calendar_repair(
     )
 
     text = _patch_htg_setpoints(text, cal)
+    text = _patch_clg_setpoints(text, cal)
     text = _upsert_run_period_holidays(text, cal)
     gt = (cal.get("ground_temperature_building_surface_c") or {}).get("jan_dec_c")
     if gt:

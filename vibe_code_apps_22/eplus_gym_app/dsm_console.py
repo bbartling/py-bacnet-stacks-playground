@@ -1,4 +1,4 @@
-﻿"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
+"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
 from __future__ import annotations
 
 import json
@@ -51,7 +51,7 @@ def pick_frame(
 
 
 def frame_map(value: Any) -> dict[str, pd.DataFrame]:
-    """Coerce session/disk payload to a strâ†’DataFrame map (never bool(DataFrame))."""
+    """Coerce session/disk payload to a str->DataFrame map (never bool(DataFrame))."""
     if not isinstance(value, dict):
         return {}
     out: dict[str, pd.DataFrame] = {}
@@ -124,7 +124,7 @@ def live_run_jobs(
     end: str,
     max_steps: int,
 ) -> list[dict[str, Any]]:
-    """One CLI job per strategy Ã— weather. Keys are strategy:weather_kind."""
+    """One CLI job per strategy x weather. Keys are strategy:weather_kind."""
     jobs: list[dict[str, Any]] = []
     for sid in strategies:
         for kind, epw in weathers:
@@ -210,8 +210,8 @@ def dsm_kpis(
 def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Window-total kW trim and kWh penalty vs the baseline strategy.
 
-    kw_trim = baseline peak kW âˆ’ strategy peak kW  (+ = trimmed demand)
-    kwh_penalty = strategy kWh âˆ’ baseline kWh      (+ = energy penalty)
+    kw_trim = baseline peak kW - strategy peak kW  (+ = trimmed demand)
+    kwh_penalty = strategy kWh - baseline kWh      (+ = energy penalty)
     Totals cover the whole selected window (peak day / month / winter / year).
     """
     base = kpis_by.get("baseline") or {}
@@ -412,11 +412,24 @@ def actual_day_profile(bundle: SiteUiBundle, day: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def stage_idf_for_period(src: Path, dest: Path, begin: str, end: str) -> Path:
-    """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion."""
+def stage_idf_for_period(
+    src: Path,
+    dest: Path,
+    begin: str,
+    end: str,
+    *,
+    site_root: Path | None = None,
+    site_config: dict[str, Any] | None = None,
+) -> Path:
+    """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion.
+
+    When ``site_root`` or ``site_config`` is provided, also patch SCH_HtgSP /
+    SCH_ClgSP from Site Config onto the **staged** copy only.
+    """
     from datetime import date
 
     from eplus_native.idf_stage import patch_run_period
+    from eplus_native.schedule_calendar_repair import apply_site_setpoints
 
     src = Path(src)
     dest = Path(dest)
@@ -425,25 +438,52 @@ def stage_idf_for_period(src: Path, dest: Path, begin: str, end: str) -> Path:
     b = date.fromisoformat(str(begin)[:10])
     e = date.fromisoformat(str(end)[:10])
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(
-        patch_run_period(
-            src.read_text(encoding="utf-8"),
-            begin_month=b.month,
-            begin_day=b.day,
-            end_month=e.month,
-            end_day=e.day,
-            begin_year=b.year,
-            end_year=e.year,
-            name=f"DSM_{b.isoformat()}_{e.isoformat()}",
-        ),
-        encoding="utf-8",
+    text = patch_run_period(
+        src.read_text(encoding="utf-8"),
+        begin_month=b.month,
+        begin_day=b.day,
+        end_month=e.month,
+        end_day=e.day,
+        begin_year=b.year,
+        end_year=e.year,
+        name=f"DSM_{b.isoformat()}_{e.isoformat()}",
     )
+    cfg = site_config
+    if cfg is None and site_root is not None:
+        try:
+            from eplus_gym_app.site_config import (
+                calendar_contract_from_site_config,
+                load_site_dsm_config,
+            )
+
+            cfg = calendar_contract_from_site_config(load_site_dsm_config(site_root))
+        except Exception:  # noqa: BLE001
+            cfg = None
+    elif cfg is not None and "setpoints_f" not in cfg:
+        try:
+            from eplus_gym_app.site_config import calendar_contract_from_site_config
+
+            cfg = calendar_contract_from_site_config(cfg)
+        except Exception:  # noqa: BLE001
+            pass
+    if cfg is not None:
+        text = apply_site_setpoints(text, cfg)
+    dest.write_text(text, encoding="utf-8")
     return dest
 
 
-def stage_idf_for_day(src: Path, dest: Path, day: str) -> Path:
+def stage_idf_for_day(
+    src: Path,
+    dest: Path,
+    day: str,
+    *,
+    site_root: Path | None = None,
+    site_config: dict[str, Any] | None = None,
+) -> Path:
     """Copy IDF with RunPeriod clipped to ``day``. Never overwrite the champion."""
-    return stage_idf_for_period(src, dest, day, day)
+    return stage_idf_for_period(
+        src, dest, day, day, site_root=site_root, site_config=site_config
+    )
 
 
 def format_hms(seconds: float) -> str:
@@ -492,7 +532,7 @@ def summarize_eplus_failure(log: Path, *, exit_code: int | None = None) -> str:
         break
     if exit_code not in (None, 0):
         bits.insert(0, f"exit code {exit_code}")
-    return " · ".join(dict.fromkeys(bits)) or text[-300:]
+    return "  |  ".join(dict.fromkeys(bits)) or text[-300:]
 
 
 def wait_live_subprocess(
@@ -520,11 +560,11 @@ def wait_live_subprocess(
                 except OSError:
                     snippet = ""
                 if "energyplus terminated" in snippet or "error(s) detected" in snippet:
-                    health = " · E+ ERROR in log"
+                    health = "  |  E+ ERROR in log"
             status.update(
                 label=(
-                    f"{job_label} · sim {job_index}/{job_total} · "
-                    f"job {format_hms(job_elapsed)} · total {format_hms(camp_elapsed)}"
+                    f"{job_label}  |  sim {job_index}/{job_total}  |  "
+                    f"job {format_hms(job_elapsed)}  |  total {format_hms(camp_elapsed)}"
                     f"{health}"
                 ),
                 state="running",
@@ -654,7 +694,7 @@ def persist_last_run(
         "kpis": kpis,
         "frame": df,
         "actual": actual,
-        "title": f"E+ champion {strategy} vs Actual meter · {day} · {preset}",
+        "title": f"E+ champion {strategy} vs Actual meter  |  {day}  |  {preset}",
         "strategy": strategy,
         "day": day,
         "preset": preset,
@@ -865,7 +905,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         peak_day_smoke_ok,
         reconcile_campaign,
         request_cancel,
-        write_campaign,  # noqa: F401 â€” imported for tests/monkeypatch
+        write_campaign,  # noqa: F401 - imported for tests/monkeypatch
     )
     from eplus_gym_app.dsm_preflight import sha256_file
     from eplus_gym_app.plots import (
@@ -877,14 +917,18 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     )
 
     st.subheader("Run DSM")
+    from eplus_gym_app.site_config import load_site_dsm_config, setpoints_summary
+
+    site_cfg = load_site_dsm_config(bundle.site)
     st.caption(
-        f"Champion `{bundle.dsm_champion}` · W2A_PHYSICAL_DSM · promote=False. "
-        "Default: **Peak day** · **AMY** · baseline + one strategy (2 jobs). "
+        f"Champion `{bundle.dsm_champion}`  |  W2A_PHYSICAL_DSM  |  promote=False. "
+        "Default: **Peak day**  |  **AMY**  |  baseline + one strategy (2 jobs). "
         "Live E+ is closed-loop (`CLOSED_LOOP_RULE_DR` / `SCH_HtgSP` every 15 min) via "
-        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status."
+        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status. "
+        f"Site Config: {setpoints_summary(site_cfg)}."
     )
     mode, reason = resolve_dsm_mode(bundle.site)
-    st.info(f"Mode: **{mode}** â€” {reason}")
+    st.info(f"Mode: **{mode}** - {reason}")
 
     # Reconcile stale campaigns on every render
     camp = reconcile_campaign(bundle.site)
@@ -941,6 +985,12 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             st.caption(inv.get("tmy_missing_note") or "No Madison MSN TMY on this site.")
 
     ctx = pick_run_context(bundle, preset, month if preset == "Calendar month" else None)
+    override = site_cfg.get("peak_day_override")
+    if override and preset == "Peak day":
+        ctx = dict(ctx)
+        ctx["day"] = str(override)[:10]
+        ctx["window_days"] = [str(override)[:10]]
+        ctx["why"] = f"Site Config peak_day_override={override}"
     spec = period_run_spec(ctx, preset)
     day = spec["peak_day"]
     strategies = (
@@ -974,10 +1024,10 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         )
 
     st.markdown(
-        f"**Will run** `{', '.join(strategies)}` · `{spec['begin']}` â†’ `{spec['end']}` · "
-        f"**{spec['n_days']} days** · **{spec['max_steps']} steps** · "
-        f"**{len(jobs)} job(s)** · weather `{wx_mode}` ({epw_names}). "
-        f"Meter-peak day: `{day}` â€” {ctx['why']}."
+        f"**Will run** `{', '.join(strategies)}`  |  `{spec['begin']}` -> `{spec['end']}`  |  "
+        f"**{spec['n_days']} days**  |  **{spec['max_steps']} steps**  |  "
+        f"**{len(jobs)} job(s)**  |  weather `{wx_mode}` ({epw_names}). "
+        f"Meter-peak day: `{day}` - {ctx['why']}."
     )
 
     @st.fragment(run_every=timedelta(seconds=1))
@@ -992,17 +1042,25 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         if isinstance(err, dict):
             msg = str(err.get("message") or "")
         st.markdown(
-            f"**Campaign:** `{state}` · "
-            f"**{done} / {total}** · "
+            f"**Campaign:** `{state}`  |  "
+            f"**{done} / {total}**  |  "
             f"elapsed **{format_hms(elapsed)}**"
-            + (f" · `{doc.get('run_id')}`" if doc.get("run_id") else "")
+            + (f"  |  `{doc.get('run_id')}`" if doc.get("run_id") else "")
         )
         if state in {"failed", "cancelled"} and msg:
             st.error(msg)
+            severe = None
+            if isinstance(err, dict):
+                severe = err.get("severe_or_fatal") or err.get("eplusout_err")
+                details = err.get("details") if isinstance(err.get("details"), dict) else {}
+                if not severe and details:
+                    severe = details.get("severe_or_fatal") or details.get("message")
+            if severe:
+                st.warning(f"eplusout.err: {severe}")
         elif state == "succeeded":
             st.success(f"Campaign succeeded ({done}/{total}) in {format_hms(elapsed)}")
         elif state in {"preflight", "queued", "starting", "running"}:
-            st.info(msg or "Supervisor runningâ€¦")
+            st.info(msg or "Supervisor running...")
             if st.button("Cancel campaign", key="dsm_cancel_btn"):
                 request_cancel(bundle.site)
                 st.warning("Cancel requested")
@@ -1010,7 +1068,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     _campaign_status_fragment()
 
     long_campaign = len(jobs) > 2 or int(spec["n_days"]) > 7 or preset in {
-        "Winter (Decâ€“Feb)",
+        "Winter (Dec-Feb)",
         "Calendar year",
     }
     run_label = "Run DSM" if not run_all_five else "Run all 5 strategies"
@@ -1020,8 +1078,8 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             return
         if long_campaign:
             st.warning(
-                f"Long campaign: {len(jobs)} jobs · {preset} · {spec['period']} · "
-                f"~{spec['max_steps']} steps/job · IDF `{Path(idf).name if idf else '?'}` · "
+                f"Long campaign: {len(jobs)} jobs  |  {preset}  |  {spec['period']}  |  "
+                f"~{spec['max_steps']} steps/job  |  IDF `{Path(idf).name if idf else '?'}`  |  "
                 f"EPW {epw_names}"
             )
         actual_peak = ctx.get("actual_peak_kw")
@@ -1147,7 +1205,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     )
     if stale:
         st.warning(
-            f"Chart below is the **last Run** (`{last.get('preset')}` · `{last.get('period')}` · "
+            f"Chart below is the **last Run** (`{last.get('preset')}`  |  `{last.get('period')}`  |  "
             f"`{last.get('weather_mode')}`). "
             f"Click **{run_label}** for `{preset}` -> `{spec['period']}`."
         )
@@ -1175,21 +1233,21 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     elapsed_map = last.get("elapsed_by_weather") or {}
     if elapsed_map:
         elapsed_bit = (
-            f" · {format_hms(sum(elapsed_map.values()))} total ({len(elapsed_map)} runs)"
+            f"  |  {format_hms(sum(elapsed_map.values()))} total ({len(elapsed_map)} runs)"
         )
     else:
         elapsed = last.get("elapsed_s")
         elapsed_bit = (
-            f" · EnergyPlus wall {format_hms(elapsed)}"
+            f"  |  EnergyPlus wall {format_hms(elapsed)}"
             if isinstance(elapsed, (int, float))
             else ""
         )
     ran = list(last.get("strategies") or kpis_by.keys()) or ["all"]
     st.header("Results")
     st.info(
-        f"**Last run** `{last.get('preset')}` · period `{last.get('period') or last.get('day')}` · "
-        f"{len(ran)} strategies ({', '.join(ran)}) · "
-        f"{last.get('n_days') or last.get('window_n') or '?'} days · "
+        f"**Last run** `{last.get('preset')}`  |  period `{last.get('period') or last.get('day')}`  |  "
+        f"{len(ran)} strategies ({', '.join(ran)})  |  "
+        f"{last.get('n_days') or last.get('window_n') or '?'} days  |  "
         f"{last.get('max_steps') or '?'} steps{elapsed_bit}. "
         "Charts below."
     )
@@ -1262,12 +1320,12 @@ def _render_dsm_results_charts(**kwargs):
         st.plotly_chart(
             dsm_panel_figure(
                 actual if actual is not None else pd.DataFrame(),
-                title=f"Actual BAS meter · {last.get('day')}",
+                title=f"Actual BAS meter  |  {last.get('day')}",
                 ycol="kw_avg",
                 name="Actual (BAS meter)",
                 color="#1f2a30",
                 oat_col="oat_f",
-                oat_name="Actual OAT °F",
+                oat_name="Actual OAT  degF",
             ),
             width="stretch",
             key=f"dsm_actual_{last.get('day')}_{last.get('preset')}",
@@ -1276,12 +1334,12 @@ def _render_dsm_results_charts(**kwargs):
         st.plotly_chart(
             dsm_panel_figure(
                 primary_slice if primary_slice is not None else eplus,
-                title=f"EnergyPlus champion baseline · {last.get('day')}",
+                title=f"EnergyPlus champion baseline  |  {last.get('day')}",
                 ycol="facility_kw",
                 name="E+ champion baseline kW",
                 color=COLORS.get("baseline", "#2a9d8f"),
                 oat_col="oat_f",
-                oat_name="E+ EPW OAT °F",
+                oat_name="E+ EPW OAT  degF",
             ),
             width="stretch",
             key=f"dsm_eplus_{last.get('day')}_all_{last.get('mode')}",
@@ -1290,7 +1348,7 @@ def _render_dsm_results_charts(**kwargs):
         dsm_trajectory_figure(
             primary_slice if primary_slice is not None else eplus,
             actual=actual,
-            title=f"Peak-day 15-min overlay · {last.get('day')}",
+            title=f"Peak-day 15-min overlay  |  {last.get('day')}",
             extra_eplus=extra if extra else None,
         ),
         width="stretch",

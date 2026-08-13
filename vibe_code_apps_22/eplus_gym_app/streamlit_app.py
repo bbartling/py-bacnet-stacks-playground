@@ -439,9 +439,22 @@ def _render_fuel_tab(bundle: SiteUiBundle, campus: Campus | None) -> None:
         st.warning("No campus on the published pack.")
         return
 
+    from eplus_gym_app.plots import eui_peer_bullet_figure
+
     st.markdown(f"**{campus.label}** (`{campus.campus_id}`)")
     eui = campus.site_eui_kbtu_ft2()
-    prop = campus.buildings[0].property_type if campus.buildings else "office"
+    default_prop = "k12_school"
+    if campus.buildings:
+        default_prop = str(campus.buildings[0].property_type or default_prop)
+    type_opts = ["k12_school", "office", "default"]
+    if default_prop not in type_opts:
+        type_opts = [default_prop, *type_opts]
+    prop = st.selectbox(
+        "Peer property type",
+        options=type_opts,
+        index=type_opts.index(default_prop) if default_prop in type_opts else 0,
+        key="fuel_peer_property_type",
+    )
     peer = eui_peer_band(prop)
     m1, m2, m3, m4 = st.columns(4)
     if eui is not None:
@@ -456,6 +469,45 @@ def _render_fuel_tab(bundle: SiteUiBundle, campus: Campus | None) -> None:
     )
 
     kinds = campus.fuel_kinds() or ["electricity"]
+    if "natural_gas" not in kinds and "gas" not in kinds:
+        st.caption("All-electric site (no natural gas bills).")
+
+    series: list[dict] = []
+    if eui is not None:
+        series.append(
+            {"label": "Site", "eui": float(eui), "color": "#1f77b4", "symbol": "diamond"}
+        )
+    for bldg in campus.buildings or []:
+        beui = getattr(bldg, "eui_kbtu_ft2", None)
+        if beui is None and hasattr(bldg, "site_eui_kbtu_ft2"):
+            try:
+                beui = bldg.site_eui_kbtu_ft2()
+            except Exception:  # noqa: BLE001
+                beui = None
+        if beui is None:
+            # Fall back: area-weighted share of site EUI if area known
+            continue
+        series.append(
+            {
+                "label": getattr(bldg, "label", None) or getattr(bldg, "building_id", "bldg"),
+                "eui": float(beui),
+                "color": "#ff7f0e",
+                "symbol": "diamond",
+            }
+        )
+    if series:
+        st.plotly_chart(
+            eui_peer_bullet_figure(
+                peer_p20=float(peer["p20"]),
+                peer_p50=float(peer["p50"]),
+                peer_p80=float(peer["p80"]),
+                series=series,
+                title=f"Site EUI vs {peer['property_type']} peers",
+            ),
+            width="stretch",
+            key="fuel_peer_bullet",
+        )
+
     active = bundle.champion()
     all_months: list[str] = []
     for fuel in kinds:
@@ -627,11 +679,15 @@ def main() -> None:
 
     # Track tab state. Default on_change="ignore" resets to the first tab on
     # every rerun — so Run results vanished after clicking Run.
-    tab_run, tab_cal, tab_fuel, tab_ecm = st.tabs(
-        ["Run DSM", "Calibration", "Fuel", "ECMs"],
+    tab_cfg, tab_run, tab_cal, tab_fuel, tab_ecm = st.tabs(
+        ["Site Config", "Run DSM", "Calibration", "Fuel", "ECMs"],
         key="site_dsm_main_tabs",
         on_change="rerun",
     )
+    with tab_cfg:
+        from eplus_gym_app.site_config import render_site_config_tab
+
+        render_site_config_tab(site, bundle)
     with tab_run:
         _render_run_dsm_tab(bundle)
     with tab_cal:

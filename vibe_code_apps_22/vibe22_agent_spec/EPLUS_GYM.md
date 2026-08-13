@@ -75,11 +75,29 @@ Artifacts: `reports/eplus_gym/`.
 | `TMY_SCREENING` | Chicago O'Hare / `*screening*` | **Never auto-select** |
 
 AMY is **actual-year M&V**, not typical. Do not invent an EPW from BAS OAT-only.
+Multi-year AMY `DATA PERIODS` must use `mm/dd/yyyy` (not `8/1,8/7` noyear) or
+EnergyPlus rejects winter RunPeriods. Staged IDFs with Begin/End Year set
+Treat Weather as Actual=Yes so E+ uses absolute dates (not Julian mm/dd).
+Preflight calls `repair_epw_data_periods`.
 Console **Calendar month** defaults to the BAS peak-day month.
 Scorecard: **kW trim** (baseline peak − strategy peak) and **kWh penalty**
 (strategy kWh − baseline kWh) over the **entire selected window**.
 No live `ml/` package — helpers live in `archive/ml/`.
 Skill: [`../skills/open-meteo-epw/SKILL.md`](../skills/open-meteo-epw/SKILL.md).
+
+## Site Config (staged setpoints)
+
+Human **Site Config** tab writes `reports/eplus_gym/site_dsm_config.json`
+(occ/unocc heat/cool °F + occupancy + optional peak-day override). Staging in
+`stage_idf_for_period` patches `SCH_HtgSP` / `SCH_ClgSP` on the **run copy**
+only — never overwrite published champions.
+
+## EnergyPlus-MCP (agent inspect)
+
+Cursor MCP `user-energyplus` is for inspect / RunPeriod / validate
+(`inspect_schedules`, `modify_run_period` on copies, `validate_idf`,
+`list_zones`). It is **not** a live setpoint actuator path. See
+[`../eplus_gym_app/eplus_mcp_bridge.py`](../eplus_gym_app/eplus_mcp_bridge.py).
 
 ## Twin foundation (still live)
 

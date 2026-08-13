@@ -328,8 +328,16 @@ def patch_run_period(
     begin_year: int | None = None,
     end_year: int | None = None,
     name: str = "DSM_WINDOW",
+    treat_weather_as_actual: bool | None = None,
 ) -> str:
-    """Replace first RunPeriod object dates (keeps other fields)."""
+    """Replace first RunPeriod object dates (keeps other fields).
+
+    When Begin/End Year are set, ``Treat Weather as Actual`` defaults to Yes so
+    EnergyPlus uses absolute multi-year DATA PERIODS coverage (mm/dd Julian
+    matching would reject winter days inside an Aug-start AMY).
+    """
+    if treat_weather_as_actual is None:
+        treat_weather_as_actual = begin_year is not None and end_year is not None
     lines = text.splitlines()
     out = []
     in_rp = False
@@ -367,6 +375,11 @@ def patch_run_period(
                 m = re.match(r"^(\s*)([0-9]+)(.*)$", line)
                 if m:
                     line = f"{m.group(1)}{end_year}{m.group(3)}"
+            elif "Treat Weather as Actual" in line and treat_weather_as_actual is not None:
+                m = re.match(r"^(\s*)([^,;]+)(.*)$", line)
+                if m:
+                    val = "Yes" if treat_weather_as_actual else "No"
+                    line = f"{m.group(1)}{val}{m.group(3)}"
             if ";" in line.split("!")[0]:
                 in_rp = False
         out.append(line)

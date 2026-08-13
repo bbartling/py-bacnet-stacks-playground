@@ -9,7 +9,11 @@ from typing import Any
 
 from eplus_gym.discover import energyplus_available
 from eplus_gym.month_calendar import DEPLOYABLE_STRATEGIES
-from eplus_gym_app.open_meteo_epw import parse_epw_span
+from eplus_gym_app.open_meteo_epw import (
+    parse_epw_data_periods,
+    parse_epw_span,
+    repair_epw_data_periods,
+)
 
 
 class PreflightError(ValueError):
@@ -68,6 +72,11 @@ def assert_period_within_epw(begin: str, end: str, epw: Path) -> dict[str, Any]:
             f"EPW not found: {epw}. No simulation started.",
             details={"epw": str(epw)},
         )
+    # Repair legacy DATA PERIODS (mm/dd only) so EnergyPlus sees the full AMY span.
+    try:
+        repair_meta = repair_epw_data_periods(epw)
+    except (OSError, ValueError) as exc:
+        repair_meta = {"error": str(exc)}
     span = parse_epw_span(epw)
     cov_start = span.get("start")
     cov_end = span.get("end")
@@ -76,6 +85,9 @@ def assert_period_within_epw(begin: str, end: str, epw: Path) -> dict[str, Any]:
             f"Could not parse EPW coverage from {epw}. No simulation started.",
             details={"epw": str(epw), "span": span},
         )
+    header = parse_epw_data_periods(epw)
+    hdr_start = header.get("start")
+    hdr_end = header.get("end")
     b = date.fromisoformat(str(begin)[:10])
     e = date.fromisoformat(str(end)[:10])
     if b < cov_start or e > cov_end:
@@ -89,11 +101,44 @@ def assert_period_within_epw(begin: str, end: str, epw: Path) -> dict[str, Any]:
                 "coverage_end": cov_end.isoformat(),
             },
         )
+    # EnergyPlus uses DATA PERIODS for GetNextEnvironment - reject collapsed headers.
+    if hdr_start is not None and hdr_end is not None:
+        if b < hdr_start or e > hdr_end:
+            raise PreflightError(
+                f"Requested RunPeriod {b.isoformat()} -> {e.isoformat()} is outside "
+                f"EPW DATA PERIODS header {hdr_start.isoformat()} -> {hdr_end.isoformat()} "
+                f"({Path(epw).name}). EnergyPlus would reject this weather window. "
+                "No simulation started.",
+                details={
+                    "begin": b.isoformat(),
+                    "end": e.isoformat(),
+                    "epw": str(epw),
+                    "data_periods_start": hdr_start.isoformat(),
+                    "data_periods_end": hdr_end.isoformat(),
+                    "data_periods_raw": header.get("raw"),
+                    "repair": repair_meta,
+                },
+            )
+        if not header.get("year_aware") and (cov_end - cov_start).days > 31:
+            raise PreflightError(
+                f"EPW DATA PERIODS is not year-aware ({header.get('raw')}) while data "
+                f"rows span {cov_start.isoformat()} -> {cov_end.isoformat()}. "
+                "Repair failed; multi-year winter RunPeriods will fail in EnergyPlus. "
+                "No simulation started.",
+                details={
+                    "epw": str(epw),
+                    "data_periods_raw": header.get("raw"),
+                    "repair": repair_meta,
+                },
+            )
     return {
         "epw": str(epw),
         "coverage_start": cov_start.isoformat(),
         "coverage_end": cov_end.isoformat(),
         "n_rows": span.get("n_rows"),
+        "data_periods": header.get("raw"),
+        "data_periods_year_aware": bool(header.get("year_aware")),
+        "repair": repair_meta,
     }
 
 

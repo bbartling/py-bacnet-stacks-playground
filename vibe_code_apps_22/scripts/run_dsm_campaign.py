@@ -394,7 +394,24 @@ def main(argv: list[str] | None = None) -> int:
             job["exit_code"] = code
             job["log"] = str(log)
             if code != 0:
-                raise RuntimeError(f"CLI exit {code}; see {log}")
+                from eplus_gym.startup_diag import find_eplusout_err
+
+                severe = None
+                err_path = find_eplusout_err(job_out)
+                if err_path is not None and err_path.is_file():
+                    try:
+                        err_text = err_path.read_text(encoding="utf-8", errors="ignore")
+                    except OSError:
+                        err_text = ""
+                    for line in err_text.splitlines():
+                        low = line.lower()
+                        if "severe" in low or "fatal" in low:
+                            severe = line.strip()[:400]
+                            break
+                raise RuntimeError(
+                    f"CLI exit {code}; see {log}"
+                    + (f" | eplusout.err: {severe}" if severe else "")
+                )
             gates = validate_job_outputs(
                 job_out, max_steps=max_steps, begin=begin, end=end
             )
@@ -417,14 +434,33 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             job["state"] = "failed"
             doc["child_pid"] = None
+            msg = str(exc)
+            severe = None
+            if "eplusout.err:" in msg:
+                severe = msg.split("eplusout.err:", 1)[-1].strip()
+            else:
+                from eplus_gym.startup_diag import find_eplusout_err
+
+                err_path = find_eplusout_err(job_out)
+                if err_path is not None and err_path.is_file():
+                    try:
+                        err_text = err_path.read_text(encoding="utf-8", errors="ignore")
+                    except OSError:
+                        err_text = ""
+                    for line in err_text.splitlines():
+                        low = line.lower()
+                        if "severe" in low or "fatal" in low:
+                            severe = line.strip()[:400]
+                            break
             mark_failed(
                 site,
                 doc,
                 {
                     "type": type(exc).__name__,
-                    "message": str(exc),
+                    "message": msg,
                     "job_key": key,
                     "completed_jobs": int(doc.get("completed_jobs") or 0),
+                    "severe_or_fatal": severe,
                 },
             )
             print(f"job failed {key}: {exc}", file=sys.stderr)

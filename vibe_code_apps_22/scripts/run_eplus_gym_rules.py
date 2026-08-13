@@ -179,6 +179,7 @@ def main() -> int:
             out / f"staged_{begin}_{end}_{Path(args.idf).name}",
             begin,
             end,
+            site_root=site,
         )
         print(f"staged_idf={live_idf} period={period} max_steps={max_steps}")
 
