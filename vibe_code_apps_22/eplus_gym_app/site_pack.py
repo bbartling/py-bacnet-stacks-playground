@@ -172,16 +172,58 @@ def _looks_interval_csv(path: Path) -> bool:
     return has_ts and has_kw
 
 
-def _pick_champion_idf(idfs: list[Path]) -> Path | None:
-    if not idfs:
+A04_IDF_NAME = "lakeside_w2a_a04_dual_champion.idf"
+
+
+def _pick_champion_idf(idfs: list[Path], *, site: Path | None = None) -> Path | None:
+    """Prefer exact A04 dual champion; never 'first *champion*' or E20 when A04 exists."""
+    if not idfs and site is None:
         return None
-    for p in idfs:
-        if "champion" in p.name.lower():
-            return p
-    for p in idfs:
+    pool = list(idfs)
+
+    def _exact_a04(cands: list[Path]) -> Path | None:
+        for p in cands:
+            if p.name.lower() == A04_IDF_NAME.lower():
+                return p
+        return None
+
+    hit = _exact_a04(pool)
+    if hit is not None:
+        return hit
+
+    # Site-local search only (never invent A04 from the repo into a generic pack).
+    if site is not None:
+        for root in (Path(site), Path(site) / "eplus" / "models"):
+            if not root.exists():
+                continue
+            direct = root / A04_IDF_NAME
+            if direct.is_file():
+                return direct
+            if root.is_dir():
+                for p in root.glob(A04_IDF_NAME):
+                    if p.is_file():
+                        return p
+
+    # Lakeside practice fallback: repo models/eplus A04 only when pack already looks Lakeside.
+    lakesideish = any("lakeside" in p.name.lower() or "a04" in p.name.lower() for p in pool)
+    if lakesideish:
+        app_root = Path(__file__).resolve().parents[1]
+        repo_models = app_root / "models" / "eplus"
+        if repo_models.is_dir():
+            direct = repo_models / A04_IDF_NAME
+            if direct.is_file():
+                return direct
+
+    for p in pool:
         if "a04" in p.name.lower():
             return p
-    return sorted(idfs, key=lambda p: p.name.lower())[0]
+    if pool:
+        # Prefer *champion* only among generic names (no E20 token race vs A04 — A04 already handled).
+        champs = [p for p in pool if "champion" in p.name.lower()]
+        if champs:
+            return sorted(champs, key=lambda p: p.name.lower())[0]
+        return sorted(pool, key=lambda p: p.name.lower())[0]
+    return None
 
 
 def _pick_interval(cands: list[Path]) -> Path | None:
@@ -272,7 +314,7 @@ def inventory_site_pack(root: Path) -> SitePackInventory:
     inv.campus_json = campus if campus and _try_campus(campus) else None
 
     inv.idfs = sorted(_iter_matches(root, "*.idf"))
-    inv.champion_idf = _pick_champion_idf(inv.idfs)
+    inv.champion_idf = _pick_champion_idf(inv.idfs, site=root)
 
     inv.interval_csvs = [p for p in _iter_matches(root, "*.csv") if _looks_interval_csv(p)]
     inv.interval_csv = _pick_interval(inv.interval_csvs)
@@ -431,6 +473,22 @@ def publish_site_ui_bundle(
         if cat_pin:
             idf_pin = cat_pin
         break
+    # Hard-prefer catalog A04 when present and pin matches A04 file.
+    for raw in doc.get("model_catalog") or []:
+        if not isinstance(raw, dict):
+            continue
+        if str(raw.get("id") or "").upper() != "A04":
+            continue
+        cat_pin = str(raw.get("idf_pin") or A04_IDF_NAME)
+        if inv.champion_idf is not None and inv.champion_idf.name.lower() == A04_IDF_NAME.lower():
+            model_id = "A04"
+            idf_pin = inv.champion_idf.name
+            break
+        if cat_pin.lower() == A04_IDF_NAME.lower() and inv.champion_idf is not None:
+            if "a04" in inv.champion_idf.name.lower():
+                model_id = "A04"
+                idf_pin = inv.champion_idf.name
+                break
     if inv.champion_idf is not None and (
         not any(
             isinstance(r, dict)
@@ -458,6 +516,51 @@ def publish_site_ui_bundle(
         }
     if not idf_pin and inv.champion_idf is not None:
         idf_pin = inv.champion_idf.name
+
+    # Lakeside / A04 practice pack contract: never publish E20 as DSM champion when A04 exists.
+    has_a04_file = inv.champion_idf is not None and (
+        inv.champion_idf.name.lower() == A04_IDF_NAME.lower()
+        or "a04" in inv.champion_idf.name.lower()
+    )
+    has_e20_token = any("e20" in p.name.lower() for p in inv.idfs)
+    has_a04_anywhere = has_a04_file or any(
+        p.name.lower() == A04_IDF_NAME.lower() or "a04" in p.name.lower() for p in inv.idfs
+    )
+    if has_a04_anywhere:
+        if inv.champion_idf is None or not has_a04_file:
+            raise SitePackError(
+                f"A04 champion required ({A04_IDF_NAME}); refusing to publish non-A04 DSM champion"
+            )
+        model_id = "A04"
+        idf_pin = inv.champion_idf.name
+        # Ensure catalog row points at A04
+        catalog = list(doc.get("model_catalog") or [])
+        updated = False
+        for raw in catalog:
+            if isinstance(raw, dict) and str(raw.get("id") or "").upper() == "A04":
+                raw["champion"] = True
+                raw["idf_pin"] = idf_pin
+                updated = True
+            elif isinstance(raw, dict) and raw.get("champion"):
+                raw["champion"] = False
+        if not updated:
+            catalog = [
+                {
+                    "id": "A04",
+                    "label": "A04 dual champion",
+                    "family": "W2A_PHYSICAL_DSM",
+                    "idf_pin": idf_pin,
+                    "champion": True,
+                    "dial_id": "A04",
+                }
+            ]
+        doc["model_catalog"] = catalog
+    elif has_e20_token and not has_a04_anywhere and any(
+        "lakeside" in p.name.lower() for p in inv.idfs
+    ):
+        raise SitePackError(
+            f"Lakeside pack missing {A04_IDF_NAME}; refusing E20 fallback as DSM champion"
+        )
 
     campus_rel = _rel_to(site, dest_campus) if dest_campus.is_file() else f"utilities/{dest_campus.name}"
     if dest_interval is not None and dest_interval.is_file():
@@ -494,9 +597,39 @@ def publish_site_ui_bundle(
         doc["epw"] = epw_rel.replace("\\", "/")
     doc.update(overrides)
 
+    # Post-publish A04 contract when A04 pack
+    if has_a04_anywhere:
+        if doc.get("current_model_id") != "A04" or doc.get("dsm_champion") != "A04":
+            doc["current_model_id"] = "A04"
+            doc["dsm_champion"] = "A04"
+            doc["default_model_id"] = "A04"
+        if inv.champion_idf is not None:
+            doc["idf_pin"] = inv.champion_idf.name
+            try:
+                import hashlib
+
+                h = hashlib.sha256()
+                with inv.champion_idf.open("rb") as fh:
+                    for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                        h.update(chunk)
+                doc["idf_sha256"] = h.hexdigest()
+            except OSError:
+                pass
+        if doc.get("dsm_champion") != "A04" or doc.get("idf_pin") != (
+            inv.champion_idf.name if inv.champion_idf else doc.get("idf_pin")
+        ):
+            raise SitePackError(
+                "publish assert failed: dsm_champion/current_model_id must be A04 "
+                f"with idf_pin={A04_IDF_NAME}"
+            )
+
     out = site / "reports" / "site_ui_bundle_v1.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    import os
+
+    tmp = out.with_name(f".{out.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, out)
     return out
 
 

@@ -1,4 +1,4 @@
-"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
+﻿"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
 from __future__ import annotations
 
 import json
@@ -51,7 +51,7 @@ def pick_frame(
 
 
 def frame_map(value: Any) -> dict[str, pd.DataFrame]:
-    """Coerce session/disk payload to a str→DataFrame map (never bool(DataFrame))."""
+    """Coerce session/disk payload to a strâ†’DataFrame map (never bool(DataFrame))."""
     if not isinstance(value, dict):
         return {}
     out: dict[str, pd.DataFrame] = {}
@@ -124,7 +124,7 @@ def live_run_jobs(
     end: str,
     max_steps: int,
 ) -> list[dict[str, Any]]:
-    """One CLI job per strategy × weather. Keys are strategy:weather_kind."""
+    """One CLI job per strategy Ã— weather. Keys are strategy:weather_kind."""
     jobs: list[dict[str, Any]] = []
     for sid in strategies:
         for kind, epw in weathers:
@@ -210,8 +210,8 @@ def dsm_kpis(
 def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Window-total kW trim and kWh penalty vs the baseline strategy.
 
-    kw_trim = baseline peak kW − strategy peak kW  (+ = trimmed demand)
-    kwh_penalty = strategy kWh − baseline kWh      (+ = energy penalty)
+    kw_trim = baseline peak kW âˆ’ strategy peak kW  (+ = trimmed demand)
+    kwh_penalty = strategy kWh âˆ’ baseline kWh      (+ = energy penalty)
     Totals cover the whole selected window (peak day / month / winter / year).
     """
     base = kpis_by.get("baseline") or {}
@@ -816,9 +816,58 @@ def _collect_traj(out_dir: Path) -> Path | None:
     return frames[0] if frames else None
 
 
+def _campaign_cli() -> Path:
+    return _APP / "scripts" / "run_dsm_campaign.py"
+
+
+def start_dsm_campaign_subprocess(*, site: Path, request_path: Path) -> subprocess.Popen:
+    """Launch durable campaign supervisor (Streamlit must not import pyenergyplus)."""
+    import os
+
+    log_dir = Path(site) / "reports" / "eplus_gym"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log = log_dir / "campaign_supervisor.log"
+    handle = log.open("a", encoding="utf-8")
+    cmd = [
+        sys.executable,
+        "-u",
+        str(_campaign_cli()),
+        "--site",
+        str(site),
+        "--request",
+        str(request_path),
+    ]
+    env = os.environ.copy()
+    env["SITE_ROOT"] = str(site)
+    env["LAKESIDE_SITE_ROOT"] = str(site)
+    return subprocess.Popen(
+        cmd,
+        cwd=str(_APP),
+        stdout=handle,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+        env=env,
+    )
+
+
 def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     import streamlit as st
+    from datetime import timedelta
 
+    from eplus_gym_app.dsm_campaign import (
+        active_campaign_running,
+        build_jobs,
+        cancel_request_path,
+        current_run_path,
+        default_strategy_selection,
+        elapsed_seconds,
+        peak_day_smoke_ok,
+        reconcile_campaign,
+        request_cancel,
+        write_campaign,  # noqa: F401 â€” imported for tests/monkeypatch
+    )
+    from eplus_gym_app.dsm_preflight import sha256_file
     from eplus_gym_app.plots import (
         COLORS,
         dsm_panel_figure,
@@ -830,31 +879,28 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     st.subheader("Run DSM")
     st.caption(
         f"Champion `{bundle.dsm_champion}` · W2A_PHYSICAL_DSM · promote=False. "
-        "Run **all five** rule contracts on the selected window. "
-        "**AMY** = Open-Meteo actual year (M&V). **TMY** = typical Madison MSN. "
-        "Live E+ is closed-loop (`SCH_HtgSP` every 15 min) for the **whole selected window**."
+        "Default: **Peak day** · **AMY** · baseline + one strategy (2 jobs). "
+        "Live E+ is closed-loop (`CLOSED_LOOP_RULE_DR` / `SCH_HtgSP` every 15 min) via "
+        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status."
     )
     mode, reason = resolve_dsm_mode(bundle.site)
-    st.info(f"Mode: **{mode}** — {reason}")
+    st.info(f"Mode: **{mode}** â€” {reason}")
+
+    # Reconcile stale campaigns on every render
+    camp = reconcile_campaign(bundle.site)
 
     lib = strategy_library()
-    st.markdown("**Strategy library** (all five run on every click)")
-    st.caption(
-        "Contracts: "
-        + ", ".join(f"`{s}`" for s in DEPLOYABLE_STRATEGIES)
-        + ". PRBS is not offered on this console."
-    )
+    st.markdown("**Strategy library**")
     st.dataframe(pd.DataFrame(lib["rows"]), width="stretch", hide_index=True)
     st.plotly_chart(
         strategy_setpoint_figure(lib["series"]),
         width="stretch",
         key="dsm_strategy_sp_library",
     )
-    st.caption("Weekend heating SP repeats this 96-step profile (`weekend_sp=repeat_96_step_profile`).")
 
     inv = weather_inventory(bundle.site, published=bundle.epw)
-    wx_opts = ["AMY", "TMY", "Both"]
-    default_wx = inv.get("default_mode") or "AMY"
+    if inv.get("stale_bundle_epw"):
+        st.warning(inv.get("stale_bundle_note") or "Published bundle EPW is stale vs amy_meta.")
 
     month_opts = calendar_month_options(bundle)
     default_m = default_calendar_month(month_opts, bundle.dial_ladder.peak_day)
@@ -873,59 +919,111 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
             disabled=preset != "Calendar month",
         )
     with c3:
-        wx_mode = st.radio(
-            "Weather",
-            options=wx_opts,
-            index=wx_opts.index(default_wx) if default_wx in wx_opts else 0,
-            key="dsm_weather",
-            help="AMY = Open-Meteo actual year. TMY = Madison typical. Both = two sequential live runs per strategy.",
+        non_base = [s for s in DEPLOYABLE_STRATEGIES if s != "baseline"]
+        selected = st.selectbox(
+            "Strategy (+ baseline)",
+            options=non_base,
+            index=non_base.index("deep_setback") if "deep_setback" in non_base else 0,
+            key="dsm_strategy_pick",
+            format_func=lambda s: STRATEGY_LABELS.get(s, s),
         )
 
-    if inv.get("tmy") is None:
-        st.warning(inv.get("tmy_missing_note") or "No Madison MSN TMY on this site.")
-    if wx_mode == "TMY" and inv.get("tmy") is None:
-        st.caption("TMY missing — Run will use AMY only (Chicago screening EPW is not auto-selected).")
+    with st.expander("Advanced weather / batch", expanded=False):
+        wx_mode = st.radio(
+            "Weather",
+            options=["AMY", "TMY", "Both"],
+            index=0,
+            key="dsm_weather",
+            help="Default AMY. Both/TMY and run-all-five live here.",
+        )
+        run_all_five = st.checkbox("Run all five strategies", value=False, key="dsm_run_all")
+        if inv.get("tmy") is None:
+            st.caption(inv.get("tmy_missing_note") or "No Madison MSN TMY on this site.")
 
     ctx = pick_run_context(bundle, preset, month if preset == "Calendar month" else None)
     spec = period_run_spec(ctx, preset)
     day = spec["peak_day"]
+    strategies = (
+        list(DEPLOYABLE_STRATEGIES)
+        if run_all_five
+        else default_strategy_selection(selected)
+    )
     pairs = epws_for_mode(wx_mode, inv)
     jobs = live_run_jobs(
-        strategies=list(DEPLOYABLE_STRATEGIES),
+        strategies=strategies,
         weathers=pairs,
         begin=spec["begin"],
         end=spec["end"],
         max_steps=int(spec["max_steps"]),
     )
     epw_names = ", ".join(f"{k}={p.name}" for k, p in pairs) if pairs else "(no EPW)"
-    n_strat = len(DEPLOYABLE_STRATEGIES)
-    n_wx = max(len(pairs), 1)
-    live_note = (
-        f"**Will simulate closed-loop all {n_strat} strategies** `{spec['begin']}` → `{spec['end']}` · "
-        f"**{spec['n_days']} days** · **{spec['max_steps']} steps** (15 min) · "
-        f"**{len(jobs)} live runs** ({n_strat} × {n_wx} weather). "
-        f"Year/winter × 5 × AMY is long; Both doubles that. "
-        f"Meter-peak day inside the window: `{day}` — {ctx['why']}."
+
+    champ = bundle.champion()
+    idf = (champ.idf_path if champ else None) or bundle.idf_path
+    idf_hash = sha256_file(Path(idf)) if idf and Path(idf).is_file() else ""
+    amy_hash = None
+    if inv.get("amy") and Path(inv["amy"]).is_file():
+        amy_hash = sha256_file(Path(inv["amy"]))
+    calendar_ok = peak_day_smoke_ok(
+        bundle.site, idf_sha256=idf_hash, epw_sha256=amy_hash
     )
-    if mode == "lookup":
-        live_note = (
-            f"**Lookup is peak-day only** (`{day}`, 96 steps) for all five strategies. "
-            "Grow a W2A farm or use live E+ for the full week/month/winter/year window."
-        )
-    st.markdown(live_note)
-    st.caption(
-        f"Weather files: {epw_names}. "
-        "AMY is **not** a typical-year EPW. TMY is typical. "
-        "OAT mismatch vs BAS is station/source, not 'TMY vs actual' when only AMY is present. "
-        f"Honesty: loop=CLOSED_LOOP_RULE_DR · period={spec['period']} · "
-        "weekend_sp=repeat_96_step_profile · promote=False."
-    )
-    if ctx.get("actual_peak_kw") is not None:
-        st.caption(
-            f"BAS meter peak in this window: **{ctx['actual_peak_kw']:.0f} kW** on `{day}`."
+    if preset == "Calendar year" and not calendar_ok:
+        st.error(
+            "Calendar year is gated until a successful peak-day smoke completes "
+            "for this IDF + AMY hash. Run Peak day first."
         )
 
-    if st.button("Run all 5 strategies", key="dsm_run_btn", type="primary"):
+    st.markdown(
+        f"**Will run** `{', '.join(strategies)}` · `{spec['begin']}` â†’ `{spec['end']}` · "
+        f"**{spec['n_days']} days** · **{spec['max_steps']} steps** · "
+        f"**{len(jobs)} job(s)** · weather `{wx_mode}` ({epw_names}). "
+        f"Meter-peak day: `{day}` â€” {ctx['why']}."
+    )
+
+    @st.fragment(run_every=timedelta(seconds=1))
+    def _campaign_status_fragment() -> None:
+        doc = reconcile_campaign(bundle.site) or {}
+        state = str(doc.get("state") or "idle")
+        done = int(doc.get("completed_jobs") or 0)
+        total = int(doc.get("total_jobs") or 0)
+        elapsed = elapsed_seconds(doc) if doc else 0.0
+        err = doc.get("error") or {}
+        msg = ""
+        if isinstance(err, dict):
+            msg = str(err.get("message") or "")
+        st.markdown(
+            f"**Campaign:** `{state}` · "
+            f"**{done} / {total}** · "
+            f"elapsed **{format_hms(elapsed)}**"
+            + (f" · `{doc.get('run_id')}`" if doc.get("run_id") else "")
+        )
+        if state in {"failed", "cancelled"} and msg:
+            st.error(msg)
+        elif state == "succeeded":
+            st.success(f"Campaign succeeded ({done}/{total}) in {format_hms(elapsed)}")
+        elif state in {"preflight", "queued", "starting", "running"}:
+            st.info(msg or "Supervisor runningâ€¦")
+            if st.button("Cancel campaign", key="dsm_cancel_btn"):
+                request_cancel(bundle.site)
+                st.warning("Cancel requested")
+
+    _campaign_status_fragment()
+
+    long_campaign = len(jobs) > 2 or int(spec["n_days"]) > 7 or preset in {
+        "Winter (Decâ€“Feb)",
+        "Calendar year",
+    }
+    run_label = "Run DSM" if not run_all_five else "Run all 5 strategies"
+    if st.button(run_label, key="dsm_run_btn", type="primary"):
+        if preset == "Calendar year" and not calendar_ok:
+            st.error("Calendar year blocked until peak-day smoke succeeds.")
+            return
+        if long_campaign:
+            st.warning(
+                f"Long campaign: {len(jobs)} jobs · {preset} · {spec['period']} · "
+                f"~{spec['max_steps']} steps/job · IDF `{Path(idf).name if idf else '?'}` · "
+                f"EPW {epw_names}"
+            )
         actual_peak = ctx.get("actual_peak_kw")
         if actual_peak is None:
             actual_peak = _actual_peak(bundle, day)
@@ -933,11 +1031,13 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         if mode == "error":
             st.error(reason)
             return
+        if active_campaign_running(bundle.site):
+            st.error("A DSM campaign is already running for this site.")
+            return
         if mode == "lookup":
             frames_by: dict[str, pd.DataFrame] = {}
             kpis_by: dict[str, Any] = {}
-            base_peak = None
-            for sid in DEPLOYABLE_STRATEGIES:
+            for sid in strategies:
                 try:
                     pack = run_dsm_lookup(
                         site_root=bundle.site,
@@ -949,10 +1049,8 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                     continue
                 frames_by[f"{sid}:lookup"] = pack["frame"]
                 kpis_by[sid] = pack["kpis"]
-                if sid == "baseline":
-                    base_peak = pack["kpis"].get("peak_kw")
             if not frames_by:
-                st.error("No W2A farm days for any of the five strategies.")
+                st.error("No W2A farm days for the selected strategies.")
                 return
             attach_baseline_deltas(kpis_by)
             primary = pick_frame(frames_by, "baseline:lookup")
@@ -981,271 +1079,57 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
                 kpis_by_strategy=kpis_by,
             )
             st.rerun()
-        else:
-            champ = bundle.champion()
-            idf = (champ.idf_path if champ else None) or bundle.idf_path
-            if idf is None or not Path(idf).is_file():
-                st.error("No champion IDF on the published pack.")
-                return
-            if not pairs:
-                st.error(
-                    "No AMY or site TMY EPW. Agent must publish {site_slug}_amy_*.epw. "
-                    "Chicago screening is not used."
-                )
-                return
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            frames_by: dict[str, pd.DataFrame] = {}
-            parquets: dict[str, str] = {}
-            elapsed_by: dict[str, float] = {}
-            kpis_by: dict[str, Any] = {}
-            last_out = None
-            last_meta: dict[str, Any] = {}
-            campaign_t0 = time.perf_counter()
-            n_jobs = len(jobs)
-            try:
-                st.html(
-                    f"""
-<div style="font:600 1.05rem ui-monospace,Consolas,monospace;padding:0.35rem 0;line-height:1.45;">
-  <div>DSM run timer: <span id="dsm-run-timer">0s</span></div>
-  <div>E+ sims: <span id="dsm-run-sims">0 / {n_jobs}</span> complete</div>
-  <div>E+ health: <span id="dsm-run-health">starting…</span></div>
-</div>
-<script>
-(() => {{
-  const timerEl = document.getElementById('dsm-run-timer');
-  const simsEl = document.getElementById('dsm-run-sims');
-  const healthEl = document.getElementById('dsm-run-health');
-  if (!timerEl) return;
-  const t0 = Date.now();
-  const total = {n_jobs};
-  window.__dsmSimsDone = 0;
-  const fmt = (sec) => {{
-    sec = Math.max(0, sec|0);
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    if (h) return h + 'h ' + String(m).padStart(2,'0') + 'm ' + String(s).padStart(2,'0') + 's';
-    if (m) return m + 'm ' + String(s).padStart(2,'0') + 's';
-    return s + 's';
-  }};
-  const paint = () => {{
-    timerEl.textContent = fmt((Date.now() - t0) / 1000);
-    if (simsEl) simsEl.textContent = (window.__dsmSimsDone || 0) + ' / ' + total + ' complete';
-  }};
-  paint();
-  window.__dsmRunTimer = setInterval(paint, 250);
-  window.__dsmBumpSim = () => {{
-    window.__dsmSimsDone = Math.min(total, (window.__dsmSimsDone || 0) + 1);
-    paint();
-  }};
-  window.__dsmSetHealth = (msg) => {{
-    if (healthEl) healthEl.textContent = msg;
-  }};
-}})();
-</script>
-                    """,
-                    unsafe_allow_javascript=True,
-                )
-            except Exception:  # noqa: BLE001
-                pass
-            sims_counter = st.empty()
-            health_box = st.empty()
-            sims_counter.metric("E+ sims complete", f"0 / {n_jobs}")
-            health_box.info("E+ health: starting…")
-            progress = st.progress(0, text="Starting live EnergyPlus…")
-            with st.status("Live EnergyPlus (subprocess)…", expanded=True) as status:
-                for i, job in enumerate(jobs, start=1):
-                    sid = job["strategy_id"]
-                    kind = job["weather_kind"]
-                    key = job["key"]
-                    out_dir = (
-                        bundle.site
-                        / "reports"
-                        / "eplus_gym"
-                        / "runs"
-                        / f"{stamp}_{sid}_{kind}"
-                    )
-                    last_out = out_dir
-                    job_t0 = time.perf_counter()
-                    job_label = (
-                        f"{sid} · {kind} · {spec['begin']}→{spec['end']} · "
-                        f"{spec['max_steps']} steps"
-                    )
-                    done_before = i - 1
-                    status.update(
-                        label=(
-                            f"{job_label} · sim {i}/{n_jobs} · "
-                            f"job 0s · total {format_hms(time.perf_counter() - campaign_t0)}"
-                        ),
-                        state="running",
-                    )
-                    sims_counter.metric(
-                        "E+ sims complete",
-                        f"{done_before} / {n_jobs}",
-                        delta=f"running {sid}",
-                    )
-                    health_box.info(f"E+ health: running `{sid}` ({i}/{n_jobs})…")
-                    progress.progress(
-                        done_before / max(n_jobs, 1),
-                        text=f"Running {sid} ({i}/{n_jobs})…",
-                    )
-                    proc, log_handle, log = start_live_subprocess(
-                        site=bundle.site,
-                        strategy_id=sid,
-                        epw=Path(job["epw"]),
-                        idf=Path(idf),
-                        out_dir=out_dir,
-                        day=spec["begin"],
-                        begin=spec["begin"],
-                        end=spec["end"],
-                        max_steps=int(spec["max_steps"]),
-                    )
-                    code, elapsed_s = wait_live_subprocess(
-                        proc,
-                        status=status,
-                        job_label=job_label,
-                        campaign_t0=campaign_t0,
-                        job_t0=job_t0,
-                        job_index=i,
-                        job_total=n_jobs,
-                        log_path=log,
-                        log_handle=log_handle,
-                    )
-                    elapsed_by[key] = elapsed_s
-                    tail = live_log_tail(log, n=16)
-                    if tail:
-                        st.code(f"[{sid} {kind} {format_hms(elapsed_s)}]\n{tail}")
-                    failed = code != 0
-                    if not failed and "energyplus terminated" in tail.lower():
-                        failed = True
-                    if failed:
-                        diagnosis = summarize_eplus_failure(log, exit_code=code)
-                        progress.progress(i / max(n_jobs, 1), text=f"Failed {sid}")
-                        sims_counter.metric(
-                            "E+ sims complete",
-                            f"{done_before} / {n_jobs}",
-                            delta="failed",
-                        )
-                        health_box.error(f"E+ health: FAILED · {diagnosis}")
-                        status.update(
-                            label=(
-                                f"Live run FAILED ({sid} {kind}) after "
-                                f"{format_hms(time.perf_counter() - campaign_t0)} · {diagnosis}"
-                            ),
-                            state="error",
-                        )
-                        st.error(
-                            f"**EnergyPlus unhealthy** for `{sid}` / `{kind}`.\n\n"
-                            f"{diagnosis}\n\n"
-                            f"Log: `{log}`"
-                        )
-                        if tail:
-                            with st.expander("live.log tail", expanded=True):
-                                st.code(tail)
-                        return
-                    pq = _collect_traj(out_dir)
-                    if pq is None:
-                        diagnosis = summarize_eplus_failure(log, exit_code=code)
-                        health_box.error(
-                            f"E+ health: FAILED · finished without trajectory · {diagnosis}"
-                        )
-                        status.update(
-                            label=f"No trajectory after {sid} · {diagnosis}",
-                            state="error",
-                        )
-                        st.error(
-                            f"Live finished but no trajectory parquet under `{out_dir}`.\n\n{diagnosis}"
-                        )
-                        if tail:
-                            with st.expander("live.log tail", expanded=True):
-                                st.code(tail)
-                        return
-                    df_job = pd.read_parquet(pq)
-                    frames_by[key] = df_job
-                    parquets[key] = str(pq)
-                    card = out_dir / "rule_dr_scorecard.json"
-                    if card.is_file():
-                        try:
-                            doc = json.loads(card.read_text(encoding="utf-8"))
-                            rows = doc.get("strategies") or []
-                            if rows:
-                                last_meta = dict(rows[0])
-                        except (OSError, json.JSONDecodeError):
-                            pass
-                    st.write(
-                        f"{sid} · {kind}: {spec['n_days']} days · {spec['max_steps']} steps · "
-                        f"{format_hms(elapsed_s)} · `{pq}`"
-                    )
-                    sims_counter.metric("E+ sims complete", f"{i} / {n_jobs}")
-                    health_box.success(f"E+ health: OK · `{sid}` finished ({i}/{n_jobs})")
-                    progress.progress(
-                        i / max(n_jobs, 1),
-                        text=f"Finished {sid} ({i}/{n_jobs}) · total {format_hms(time.perf_counter() - campaign_t0)}",
-                    )
-                total_s = time.perf_counter() - campaign_t0
-                bits = " · ".join(f"{k} {format_hms(v)}" for k, v in elapsed_by.items())
-                status.update(
-                    label=f"Live EnergyPlus finished in {format_hms(total_s)} · {n_jobs}/{n_jobs} sims ({bits})",
-                    state="complete",
-                )
-                sims_counter.metric("E+ sims complete", f"{n_jobs} / {n_jobs}", delta="done")
-                health_box.success(f"E+ health: OK · all {n_jobs} sims complete · {format_hms(total_s)}")
-                progress.progress(1.0, text=f"Complete · {n_jobs} sims · {format_hms(total_s)}")
-            # fall through to KPI store (keep existing block below)
-            base_peak = None
-            for sid in DEPLOYABLE_STRATEGIES:
-                key_amy = f"{sid}:{KIND_AMY}"
-                key_tmy = f"{sid}:{KIND_TMY_MSN}"
-                df_sid = pick_frame(frames_by, key_amy, key_tmy)
-                if df_sid is None:
-                    continue
-                meta = {
-                    "honesty": last_meta.get("honesty") or "W2A_PHYSICAL_DSM",
-                    "provenance": last_meta.get("provenance") or "ENERGYPLUS_PYTHON_API",
-                    "mode": "live",
-                    "family": "w2a",
-                    "promote": False,
-                    "day": day,
-                    "strategy_id": sid,
-                    "loop": "CLOSED_LOOP_RULE_DR",
-                    "period": spec["period"],
-                    "weekend_sp": "repeat_96_step_profile",
-                }
-                kpis_by[sid] = dsm_kpis(df_sid, meta, actual_peak_kw=actual_peak)
-                if sid == "baseline":
-                    base_peak = kpis_by[sid].get("peak_kw")
-            attach_baseline_deltas(kpis_by)
-            primary_key = f"baseline:{KIND_AMY}"
-            if primary_key not in frames_by:
-                primary_key = next(iter(frames_by))
-            _store_run(
-                site=bundle.site,
-                df=frames_by[primary_key],
-                actual=actual,
-                kpis=kpis_by.get("baseline") or next(iter(kpis_by.values())),
-                strategy="all",
-                day=day,
-                preset=preset,
-                mode="live",
-                epw_name=epw_names,
-                why=str(ctx["why"]),
-                window_days=list(spec["window_days"]),
-                parquet=parquets.get(primary_key),
-                elapsed_s=sum(elapsed_by.values()),
-                out_dir=str(last_out) if last_out else None,
-                weather_mode=wx_mode,
-                period=spec["period"],
-                max_steps=int(spec["max_steps"]),
-                n_days=int(spec["n_days"]),
-                parquets=parquets,
-                elapsed_by_weather=elapsed_by,
-                tmy_note=inv.get("tmy_missing_note"),
-                weather_kind=split_frame_key(primary_key)[1] or KIND_AMY,
-                frames=frames_by,
-                strategies=list(kpis_by.keys()),
-                kpis_by_strategy=kpis_by,
+            return
+
+        if idf is None or not Path(idf).is_file():
+            st.error("No champion IDF on the published pack.")
+            return
+        if not pairs:
+            st.error(
+                "No AMY or site TMY EPW. Agent must publish {site_slug}_amy_*.epw. "
+                "Chicago screening is not used."
             )
-            st.rerun()
+            return
+
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        run_id = f"{stamp}_dsm"
+        req_dir = Path(bundle.site) / "reports" / "eplus_gym" / "runs" / run_id
+        req_dir.mkdir(parents=True, exist_ok=True)
+        request = {
+            "run_id": run_id,
+            "idf": str(idf),
+            "expected_idf_sha256": idf_hash or None,
+            "begin": spec["begin"],
+            "end": spec["end"],
+            "n_days": int(spec["n_days"]),
+            "max_steps": int(spec["max_steps"]),
+            "strategies": strategies,
+            "weather_mode": wx_mode,
+            "preset": preset,
+            "peak_day": day,
+            "jobs": [
+                {
+                    "strategy_id": j["strategy_id"],
+                    "weather_kind": j["weather_kind"],
+                    "epw": str(j["epw"]),
+                    "begin": j["begin"],
+                    "end": j["end"],
+                    "max_steps": int(j["max_steps"]),
+                    "key": j["key"],
+                }
+                for j in jobs
+            ],
+            "require_energyplus": True,
+        }
+        req_path = req_dir / "campaign_request.json"
+        req_path.write_text(json.dumps(request, indent=2), encoding="utf-8")
+        try:
+            start_dsm_campaign_subprocess(site=Path(bundle.site), request_path=req_path)
+        except OSError as exc:
+            st.error(f"Failed to start campaign supervisor: {exc}")
+            return
+        st.success(f"Started campaign `{run_id}` ({len(jobs)} jobs). Status updates above.")
+        st.rerun()
 
     last = st.session_state.get("dsm_last")
     if not isinstance(last, dict) or last.get("frame") is None:
@@ -1265,7 +1149,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         st.warning(
             f"Chart below is the **last Run** (`{last.get('preset')}` · `{last.get('period')}` · "
             f"`{last.get('weather_mode')}`). "
-            f"Click **Run all 5 strategies** for `{preset}` -> `{spec['period']}`."
+            f"Click **{run_label}** for `{preset}` -> `{spec['period']}`."
         )
     kpis_by = dict(last.get("kpis_by_strategy") or {})
     if not kpis_by and last.get("kpis"):
@@ -1307,95 +1191,58 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         f"{len(ran)} strategies ({', '.join(ran)}) · "
         f"{last.get('n_days') or last.get('window_n') or '?'} days · "
         f"{last.get('max_steps') or '?'} steps{elapsed_bit}. "
-        f"Black = **Actual BAS meter**"
-        f"{f' (peak {actual_peak_show:.0f} kW)' if actual_peak_show is not None else ''}. "
-        f"Colored lines = E+ champion strategies (AMY / TMY labeled). "
-        f"loop=`CLOSED_LOOP_RULE_DR` · weekend_sp=`repeat_96_step_profile` · promote=False. "
-        f"Files: `{last.get('epw_name')}`."
+        "Charts below."
     )
-    score_rows = []
-    for sid in ran:
-        row = kpis_by.get(sid) or {}
-        if not isinstance(row, dict):
-            row = {}
-        score_rows.append(
-            {
-                "strategy_id": sid,
-                "peak_kw": row.get("peak_kw"),
-                "kw_trim": row.get("kw_trim"),
-                "kwh": row.get("kwh"),
-                "kwh_penalty": row.get("kwh_penalty"),
-                "vs_actual_pct": row.get("vs_actual_pct"),
-                "vs_baseline_pct": row.get("vs_baseline_pct"),
-            }
-        )
-    if score_rows:
-        st.dataframe(pd.DataFrame(score_rows), width="stretch", hide_index=True)
-        st.caption(
-            "Window totals for the selected period (peak day / week / month / winter / year). "
-            "**kW trim** = baseline peak − strategy peak (+ trimmed demand). "
-            "**kWh penalty** = strategy kWh − baseline kWh (+ used more energy)."
-        )
-    paths = list((last.get("parquets") or {}).values()) or (
-        [last["parquet"]] if last.get("parquet") else []
+    _render_dsm_results_charts(
+        last=last,
+        kpis_by=kpis_by,
+        actual=actual,
+        frames=frames,
+        eplus=eplus,
+        day=str(last.get("day") or day),
+        COLORS=COLORS,
+        dsm_panel_figure=dsm_panel_figure,
+        dsm_trajectory_figure=dsm_trajectory_figure,
+        period_daily_peak_figure=period_daily_peak_figure,
     )
-    if paths:
-        st.caption("On disk: " + " · ".join(f"`{p}`" for p in paths[:8]))
 
-    window_days = list(last.get("window_days") or [])
-    show_daily = (last.get("n_days") or len(window_days) or 0) > 1 or len(window_days) > 1
-    if show_daily:
-        try:
-            from eplus_gym_app.load_profiles import load_bas_demand_oat
 
-            bas_win = load_bas_demand_oat(bundle, csv_path=bundle.bas_demand_oat_csv)
-            span = set(window_days)
-            if last.get("period"):
-                b, _, e = str(last["period"]).partition("/")
-                if b and e:
-                    spanned = {
-                        d
-                        for d in bas_win["local_day"].astype(str)
-                        if b <= d <= e
-                    }
-                    if spanned:
-                        span = spanned
-            daily = (
-                bas_win.loc[bas_win["local_day"].astype(str).isin(span)]
-                .groupby("local_day", as_index=False)["kw_avg"]
-                .max()
-                .rename(columns={"kw_avg": "peak_kw"})
-                .sort_values("local_day")
+def _render_dsm_results_charts(**kwargs):
+    import streamlit as st
+
+    last = kwargs["last"]
+    kpis_by = kwargs["kpis_by"]
+    actual = kwargs["actual"]
+    frames = kwargs["frames"]
+    eplus = kwargs["eplus"]
+    day = kwargs["day"]
+    COLORS = kwargs["COLORS"]
+    dsm_panel_figure = kwargs["dsm_panel_figure"]
+    dsm_trajectory_figure = kwargs["dsm_trajectory_figure"]
+    period_daily_peak_figure = kwargs["period_daily_peak_figure"]
+
+    if kpis_by:
+        rows = []
+        for sid, row in kpis_by.items():
+            rows.append(
+                {
+                    "strategy": sid,
+                    "peak_kw": row.get("peak_kw"),
+                    "kwh": row.get("kwh"),
+                    "kw_trim": row.get("kw_trim"),
+                    "kwh_penalty": row.get("kwh_penalty"),
+                    "vs_baseline_pct": row.get("vs_baseline_pct"),
+                    "vs_actual_pct": row.get("vs_actual_pct"),
+                }
             )
-        except Exception:  # noqa: BLE001
-            daily = pd.DataFrame()
-        eplus_daily = {}
-        for key, frame in frames.items():
-            sid, kind = split_frame_key(key)
-            wx = _WX_LABEL.get(kind, kind) if kind and kind != "lookup" else ""
-            eplus_daily[f"{sid} {wx}".strip()] = daily_peaks_from_traj(frame)
-        if (not daily.empty) or any(not v.empty for v in eplus_daily.values()):
-            st.plotly_chart(
-                period_daily_peak_figure(
-                    daily,
-                    highlight_day=str(last.get("day") or ""),
-                    title=(
-                        f"Daily peaks · {last.get('preset')} · {last.get('period')} "
-                        f"· Actual + all strategies"
-                    ),
-                    eplus_daily=eplus_daily,
-                ),
-                width="stretch",
-                key=f"dsm_period_daily_{last.get('preset')}_{last.get('period')}",
-            )
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
-    peak_slices = {
-        key: slice_traj_for_day(_eplus_with_oat_f(frame), str(last.get("day") or day))
-        for key, frame in frames.items()
-    }
+    peak_slices = {}
+    for key, df in frames.items():
+        peak_slices[key] = slice_traj_for_day(df, day)
     extra = []
     for key, sl in peak_slices.items():
-        if sl is None or sl.empty:
+        if sl is None or getattr(sl, "empty", True):
             continue
         sid, kind = split_frame_key(key)
         wx = _WX_LABEL.get(kind, kind) if kind and kind != "lookup" else ""
@@ -1443,9 +1290,20 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         dsm_trajectory_figure(
             primary_slice if primary_slice is not None else eplus,
             actual=actual,
-            title=f"Peak-day 15-min overlay · {last.get('day')} · Actual vs all 5 strategies",
+            title=f"Peak-day 15-min overlay · {last.get('day')}",
             extra_eplus=extra if extra else None,
         ),
         width="stretch",
         key=f"dsm_overlay_{last.get('day')}_all_{last.get('preset')}_{last.get('mode')}",
     )
+    daily = daily_peaks_from_traj(eplus)
+    if daily is not None and not daily.empty:
+        st.plotly_chart(
+            period_daily_peak_figure(
+                daily,
+                highlight_day=str(day)[:10],
+                title="Daily peak kW over run window",
+            ),
+            width="stretch",
+            key=f"dsm_daily_{last.get('period')}",
+        )

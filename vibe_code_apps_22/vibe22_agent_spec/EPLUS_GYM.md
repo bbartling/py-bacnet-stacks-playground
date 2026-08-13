@@ -50,8 +50,10 @@ python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
 # Grow IdealLoads farm for full months (dry-run first; --execute needs EnergyPlus)
 python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
 
-# Streamlit DSM console (lookup in-process; live via CLI subprocess)
+# Streamlit DSM console (lookup in-process; live via durable campaign supervisor)
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+# Live DSM campaign (preflight → sequential run_eplus_gym_rules children)
+# python -u scripts\run_dsm_campaign.py --site %SITE_ROOT% --request path\to\campaign_request.json
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
 
 # Live month closed-loop (CLI only; slow)

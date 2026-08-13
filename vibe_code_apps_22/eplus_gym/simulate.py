@@ -233,6 +233,10 @@ def run_rule_episode(
                     verbose=verbose,
                 )
             except Exception as exc:  # noqa: BLE001
+                from .errors import EnergyPlusStartupError
+
+                if isinstance(exc, EnergyPlusStartupError):
+                    raise
                 raise FileNotFoundError(
                     f"W2A live EnergyPlus failed ({exc}); "
                     "will not fall back to IdealLoads"
