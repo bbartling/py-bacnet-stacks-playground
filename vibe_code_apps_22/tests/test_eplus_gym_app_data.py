@@ -306,7 +306,13 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert not list(at.error)
     fuel = _copy()
     assert "Fuel" in fuel or "GL14" in fuel or "bill" in fuel.lower() or "EUI" in fuel
+    assert "Peer property type" in " ".join(
+        str(getattr(w, "label", "")) for w in at.selectbox
+    ) or "k12_school" in fuel or "Site EUI" in fuel
+    # Ensure peer chart import stays wired (regression for ImportError)
+    from eplus_gym_app.plots import eui_peer_bullet_figure as _peer_fig
 
+    assert callable(_peer_fig)
     at.session_state["site_dsm_main_tabs"] = "ECMs"
     at.run(timeout=90)
     assert not at.exception

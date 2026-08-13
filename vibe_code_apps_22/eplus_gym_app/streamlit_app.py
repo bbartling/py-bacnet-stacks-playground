@@ -38,6 +38,7 @@ from eplus_gym_app.pickers import list_bill_csvs_near
 from eplus_gym_app.plots import (
     demand_vs_oat_figure,
     dial_progression_figure,
+    eui_peer_bullet_figure,
     fuel_monthly_figure,
     gl14_monthly_kwh_figure,
     gl14_monthly_pct_figure,
@@ -438,8 +439,6 @@ def _render_fuel_tab(bundle: SiteUiBundle, campus: Campus | None) -> None:
     if campus is None:
         st.warning("No campus on the published pack.")
         return
-
-    from eplus_gym_app.plots import eui_peer_bullet_figure
 
     st.markdown(f"**{campus.label}** (`{campus.campus_id}`)")
     eui = campus.site_eui_kbtu_ft2()

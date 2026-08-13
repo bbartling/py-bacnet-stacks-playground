@@ -179,100 +179,22 @@ def calendar_contract_from_site_config(cfg: dict[str, Any] | None = None) -> dic
 
 
 def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, Any]:
-    """Streamlit Site Config form. Returns the saved/normalized config."""
+    """Streamlit Site Config form. Returns the saved/normalized config.
+
+    Widgets live inside ``st.form`` so setpoint/occ edits do **not** full-rerun
+    the app until Save is clicked.
+    """
     import streamlit as st
 
     st.subheader("Site Config")
     st.caption(
         "Thermostat setpoints and occupancy for **staged** DSM runs only. "
-        "Never overwrites the published champion IDF."
+        "Never overwrites the published champion IDF. "
+        "Edits apply on **Save** (no full-app rerun while tweaking)."
     )
     cfg = load_site_dsm_config(site)
-    sp = dict(cfg["setpoints_f"])
-
-    c1, c2, c3, c4 = st.columns(4)
-    sp["occupied_heating_f"] = c1.number_input(
-        "Occupied heat (F)",
-        min_value=50.0,
-        max_value=80.0,
-        value=float(sp["occupied_heating_f"]),
-        step=0.5,
-        key="site_cfg_occ_heat",
-    )
-    sp["unoccupied_heating_f"] = c2.number_input(
-        "Unoccupied heat (F)",
-        min_value=45.0,
-        max_value=75.0,
-        value=float(sp["unoccupied_heating_f"]),
-        step=0.5,
-        key="site_cfg_unocc_heat",
-    )
-    sp["occupied_cooling_f"] = c3.number_input(
-        "Occupied cool (F)",
-        min_value=65.0,
-        max_value=90.0,
-        value=float(sp["occupied_cooling_f"]),
-        step=0.5,
-        key="site_cfg_occ_cool",
-    )
-    sp["unoccupied_cooling_f"] = c4.number_input(
-        "Unoccupied cool (F)",
-        min_value=70.0,
-        max_value=95.0,
-        value=float(sp["unoccupied_cooling_f"]),
-        step=0.5,
-        key="site_cfg_unocc_cool",
-    )
-    deadband = float(sp["occupied_cooling_f"]) - float(sp["occupied_heating_f"])
-    st.caption(f"Occupied deadband (derived): **{deadband:.1f} F** (occ cool - occ heat)")
-
-    errs = validate_setpoints_f(sp)
-    if errs:
-        for e in errs:
-            st.error(e)
-
-    st.markdown("**Weekly occupancy**")
-    occ = normalize_occupancy_schedule(cfg.get("occupancy_schedule"))
-    tz = st.text_input("Timezone", value=occ["timezone"], key="site_cfg_occ_tz")
-    days_out: dict[str, Any] = {}
-    for d in DAY_KEYS:
-        day = occ["days"][d]
-        st.markdown(f"**{DAY_LABELS[d]}**")
-        a, b, c = st.columns(3)
-        occupied = a.checkbox("Occupied", value=bool(day["occupied"]), key=f"site_cfg_occ_{d}")
-        start_t = b.time_input(
-            "Start",
-            value=time(int(day["start"][:2]), int(day["start"][3:5])),
-            key=f"site_cfg_occ_s_{d}",
-        )
-        end_t = c.time_input(
-            "End",
-            value=time(int(day["end"][:2]), int(day["end"][3:5])),
-            key=f"site_cfg_occ_e_{d}",
-        )
-        days_out[d] = {
-            "occupied": bool(occupied),
-            "start": _hhmm(start_t, day["start"]),
-            "end": _hhmm(end_t, day["end"]),
-        }
-
-    st.markdown("**Sim date override**")
-    use_override = st.checkbox(
-        "Override peak day for Run DSM",
-        value=bool(cfg.get("peak_day_override")),
-        key="site_cfg_use_day_override",
-    )
-    peak_override = None
-    if use_override:
-        default_day = cfg.get("peak_day_override") or (
-            getattr(getattr(bundle, "dial_ladder", None), "peak_day", None) or "2026-01-26"
-        )
-        try:
-            default_d = date.fromisoformat(str(default_day)[:10])
-        except ValueError:
-            default_d = date(2026, 1, 26)
-        picked = st.date_input("Peak day override", value=default_d, key="site_cfg_peak_day")
-        peak_override = picked.isoformat() if picked else None
+    sp0 = dict(cfg["setpoints_f"])
+    occ0 = normalize_occupancy_schedule(cfg.get("occupancy_schedule"))
 
     if bundle is not None:
         champ = None
@@ -287,7 +209,9 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
         )
         epw = getattr(bundle, "epw", None)
         cov = ""
-        if getattr(bundle, "epw_coverage_start", None) and getattr(bundle, "epw_coverage_end", None):
+        if getattr(bundle, "epw_coverage_start", None) and getattr(
+            bundle, "epw_coverage_end", None
+        ):
             cov = f"{bundle.epw_coverage_start} -> {bundle.epw_coverage_end}"
         st.markdown("**Published pack**")
         st.caption(
@@ -295,22 +219,108 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
             + (f" · coverage {cov}" if cov else "")
         )
 
-    draft = {
-        "schema_version": SCHEMA_VERSION,
-        "setpoints_f": sp,
-        "occupancy_schedule": {"timezone": tz, "days": days_out},
-        "peak_day_override": peak_override,
-    }
-    if st.button("Save Site Config", type="primary", key="site_cfg_save"):
+    st.caption(f"Saved: {setpoints_summary(cfg)}")
+
+    with st.form("site_dsm_config_form", clear_on_submit=False):
+        c1, c2, c3, c4 = st.columns(4)
+        occ_heat = c1.number_input(
+            "Occupied heat (F)",
+            min_value=50.0,
+            max_value=80.0,
+            value=float(sp0["occupied_heating_f"]),
+            step=0.5,
+        )
+        unocc_heat = c2.number_input(
+            "Unoccupied heat (F)",
+            min_value=45.0,
+            max_value=75.0,
+            value=float(sp0["unoccupied_heating_f"]),
+            step=0.5,
+        )
+        occ_cool = c3.number_input(
+            "Occupied cool (F)",
+            min_value=65.0,
+            max_value=90.0,
+            value=float(sp0["occupied_cooling_f"]),
+            step=0.5,
+        )
+        unocc_cool = c4.number_input(
+            "Unoccupied cool (F)",
+            min_value=70.0,
+            max_value=95.0,
+            value=float(sp0["unoccupied_cooling_f"]),
+            step=0.5,
+        )
+        st.caption(
+            f"Occupied deadband (derived): **{float(occ_cool) - float(occ_heat):.1f} F** "
+            "(occ cool - occ heat)"
+        )
+
+        st.markdown("**Weekly occupancy**")
+        tz = st.text_input("Timezone", value=occ0["timezone"])
+        days_out: dict[str, Any] = {}
+        for d in DAY_KEYS:
+            day = occ0["days"][d]
+            st.markdown(f"**{DAY_LABELS[d]}**")
+            a, b, c = st.columns(3)
+            occupied = a.checkbox(
+                "Occupied", value=bool(day["occupied"]), key=f"site_cfg_occ_{d}"
+            )
+            start_t = b.time_input(
+                "Start",
+                value=time(int(day["start"][:2]), int(day["start"][3:5])),
+                key=f"site_cfg_occ_s_{d}",
+            )
+            end_t = c.time_input(
+                "End",
+                value=time(int(day["end"][:2]), int(day["end"][3:5])),
+                key=f"site_cfg_occ_e_{d}",
+            )
+            days_out[d] = {
+                "occupied": bool(occupied),
+                "start": _hhmm(start_t, day["start"]),
+                "end": _hhmm(end_t, day["end"]),
+            }
+
+        st.markdown("**Sim date override**")
+        use_override = st.checkbox(
+            "Override peak day for Run DSM",
+            value=bool(cfg.get("peak_day_override")),
+        )
+        default_day = cfg.get("peak_day_override") or (
+            getattr(getattr(bundle, "dial_ladder", None), "peak_day", None)
+            or "2026-01-26"
+        )
+        try:
+            default_d = date.fromisoformat(str(default_day)[:10])
+        except ValueError:
+            default_d = date(2026, 1, 26)
+        picked = st.date_input("Peak day override", value=default_d)
+        peak_override = picked.isoformat() if use_override and picked else None
+
+        submitted = st.form_submit_button("Save Site Config", type="primary")
+
+    if submitted:
+        sp = {
+            "occupied_heating_f": float(occ_heat),
+            "unoccupied_heating_f": float(unocc_heat),
+            "occupied_cooling_f": float(occ_cool),
+            "unoccupied_cooling_f": float(unocc_cool),
+        }
+        errs = validate_setpoints_f(sp)
         if errs:
-            st.error("Fix setpoint validation before saving.")
+            for e in errs:
+                st.error(e)
         else:
+            draft = {
+                "schema_version": SCHEMA_VERSION,
+                "setpoints_f": sp,
+                "occupancy_schedule": {"timezone": tz, "days": days_out},
+                "peak_day_override": peak_override,
+            }
             path = save_site_dsm_config(site, draft)
             st.success(f"Saved `{path}`")
             cfg = load_site_dsm_config(site)
-    else:
-        cfg = normalize_site_dsm_config(draft)
 
     st.session_state["site_dsm_config"] = cfg
-    st.caption(f"Active: {setpoints_summary(cfg)}")
     return cfg
