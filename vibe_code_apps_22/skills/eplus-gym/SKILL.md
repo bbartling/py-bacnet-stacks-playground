@@ -39,6 +39,14 @@ streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 Tabs: **Run DSM** · **Calibration** · **Fuel** · **ECMs**.  
 No IDF / campus / interval pickers. Pack comes from `ingest_site_pack.py`.
 
+## DSM campaign supervisor
+
+Live Run DSM starts `scripts/run_dsm_campaign.py` once (Popen). Streamlit only
+polls `{SITE_ROOT}/reports/eplus_gym/current_dsm_run.json` via `@st.fragment`.
+Preflight (EPW span ⊆ coverage, IDF hash, max_steps) runs **before** any EnergyPlus
+child. Defaults: Peak day · AMY · baseline + one strategy. Cancel writes
+`cancel_dsm_run.request`. `last_dsm_run.json` updates only after all jobs validate.
+
 **Weather:** AMY = Open-Meteo actual year (M&V). Refresh with
 `python -u scripts\eplus_fetch_open_meteo_epw.py`. Never auto-pick Chicago
 screening as TMY. See `open-meteo-epw`.

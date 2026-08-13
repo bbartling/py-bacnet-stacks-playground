@@ -93,12 +93,35 @@ def resolve_tmy_msn_epw(site: Path) -> Path | None:
 def weather_inventory(site: Path, *, published: Path | None = None) -> dict[str, Any]:
     amy = resolve_amy_epw(site, published=published)
     tmy = resolve_tmy_msn_epw(site)
+    stale_bundle = False
+    stale_note = None
+    meta_path = _weather_dir(site) / "amy_meta.json"
+    if meta_path.is_file():
+        try:
+            import json
+
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            meta_epw = meta.get("epw")
+            if meta_epw and published is not None and Path(published).is_file():
+                try:
+                    stale_bundle = Path(meta_epw).resolve() != Path(published).resolve()
+                except OSError:
+                    stale_bundle = Path(meta_epw).name != Path(published).name
+                if stale_bundle:
+                    stale_note = (
+                        f"Published bundle EPW ({Path(published).name}) differs from "
+                        f"amy_meta current ({Path(meta_epw).name}). Republish AMY / site pack."
+                    )
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
     return {
         "amy": amy,
         "tmy": tmy,
         "amy_kind": classify_epw(amy) if amy else None,
         "tmy_kind": classify_epw(tmy) if tmy else None,
-        "default_mode": "Both" if (amy and tmy) else "AMY",
+        "default_mode": "AMY",
+        "stale_bundle_epw": stale_bundle,
+        "stale_bundle_note": stale_note,
         "tmy_missing_note": (
             None
             if tmy

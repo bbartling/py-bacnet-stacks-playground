@@ -111,6 +111,24 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
         )
         self.energyplus_runner.start()
         obs = self.energyplus_runner.init_exchange(default_action=self.default_action)
+        if obs is None:
+            from .errors import EnergyPlusStartupError
+            from .startup_diag import diagnose_startup_failure
+
+            diag = diagnose_startup_failure(self.energyplus_runner)
+            try:
+                self.energyplus_runner.stop()
+            except Exception:  # noqa: BLE001
+                pass
+            raise EnergyPlusStartupError(
+                diag["message"],
+                exit_code=diag.get("exit_code"),
+                runner_error=diag.get("runner_error"),
+                err_path=diag.get("err_path"),
+                severe_or_fatal=diag.get("severe_or_fatal"),
+                log_tail=diag.get("log_tail"),
+                details=diag,
+            )
         self.last_obs = obs
         return np.array(list(obs.values()), dtype=np.float32), {
             "honesty": self.honesty,

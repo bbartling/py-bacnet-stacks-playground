@@ -259,7 +259,7 @@ def test_weather_resolver_amy_found_chicago_not_auto_tmy(tmp_path: Path):
     assert classify_epw(real) == KIND_TMY_MSN
     assert resolve_tmy_msn_epw(tmp_path) == real
     inv2 = weather_inventory(tmp_path)
-    assert inv2["default_mode"] == "Both"
+    assert inv2["default_mode"] == "AMY"
     assert epws_for_mode("Both", inv2) == [(KIND_AMY, amy), (KIND_TMY_MSN, real)]
 
 

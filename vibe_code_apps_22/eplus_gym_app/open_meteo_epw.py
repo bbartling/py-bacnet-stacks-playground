@@ -431,5 +431,58 @@ def refresh_amy_epw(
     meta["request_start"] = win_start
     meta["request_end"] = win_end
     meta["site_slug"] = slug
-    (weather / "amy_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    publish_current_amy(site, final, meta)
     return meta
+
+
+def publish_current_amy(site: Path, epw_path: Path, meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Atomically update amy_meta.json and rewrite site_ui_bundle_v1 epw pin."""
+    import hashlib
+    import os
+
+    site = Path(site)
+    epw_path = Path(epw_path)
+    weather = site / "eplus" / "weather"
+    weather.mkdir(parents=True, exist_ok=True)
+    span = parse_epw_span(epw_path)
+    doc = dict(meta or {})
+    doc["epw"] = str(epw_path)
+    doc["kind"] = KIND_AMY
+    doc["source"] = doc.get("source") or "open-meteo-archive"
+    if span.get("start") is not None:
+        doc["start"] = span["start"].isoformat() if hasattr(span["start"], "isoformat") else str(span["start"])
+    if span.get("end") is not None:
+        doc["end"] = span["end"].isoformat() if hasattr(span["end"], "isoformat") else str(span["end"])
+    doc["n_rows"] = span.get("n_rows")
+    h = hashlib.sha256()
+    with epw_path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    doc["sha256"] = h.hexdigest()
+
+    meta_path = weather / "amy_meta.json"
+    tmp_meta = weather / f".amy_meta.{os.getpid()}.tmp"
+    tmp_meta.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp_meta, meta_path)
+
+    bundle = site / "reports" / "site_ui_bundle_v1.json"
+    if bundle.is_file():
+        try:
+            bundle_doc = json.loads(bundle.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            bundle_doc = None
+        if isinstance(bundle_doc, dict):
+            rel = f"eplus/weather/{epw_path.name}"
+            try:
+                rel = str(epw_path.resolve().relative_to(site.resolve())).replace("\\", "/")
+            except ValueError:
+                pass
+            bundle_doc["epw"] = rel
+            bundle_doc["epw_sha256"] = doc["sha256"]
+            bundle_doc["epw_coverage_start"] = doc.get("start")
+            bundle_doc["epw_coverage_end"] = doc.get("end")
+            tmp_b = bundle.with_name(f".{bundle.name}.{os.getpid()}.tmp")
+            tmp_b.write_text(json.dumps(bundle_doc, indent=2) + "\n", encoding="utf-8")
+            os.replace(tmp_b, bundle)
+            doc["bundle_epw"] = rel
+    return doc

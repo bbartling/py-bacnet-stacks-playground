@@ -159,6 +159,21 @@ def test_inventory_skips_campaign_idfs(tmp_path: Path):
     assert "campaigns" not in str(inv.champion_idf)
 
 
+def test_a04_wins_over_e20_champion_name(tmp_path: Path):
+    pack = _min_pack(tmp_path / "pack", a04=True)
+    models = pack / "eplus" / "models"
+    _write_tiny_idf(models / "lakeside_w2a_e20_dual_champion.idf")
+    inv = inventory_site_pack(pack)
+    assert inv.champion_idf is not None
+    assert inv.champion_idf.name == "lakeside_w2a_a04_dual_champion.idf"
+    dest = tmp_path / "site"
+    ingest_site_pack(pack, dest)
+    doc = json.loads((dest / "reports" / "site_ui_bundle_v1.json").read_text(encoding="utf-8"))
+    assert doc["dsm_champion"] == "A04"
+    assert doc["idf_pin"] == "lakeside_w2a_a04_dual_champion.idf"
+    assert "idf_sha256" in doc
+
+
 def test_zip_slip_rejected(tmp_path: Path):
     zpath = tmp_path / "evil.zip"
     with zipfile.ZipFile(zpath, "w") as zf:
