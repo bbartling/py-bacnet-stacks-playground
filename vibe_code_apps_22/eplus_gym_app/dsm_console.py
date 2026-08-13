@@ -283,6 +283,24 @@ def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict
     return kpis_by
 
 
+def attach_actual_deltas(
+    kpis_by: dict[str, dict[str, Any]],
+    actual_peak_kw: float | None,
+) -> dict[str, dict[str, Any]]:
+    """Fill vs_actual_pct from BAS meter peak when missing (AMY day ↔ meter day)."""
+    if actual_peak_kw in (None, 0):
+        return kpis_by
+    ap = float(actual_peak_kw)
+    for row in kpis_by.values():
+        peak = row.get("peak_kw")
+        if peak is None:
+            continue
+        if row.get("vs_actual_pct") is None:
+            row["vs_actual_pct"] = (float(peak) - ap) / ap * 100.0
+        row["actual_peak_kw"] = ap
+    return kpis_by
+
+
 def run_dsm_lookup(
     *,
     site_root: Path,
@@ -478,7 +496,11 @@ def stage_idf_for_period(
     """
     from datetime import date
 
-    from eplus_native.idf_stage import patch_run_period
+    from eplus_native.idf_stage import (
+        disable_sizing_periods,
+        ensure_zone_mean_air_temperature_outputs,
+        patch_run_period,
+    )
     from eplus_native.schedule_calendar_repair import apply_site_config_to_idf
 
     src = Path(src)
@@ -498,6 +520,9 @@ def stage_idf_for_period(
         end_year=e.year,
         name=f"DSM_{b.isoformat()}_{e.isoformat()}",
     )
+    # Operational weather-only scoring: never run sizing-period callbacks.
+    text = disable_sizing_periods(text)
+    text = ensure_zone_mean_air_temperature_outputs(text)
     cfg = site_config
     if cfg is None and site_root is not None:
         try:
@@ -977,6 +1002,7 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     from eplus_gym_app.dsm_preflight import sha256_file
     from eplus_gym_app.plots import (
         COLORS,
+        dsm_compare_overlay_figure,
         dsm_panel_figure,
         dsm_trajectory_figure,
         period_daily_peak_figure,
@@ -1286,6 +1312,9 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     actual = last.get("actual")
     if not isinstance(actual, pd.DataFrame):
         actual = None
+    if actual is None or getattr(actual, "empty", True):
+        actual = actual_day_profile(bundle, str(last.get("day") or day))
+        last["actual"] = actual
     frames = frame_map(last.get("frames"))
     if not frames:
         primary = coalesce_frame(last.get("frame"))
@@ -1301,6 +1330,10 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     actual_peak_show = None
     if actual is not None and not actual.empty and "kw_avg" in actual.columns:
         actual_peak_show = float(actual["kw_avg"].max())
+    elif actual_peak_show is None:
+        actual_peak_show = _actual_peak(bundle, str(last.get("day") or day))
+    # Always backfill vs_actual_pct for the Overview scorecard when BAS peak exists.
+    attach_actual_deltas(kpis_by, actual_peak_show)
     elapsed_map = last.get("elapsed_by_weather") or {}
     if elapsed_map:
         elapsed_bit = (
@@ -1315,13 +1348,21 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         )
     ran = list(last.get("strategies") or kpis_by.keys()) or ["all"]
     st.header("Results")
+    wx = str(last.get("weather_mode") or "")
+    amy_note = (
+        " AMY EPW = actual-year weather for this calendar day — compare to BAS meter below."
+        if "AMY" in wx.upper() or wx.upper() == "AMY"
+        else ""
+    )
     st.info(
         f"**Last run** `{last.get('preset')}`  |  period `{last.get('period') or last.get('day')}`  |  "
         f"{len(ran)} strategies ({', '.join(ran)})  |  "
         f"{last.get('n_days') or last.get('window_n') or '?'} days  |  "
-        f"{last.get('max_steps') or '?'} steps{elapsed_bit}. "
+        f"{last.get('max_steps') or '?'} steps{elapsed_bit}.{amy_note} "
         "Charts below."
     )
+    if actual_peak_show is not None:
+        st.caption(f"Actual BAS meter peak this day: **{actual_peak_show:.1f} kW**.")
     _render_dsm_results_charts(
         last=last,
         kpis_by=kpis_by,
@@ -1332,7 +1373,9 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
         COLORS=COLORS,
         dsm_panel_figure=dsm_panel_figure,
         dsm_trajectory_figure=dsm_trajectory_figure,
+        dsm_compare_overlay_figure=dsm_compare_overlay_figure,
         period_daily_peak_figure=period_daily_peak_figure,
+        actual_peak_kw=actual_peak_show,
     )
 
 
@@ -1346,26 +1389,50 @@ def _render_dsm_results_charts(**kwargs):
     eplus = kwargs["eplus"]
     day = kwargs["day"]
     COLORS = kwargs["COLORS"]
-    dsm_panel_figure = kwargs["dsm_panel_figure"]
     dsm_trajectory_figure = kwargs["dsm_trajectory_figure"]
+    dsm_compare_overlay_figure = kwargs["dsm_compare_overlay_figure"]
     period_daily_peak_figure = kwargs["period_daily_peak_figure"]
+    actual_peak_kw = kwargs.get("actual_peak_kw")
 
     peak_slices = {}
     for key, df in frames.items():
         peak_slices[key] = slice_traj_for_day(df, day)
 
-    # Preserve run order; always offer Overview first.
     ran = list(last.get("strategies") or kpis_by.keys())
     if not ran:
         ran = sorted({split_frame_key(k)[0] for k in frames})
     tab_labels = ["Overview", *[STRATEGY_LABELS.get(s, s) for s in ran]]
     tabs = st.tabs(tab_labels, key=f"dsm_results_tabs_{last.get('run_id') or last.get('day')}")
 
+    def _slice_for(sid: str):
+        for prefer in (f"{sid}:{KIND_AMY}", f"{sid}:lookup", sid):
+            cand = peak_slices.get(prefer)
+            if cand is None:
+                for key, v in peak_slices.items():
+                    if split_frame_key(key)[0] == sid and v is not None and not v.empty:
+                        cand = v
+                        break
+            if cand is not None and not getattr(cand, "empty", True):
+                return cand
+        return None
+
+    has_actual = (
+        actual is not None
+        and not getattr(actual, "empty", True)
+        and "kw_avg" in getattr(actual, "columns", [])
+    )
+
     with tabs[0]:
         st.markdown(
-            "Scorecard across the strategies in this run. Open each strategy tab for a "
-            "short tutorial plus **stacked** Actual / E+ / SP charts (no side-by-side)."
+            "Scorecard vs **Actual BAS meter** (same calendar day) and vs baseline. "
+            "AMY weather = actual meteorological year for that day. "
+            "Open each strategy tab for SP detail."
         )
+        if not has_actual:
+            st.warning(
+                "No BAS meter profile for this day — cannot overlay Actual. "
+                "Check demand/interval CSV coverage."
+            )
         if kpis_by:
             rows = []
             for sid, row in kpis_by.items():
@@ -1378,11 +1445,35 @@ def _render_dsm_results_charts(**kwargs):
                         "kwh_penalty": row.get("kwh_penalty"),
                         "vs_baseline_pct": row.get("vs_baseline_pct"),
                         "vs_actual_pct": row.get("vs_actual_pct"),
+                        "actual_peak_kw": row.get("actual_peak_kw") or actual_peak_kw,
                     }
                 )
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+        overlay_series = []
+        for sid in ran:
+            sl = _slice_for(sid)
+            if sl is not None:
+                overlay_series.append(
+                    (f"E+ {STRATEGY_LABELS.get(sid, sid)}", COLORS.get(sid, "#2a9d8f"), sl)
+                )
+        st.plotly_chart(
+            dsm_compare_overlay_figure(
+                actual=actual if has_actual else None,
+                series=overlay_series,
+                title=(
+                    f"Actual BAS vs EnergyPlus  |  {day}  |  "
+                    f"{last.get('weather_mode') or 'AMY'}"
+                ),
+                actual_peak_kw=actual_peak_kw,
+                height=480,
+            ),
+            width="stretch",
+            key=f"dsm_overlay_all_{last.get('day')}_{last.get('period')}",
+        )
+
         daily = daily_peaks_from_traj(eplus)
-        if daily is not None and not daily.empty:
+        if daily is not None and not daily.empty and int(last.get("n_days") or 1) > 1:
             st.plotly_chart(
                 period_daily_peak_figure(
                     daily,
@@ -1399,69 +1490,52 @@ def _render_dsm_results_charts(**kwargs):
             kpi = kpis_by.get(sid) or {}
             if kpi:
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Peak kW", f"{kpi['peak_kw']:.1f}" if kpi.get("peak_kw") is not None else "-")
-                m2.metric("kWh", f"{kpi['kwh']:.0f}" if kpi.get("kwh") is not None else "-")
+                m1.metric(
+                    "Peak kW",
+                    f"{kpi['peak_kw']:.1f}" if kpi.get("peak_kw") is not None else "-",
+                )
+                m2.metric(
+                    "kWh",
+                    f"{kpi['kwh']:.0f}" if kpi.get("kwh") is not None else "-",
+                )
                 m3.metric(
+                    "vs Actual peak %",
+                    (
+                        f"{kpi['vs_actual_pct']:+.1f}%"
+                        if kpi.get("vs_actual_pct") is not None
+                        else "-"
+                    ),
+                )
+                m4.metric(
                     "kW trim vs baseline",
                     f"{kpi['kw_trim']:+.1f}" if kpi.get("kw_trim") is not None else "-",
                 )
-                m4.metric(
-                    "kWh penalty",
-                    f"{kpi['kwh_penalty']:+.0f}" if kpi.get("kwh_penalty") is not None else "-",
-                )
 
-            # Prefer AMY frame for this strategy
-            sl = None
-            for prefer in (f"{sid}:{KIND_AMY}", f"{sid}:lookup", sid):
-                cand = peak_slices.get(prefer)
-                if cand is None:
-                    for key, v in peak_slices.items():
-                        if split_frame_key(key)[0] == sid and v is not None and not v.empty:
-                            cand = v
-                            break
-                if cand is not None and not getattr(cand, "empty", True):
-                    sl = cand
-                    break
+            sl = _slice_for(sid)
             if sl is None:
                 st.info(f"No trajectory frame for `{sid}` in this run.")
                 continue
 
             color = COLORS.get(sid, "#2a9d8f")
             st.plotly_chart(
-                dsm_panel_figure(
-                    actual if actual is not None else pd.DataFrame(),
-                    title=f"Actual BAS meter  |  {last.get('day')}",
-                    ycol="kw_avg",
-                    name="Actual (BAS meter)",
-                    color="#1f2a30",
-                    oat_col="oat_f",
-                    oat_name="Actual OAT F",
-                    height=420,
+                dsm_compare_overlay_figure(
+                    actual=actual if has_actual else None,
+                    series=[(f"E+ {STRATEGY_LABELS.get(sid, sid)}", color, sl)],
+                    title=f"Actual vs E+ {STRATEGY_LABELS.get(sid, sid)}  |  {day}",
+                    actual_peak_kw=actual_peak_kw,
+                    height=460,
                 ),
                 width="stretch",
-                key=f"dsm_actual_{sid}_{last.get('day')}",
-            )
-            st.plotly_chart(
-                dsm_panel_figure(
-                    sl,
-                    title=f"EnergyPlus  |  {STRATEGY_LABELS.get(sid, sid)}  |  {last.get('day')}",
-                    ycol="facility_kw",
-                    name=f"E+ {sid} kW",
-                    color=color,
-                    oat_col="oat_f",
-                    oat_name="E+ EPW OAT F",
-                    height=420,
-                ),
-                width="stretch",
-                key=f"dsm_eplus_{sid}_{last.get('day')}",
+                key=f"dsm_overlay_{sid}_{last.get('day')}",
             )
             st.plotly_chart(
                 dsm_trajectory_figure(
                     sl,
-                    actual=actual,
-                    title=f"{STRATEGY_LABELS.get(sid, sid)} 15-min + heating SP  |  {last.get('day')}",
+                    actual=actual if has_actual else None,
+                    title=f"{STRATEGY_LABELS.get(sid, sid)} 15-min + heating SP  |  {day}",
                     height=480,
                 ),
                 width="stretch",
                 key=f"dsm_traj_{sid}_{last.get('day')}_{last.get('preset')}",
             )
+

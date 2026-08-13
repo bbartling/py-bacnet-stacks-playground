@@ -102,7 +102,8 @@ practice A04 when dual gates hold).
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
-Tabs: **Run DSM** · **Calibration** · **Fuel** · **ECMs** (see tester prompt).  
+Tabs: **Site Config** · **Calibration** · **Fuel** · **Energy ECMs** · **Run DSM**
+(see tester prompt + [`ENERGY_ECMS.md`](ENERGY_ECMS.md)).
 Calendar month defaults to the BAS peak-day month when present.  
 Weather radio: **AMY** = Open-Meteo actual year; **TMY** = site typical when
 published (missing TMY → AMY only; Chicago screening is not used).  

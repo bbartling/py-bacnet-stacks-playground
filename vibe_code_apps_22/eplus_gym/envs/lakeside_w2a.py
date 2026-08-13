@@ -7,12 +7,40 @@ from typing import Any, Dict, Tuple, Union
 import gymnasium as gym
 import numpy as np
 
+from eplus_native.idf_inspect import NINE_ZONES
+from eplus_native.zone_agg import aggregate_zone_temps_row, load_agg_contract
+
 from ..env import EnergyPlusEnv
 from ..honesty import HONESTY_W2A
 
 _ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_IDF = _ROOT / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
 HONESTY = HONESTY_W2A
+
+ZONE_VAR = "Zone Mean Air Temperature"
+
+
+def _c_to_f(c: float) -> float:
+    return float(c) * 9.0 / 5.0 + 32.0
+
+
+def enrich_obs_with_bas_aggregates(obs: Dict[str, float]) -> Dict[str, float]:
+    """Add six BAS aggregate zone temps (°F) from nine raw °C sensors; fail-closed."""
+    out = dict(obs)
+    temps_f: Dict[str, float] = {}
+    missing: list[str] = []
+    for z in NINE_ZONES:
+        key = f"zone_t_c_{z}"
+        if key not in obs or obs[key] != obs[key]:
+            missing.append(z)
+            continue
+        temps_f[z] = _c_to_f(float(obs[key]))
+        out[f"zone_t_f_{z}"] = temps_f[z]
+    if missing:
+        raise ValueError(f"missing zone mean air temps for aggregation: {missing}")
+    aggs = aggregate_zone_temps_row(temps_f, load_agg_contract(), mode="hp_count")
+    out.update(aggs)
+    return out
 
 
 class LakesideW2AEnv(EnergyPlusEnv):
@@ -37,7 +65,7 @@ class LakesideW2AEnv(EnergyPlusEnv):
         return p
 
     def get_observation_space(self) -> gym.Space:
-        n = len(self.get_variables()) + len(self.get_meters())
+        n = len(self.get_variables()) + len(self.get_meters()) + 7  # calendar fields
         return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(n,), dtype=np.float32)
 
     def get_action_space(self) -> gym.Space:
@@ -53,9 +81,12 @@ class LakesideW2AEnv(EnergyPlusEnv):
         return 0.0
 
     def get_variables(self) -> Dict[str, Tuple[str, str]]:
-        return {
+        vars_: Dict[str, Tuple[str, str]] = {
             "oat_c": ("Site Outdoor Air Drybulb Temperature", "Environment"),
         }
+        for z in NINE_ZONES:
+            vars_[f"zone_t_c_{z}"] = (ZONE_VAR, z)
+        return vars_
 
     def get_meters(self) -> Dict[str, str]:
         return {
@@ -67,3 +98,15 @@ class LakesideW2AEnv(EnergyPlusEnv):
         return {
             "htg_sp_c": ("Schedule:Compact", "Schedule Value", name),
         }
+
+    def step(self, action):
+        obs_vec, reward, done, truncated, info = super().step(action)
+        od = dict(info.get("obs_dict") or {})
+        try:
+            info["obs_dict"] = enrich_obs_with_bas_aggregates(od)
+            info["zone_agg_ok"] = True
+        except ValueError as exc:
+            info["obs_dict"] = od
+            info["zone_agg_ok"] = False
+            info["zone_agg_error"] = str(exc)
+        return obs_vec, reward, done, truncated, info

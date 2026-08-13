@@ -626,6 +626,59 @@ def period_daily_peak_figure(
     return fig
 
 
+def dsm_compare_overlay_figure(
+    *,
+    actual: pd.DataFrame | None,
+    series: Sequence[tuple[str, str, pd.DataFrame]],
+    title: str,
+    actual_peak_kw: float | None = None,
+    height: int = 460,
+) -> go.Figure:
+    """One line chart: Actual BAS meter + one or more E+ facility_kw series (AMY day)."""
+    fig = go.Figure()
+    if actual is not None and not getattr(actual, "empty", True):
+        xcol = "hod" if "hod" in actual.columns else None
+        ycol = "kw_avg" if "kw_avg" in actual.columns else ("kw" if "kw" in actual.columns else None)
+        if xcol and ycol:
+            fig.add_trace(
+                go.Scatter(
+                    x=actual[xcol],
+                    y=actual[ycol],
+                    name="Actual (BAS meter)",
+                    line=dict(color="#1f2a30", width=2.6),
+                )
+            )
+    for name, color, frame in series:
+        if frame is None or getattr(frame, "empty", True) or "facility_kw" not in frame.columns:
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=_hod(frame),
+                y=frame["facility_kw"],
+                name=name,
+                line=dict(color=color or COLORS.get(name, "#2a9d8f"), width=2.1),
+            )
+        )
+    if actual_peak_kw not in (None, 0):
+        fig.add_hline(
+            y=float(actual_peak_kw),
+            line_dash="dot",
+            line_color="#6c757d",
+            annotation_text=f"Actual peak {float(actual_peak_kw):.1f} kW",
+            annotation_position="top left",
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Hour (local)",
+        yaxis_title="kW",
+        template="plotly_white",
+        height=int(height),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        margin=dict(t=56, b=36),
+    )
+    return fig
+
+
 def dsm_panel_figure(
     df: pd.DataFrame,
     *,

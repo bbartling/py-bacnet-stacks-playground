@@ -464,12 +464,13 @@ _PEOPLE_SCHEDULE_NAMES = (
 )
 _PLUG_SCHEDULE_NAMES = ("SCH_Equip", "SCH_Kitchen")
 _HVAC_SCHEDULE_NAMES = (
-    "SCH_HeatAvail",
     "SCH_CoolAvail",
     "SCH_FanProxy",
     "SCH_HVAC",
     "SCH_OA",
 )
+# SCH_HeatAvail stays always-on for ZoneHVAC WAHP unoccupied SP hold (not windowed).
+_HEAT_AVAIL_ALWAYS_ON = "SCH_HeatAvail"
 
 
 def _optimum_start_lead_hours(cfg: dict[str, Any]) -> float:
@@ -570,6 +571,30 @@ def apply_site_people_hvac_schedules(
             unoccupied_value=0.0,
             lead_hours=lead,
         )
+        # Keep heating available overnight so ZoneHVAC WAHP can hold unocc SP;
+        # opt-start / HVAC window applies to fan / OA / cool / SCH_HVAC.
+        if _schedule_name_present(text, _HEAT_AVAIL_ALWAYS_ON):
+            text = upsert_schedule_compact(
+                text,
+                _HEAT_AVAIL_ALWAYS_ON,
+                _compact(
+                    _HEAT_AVAIL_ALWAYS_ON,
+                    "Fraction",
+                    [
+                        "Through: 12/31",
+                        "For: AllDays",
+                        "Until: 24:00",
+                        "1.0",
+                    ],
+                ),
+            )
+            report["applied"].append(
+                {
+                    "schedule": _HEAT_AVAIL_ALWAYS_ON,
+                    "kind": "hvac_heat_always_on",
+                    "lead_h": 0.0,
+                }
+            )
         for name in _HVAC_SCHEDULE_NAMES:
             if not _schedule_name_present(text, name):
                 report["skipped"].append(name)

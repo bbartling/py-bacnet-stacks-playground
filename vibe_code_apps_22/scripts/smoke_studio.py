@@ -111,8 +111,8 @@ def main() -> int:
         titles = " ".join(str(t.value) for t in at.title)
         assert "Site DSM" in titles
         assert "Lakeside DSM" not in titles
-        for tab in ("Run DSM", "Calibration", "Fuel", "ECMs"):
-            at.session_state["lakeside_main_tabs"] = tab
+        for tab in ("Calibration", "Fuel", "Energy ECMs", "Run DSM"):
+            at.session_state["site_dsm_main_tabs"] = tab
             at.run(timeout=90)
             assert not at.exception, tab
             assert not list(at.error), (tab, [str(e.value) for e in at.error])

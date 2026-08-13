@@ -318,6 +318,57 @@ def ensure_per_area_dsm_schedules(
     return text
 
 
+def disable_sizing_periods(text: str) -> str:
+    """Force ``Run Simulation for Sizing Periods = No`` on SimulationControl.
+
+    Operational DSM staging must not score design-day / sizing-period callbacks.
+    Never call this on the published champion in place — only staged copies.
+    """
+    lines = text.splitlines()
+    out: list[str] = []
+    in_sc = False
+    for line in lines:
+        if re.match(r"^\s*SimulationControl\s*,", line, re.I):
+            in_sc = True
+            out.append(line)
+            continue
+        if in_sc:
+            if "Run Simulation for Sizing Periods" in line:
+                m = re.match(r"^(\s*)([^,;]+)(.*)$", line)
+                if m:
+                    line = f"{m.group(1)}No{m.group(3)}"
+            if ";" in line.split("!")[0]:
+                in_sc = False
+        out.append(line)
+    return "\n".join(out)
+
+
+def ensure_zone_mean_air_temperature_outputs(
+    text: str,
+    zones: tuple[str, ...] | list[str] | None = None,
+) -> str:
+    """Ensure Timestep Zone Mean Air Temperature Output:Variable rows exist."""
+    from eplus_native.idf_inspect import NINE_ZONES
+
+    wanted = tuple(zones) if zones is not None else NINE_ZONES
+    missing = [
+        z
+        for z in wanted
+        if not re.search(
+            rf"Output:Variable\s*,\s*{re.escape(z)}\s*,\s*Zone Mean Air Temperature\s*,",
+            text,
+            re.I,
+        )
+    ]
+    if not missing:
+        return text
+    blocks = [
+        f"Output:Variable,\n    {z},\n    Zone Mean Air Temperature,\n    Timestep;"
+        for z in missing
+    ]
+    return text.rstrip() + "\n\n! DSM staging: zone mean air temps\n" + "\n".join(blocks) + "\n"
+
+
 def patch_run_period(
     text: str,
     *,

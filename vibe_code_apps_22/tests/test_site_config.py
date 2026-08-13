@@ -148,12 +148,15 @@ def test_apply_people_hvac_schedules_and_opt_start_lead():
     out, report = apply_site_people_hvac_schedules(stub, cfg)
     assert any(a["schedule"] == "SCH_Occ_Class" for a in report["applied"])
     assert any(a["schedule"] == "SCH_HeatAvail" for a in report["applied"])
+    assert any(a.get("kind") == "hvac_heat_always_on" for a in report["applied"])
+    assert any(a["schedule"] == "SCH_FanProxy" for a in report["applied"])
     assert "Until: 06:45" in out
     assert "Until: 15:30" in out
-    # 10 F / 6 = 1.666 h ≈ 100 min → people 06:45 - 100 min = 05:05
+    # 10 F / 6 = 1.666 h ≈ 100 min → people 06:45 - 100 min = 05:05 on FanProxy
     assert abs(report["optimum_start_lead_h"] - (10.0 / 6.0)) < 1e-6
     assert "Until: 05:05" in out
-    # Champion stub source unchanged pattern: FanProxy present and patched
+    # HeatAvail stays always-on for WAHP unocc SP hold
+    assert "For: AllDays" in out
     assert "SCH_FanProxy" in out
 
 
@@ -164,7 +167,8 @@ def test_stage_idf_applies_site_config(tmp_path: Path):
     src.write_text(
         "RunPeriod,\n    Annual,\n    1,1,2026,12,31,2026;\nBuilding,\n    X,\n    0;\n"
         + _stub_schedule("SCH_Occ_Class")
-        + _stub_schedule("SCH_HeatAvail"),
+        + _stub_schedule("SCH_HeatAvail")
+        + _stub_schedule("SCH_FanProxy"),
         encoding="utf-8",
     )
     save_site_dsm_config(
@@ -197,6 +201,7 @@ def test_stage_idf_applies_site_config(tmp_path: Path):
     assert "SCH_HtgSP" in text
     assert "SCH_ClgSP" in text
     assert "Until: 07:15" in text
+    # HeatAvail always-on; FanProxy gets HVAC window
     assert "Until: 06:30" in text
     assert src.read_text(encoding="utf-8").count("SCH_HtgSP") == 0
     assert "Until: 07:15" not in src.read_text(encoding="utf-8")

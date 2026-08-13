@@ -24,9 +24,92 @@ FAMILY_IDEALLOADS = "idealloads"
 
 
 def day_for_step(begin: str, step: int) -> str:
-    """Calendar day for a closed-loop step (96 steps/day)."""
+    """DEPRECATED synthetic calendar — lookup emulator only.
+
+    Live EnergyPlus trajectories must use Runtime ``ep_year/ep_month/ep_day``.
+    """
     return (date.fromisoformat(str(begin)[:10]) + timedelta(days=int(step) // 96)).isoformat()
 
+
+def runtime_day_from_obs(od: Dict[str, Any]) -> Optional[str]:
+    """ISO date from EnergyPlus Runtime calendar fields on an observation."""
+    try:
+        y = int(float(od["ep_year"]))
+        m = int(float(od["ep_month"]))
+        d = int(float(od["ep_day"]))
+        if y <= 0 or m <= 0 or d <= 0:
+            return None
+        return date(y, m, d).isoformat()
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def validate_live_trajectory_calendar(
+    rows: List[Dict[str, Any]],
+    *,
+    expected_day: Optional[str] = None,
+    expect_steps: int = 96,
+) -> Dict[str, Any]:
+    """Fail closed on sizing contamination / synthetic dating / wrong count."""
+    issues: List[str] = []
+    if len(rows) != int(expect_steps):
+        issues.append(f"expected {expect_steps} scored rows, got {len(rows)}")
+    kinds = [int(float(r.get("kind_of_sim", -1))) for r in rows]
+    if any(k != 3 for k in kinds):
+        issues.append("non-weather kind_of_sim in scored rows (sizing contamination)")
+    warm = [float(r.get("warmup", 0.0)) for r in rows]
+    if any(w > 0.5 for w in warm):
+        issues.append("warmup rows present in scored trajectory")
+    days = [runtime_day_from_obs(r) for r in rows]
+    if any(d is None for d in days):
+        issues.append("missing Runtime calendar fields on scored rows")
+    if expected_day and days and any(d != expected_day for d in days if d):
+        issues.append(f"calendar day != expected {expected_day}: {sorted(set(days))}")
+    # Contaminated Jan-26 OAT pattern detector (design-day then jump)
+    oats = [float(r["oat_c"]) for r in rows if "oat_c" in r and r["oat_c"] == r["oat_c"]]
+    if len(oats) >= 10:
+        first = oats[: max(1, len(oats) // 2)]
+        second = oats[len(oats) // 2 :]
+        if (
+            abs(sum(first) / len(first) + 17.8) < 1.5
+            and abs(sum(second) / len(second) - 24.65) < 2.0
+        ):
+            issues.append(
+                "contaminated OAT pattern (~−17.8°C then ~+24.65°C) — sizing-day signature"
+            )
+    # Monotonic 15-min stamps within day
+    stamps = []
+    for r in rows:
+        try:
+            stamps.append(
+                (
+                    int(float(r["ep_year"])),
+                    int(float(r["ep_month"])),
+                    int(float(r["ep_day"])),
+                    int(float(r["ep_hour"])),
+                    int(float(r["ep_minute"])),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    if len(stamps) >= 2:
+        for a, b in zip(stamps, stamps[1:]):
+            if b < a:
+                issues.append("non-monotonic Runtime timestamps")
+                break
+    ok = not issues
+    return {"ok": ok, "issues": issues}
+
+
+def detect_synthetic_step_dating(rows: List[Dict[str, Any]], begin: str) -> bool:
+    """True if ``day`` column matches deprecated day_for_step(begin, step)."""
+    if not rows or "day" not in rows[0] or "step" not in rows[0]:
+        return False
+    return all(
+        str(r.get("day")) == day_for_step(begin, int(r["step"]))
+        and "ep_year" not in r
+        for r in rows
+    )
 
 def _norm_family(family: str) -> str:
     raw = str(family or FAMILY_IDEALLOADS).strip().lower()
@@ -61,6 +144,8 @@ def _live_episode(
             "output": str(output),
             "verbose": verbose,
             "queue_timeout_s": 120.0,
+            "occupied_heating_f": float(getattr(ctrl, "occ_htg_sp_f", 70.0)),
+            "default_action_c": float(ctrl.action_c(0)),
         }
     )
     _obs, info = env.reset()
@@ -83,10 +168,16 @@ def _live_episode(
             "htg_sp_f": ctrl.setpoint_f(t),
             "htg_sp_c": action,
             "reward": reward,
-            **{k: float(v) for k, v in od.items()},
+            **{k: float(v) for k, v in od.items() if isinstance(v, (int, float))},
         }
-        if begin is not None:
-            row["day"] = day_for_step(begin.isoformat(), t)
+        # Prefer EnergyPlus Runtime calendar — never fabricate via day_for_step.
+        rt_day = runtime_day_from_obs(od)
+        if rt_day:
+            row["day"] = rt_day
+        elif begin is not None:
+            # Legacy fallback only when Runtime fields absent (should not happen live).
+            row["day"] = begin.isoformat()
+            row["day_source"] = "requested_begin_fallback"
         if "facility_kw" not in row and "facility_j" in row:
             # Electricity:Facility at 15-min zone timestep → kW
             j = row["facility_j"]
@@ -95,6 +186,13 @@ def _live_episode(
         if done or truncated:
             break
     env.close()
+    expected = begin.isoformat() if begin is not None else None
+    cal = validate_live_trajectory_calendar(rows, expected_day=expected, expect_steps=max_steps)
+    meta["calendar_validation"] = cal
+    if not cal["ok"]:
+        raise ValueError(
+            "live trajectory calendar validation failed: " + "; ".join(cal["issues"])
+        )
     return {"rows": rows, "meta": meta, "controller": ctrl}
 
 

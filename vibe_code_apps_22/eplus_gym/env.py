@@ -31,7 +31,27 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
         self.observation_space = self.get_observation_space()
         self.action_space = self.get_action_space()
         self.last_obs: Dict[str, float] = {}
-        self.default_action = float(self.post_process_action(self.action_space.sample()))
+        # Deterministic init — never action_space.sample(). Default occupied 70°F → °C
+        # unless env_config supplies default_action_c / occupied_heating_f.
+        if "default_action_c" in env_config:
+            self.default_action = float(self.post_process_action(env_config["default_action_c"]))
+        elif "occupied_heating_f" in env_config:
+            occ_f = float(env_config["occupied_heating_f"])
+            self.default_action = float(self.post_process_action((occ_f - 32.0) * 5.0 / 9.0))
+        else:
+            self.default_action = float(self.post_process_action(21.11111111111111))  # 70°F
+        self.default_action_provenance = {
+            "default_action_c": self.default_action,
+            "source": (
+                "env_config.default_action_c"
+                if "default_action_c" in env_config
+                else (
+                    "env_config.occupied_heating_f"
+                    if "occupied_heating_f" in env_config
+                    else "baseline_70F"
+                )
+            ),
+        }
 
         self.energyplus_runner: Optional[EnergyPlusRunner] = None
         self.obs_queue: Optional[Queue] = None
@@ -134,6 +154,7 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
             "honesty": self.honesty,
             "provenance": self.provenance,
             "promote": self.promote,
+            "default_action": self.default_action_provenance,
         }
 
     def step(self, action):

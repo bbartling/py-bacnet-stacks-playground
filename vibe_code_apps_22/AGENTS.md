@@ -120,11 +120,15 @@ hypothesis → campaign folder → score → republish.
 
 ### Site Config + winter AMY (2026-08-13)
 
-- Streamlit tabs: **Site Config · Run DSM · Calibration · Fuel · ECMs**.
+- Streamlit tabs: **Site Config · Calibration · Fuel · Energy ECMs · Run DSM**.
+- **Energy ECMs** = agent-published open-fdd spreadsheet vs staged E+ compare
+  (`reports/ecm_compare.json` + `reports/notebooks/*.xlsx`). View-only in
+  Streamlit. **Run DSM** = peak / control strategies. VAV/G36 air-loop ECMs
+  need a VAV twin (A04 WAHP = 0 air loops). See
+  [`vibe22_agent_spec/ENERGY_ECMS.md`](vibe22_agent_spec/ENERGY_ECMS.md).
 - Site Config persists `{SITE_ROOT}/reports/eplus_gym/site_dsm_config.json`
-  (occ/unocc heat/cool °F + weekly occupancy + optional peak-day override).
-  Values patch **staged** IDFs only (`SCH_HtgSP` / `SCH_ClgSP`) — never the
-  published champion.
+  (occ/unocc heat/cool °F + weekly people/HVAC + optional peak-day override).
+  Values patch **staged** IDFs only — never the published champion.
 - Multi-year AMY EPW `DATA PERIODS` must be **year-aware** (`mm/dd/yyyy`).
   Month/day-only headers (`8/1,8/7`) make EnergyPlus treat coverage as a short
   noyear Aug window and reject winter peaks like `2026-01-26`. Staged RunPeriods

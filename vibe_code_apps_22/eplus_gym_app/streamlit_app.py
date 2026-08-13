@@ -650,21 +650,52 @@ def _render_fuel_tab(bundle: SiteUiBundle, campus: Campus | None) -> None:
             st.dataframe(bills, width="stretch", hide_index=True)
 
 
-def _render_ecm_tab(bundle: SiteUiBundle) -> None:
+def _render_energy_ecms_tab(bundle: SiteUiBundle) -> None:
+    """Read-only agent results: open-fdd spreadsheet vs staged EnergyPlus."""
+    from eplus_gym_app.ecm_publish import latest_notebook_xlsx
+
+    st.subheader("Energy ECMs")
     st.caption(
-        "Published ECM compare table. Agents write `reports/ecm_compare.json` after runs."
+        "Spreadsheet (open-fdd ``ECMJob``) vs EnergyPlus screening. "
+        "**Agents** publish workbooks + ``reports/ecm_compare.json``; "
+        "this tab is view-only. **Run DSM** stays peak / control strategies — "
+        "not annual ECM ranking."
     )
+    st.caption(
+        "Published champion IDF is untouched. VAV / Guideline 36 air-loop "
+        "measures (DSP/SAT reset as AHU patches) need a VAV twin — A04 WAHP "
+        "practice champion has **0 air loops** (ZoneHVAC water-to-air HPs). "
+        "GL36 FDD cookbook rules are not this tab."
+    )
+    xlsx = latest_notebook_xlsx(bundle.site)
+    if xlsx is not None:
+        try:
+            rel = xlsx.relative_to(bundle.site)
+        except ValueError:
+            rel = xlsx
+        st.caption(f"Latest workbook: `{rel}`")
+    else:
+        st.caption(
+            "No workbook yet under `reports/notebooks/**/*.xlsx` "
+            "(agents: `ECMJob(...).save(...)`)."
+        )
+
     payload = load_ecm_compare(bundle.site)
     table = ecm_compare_table(payload)
     if table.empty:
         st.info(
-            "No ECM measures yet. Agents publish `reports/ecm_compare.json` "
-            "under the site workspace when ECM sims finish."
+            "No Energy ECM measures yet. Agent workflow: "
+            "(1) `pip install open-fdd` → `ECMJob` workbook under "
+            "`reports/notebooks/`; (2) stage IDF patches + run E+ "
+            "(never overwrite champion); (3) write `reports/ecm_compare.json`; "
+            "(4) refresh this tab."
         )
         return
     st.dataframe(table, width="stretch", hide_index=True)
     if payload.get("note"):
         st.caption(str(payload["note"]))
+    if payload.get("workbook"):
+        st.caption(f"Compare payload workbook: `{payload['workbook']}`")
 
 
 def _render_missing_site(exc: BaseException) -> None:
@@ -716,9 +747,18 @@ def main() -> None:
 
     # Track tab state. Default on_change="ignore" resets to the first tab on
     # every rerun — so Run results vanished after clicking Run.
-    # Order: Site Config · Calibration · Fuel · Run DSM (ECMs removed; DSM is ECM surface).
-    tab_cfg, tab_cal, tab_fuel, tab_run = st.tabs(
-        ["Site Config", "Calibration", "Fuel", "Run DSM"],
+    # Order: Site Config · Calibration · Fuel · Energy ECMs · Run DSM.
+    # Energy ECMs = annual spreadsheet vs E+ (agent-published).
+    # Run DSM = peak / control strategies on the W2A twin.
+    tab_cfg, tab_cal, tab_fuel, tab_ecm, tab_run, tab_opt = st.tabs(
+        [
+            "Site Config",
+            "Calibration",
+            "Fuel",
+            "Energy ECMs",
+            "Run DSM",
+            "Optimize Tomorrow",
+        ],
         key="site_dsm_main_tabs",
         on_change="rerun",
     )
@@ -730,8 +770,14 @@ def main() -> None:
         _render_calibration_tab(bundle, campus, bundle.champion())
     with tab_fuel:
         _render_fuel_tab(bundle, campus)
+    with tab_ecm:
+        _render_energy_ecms_tab(bundle)
     with tab_run:
         _render_run_dsm_tab(bundle)
+    with tab_opt:
+        from eplus_gym_app.optimize_tomorrow import render_optimize_tomorrow_tab
+
+        render_optimize_tomorrow_tab(bundle)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+{
+  "schema": "site_ecm_compare_v1",
+  "status": "ok",
+  "note": "Fixture: spreadsheet vs EnergyPlus screening (agent-published).",
+  "workbook": "reports/notebooks/fixture_ecms.xlsx",
+  "measures": [
+    {
+      "measure_id": "ECM-AHU-SCHED-ALIGN",
+      "ss_kwh": 120000.0,
+      "ep_kwh": 118500.0,
+      "ss_usd": 17400.0,
+      "ep_usd": 17182.5,
+      "capital_usd": 25000.0,
+      "payback_yr_ss": 1.44,
+      "payback_yr_ep": 1.45,
+      "roi_ss": 0.696,
+      "roi_ep": 0.687,
+      "status": "published"
+    },
+    {
+      "measure_id": "ECM-SAT-RESET",
+      "ss_kwh": 45000.0,
+      "ep_kwh": null,
+      "ss_usd": 6525.0,
+      "ep_usd": null,
+      "capital_usd": 18000.0,
+      "status": "CONCEPTUAL",
+      "note": "VAV/G36 air-loop measure — N/A on ZoneHVAC WAHP (0 air loops)"
+    }
+  ]
+}

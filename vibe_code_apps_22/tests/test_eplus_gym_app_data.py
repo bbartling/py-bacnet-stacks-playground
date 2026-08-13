@@ -280,7 +280,7 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "W2A_PHYSICAL_DSM" in home
     assert "not" in home.lower() and "IdealLoads" in home and "BOPTEST" in home
     assert "Building and fuel" not in home
-    assert "DSM staging options" in home or "Apply people" in home or "optimum start" in home.lower()
+    assert "DSM staging options" in home or "optimum start" in home.lower() or "HVAC optimum" in home
 
     at.session_state["site_dsm_main_tabs"] = "Run DSM"
     at.session_state["dsm_period"] = "Winter (Dec-Feb)"
@@ -327,5 +327,10 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     from eplus_gym_app.plots import eui_peer_bullet_figure as _peer_fig
 
     assert callable(_peer_fig)
-    # ECMs tab removed — DSM is the ECM surface
-    assert "ECMs" not in [str(getattr(t, "label", t)) for t in getattr(at, "tabs", [])]
+    at.session_state["site_dsm_main_tabs"] = "Energy ECMs"
+    at.run(timeout=90)
+    assert not at.exception
+    assert not list(at.error)
+    ecm = _copy()
+    assert "Energy ECMs" in ecm or "ecm_compare" in ecm.lower() or "open-fdd" in ecm.lower()
+    assert "Run DSM" in ecm or "peak" in ecm.lower() or "control" in ecm.lower() or "view" in ecm.lower()

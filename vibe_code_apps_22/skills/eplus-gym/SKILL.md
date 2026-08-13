@@ -36,8 +36,13 @@ $env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"  # practice
 streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
-Tabs: **Site Config** · **Run DSM** · **Calibration** · **Fuel** · **ECMs**.  
-No IDF / campus / interval pickers. Pack comes from `ingest_site_pack.py`.
+Tabs: **Site Config** · **Calibration** · **Fuel** · **Energy ECMs** · **Run DSM**.  
+**Energy ECMs** = agent-published open-fdd vs E+ compare (view-only).  
+**Run DSM** = peak / control strategies. No IDF / campus / interval pickers.
+Pack comes from `ingest_site_pack.py`. Agent ECM workflow:
+[`../../vibe22_agent_spec/ENERGY_ECMS.md`](../../vibe22_agent_spec/ENERGY_ECMS.md).
+Opt-start iteration on Lakeside A04:
+[`../lakeside-optstart-iteration/SKILL.md`](../lakeside-optstart-iteration/SKILL.md).
 
 ## DSM campaign supervisor
 

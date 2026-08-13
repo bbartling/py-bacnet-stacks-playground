@@ -16,7 +16,12 @@ def main() -> int:
         ("eplus_gym.controllers", ("RuleController", "effective_htg_setpoints_f")),
         ("eplus_gym_app.plots", ("eui_peer_bullet_figure", "dsm_panel_figure")),
         ("eplus_gym_app.site_config", ("load_site_dsm_config", "render_site_config_tab")),
+        ("eplus_gym_app.ecm_panel", ("load_ecm_compare", "ecm_compare_table")),
+        ("eplus_gym_app.ecm_publish", ("save_ecm_compare", "normalize_compare_payload")),
         ("eplus_gym_app.dsm_console", ("strategy_library", "render_run_dsm_tab")),
+        ("eplus_gym_app.optimize_tomorrow", ("render_optimize_tomorrow_tab", "render_cost_equations")),
+        ("eplus_gym.tariff_contract", ("TariffContract", "latex_cost_equations")),
+        ("eplus_gym.objective", ("score_trajectory", "incremental_demand")),
         ("eplus_gym_app.streamlit_app", ("main",)),
     ]
     for mod_name, attrs in checks:

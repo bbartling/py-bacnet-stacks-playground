@@ -61,13 +61,16 @@ def test_streamlit_app_uses_width_stretch():
     assert "Site DSM" in src
     assert "Lakeside DSM" not in src
     assert '"Fuel"' in src or "'Fuel'" in src
-    assert '"ECMs"' not in src and "'ECMs'" not in src
+    assert '"Energy ECMs"' in src or "'Energy ECMs'" in src
+    assert '"ECMs"' not in src  # bare label retired; use Energy ECMs
     assert '"Calibration"' in src or "'Calibration'" in src
+    assert '"Optimize Tomorrow"' in src or "'Optimize Tomorrow'" in src
     assert '"Run DSM"' in src or "'Run DSM'" in src
     assert "Site Config → staged IDF" in src or "Site Config" in src
     assert "Farm month" not in src
     assert "_render_farm_diagnostic" not in src
     assert "Building and fuel" not in src
+    assert "_render_energy_ecms_tab" in src
 
 
 def test_archived_ml_keeps_eplus_helpers():

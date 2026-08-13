@@ -54,12 +54,13 @@ PEOPLE_SCHEDULE_NAMES = (
 )
 PLUG_SCHEDULE_NAMES = ("SCH_Equip", "SCH_Kitchen")
 HVAC_SCHEDULE_NAMES = (
-    "SCH_HeatAvail",
     "SCH_CoolAvail",
     "SCH_FanProxy",
     "SCH_HVAC",
     "SCH_OA",
 )
+# HeatAvail is forced always-on on staged WAHP IDFs (unocc SP hold).
+HEAT_AVAIL_ALWAYS_ON = "SCH_HeatAvail"
 
 
 def _shift_hhmm(hhmm: str, minutes: int) -> str:
@@ -114,6 +115,7 @@ def default_site_dsm_config() -> dict[str, Any]:
         "setpoints_f": dict(DEFAULT_SETPOINTS_F),
         "occupancy_schedule": default_occupancy_schedule(),
         "peak_day_override": None,
+        # Always applied on staged IDFs (no UI toggles).
         "apply_people_plug_schedules": True,
         "apply_hvac_schedules": True,
         "optimum_start": False,
@@ -189,12 +191,13 @@ def normalize_site_dsm_config(raw: Any) -> dict[str, Any]:
         except ValueError:
             out["peak_day_override"] = None
     for flag in (
-        "apply_people_plug_schedules",
-        "apply_hvac_schedules",
         "optimum_start",
     ):
         if flag in raw:
             out[flag] = bool(raw[flag])
+    # People + HVAC Compact schedules always apply on staged IDFs.
+    out["apply_people_plug_schedules"] = True
+    out["apply_hvac_schedules"] = True
     try:
         out["optimum_start_f_per_min"] = float(
             raw.get("optimum_start_f_per_min", out["optimum_start_f_per_min"])
@@ -355,20 +358,20 @@ def site_config_feedback_rows(cfg: dict[str, Any] | None = None) -> list[dict[st
                     "site_config_source": f"hvac_start/end.{d}"
                     + (f" + opt-start lead {lead:.2f}h" if lead else ""),
                     "value_written": f"{hvac_start} -> {day['hvac_end']}",
-                    "note": "schedule-based; no air-loop OptimumStart on W2A",
+                    "note": "Fan/OA/HVAC windowed; SCH_HeatAvail stays always-on (WAHP)",
                 }
             )
     if doc.get("optimum_start"):
         rows.append(
             {
-                "object": "SCH_HeatAvail / SCH_FanProxy",
+                "object": "SCH_FanProxy / SCH_OA / SCH_HVAC",
                 "field": "optimum_start lead",
                 "site_config_source": (
                     f"{doc.get('optimum_start_f_per_min')} F/min, "
                     f"max {doc.get('optimum_start_max_h')} h"
                 ),
                 "value_written": f"{optimum_start_lead_hours(doc):.2f} h before people",
-                "note": "ZoneHVAC WAHP schedule lead (0 air loops)",
+                "note": "ZoneHVAC WAHP schedule lead (0 air loops); HeatAvail always-on",
             }
         )
     if doc.get("peak_day_override"):
@@ -405,41 +408,29 @@ def load_apply_report(site: Path | str) -> dict[str, Any] | None:
 
 
 def render_overview_staging_options(site: Path) -> dict[str, Any]:
-    """Overview checkboxes for people/HVAC/opt-start; persists on change via Save-less merge."""
+    """Overview: optimum-start toggle only (people/HVAC schedules always apply)."""
     import streamlit as st
 
     cfg = load_site_dsm_config(site)
     st.markdown("**DSM staging options** (staged IDF only)")
     st.caption(
-        "W2A champion has ZoneHVAC water-to-air HPs and **no air loops**, so "
-        "optimum start is a **schedule lead** on HVAC availability "
+        "People + plug and HVAC run schedules from Site Config **always** patch "
+        "staged IDFs. ``SCH_HeatAvail`` stays always-on (WAHP unocc SP hold); "
+        "HVAC schedule lead advances ``SCH_FanProxy`` / ``SCH_OA`` / ``SCH_HVAC`` only — "
+        "**not** heating recovery on ``SCH_HtgSP``. "
+        "Heating recovery / economic screening lives on **Optimize Tomorrow**. "
+        "W2A champion has **no air loops**, so HVAC lead is schedule-based "
         "(not AvailabilityManager:OptimumStart)."
     )
-    c1, c2, c3 = st.columns(3)
-    people = c1.checkbox(
-        "Apply people + plug schedules",
-        value=bool(cfg.get("apply_people_plug_schedules", True)),
-        key="ov_apply_people",
-    )
-    hvac = c2.checkbox(
-        "Apply HVAC run schedules",
-        value=bool(cfg.get("apply_hvac_schedules", True)),
-        key="ov_apply_hvac",
-    )
-    opt = c3.checkbox(
-        "HVAC optimum start (schedule lead)",
+    opt = st.checkbox(
+        "HVAC availability lead (fan/OA — not heating recovery)",
         value=bool(cfg.get("optimum_start", False)),
         key="ov_opt_start",
     )
-    changed = (
-        people != bool(cfg.get("apply_people_plug_schedules", True))
-        or hvac != bool(cfg.get("apply_hvac_schedules", True))
-        or opt != bool(cfg.get("optimum_start", False))
-    )
-    if changed:
-        cfg["apply_people_plug_schedules"] = people
-        cfg["apply_hvac_schedules"] = hvac
+    if opt != bool(cfg.get("optimum_start", False)):
         cfg["optimum_start"] = opt
+        cfg["apply_people_plug_schedules"] = True
+        cfg["apply_hvac_schedules"] = True
         try:
             save_site_dsm_config(site, cfg)
             st.caption("Staging options saved.")
@@ -449,7 +440,8 @@ def render_overview_staging_options(site: Path) -> dict[str, Any]:
         st.caption(
             f"Lead ~{optimum_start_lead_hours(cfg):.2f} h "
             f"(@ {cfg.get('optimum_start_f_per_min')} F/min, "
-            f"max {cfg.get('optimum_start_max_h')} h)."
+            f"max {cfg.get('optimum_start_max_h')} h). "
+            "HVAC start/end in Site Config are driven by people + lead (greyed out)."
         )
     return cfg
 
@@ -528,12 +520,19 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
         )
 
         st.markdown("**Weekly people + HVAC**")
+        opt_on = bool(cfg.get("optimum_start", False))
         st.caption(
-            "People drives occupancy and plug loads. HVAC is the equipment availability "
-            "window (can start earlier / end later than people)."
+            "People drives occupancy and plug loads. HVAC is equipment availability "
+            + (
+                "(greyed: **optimum start** drives HVAC start from people start − lead; "
+                "end follows people end + 30 min)."
+                if opt_on
+                else "(can start earlier / end later than people)."
+            )
         )
         tz = st.text_input("Timezone", value=occ0["timezone"])
         days_out: dict[str, Any] = {}
+        lead_h = optimum_start_lead_hours(cfg) if opt_on else 0.0
         for d in DAY_KEYS:
             day = occ0["days"][d]
             st.markdown(f"**{DAY_LABELS[d]}**")
@@ -553,24 +552,46 @@ def render_site_config_tab(site: Path, bundle: Any | None = None) -> dict[str, A
                 value=_hhmm_to_time(day["people_end"]),
                 key=f"site_cfg_people_e_{d}",
             )
-            hvac_start = h1.time_input(
-                "HVAC start",
-                value=_hhmm_to_time(day["hvac_start"]),
-                key=f"site_cfg_hvac_s_{d}",
-            )
-            hvac_end = h2.time_input(
-                "HVAC end",
-                value=_hhmm_to_time(day["hvac_end"]),
-                key=f"site_cfg_hvac_e_{d}",
-            )
             ps = _hhmm(people_start, day["people_start"])
             pe = _hhmm(people_end, day["people_end"])
+            if opt_on and occupied:
+                # Lead before people; end 30 min after people (manual HVAC edits disabled).
+                auto_hvac_start = _shift_hhmm(ps, -int(round(lead_h * 60)))
+                auto_hvac_end = _shift_hhmm(pe, 30)
+                hvac_start = h1.time_input(
+                    "HVAC start",
+                    value=_hhmm_to_time(auto_hvac_start),
+                    key=f"site_cfg_hvac_s_{d}",
+                    disabled=True,
+                )
+                hvac_end = h2.time_input(
+                    "HVAC end",
+                    value=_hhmm_to_time(auto_hvac_end),
+                    key=f"site_cfg_hvac_e_{d}",
+                    disabled=True,
+                )
+                hs, he = auto_hvac_start, auto_hvac_end
+            else:
+                hvac_start = h1.time_input(
+                    "HVAC start",
+                    value=_hhmm_to_time(day["hvac_start"]),
+                    key=f"site_cfg_hvac_s_{d}",
+                    disabled=False,
+                )
+                hvac_end = h2.time_input(
+                    "HVAC end",
+                    value=_hhmm_to_time(day["hvac_end"]),
+                    key=f"site_cfg_hvac_e_{d}",
+                    disabled=False,
+                )
+                hs = _hhmm(hvac_start, day["hvac_start"])
+                he = _hhmm(hvac_end, day["hvac_end"])
             days_out[d] = {
                 "occupied": bool(occupied),
                 "people_start": ps,
                 "people_end": pe,
-                "hvac_start": _hhmm(hvac_start, day["hvac_start"]),
-                "hvac_end": _hhmm(hvac_end, day["hvac_end"]),
+                "hvac_start": hs,
+                "hvac_end": he,
                 "start": ps,
                 "end": pe,
             }

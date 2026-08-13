@@ -31,11 +31,14 @@ from eplus_gym_app.dsm_campaign import (  # noqa: E402
     write_campaign,
 )
 from eplus_gym_app.dsm_console import (  # noqa: E402
+    attach_actual_deltas,
     attach_baseline_deltas,
+    actual_day_profile,
     dsm_kpis,
     last_run_pointer,
     persist_last_run,
     pick_frame,
+    _actual_peak,
 )
 from eplus_gym_app.dsm_preflight import PreflightError, run_preflight, sha256_file  # noqa: E402
 from eplus_gym_app.weather_files import KIND_AMY  # noqa: E402
@@ -183,6 +186,19 @@ def _persist_success(
     frames_meta: dict[str, str] = {}
     kpis_by: dict[str, Any] = {}
     elapsed_by: dict[str, float] = {}
+    day = str(doc.get("peak_day") or doc["begin"])
+    actual_peak = None
+    try:
+        # Prefer BAS meter peak for the campaign peak day (AMY weather ↔ actual year).
+        from eplus_gym_app.site_bundle import load_site_ui_bundle
+
+        bundle = load_site_ui_bundle(site)
+        actual_peak = _actual_peak(bundle, day)
+        actual_df = actual_day_profile(bundle, day)
+    except Exception:  # noqa: BLE001
+        actual_df = __import__("pandas").DataFrame()
+        actual_peak = None
+
     for row in results:
         key = row["key"]
         frames_meta[key] = row["parquet"]
@@ -194,18 +210,18 @@ def _persist_success(
             "mode": "live",
             "family": "w2a",
             "promote": False,
-            "day": doc.get("peak_day"),
+            "day": day,
             "strategy_id": row["strategy_id"],
             "loop": "CLOSED_LOOP_RULE_DR",
             "period": f"{doc['begin']}/{doc['end']}",
             "weekend_sp": "repeat_96_step_profile",
         }
-        # Aggregate per strategy (prefer AMY when both)
         sid = row["strategy_id"]
         if sid not in kpis_by or row["weather_kind"] == KIND_AMY:
-            kpis_by[sid] = dsm_kpis(df, meta)
+            kpis_by[sid] = dsm_kpis(df, meta, actual_peak_kw=actual_peak)
 
     attach_baseline_deltas(kpis_by)
+    attach_actual_deltas(kpis_by, actual_peak)
     primary_key = next(
         (k for k in frames_meta if k.startswith("baseline:")),
         next(iter(frames_meta)),
@@ -216,10 +232,10 @@ def _persist_success(
     persist_last_run(
         site,
         df=primary_df,
-        actual=pd.DataFrame(),
+        actual=actual_df if isinstance(actual_df, pd.DataFrame) else pd.DataFrame(),
         kpis=kpis_by.get("baseline") or next(iter(kpis_by.values())),
         strategy="all",
-        day=str(doc.get("peak_day") or doc["begin"]),
+        day=day,
         preset=str(doc.get("preset") or "Peak day"),
         mode="live",
         epw_name=",".join(str(e.get("epw") or "") for e in (doc.get("epws") or [])),

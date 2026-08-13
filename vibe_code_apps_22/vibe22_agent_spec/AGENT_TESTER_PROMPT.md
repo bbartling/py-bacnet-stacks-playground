@@ -83,9 +83,9 @@ AppTest (no live E+) must exercise all four tabs:
 | **Run DSM** | Champion IDF + fuel visible; strategy/period; Run uses lookup or CLI live |
 | **Calibration** | GL14 / closeness tables from pack |
 | **Fuel** | Monthly Actual vs E+ (elec); gas bills when present |
-| **ECMs** | Table from `reports/ecm_compare.json` or empty-state caption |
+| **Energy ECMs** | Table from `reports/ecm_compare.json` or empty-state caption |
 
-Source smoke: page title **Site DSM**; tabs include Fuel + ECMs.
+Source smoke: page title **Site DSM**; tabs include Fuel + Energy ECMs.
 
 ### 5. G14 gates (when bills + sim exist)
 
@@ -105,6 +105,6 @@ python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
 - [ ] AMY present / refreshed at site lat/lon
 - [ ] pytest green (or documented pre-existing fails only)
 - [ ] `/_stcore/health` ok
-- [ ] AppTest / UI smoke covers **Run DSM · Calibration · Fuel · ECMs**
+- [ ] AppTest / UI smoke covers **Site Config · Calibration · Fuel · Energy ECMs · Run DSM**
 - [ ] No invented city/area/coords
 - [ ] G14 reported honestly; `promote=False`; champions untouched

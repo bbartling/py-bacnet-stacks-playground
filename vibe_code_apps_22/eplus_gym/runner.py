@@ -181,9 +181,27 @@ class EnergyPlusRunner:
         self.act_queue.put(self.last_action)
         return self.obs_queue.get()
 
+    def _runtime_calendar(self, state_argument) -> Dict[str, float]:
+        """Actual EnergyPlus Runtime calendar (not synthetic step dating)."""
+        kind = int(self.x.kind_of_sim(state_argument))
+        warmup = bool(self.x.warmup_flag(state_argument))
+        return {
+            "ep_year": float(self.x.year(state_argument)),
+            "ep_month": float(self.x.month(state_argument)),
+            "ep_day": float(self.x.day_of_month(state_argument)),
+            "ep_hour": float(self.x.hour(state_argument)),
+            "ep_minute": float(self.x.minutes(state_argument)),
+            "kind_of_sim": float(kind),
+            "warmup": 1.0 if warmup else 0.0,
+        }
+
     def _collect_obs(self, state_argument) -> None:
         try:
             if self.simulation_complete or not self._init_callback(state_argument):
+                return
+            # Hard gate: only RunPeriodWeather (3), never sizing/design-day.
+            kind = int(self.x.kind_of_sim(state_argument))
+            if kind != 3 or bool(self.x.warmup_flag(state_argument)):
                 return
             self.next_obs = {
                 **{
@@ -202,6 +220,7 @@ class EnergyPlusRunner:
                     )
                     for key, handle in self.meter_handles.items()
                 },
+                **self._runtime_calendar(state_argument),
             }
             self.obs_queue.put(self.next_obs)
         except Exception as exc:  # noqa: BLE001 — never raise into ctypes
@@ -217,6 +236,9 @@ class EnergyPlusRunner:
             if self.simulation_complete or not self._init_callback(state_argument):
                 return
             if self.handle_error:
+                return
+            kind = int(self.x.kind_of_sim(state_argument))
+            if kind != 3 or bool(self.x.warmup_flag(state_argument)):
                 return
             sys_timestep_duration = self.x.system_time_step(state_argument)
             if (
@@ -303,10 +325,10 @@ class EnergyPlusRunner:
             **{k: v for k, v in self.meter_handles.items() if v == -1},
         }
         # kind_of_sim: 1=DesignDay, 2=RunPeriodDesign, 3=RunPeriodWeather
-        # Meters are often unavailable until the weather run-period finishes warmup.
+        # Never initialize / score during sizing or warmup — even if sensors resolve.
         kind = int(self.x.kind_of_sim(state_argument))
         warmup = bool(self.x.warmup_flag(state_argument))
-        if missing_sensors and (kind != 3 or warmup):
+        if kind != 3 or warmup:
             return False
         if missing_sensors and self.verbose:
             print(f"WARN missing E+ sensor handles (NaN obs): {missing_sensors}")
