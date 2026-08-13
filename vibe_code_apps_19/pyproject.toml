@@ -9,7 +9,7 @@ description = "Educational pandas/Streamlit FDD demo for BUILDING_100-style CSV 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "open-fdd[reporting]>=4.3.0,<5",
+    "open-fdd[reporting] @ https://github.com/bbartling/open-fdd/archive/42ca508bbaa549db46f13041b7cac3df4636472e.zip",
     "pandas>=2.0",
     "pyarrow>=14.0",
     "pyyaml>=6.0",

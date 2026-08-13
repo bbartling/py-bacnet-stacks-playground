@@ -4,6 +4,6 @@
   "open_fdd_version": "4.3.0",
   "bundle_schema": "openfdd_engineering_bundle_v1",
   "legacy_bundle_schema": "wattlab_dump_v3",
-  "rule_catalog_hash": "5acedd0ddc0bd91e0307539c4f029683197c995fdabb111412b760e74568d274",
-  "note": "streamlit_application_git_sha is recorded at export time in MANIFEST provenance"
+  "rule_catalog_hash": "097eeda2282a17e785e70f1e9f941c554a8eeeb294ae581746d4d3c21b2e6072",
+  "note": "streamlit_application_git_sha is recorded at export time in MANIFEST provenance; hash pins open-fdd#710 SCHED-1 portable occupancy tip"
 }

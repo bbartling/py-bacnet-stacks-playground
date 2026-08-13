@@ -25,6 +25,7 @@ def assert_live_catalog_matches_pin() -> dict:
     allowed = {
         pin["rule_catalog_hash"],
         pin.get("pypi_430_wheel_hash"),
+        pin.get("openfdd_710_sched1_hash"),
     } - {None, ""}
     assert live in allowed, (
         f"Installed open-fdd catalog hash {live} not in {sorted(allowed)}. "
