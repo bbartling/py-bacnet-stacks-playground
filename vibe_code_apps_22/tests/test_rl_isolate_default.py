@@ -1,6 +1,8 @@
 """Unit tests for RL worker isolation plumbing (no EnergyPlus)."""
 from __future__ import annotations
 
+import pytest
+
 from eplus_gym.rl.daily_env import DailySixZoneGymEnv
 from eplus_gym.rl.live_day_worker import main as worker_main
 
@@ -19,12 +21,20 @@ def test_daily_env_defaults_to_isolate():
     assert env.action_space.shape == (11,)
 
 
-def test_worker_main_requires_job(tmp_path):
-    # argparse SystemExit when missing --job
-    try:
+def test_daily_env_refuses_non_live_simulator():
+    with pytest.raises(ValueError, match="LIVE_ENERGYPLUS"):
+        DailySixZoneGymEnv(
+            {
+                "site_root": ".",
+                "epw": "dummy.epw",
+                "champion_idf": "dummy.idf",
+                "days": ["2026-01-26"],
+                "simulator": "FARM_LOOKUP",
+            }
+        )
+
+
+def test_worker_main_requires_job():
+    with pytest.raises(SystemExit) as exc:
         worker_main([])
-        raised = False
-    except SystemExit as exc:
-        raised = True
-        assert int(exc.code) != 0
-    assert raised
+    assert int(exc.value.code) != 0

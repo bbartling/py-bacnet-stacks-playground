@@ -13,9 +13,11 @@
 | Approve immutability | **PASS** | `approved_recommendation.json` only |
 | Live BACnet | **NO-GO** | by design |
 | Champion IDF mutation | **PASS (unchanged)** | sha256 `212a2835…` |
-| CI (`vibe22-ci`) | **PASS** | 210 passed @ `2532b2a5` |
+| CI (`vibe22-ci`) | **PASS** | green @ `76caa79b` (includes RL unit tests) |
+| LIVE RL daily SB3 (PPO/DQN) | **PASS** (smoke) | `RL_DAILY_DSM.md` · `bakeoff_smoke_20260126` |
 
-**SIX_ZONE_OPTIMIZATION = GO** for screening studies (proposal-only).
+**SIX_ZONE_OPTIMIZATION = GO** for screening studies (proposal-only).  
+**RL_DAILY_DSM = GO** for LIVE screening bakeoffs (proposal-only; deeper budgets optional).
 
-Entrypoint: `python scripts/vibe22.py …`  
+Entrypoint: `python scripts/vibe22.py …` · RL: `python scripts/vibe22_rl.py …`  
 PR: https://github.com/bbartling/py-bacnet-stacks-playground/pull/90

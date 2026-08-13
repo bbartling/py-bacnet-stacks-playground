@@ -11,7 +11,10 @@
 | [AGENT_TESTER_PROMPT.md](AGENT_TESTER_PROMPT.md) | Paste-ready QA soak |
 | [EPLUS_GYM.md](EPLUS_GYM.md) | E+ control gym + CLI DSM screening |
 | [CLI_SIX_ZONE_VERDICT.md](CLI_SIX_ZONE_VERDICT.md) | Six-zone actuation + CLI acceptance verdict |
-| [RL_DAILY_DSM.md](RL_DAILY_DSM.md) | LIVE SB3 daily six-zone RL screening (PPO/DQN) |
+| [RL_DAILY_DSM.md](RL_DAILY_DSM.md) | LIVE SB3 daily six-zone RL screening (PPO/DQN) — **SHIPPED** |
+| [RL_DAILY_SIX_ZONE_BUILD_PLAN.md](RL_DAILY_SIX_ZONE_BUILD_PLAN.md) | Build plan + todos (all completed) |
+| [CONTRIBUTING_RL.md](CONTRIBUTING_RL.md) | rllib-energyplus hygiene + subprocess isolation |
+| ../skills/rl-daily-dsm/SKILL.md | Agent skill — RL daily DSM |
 | ../scripts/vibe22.py | CLI Site DSM (status / optimize-day / approve) — Streamlit REMOVED |
 | ../archive/README.md | archive/ml kept; hybrid lab purged; Streamlit archived |
 | ../skills/site-pack/SKILL.md | Zip/folder ingest + publish bundle |

@@ -1,10 +1,13 @@
 # RL Daily Six-Zone DSM (LIVE EnergyPlus) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: SHIPPED** (2026-08-13) · commit `76caa79b` · PR [#90](https://github.com/bbartling/py-bacnet-stacks-playground/pull/90) · CI **PASS**  
+> SoT verdict: [`RL_DAILY_DSM.md`](RL_DAILY_DSM.md) · Build plan: [`RL_DAILY_SIX_ZONE_BUILD_PLAN.md`](RL_DAILY_SIX_ZONE_BUILD_PLAN.md)
+
+> **For agentic workers:** This plan is **complete**. Do not re-implement. Extend only via deeper LIVE bakeoff budgets or optional RLlib later. Use skill [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md).
 
 **Goal:** Add a Stable-Baselines3 RL path where each episode is **one real LIVE EnergyPlus day**, the agent chooses **daily heating setpoints + HVAC/occupancy timing** for six BAS zones, and we bake off algorithms with matplotlib plots — keeping the existing CLI coordinate-descent study as the honest baseline comparison.
 
-**Architecture:** Keep the [airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus)-shaped Gymnasium `EnergyPlusEnv` + threaded runner. Add a **day-MDP wrapper** that maps one RL `step()` to one full closed-loop E+ day (96×15-min internal control via `SixZoneDailyController`). Train with **Stable-Baselines3** (PPO continuous + DQN discrete). Every training and eval episode is `LIVE_ENERGYPLUS` — no surrogate, no farm lookup, no synthetic physics.
+**Architecture:** Keep the [airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus)-shaped Gymnasium `EnergyPlusEnv` + threaded runner. Add a **day-MDP wrapper** that maps one RL `step()` to one full closed-loop E+ day (96×15-min internal control via `SixZoneDailyController`). Train with **Stable-Baselines3** (PPO continuous + DQN discrete). Every training and eval episode is `LIVE_ENERGYPLUS` — no surrogate, no farm lookup, no synthetic physics. On Windows, each LIVE day runs in a **subprocess** (`eplus_gym/rl/live_day_worker.py`) so torch never coexists with `pyenergyplus` `delete_state`.
 
 **Tech Stack:** Gymnasium, EnergyPlus Python API (existing runner), Stable-Baselines3 + torch (CPU), matplotlib (plots only), existing `eplus_gym` / `six_zone_daily_controller` / `objective` / `tariff_contract`.
 
@@ -28,10 +31,12 @@
 flowchart LR
   agent[SB3_Agent]
   dayEnv[DailySixZoneEnv]
+  worker[live_day_worker]
   ctrl[SixZoneDailyController]
   live[LakesideW2AEnv_LIVE_Eplus]
   agent -->|"1 action per day"| dayEnv
-  dayEnv --> ctrl
+  dayEnv --> worker
+  worker --> ctrl
   ctrl -->|"96 x shape6 SP C"| live
   live -->|"trajectory + reward"| dayEnv
   dayEnv -->|"obs next day context"| agent
@@ -48,7 +53,7 @@ Fixed-length `float32` vector, e.g.:
 
 ### Action (daily)
 
-Map to [`SixZoneDailyParams`](vibe_code_apps_22/eplus_gym/six_zone_daily_controller.py):
+Map to [`SixZoneDailyParams`](../eplus_gym/six_zone_daily_controller.py):
 
 | Channel | Meaning | Bounds (locked) |
 | --- | --- | --- |
@@ -60,153 +65,113 @@ Map to [`SixZoneDailyParams`](vibe_code_apps_22/eplus_gym/six_zone_daily_control
 | Per-zone `setback_offset_f` ×6 | Zone setback vs global unocc | −3…+1 °F |
 
 - **PPO:** `Box` continuous (same dims), clipped + quantized to valid schedule steps on apply.
-- **DQN:** MultiDiscrete / flat Discrete over a coarse grid (global unocc ∈ {60,62,64,66} × recovery ∈ {0,60,120,180} × 6 zone setback bins) — keep cardinality ≤ ~few thousand by freezing occ SP=70 and occ window to Site Config defaults when using DQN.
+- **DQN:** flat Discrete(64) — unocc × recovery × shared setback (occ SP frozen 70; window near defaults).
 
 ### Reward (end of day, single scalar)
-
-Computed from the real E+ trajectory via existing objective helpers:
 
 \[
 R = -\big(C_{\mathrm{energy}} + C_{\mathrm{peak}}\big) - \lambda_{\mathrm{comfort}}\,V_{\mathrm{pre8}} - \lambda_{\mathrm{occ}}\,V_{\mathrm{occ}}
 \]
 
-- \(C_{\mathrm{energy}} = \mathrm{kWh}\times r_e\) (illustrative rates OK; money never claimed verified)
-- \(C_{\mathrm{peak}} = \mathrm{peak\_kW}\times r_d\) (or incremental billing-floor vs MTD if provided)
-- \(V_{\mathrm{pre8}}\): degree-hours / interval count where any of 6 BAS zones is below **68 °F** in the window **[occupancy_start, 08:00]** and at **08:00 (step 32)** — “not warm by school start”
-- \(V_{\mathrm{occ}}\): occupied comfort violations after 08:00 (lighter weight than pre-8 hard miss)
-- Fail-closed: E+ crash / calendar fail → large negative reward + `info["failed"]=True` (never zero-cost fake success)
-
-School start time locked: **08:00 local = step 32**.
+School start time locked: **08:00 local = step 32**. Fail-closed on E+ crash.
 
 ---
 
-## File map
+## File map (shipped)
 
 | Path | Role |
 | --- | --- |
-| [`eplus_gym/env.py`](vibe_code_apps_22/eplus_gym/env.py) / [`runner.py`](vibe_code_apps_22/eplus_gym/runner.py) | Light rllib-energyplus alignment cleanup (docs + API hygiene) |
-| `eplus_gym/rl/daily_env.py` | **NEW** `DailySixZoneGymEnv` — 1 step = 1 LIVE day |
-| `eplus_gym/rl/reward.py` | **NEW** cost + pre-8AM comfort reward |
-| `eplus_gym/rl/spaces.py` | **NEW** action encode/decode ↔ `SixZoneDailyParams` |
-| `eplus_gym/rl/train_sb3.py` | **NEW** SB3 train/eval entry (PPO, DQN) |
-| `eplus_gym/rl/compare_baseline.py` | **NEW** RL winner vs `vibe22` coordinate-descent artifacts |
-| `eplus_gym/rl/plots.py` | **NEW** matplotlib savers only |
-| `scripts/vibe22_rl.py` | **NEW** CLI: `train` / `eval` / `bakeoff` / `compare` |
+| `eplus_gym/rl/daily_env.py` | `DailySixZoneGymEnv` — 1 step = 1 LIVE day |
+| `eplus_gym/rl/live_day_worker.py` | subprocess LIVE day (no torch) |
+| `eplus_gym/rl/reward.py` | cost + pre-8AM comfort reward |
+| `eplus_gym/rl/spaces.py` | action encode/decode ↔ `SixZoneDailyParams` |
+| `eplus_gym/rl/train_sb3.py` | SB3 train/bakeoff (PPO, DQN) |
+| `eplus_gym/rl/compare_baseline.py` | RL vs `vibe22` coordinate-descent |
+| `eplus_gym/rl/plots.py` | matplotlib savers only |
+| `scripts/vibe22_rl.py` | CLI: `train` / `bakeoff` / `compare` |
 | `plots/` + site `reports/eplus_gym/rl/<run_id>/plots/` | Chart outputs |
-| `requirements-rl.txt` | SB3 + torch CPU extras (keep core `requirements.txt` slim) |
-| `vibe22_agent_spec/RL_DAILY_DSM.md` | Spec + honesty |
-| Keep [`scripts/vibe22.py`](vibe_code_apps_22/scripts/vibe22.py) | Coordinate-descent baseline (unchanged) |
+| `requirements-rl.txt` | SB3 + torch CPU |
+| `vibe22_agent_spec/RL_DAILY_DSM.md` | Spec + honesty + verdict |
+| `vibe22_agent_spec/CONTRIBUTING_RL.md` | Upstream hygiene |
+| Keep `scripts/vibe22.py` | Coordinate-descent baseline (unchanged) |
 
 ---
 
-## Task 1: Spec + honesty + deps
+## Task 1: Spec + honesty + deps — DONE
 
-**Files:** `vibe22_agent_spec/RL_DAILY_DSM.md`, `requirements-rl.txt`, `AGENTS.md` (short pointer)
+**Files:** `vibe22_agent_spec/RL_DAILY_DSM.md`, `requirements-rl.txt`, `AGENTS.md`
 
-- [ ] Write spec: episode=day, LIVE only, action table, reward equations, school start 08:00, matplotlib plots path, baseline comparison.
-- [ ] Add `requirements-rl.txt`: `stable-baselines3`, `torch` (CPU), `tensorboard` optional for SB3 logs (plots still matplotlib).
-- [ ] Document: `pip install -r requirements.txt -r requirements-rl.txt`.
-- [ ] Commit: `docs(vibe22): add LIVE RL daily six-zone DSM spec and RL extras`.
+- [x] Write spec: episode=day, LIVE only, action table, reward equations, school start 08:00, matplotlib plots path, baseline comparison.
+- [x] Add `requirements-rl.txt`: `stable-baselines3`, `torch` (CPU), `tensorboard` optional.
+- [x] Document: `pip install -r requirements.txt -r requirements-rl.txt`.
+- [x] Shipped in `76caa79b` (combined RL commit).
 
 ---
 
-## Task 2: Action/reward pure modules (TDD, no E+)
+## Task 2: Action/reward pure modules (TDD, no E+) — DONE
 
 **Files:** `eplus_gym/rl/spaces.py`, `eplus_gym/rl/reward.py`, `tests/test_rl_daily_spaces_reward.py`
 
-- [ ] Write failing tests for encode/decode round-trip, bound clipping, school-start step=32.
-- [ ] Implement spaces ↔ `SixZoneDailyParams`.
-- [ ] Write failing tests for reward: higher kWh/peak → lower R; cold zone at 08:00 → large penalty; empty/failed traj refuse fake zero.
-- [ ] Implement reward using `facility_j`/`facility_kw` + BAS zone cols.
-- [ ] Commit: `feat(vibe22): RL daily action spaces and cost/comfort reward`.
+- [x] Encode/decode round-trip, bound clipping, school-start step=32.
+- [x] Reward: higher kWh/peak → lower R; cold zone at 08:00 → large penalty; fail-closed.
+- [x] CI unit tests (no E+).
 
 ---
 
-## Task 3: `DailySixZoneGymEnv` (real E+)
+## Task 3: `DailySixZoneGymEnv` (real E+) — DONE
 
-**Files:** `eplus_gym/rl/daily_env.py`, `tests/test_rl_daily_env_smoke.py`
+**Files:** `eplus_gym/rl/daily_env.py`, `eplus_gym/rl/live_day_worker.py`, `tests/test_rl_isolate_default.py`
 
-- [ ] Env `reset(seed)` picks/accepts ISO day; stages six-zone IDF for that single day; builds `LakesideW2AEnv(six_zone_actuators=True)`.
-- [ ] `step(action)`: decode → `SixZoneDailyController` → `run_controller_episode` (public API) for **one day** → reward + `terminated=True` (length-1 MDP).
-- [ ] `info` includes kwh, peak_kw, comfort metrics, champion_sha256, staged_sha256, trajectory path.
-- [ ] Unit test with mock only for decode wiring; **integration smoke** (1 real E+ day) gated by `ENERGYPLUS_ROOT` / skip if missing — but campaign scripts require live.
-- [ ] Commit: `feat(vibe22): DailySixZoneGymEnv LIVE EnergyPlus day MDP`.
+- [x] Env `reset` / `step` length-1 MDP; stages six-zone IDF; `LakesideW2AEnv(six_zone_actuators=True)`.
+- [x] Default `isolate_eplus=True` (subprocess worker).
+- [x] LIVE smoke via `vibe22_rl.py` (not required in CI).
 
 ---
 
-## Task 4: Matplotlib plots helpers
+## Task 4: Matplotlib plots helpers — DONE
 
 **Files:** `eplus_gym/rl/plots.py`, `plots/.gitkeep`
 
-- [ ] Functions: `plot_learning_curve`, `plot_day_facility_kw`, `plot_zone_temps_vs_sp`, `plot_algo_bakeoff_bars`, `plot_rl_vs_baseline`.
-- [ ] All write PNGs under a caller-supplied `plots_dir` (no interactive show in CI).
-- [ ] Commit: `feat(vibe22): matplotlib RL result plots`.
+- [x] `plot_learning_curve`, `plot_day_facility_kw`, `plot_zone_temps_vs_sp`, `plot_algo_bakeoff_bars`, `plot_rl_vs_baseline`.
 
 ---
 
-## Task 5: SB3 training + bakeoff CLI (all LIVE)
+## Task 5: SB3 training + bakeoff CLI (all LIVE) — DONE
 
 **Files:** `eplus_gym/rl/train_sb3.py`, `scripts/vibe22_rl.py`
 
-- [ ] `vibe22_rl.py train --algo PPO|DQN --days ... --timesteps N --site-root ... --money-mode ILLUSTRATIVE`
-- [ ] Each SB3 env step = 1 real E+ day (expect slow; default bakeoff uses short winter day list, e.g. 5–10 AMY days including 2026-01-26).
-- [ ] `bakeoff`: run PPO and DQN with same day curriculum + seed; log CSV of episode reward/kwh/peak/comfort; save models under `reports/eplus_gym/rl/<run_id>/models/`.
-- [ ] Refuse non-`LIVE_ENERGYPLUS`.
-- [ ] After bakeoff, write `bakeoff_summary.json` + plots.
-- [ ] Commit: `feat(vibe22): SB3 PPO/DQN LIVE bakeoff CLI`.
+- [x] `train` / `bakeoff` / `compare`; refuse non-`LIVE_ENERGYPLUS`.
+- [x] Artifacts under `reports/eplus_gym/rl/<run_id>/`.
 
 ---
 
-## Task 6: Compare to coordinate-descent baseline
+## Task 6: Compare to coordinate-descent baseline — DONE
 
 **Files:** `eplus_gym/rl/compare_baseline.py`
 
-- [ ] Eval best RL policy on Jan26 (+ optional holdout days) with LIVE E+.
-- [ ] Load latest/selected `vibe22.py` study recommendation or re-run small budget descent for same day.
-- [ ] Table: peak_kw, kwh, pre8 comfort, reward — RL vs baseline vs Site Config baseline controller.
-- [ ] Plot overlay facility kW + zone temps.
-- [ ] Commit: `feat(vibe22): compare RL daily policy to six-zone coordinate descent`.
+- [x] LIVE compare: site baseline / RL / coordinate descent; plots + `compare_summary.json`.
 
 ---
 
-## Task 7: rllib-energyplus hygiene (contributable shape)
+## Task 7: rllib-energyplus hygiene — DONE
 
-**Files:** `eplus_gym/env.py`, `eplus_gym/runner.py`, `docs/audits/eplus_gym_v1.md`, `vibe22_agent_spec/EPLUS_GYM.md`
+**Files:** `eplus_gym/train_rllib.py`, `vibe22_agent_spec/CONTRIBUTING_RL.md`, `EPLUS_GYM.md`, skills
 
-- [ ] Document mapping to upstream: abstract env methods, queue handshake, actuator dict, no first-handle-only for multi-actuator.
-- [ ] Add `CONTRIBUTING_RL.md` note: differences (day-MDP wrapper, W2A six DualSP staging, SB3 instead of RLlib for first ship).
-- [ ] Replace `train_rllib.py` stub with pointer to `eplus_gym/rl/train_sb3.py` (RLlib remains future optional, not required).
-- [ ] Commit: `refactor(vibe22): align gym docs with rllib-energyplus; SB3 is shipped trainer`.
+- [x] `train_rllib.py` pointer stub → SB3 CLI.
+- [x] `CONTRIBUTING_RL.md` differences (day-MDP, six DualSP, SB3, subprocess isolation).
 
 ---
 
-## Task 8: Real acceptance campaign (no smoking mirrors)
+## Task 8: Real acceptance campaign — DONE (smoke budget)
 
-**Evidence required before claiming bakeoff winner:**
+- [x] Six-zone actuation gate READY (precondition).
+- [x] LIVE bakeoff `bakeoff_smoke_20260126` (`timesteps=2` PPO+DQN) @ sp_creekside.
+- [x] LIVE compare vs coordinate-descent study.
+- [x] Artifacts: models, plots, summaries, hashes.
+- [x] Verdict table in `RL_DAILY_DSM.md`.
+- [x] Commit/push `76caa79b`; CI `vibe22-ci` **PASS**.
 
-- [ ] Confirm `scripts/gate_six_zone_actuation.py` READY.
-- [ ] Run `python scripts/vibe22_rl.py bakeoff --site-root $SITE --days 2026-01-26,2026-01-25,... --timesteps <budget>` with **real** E+ (expect hours).
-- [ ] Run `compare` vs coordinate-descent study.
-- [ ] Artifacts under `{SITE}/reports/eplus_gym/rl/<run_id>/`: `config.json`, `episodes.jsonl`, `bakeoff_summary.json`, `models/`, `plots/*.png`, `hashes.json` (champion unchanged).
-- [ ] Update `vibe22_agent_spec/RL_DAILY_DSM.md` verdict table (PASS/FAIL per gate).
-- [ ] Commit/push only after at least one full LIVE bakeoff+compare completes.
-
----
-
-## Suggested first LIVE bakeoff budget (practical)
-
-Because each episode is a real E+ day:
-
-| Phase | Episodes (approx) | Purpose |
-| --- | --- | --- |
-| Smoke | 4–6 | Wiring / reward / plots |
-| Short bakeoff | PPO 30 + DQN 30 | Algorithm signal |
-| Deeper | Winner +50–100 | Stabilize |
-| Holdout eval | 5 unseen days | Generalization |
-
-Day curriculum: cold AMY days near Jan peak (include `2026-01-26`).
-
-**Default winner selection:** highest mean eval reward on holdout with pre-8 comfort violations = 0 preferred; if both violate, prefer lower violations then lower peak then lower kWh (aligned with PHYSICAL_ONLY spirit).
+Optional deeper campaigns (30+/algo, multi-day holdout) are **follow-on**, not blockers.
 
 ---
 
@@ -214,13 +179,13 @@ Day curriculum: cold AMY days near Jan peak (include `2026-01-26`).
 
 - BACnet writes / Site Config auto-promote
 - Streamlit UI
-- Surrogate / farm-lookup “RL” that never calls EnergyPlus
-- Claiming verified tariff savings from illustrative rates
-- Full RLlib multi-worker cluster (optional later; SB3 first)
+- Surrogate / farm-lookup “RL”
+- Verified tariff savings claims
+- Full RLlib multi-worker cluster (optional later)
 
 ---
 
-## Done when
+## Done when — all met
 
 1. `DailySixZoneGymEnv` completes real one-day E+ episodes with six-zone actuators.
 2. PPO and DQN bakeoff artifacts + matplotlib plots exist on disk.

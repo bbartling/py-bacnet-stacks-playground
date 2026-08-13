@@ -1,8 +1,10 @@
 # Vibe 22 — agent loop (ingest → GL14 → publish → human DSM)
 
-**Last validated:** 2026-08-12  
+**Last validated:** 2026-08-13  
 **Read first:** [`../AGENTS.md`](../AGENTS.md) · this file · [`DATA_CONTRACT.md`](DATA_CONTRACT.md) ·
-[`../skills/site-pack/SKILL.md`](../skills/site-pack/SKILL.md)
+[`CLI_SIX_ZONE_VERDICT.md`](CLI_SIX_ZONE_VERDICT.md) · [`RL_DAILY_DSM.md`](RL_DAILY_DSM.md) ·
+[`../skills/site-pack/SKILL.md`](../skills/site-pack/SKILL.md) ·
+[`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md)
 
 This is the **turnkey iteration SoT** for **any building**. Humans do not pick
 IDF / campus / interval files. Agents publish a pack. Operators run
@@ -14,7 +16,7 @@ IDF / campus / interval files. Agents publish a pack. Operators run
 | Who | Owns |
 | --- | --- |
 | **Agent** | Ingest pack, iterate GL14, never overwrite champions, write `reports/site_ui_bundle_v1.json` |
-| **Human / operator** | Run `vibe22.py status|optimize-day|approve`. Inspect artifacts. |
+| **Human / operator** | Run `vibe22.py status|optimize-day|approve`. Optional LIVE RL bakeoff via `vibe22_rl.py`. Inspect artifacts. |
 
 EnergyPlus-MCP is **optional** (sibling `EnergyPlus-MCP` + knob-equivalent in
 `scripts/eplus_campaign.py`). The loop must work with a local `energyplus.exe`.
@@ -102,11 +104,13 @@ practice A04 when dual gates hold).
 ```powershell
 python -u scripts\vibe22.py status --site-root $env:SITE_ROOT
 python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
+# Optional LIVE RL comparator (requires requirements-rl.txt + EnergyPlus)
+# python -u scripts\vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root $env:SITE_ROOT
 ```
 
 Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**.  
 Six-zone DualSP staging on copies only. Approve → `approved_recommendation.json`.  
-Still no live E+ in Jupyter.
+Still no live E+ in Jupyter. RL = LIVE only — see [`RL_DAILY_DSM.md`](RL_DAILY_DSM.md).
 
 ## Honesty stamps
 

@@ -41,6 +41,11 @@ python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --bu
 Six-zone actuation (staged DualSP schedules `DSM_HTG_SP_*`) must PASS
 `scripts/gate_six_zone_actuation.py` before optimization.
 
+Optional LIVE RL screening (SB3 PPO/DQN, day MDP):
+`python scripts/vibe22_rl.py bakeoff …` — see
+[`../rl-daily-dsm/SKILL.md`](../rl-daily-dsm/SKILL.md). Lookup/farm is **not**
+valid for RL training.
+
 Site Config JSON: `{SITE}/reports/eplus_gym/site_dsm_config.json` — patches
 **staged** IDFs only.
 

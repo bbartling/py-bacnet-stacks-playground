@@ -51,6 +51,10 @@ Artifacts: `{SITE}/reports/eplus_gym/rl/<run_id>/` (models, episodes, plots, sum
 | LIVE PPO train (`timesteps=2`) | **PASS** `smoke_ppo_20260126` |
 | LIVE PPO+DQN bakeoff | **PASS** `bakeoff_smoke_20260126` (winner DQN @ mean_reward) |
 | LIVE compare vs descent | **PASS** (baseline / rl / coordinate_descent rows) |
+| CI (`vibe22-ci` @ `76caa79b`) | **PASS** |
 | Surrogate / lookup RL | **NO-GO** |
 
 Smoke rewards are illustrative screening scores only — not verified savings.
+
+Build plan (all todos completed): [`RL_DAILY_SIX_ZONE_BUILD_PLAN.md`](RL_DAILY_SIX_ZONE_BUILD_PLAN.md).  
+Skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md).

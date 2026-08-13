@@ -16,6 +16,7 @@ product logic — put them in the site pack / `campus.json`.
 [`vibe22_agent_spec/EPLUS_GYM.md`](vibe22_agent_spec/EPLUS_GYM.md),
 [`skills/eplus-gym/SKILL.md`](skills/eplus-gym/SKILL.md),
 [`skills/eplus-economic-mpc/SKILL.md`](skills/eplus-economic-mpc/SKILL.md),
+[`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md),
 [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md).
 
 Site SoT (data, E+ runs, historian): set **`SITE_ROOT`** (preferred).
@@ -24,10 +25,11 @@ artifacts**; large site trees stay outside git. Practice default on many laptops
 `…\Desktop\testing\sp_creekside`.
 
 Last validated: **2026-08-13** — product is **agent-published pack + CLI six-zone
-DSM screening**. Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**.
+DSM screening** (+ optional LIVE SB3 daily RL). Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**.
 Hybrid ONNX / greybox / desktop lab: **PURGED** (do not restore). Parked helpers:
 [`archive/ml/`](archive/ml/). Streamlit UI: [`archive/streamlit_ui_2026-08-13/`](archive/streamlit_ui_2026-08-13/).
 IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. W2A DSM = `W2A_PHYSICAL_DSM`.
+RL daily six-zone: **SHIPPED** — see [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md).
 
 QA paste prompt: [`vibe22_agent_spec/AGENT_TESTER_PROMPT.md`](vibe22_agent_spec/AGENT_TESTER_PROMPT.md).
 

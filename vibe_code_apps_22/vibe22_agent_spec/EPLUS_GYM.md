@@ -38,8 +38,11 @@ as the shipped product.
 | [`eplus_gym/envs/lakeside_w2a.py`](../eplus_gym/envs/lakeside_w2a.py) | Lakeside W2A A04 — six `DSM_HTG_SP_*` (or legacy `SCH_HtgSP`) |
 | [`eplus_gym_app/`](../eplus_gym_app/) | Pure helpers (site bundle, staging, KPIs). **Streamlit REMOVED** |
 | [`scripts/vibe22.py`](../scripts/vibe22.py) | **CLI** status / optimize-day / show / approve / export |
+| [`scripts/vibe22_rl.py`](../scripts/vibe22_rl.py) | **CLI** LIVE SB3 PPO/DQN daily RL (`train` / `bakeoff` / `compare`) |
+| [`eplus_gym/rl/`](../eplus_gym/rl/) | Day-MDP env, spaces, reward, SB3 train, matplotlib plots |
 | [`eplus_gym_app/open_meteo_epw.py`](../eplus_gym_app/open_meteo_epw.py) | Open-Meteo archive → AMY EPW (agent weather tool) |
-| [`eplus_gym/train_rllib.py`](../eplus_gym/train_rllib.py) | RLlib stub (not shipped) |
+| [`eplus_gym/train_rllib.py`](../eplus_gym/train_rllib.py) | Pointer stub → SB3 CLI (RLlib not shipped) |
+| [`CONTRIBUTING_RL.md`](CONTRIBUTING_RL.md) | rllib-energyplus hygiene + subprocess isolation |
 
 ## Run
 
