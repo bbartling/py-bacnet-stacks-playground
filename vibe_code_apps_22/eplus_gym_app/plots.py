@@ -513,6 +513,7 @@ def dsm_trajectory_figure(
     title: str = "DSM run",
     actual: pd.DataFrame | None = None,
     extra_eplus: Sequence[tuple[str, str, pd.DataFrame]] | None = None,
+    height: int = 480,
 ) -> go.Figure:
     """15-min E+ facility kW, optional Actual BAS overlay, heating SP on y2."""
     fig = go.Figure()
@@ -520,7 +521,7 @@ def dsm_trajectory_figure(
     if not frames and df is not None and not getattr(df, "empty", True):
         frames = [("E+ champion (this run)", "#2a9d8f", df)]
     if not frames and (actual is None or getattr(actual, "empty", True)):
-        fig.update_layout(title="No DSM trajectory", template="plotly_white", height=400)
+        fig.update_layout(title="No DSM trajectory", template="plotly_white", height=int(height))
         return fig
     if actual is not None and not getattr(actual, "empty", True):
         xcol = "hod" if "hod" in actual.columns else None
@@ -551,18 +552,18 @@ def dsm_trajectory_figure(
             go.Scatter(
                 x=_hod(primary),
                 y=primary["htg_sp_f"],
-                name="E+ htg SP °F",
+                name="E+ htg SP F",
                 yaxis="y2",
                 line=dict(color="#e76f51", width=1.5, dash="dot"),
             )
         )
-        fig.update_layout(yaxis2=dict(title="htg SP °F", overlaying="y", side="right"))
+        fig.update_layout(yaxis2=dict(title="htg SP F", overlaying="y", side="right"))
     fig.update_layout(
         title=title,
         xaxis_title="Hour (local)",
         yaxis_title="kW",
         template="plotly_white",
-        height=440,
+        height=int(height),
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
     return fig
@@ -634,11 +635,12 @@ def dsm_panel_figure(
     color: str,
     oat_col: str | None = None,
     oat_name: str = "OAT °F",
+    height: int = 420,
 ) -> go.Figure:
     """One-series kW panel (Actual or E+) with optional OAT on y2."""
     fig = go.Figure()
     if df is None or getattr(df, "empty", True) or ycol not in df.columns:
-        fig.update_layout(title=title, template="plotly_white", height=320)
+        fig.update_layout(title=title, template="plotly_white", height=int(height))
         return fig
     if "hod" in df.columns:
         hours = df["hod"]
@@ -665,7 +667,7 @@ def dsm_panel_figure(
         xaxis_title="Hour (local)",
         yaxis_title="kW",
         template="plotly_white",
-        height=320,
+        height=int(height),
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(t=48, b=36),
     )

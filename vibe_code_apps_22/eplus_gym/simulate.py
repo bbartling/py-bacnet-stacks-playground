@@ -182,7 +182,23 @@ def run_rule_episode(
     """
     site_root = Path(site_root)
     fam = _norm_family(family)
-    ctrl = RuleController(strategy_id)
+    occ_f: float | None = None
+    unocc_f: float | None = None
+    try:
+        from eplus_gym_app.site_config import load_site_dsm_config
+
+        sp = (load_site_dsm_config(site_root).get("setpoints_f") or {})
+        if "occupied_heating_f" in sp:
+            occ_f = float(sp["occupied_heating_f"])
+        if "unoccupied_heating_f" in sp:
+            unocc_f = float(sp["unoccupied_heating_f"])
+    except Exception:  # noqa: BLE001
+        occ_f = unocc_f = None
+    ctrl = RuleController(
+        strategy_id,
+        occ_htg_sp_f=occ_f,
+        unocc_htg_sp_f=unocc_f,
+    )
     honesty = HONESTY_W2A if fam == FAMILY_W2A else HONESTY_IDEALLOADS
     meta: Dict[str, Any] = {
         "strategy_id": strategy_id,
@@ -194,6 +210,10 @@ def run_rule_episode(
         "period": period,
         "weather_kind": weather_kind,
         "max_steps": int(max_steps),
+        "site_occ_htg_sp_f": occ_f,
+        "site_unocc_htg_sp_f": unocc_f,
+        "eff_occ_htg_sp_f": ctrl.occ_htg_sp_f,
+        "eff_unocc_htg_sp_f": ctrl.unocc_htg_sp_f,
     }
 
     if fam == FAMILY_W2A:

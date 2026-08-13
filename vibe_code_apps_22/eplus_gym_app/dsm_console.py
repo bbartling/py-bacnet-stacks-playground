@@ -37,6 +37,41 @@ STRATEGY_LABELS = {
     "morning_all_on": "Morning all-on",
 }
 
+# Short tutorial copy for Results strategy tabs (what the rule does to E+).
+STRATEGY_TUTORIALS: dict[str, str] = {
+    "baseline": (
+        "**Baseline** is the school-day thermostat the Site Config setpoints define: "
+        "occupied heat during class hours, unoccupied heat nights/weekends. "
+        "EnergyPlus still steps every 15 minutes and writes `SCH_HtgSP`, but the profile "
+        "matches normal occupied/unoccupied operation - the reference for kW trim and "
+        "kWh penalty on other strategies."
+    ),
+    "flat_24_7": (
+        "**Flat 24/7** holds occupied heat all day and night (no setback). "
+        "That removes night setback recovery spikes and usually raises overnight kWh "
+        "while often cutting the morning peak. Compare peak kW and daily kWh vs baseline "
+        "to see the classic flat-vs-setback tradeoff."
+    ),
+    "deep_setback": (
+        "**Deep setback** uses Site Config occupied heat when the building is occupied, "
+        "but drops **about 5 F below** Site Config unoccupied heat when empty "
+        "(deeper than baseline setback). Expect lower unoccupied heating energy and a "
+        "larger morning pickup load - useful for demand-response screening on cold peaks."
+    ),
+    "stagger_preheat": (
+        "**Stagger preheat** keeps Site Config occ/unocc setpoints but advances morning "
+        "warmup in staggered zone waves (contract `stagger_min` / preheat lead). "
+        "The idea is to spread recovery amps so the campus peak is lower than everyone "
+        "pulling heat at once."
+    ),
+    "morning_all_on": (
+        "**Morning all-on** uses Site Config occ/unocc setpoints with an aggressive "
+        "morning recovery (longer preheat lead): zones come up together before occupancy. "
+        "Comfort arrives early; the bill is a taller morning peak unless you pair it with "
+        "another DR measure."
+    ),
+}
+
 
 def pick_frame(
     frames: dict[str, pd.DataFrame], *keys: str
@@ -93,24 +128,39 @@ def default_calendar_month(months: list[str], peak_day: str | None) -> str:
     return months[0] if months else "2026-01"
 
 
-def strategy_library() -> dict[str, Any]:
-    """Desktop strategy cards + 96-step SP series. Not list_strategies() (skips index.json)."""
-    from eplus_gym.controllers import RuleController, load_strategy_contract
+def strategy_library(site_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Desktop strategy cards + 96-step SP series (Site Config °F when provided)."""
+    from eplus_gym.controllers import RuleController, effective_htg_setpoints_f
+
+    sp = (site_cfg or {}).get("setpoints_f") if isinstance(site_cfg, dict) else None
+    occ = None
+    unocc = None
+    if isinstance(sp, dict):
+        if "occupied_heating_f" in sp:
+            occ = float(sp["occupied_heating_f"])
+        if "unoccupied_heating_f" in sp:
+            unocc = float(sp["unoccupied_heating_f"])
 
     rows: list[dict[str, Any]] = []
     series: dict[str, list[float]] = {}
     for sid in DEPLOYABLE_STRATEGIES:
-        meta = load_strategy_contract(sid).get("meta") or {}
-        ctrl = RuleController(sid)
+        eff = effective_htg_setpoints_f(
+            sid, occ_htg_sp_f=occ, unocc_htg_sp_f=unocc
+        )
+        ctrl = RuleController(sid, occ_htg_sp_f=occ, unocc_htg_sp_f=unocc)
         series[sid] = ctrl.series_f()
         rows.append(
             {
                 "strategy_id": sid,
                 "label": STRATEGY_LABELS.get(sid, sid),
-                "occ_htg_sp_f": float(meta.get("occ_htg_sp_f", 68.0)),
-                "unocc_htg_sp_f": float(meta.get("unocc_htg_sp_f", 65.0)),
-                "preheat_lead_h": float(meta.get("preheat_lead_h") or 0.0),
-                "stagger_min": float(meta.get("stagger_min") or 0.0),
+                "occ_htg_sp_f": eff["occ_htg_sp_f"],
+                "unocc_htg_sp_f": eff["unocc_htg_sp_f"],
+                "preheat_lead_h": float(
+                    (ctrl.contract.get("meta") or {}).get("preheat_lead_h") or 0.0
+                ),
+                "stagger_min": float(
+                    (ctrl.contract.get("meta") or {}).get("stagger_min") or 0.0
+                ),
             }
         )
     return {"rows": rows, "series": series}
@@ -933,14 +983,18 @@ def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
     # Reconcile stale campaigns on every render
     camp = reconcile_campaign(bundle.site)
 
-    lib = strategy_library()
-    st.markdown("**Strategy library**")
-    st.dataframe(pd.DataFrame(lib["rows"]), width="stretch", hide_index=True)
-    st.plotly_chart(
-        strategy_setpoint_figure(lib["series"]),
-        width="stretch",
-        key="dsm_strategy_sp_library",
-    )
+    lib = strategy_library(site_cfg)
+    with st.expander("Strategy library (Site Config setpoints)", expanded=False):
+        st.caption(
+            "Reference only. Live Run DSM actuates these °F via closed-loop SCH_HtgSP. "
+            "Deep setback unocc is Site Config unocc minus 5 F."
+        )
+        st.dataframe(pd.DataFrame(lib["rows"]), width="stretch", hide_index=True)
+        st.plotly_chart(
+            strategy_setpoint_figure(lib["series"]),
+            width="stretch",
+            key="dsm_strategy_sp_library",
+        )
 
     inv = weather_inventory(bundle.site, published=bundle.epw)
     if inv.get("stale_bundle_epw"):
@@ -1279,89 +1333,118 @@ def _render_dsm_results_charts(**kwargs):
     dsm_trajectory_figure = kwargs["dsm_trajectory_figure"]
     period_daily_peak_figure = kwargs["period_daily_peak_figure"]
 
-    if kpis_by:
-        rows = []
-        for sid, row in kpis_by.items():
-            rows.append(
-                {
-                    "strategy": sid,
-                    "peak_kw": row.get("peak_kw"),
-                    "kwh": row.get("kwh"),
-                    "kw_trim": row.get("kw_trim"),
-                    "kwh_penalty": row.get("kwh_penalty"),
-                    "vs_baseline_pct": row.get("vs_baseline_pct"),
-                    "vs_actual_pct": row.get("vs_actual_pct"),
-                }
-            )
-        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
-
     peak_slices = {}
     for key, df in frames.items():
         peak_slices[key] = slice_traj_for_day(df, day)
-    extra = []
-    for key, sl in peak_slices.items():
-        if sl is None or getattr(sl, "empty", True):
-            continue
-        sid, kind = split_frame_key(key)
-        wx = _WX_LABEL.get(kind, kind) if kind and kind != "lookup" else ""
-        extra.append((f"{sid} {wx}".strip(), COLORS.get(sid, "#2a9d8f"), sl))
-    primary_slice = None
-    for prefer in (f"baseline:{KIND_AMY}", "baseline:lookup"):
-        sl = peak_slices.get(prefer)
-        if sl is not None and not sl.empty:
-            primary_slice = sl
-            break
-    if primary_slice is None:
-        primary_slice = next(
-            (v for v in peak_slices.values() if v is not None and not v.empty), eplus
+
+    # Preserve run order; always offer Overview first.
+    ran = list(last.get("strategies") or kpis_by.keys())
+    if not ran:
+        ran = sorted({split_frame_key(k)[0] for k in frames})
+    tab_labels = ["Overview", *[STRATEGY_LABELS.get(s, s) for s in ran]]
+    tabs = st.tabs(tab_labels, key=f"dsm_results_tabs_{last.get('run_id') or last.get('day')}")
+
+    with tabs[0]:
+        st.markdown(
+            "Scorecard across the strategies in this run. Open each strategy tab for a "
+            "short tutorial plus **stacked** Actual / E+ / SP charts (no side-by-side)."
         )
-    left, right = st.columns(2)
-    with left:
-        st.plotly_chart(
-            dsm_panel_figure(
-                actual if actual is not None else pd.DataFrame(),
-                title=f"Actual BAS meter  |  {last.get('day')}",
-                ycol="kw_avg",
-                name="Actual (BAS meter)",
-                color="#1f2a30",
-                oat_col="oat_f",
-                oat_name="Actual OAT  degF",
-            ),
-            width="stretch",
-            key=f"dsm_actual_{last.get('day')}_{last.get('preset')}",
-        )
-    with right:
-        st.plotly_chart(
-            dsm_panel_figure(
-                primary_slice if primary_slice is not None else eplus,
-                title=f"EnergyPlus champion baseline  |  {last.get('day')}",
-                ycol="facility_kw",
-                name="E+ champion baseline kW",
-                color=COLORS.get("baseline", "#2a9d8f"),
-                oat_col="oat_f",
-                oat_name="E+ EPW OAT  degF",
-            ),
-            width="stretch",
-            key=f"dsm_eplus_{last.get('day')}_all_{last.get('mode')}",
-        )
-    st.plotly_chart(
-        dsm_trajectory_figure(
-            primary_slice if primary_slice is not None else eplus,
-            actual=actual,
-            title=f"Peak-day 15-min overlay  |  {last.get('day')}",
-            extra_eplus=extra if extra else None,
-        ),
-        width="stretch",
-        key=f"dsm_overlay_{last.get('day')}_all_{last.get('preset')}_{last.get('mode')}",
-    )
-    daily = daily_peaks_from_traj(eplus)
-    if daily is not None and not daily.empty:
-        st.plotly_chart(
-            period_daily_peak_figure(
-                daily,
-                highlight_day=str(day)[:10],
-                title="Daily peak kW over run window",
-            ),
-            width="stretch",
-            key=f"dsm_daily_{last.get('period')}",
-        )
+        if kpis_by:
+            rows = []
+            for sid, row in kpis_by.items():
+                rows.append(
+                    {
+                        "strategy": sid,
+                        "peak_kw": row.get("peak_kw"),
+                        "kwh": row.get("kwh"),
+                        "kw_trim": row.get("kw_trim"),
+                        "kwh_penalty": row.get("kwh_penalty"),
+                        "vs_baseline_pct": row.get("vs_baseline_pct"),
+                        "vs_actual_pct": row.get("vs_actual_pct"),
+                    }
+                )
+            st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+        daily = daily_peaks_from_traj(eplus)
+        if daily is not None and not daily.empty:
+            st.plotly_chart(
+                period_daily_peak_figure(
+                    daily,
+                    highlight_day=str(day)[:10],
+                    title="Daily peak kW over run window",
+                ),
+                width="stretch",
+                key=f"dsm_daily_{last.get('period')}",
+            )
+
+    for i, sid in enumerate(ran):
+        with tabs[i + 1]:
+            st.markdown(STRATEGY_TUTORIALS.get(sid, f"**{sid}** demand-response rule."))
+            kpi = kpis_by.get(sid) or {}
+            if kpi:
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Peak kW", f"{kpi['peak_kw']:.1f}" if kpi.get("peak_kw") is not None else "-")
+                m2.metric("kWh", f"{kpi['kwh']:.0f}" if kpi.get("kwh") is not None else "-")
+                m3.metric(
+                    "kW trim vs baseline",
+                    f"{kpi['kw_trim']:+.1f}" if kpi.get("kw_trim") is not None else "-",
+                )
+                m4.metric(
+                    "kWh penalty",
+                    f"{kpi['kwh_penalty']:+.0f}" if kpi.get("kwh_penalty") is not None else "-",
+                )
+
+            # Prefer AMY frame for this strategy
+            sl = None
+            for prefer in (f"{sid}:{KIND_AMY}", f"{sid}:lookup", sid):
+                cand = peak_slices.get(prefer)
+                if cand is None:
+                    for key, v in peak_slices.items():
+                        if split_frame_key(key)[0] == sid and v is not None and not v.empty:
+                            cand = v
+                            break
+                if cand is not None and not getattr(cand, "empty", True):
+                    sl = cand
+                    break
+            if sl is None:
+                st.info(f"No trajectory frame for `{sid}` in this run.")
+                continue
+
+            color = COLORS.get(sid, "#2a9d8f")
+            st.plotly_chart(
+                dsm_panel_figure(
+                    actual if actual is not None else pd.DataFrame(),
+                    title=f"Actual BAS meter  |  {last.get('day')}",
+                    ycol="kw_avg",
+                    name="Actual (BAS meter)",
+                    color="#1f2a30",
+                    oat_col="oat_f",
+                    oat_name="Actual OAT F",
+                    height=420,
+                ),
+                width="stretch",
+                key=f"dsm_actual_{sid}_{last.get('day')}",
+            )
+            st.plotly_chart(
+                dsm_panel_figure(
+                    sl,
+                    title=f"EnergyPlus  |  {STRATEGY_LABELS.get(sid, sid)}  |  {last.get('day')}",
+                    ycol="facility_kw",
+                    name=f"E+ {sid} kW",
+                    color=color,
+                    oat_col="oat_f",
+                    oat_name="E+ EPW OAT F",
+                    height=420,
+                ),
+                width="stretch",
+                key=f"dsm_eplus_{sid}_{last.get('day')}",
+            )
+            st.plotly_chart(
+                dsm_trajectory_figure(
+                    sl,
+                    actual=actual,
+                    title=f"{STRATEGY_LABELS.get(sid, sid)} 15-min + heating SP  |  {last.get('day')}",
+                    height=480,
+                ),
+                width="stretch",
+                key=f"dsm_traj_{sid}_{last.get('day')}_{last.get('preset')}",
+            )
