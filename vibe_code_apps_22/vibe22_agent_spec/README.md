@@ -8,8 +8,8 @@
 | [DATA_CONTRACT.md](DATA_CONTRACT.md) | Dump handoff, campus, bundle, observed, ECM, AMY EPW |
 | [TWIN_DIAL_PLAYBOOK.md](TWIN_DIAL_PLAYBOOK.md) | Envelope then ops; elec-first vs gas-first |
 | [AGENT_TESTER_PROMPT.md](AGENT_TESTER_PROMPT.md) | Paste-ready QA soak |
-| [EPLUS_GYM.md](EPLUS_GYM.md) | E+ control gym + Streamlit DSM console |
-| ../eplus_gym_app/streamlit_app.py | Streamlit Site DSM console (fuel + IDF + Run) |
+| [EPLUS_GYM.md](EPLUS_GYM.md) | E+ control gym + CLI DSM screening |
+| ../scripts/vibe22.py | CLI Site DSM (status / optimize-day / approve) — Streamlit REMOVED |
 | ../skills/site-pack/SKILL.md | Zip/folder ingest + publish bundle |
 | [HEATING_DSM.md](HEATING_DSM.md) | **ARCHIVED** — former hybrid Real+E+ ONNX path |
 | [NATIVE_EPLUS_DSM_REPORT.md](NATIVE_EPLUS_DSM_REPORT.md) | Quarantine report — superseded kW-only path |

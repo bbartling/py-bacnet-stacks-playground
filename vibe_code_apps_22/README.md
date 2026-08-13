@@ -6,7 +6,7 @@ Unified **code** workspace for **any building** (practice pack: Lakeside ES /
 - Site pack ingest → `site_ui_bundle_v1` (humans never pick IDF/campus files)
 - EnergyPlus IdealLoads / W2A twin pins (G14 foundation)
 - **EnergyPlus control gym** — rule demand-response (`eplus_gym/`), optional RL later
-- Streamlit **Site DSM** console (`eplus_gym_app/`)
+- **CLI** Site DSM screening (`scripts/vibe22.py`) — Streamlit REMOVED
 - Future BACnet live app slot (`bacnet/`) — **no writes**
 
 **GitHub is source + contracts + tutorials.** Site data / farm tables are local —
@@ -23,7 +23,8 @@ copy config.example.py config.py   # once; edit SITE_ROOT inside
 
 python -u scripts\ingest_site_pack.py
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8766 --server.address 127.0.0.1
+python -u scripts\vibe22.py status
+python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
 ```
 
 No `$env:SITE_ROOT=...` needed once `config.py` points at your pack.

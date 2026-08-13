@@ -5,19 +5,20 @@
 [`../skills/site-pack/SKILL.md`](../skills/site-pack/SKILL.md)
 
 This is the **turnkey iteration SoT** for **any building**. Humans do not pick
-IDF / campus / interval files. Agents publish a pack. Humans open Streamlit and
-click **Run DSM**. Lakeside / `sp_creekside` is the **practice pack**.
+IDF / campus / interval files. Agents publish a pack. Operators run
+`scripts/vibe22.py` (**Streamlit REMOVED**). Lakeside / `sp_creekside` is the
+**practice pack**.
 
 ## Roles
 
 | Who | Owns |
 | --- | --- |
 | **Agent** | Ingest pack, iterate GL14, never overwrite champions, write `reports/site_ui_bundle_v1.json` |
-| **Human** | See **this IDF** + **this fuel**. Pick strategy + period. Click **Run**. |
+| **Human / operator** | Run `vibe22.py status|optimize-day|approve`. Inspect artifacts. |
 
 EnergyPlus-MCP is **optional** (sibling `EnergyPlus-MCP` + knob-equivalent in
 `scripts/eplus_campaign.py`). The loop must work with a local `energyplus.exe`.
-Do not require MCP for Streamlit Run.
+Do not require MCP for CLI DSM screening.
 
 ## Numbered loop
 
@@ -94,22 +95,18 @@ practice A04 when dual gates hold).
 - No BACnet WriteProperty
 - Do **not** show IdealLoads structural farm peaks as the human DSM result
 - W2A `auto`/`lookup` **never** falls back to IdealLoads farm
-- No in-process E+ in Streamlit / Jupyter
+- No in-process E+ in Jupyter; Streamlit REMOVED
 
-## Human console
+## Operator CLI
 
 ```powershell
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+python -u scripts\vibe22.py status --site-root $env:SITE_ROOT
+python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
 ```
 
-Tabs: **Site Config** · **Calibration** · **Fuel** · **Energy ECMs** · **Run DSM**
-(see tester prompt + [`ENERGY_ECMS.md`](ENERGY_ECMS.md)).
-Calendar month defaults to the BAS peak-day month when present.  
-Weather radio: **AMY** = Open-Meteo actual year; **TMY** = site typical when
-published (missing TMY → AMY only; Chicago screening is not used).  
-Run: lookup if `{site}/eplus/dsm_farm_w2a` exists, else live EnergyPlus via
-**CLI subprocess** (`scripts/run_eplus_gym_rules.py --family w2a --mode live`).  
-Do not bind `pyenergyplus` into the Streamlit process. Still no live E+ in Jupyter.
+Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**.  
+Six-zone DualSP staging on copies only. Approve → `approved_recommendation.json`.  
+Still no live E+ in Jupyter.
 
 ## Honesty stamps
 

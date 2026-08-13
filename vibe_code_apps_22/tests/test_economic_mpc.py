@@ -180,8 +180,23 @@ def test_latex_equations_present():
     assert "MTD" in eq["demand"] or "demand" in eq["demand"]
 
 
-def test_optimize_tomorrow_importable():
-    from eplus_gym_app.optimize_tomorrow import render_cost_equations, render_optimize_tomorrow_tab
+def test_optimize_tomorrow_pure_helpers(tmp_path: Path):
+    from eplus_gym_app.optimize_tomorrow import (
+        approve_recommendation,
+        list_studies,
+    )
 
-    assert callable(render_cost_equations)
-    assert callable(render_optimize_tomorrow_tab)
+    assert list_studies(tmp_path) == []
+    root = tmp_path / "reports" / "eplus_gym" / "optimization" / "s1"
+    root.mkdir(parents=True)
+    (root / "recommendation.json").write_text(
+        json.dumps({"recommended": {"feasible": True, "peak_kw": 1.0}}),
+        encoding="utf-8",
+    )
+    out = approve_recommendation(root)
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["approved"] is True
+    assert "Site Config" in doc["approved_note"]
+    # Site config untouched
+    assert not (tmp_path / "reports" / "eplus_gym" / "site_dsm_config.json").is_file()
+

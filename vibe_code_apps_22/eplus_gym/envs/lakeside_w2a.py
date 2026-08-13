@@ -1,4 +1,4 @@
-"""Lakeside W2A plant gym env — six BAS-zone heating actuators."""
+"""Lakeside W2A plant gym env — six BAS-zone heating actuators (or legacy scalar)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,7 +19,6 @@ DEFAULT_IDF = _ROOT / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
 HONESTY = HONESTY_W2A
 ZONE_VAR = "Zone Mean Air Temperature"
 
-# Stable observation key order (must match observation_space length after flatten).
 OBS_META_KEYS = (
     "oat_c",
     "facility_j",
@@ -37,16 +36,12 @@ def _c_to_f(c: float) -> float:
     return float(c) * 9.0 / 5.0 + 32.0
 
 
-def _f_to_c(f: float) -> float:
-    return (float(f) - 32.0) * 5.0 / 9.0
-
-
 def enrich_obs_with_bas_and_setpoints(
     obs: Dict[str, float],
     *,
     requested_c: List[float] | None = None,
+    six_zone: bool = True,
 ) -> Dict[str, float]:
-    """Add °F raw zones, six BAS aggregates, requested/applied setpoints."""
     out = dict(obs)
     temps_f: Dict[str, float] = {}
     missing: list[str] = []
@@ -61,28 +56,31 @@ def enrich_obs_with_bas_and_setpoints(
         raise ValueError(f"missing zone mean air temps: {missing}")
     aggs = aggregate_zone_temps_row(temps_f, load_agg_contract(), mode="hp_count")
     out.update(aggs)
-    if requested_c is not None and len(requested_c) == len(ACTION_KEYS):
+    if six_zone and requested_c is not None and len(requested_c) == len(ACTION_KEYS):
         for key, val_c in zip(ACTION_KEYS, requested_c):
             out[f"htg_sp_{key}_c"] = float(val_c)
             out[f"htg_sp_{key}_f"] = _c_to_f(float(val_c))
-    for key in ACTION_KEYS:
-        applied_key = f"applied_htg_sp_c_{key}"
-        if applied_key in obs and obs[applied_key] == obs[applied_key]:
-            out[f"htg_sp_applied_{key}_c"] = float(obs[applied_key])
-            out[f"htg_sp_applied_{key}_f"] = _c_to_f(float(obs[applied_key]))
+    if six_zone:
+        for key in ACTION_KEYS:
+            applied_key = f"applied_htg_sp_c_{key}"
+            if applied_key in obs and obs[applied_key] == obs[applied_key]:
+                out[f"htg_sp_applied_{key}_c"] = float(obs[applied_key])
+                out[f"htg_sp_applied_{key}_f"] = _c_to_f(float(obs[applied_key]))
+                out.setdefault(f"htg_sp_{key}_f", out[f"htg_sp_applied_{key}_f"])
     if "facility_j" in out and out["facility_j"] == out["facility_j"]:
         out["facility_kw"] = float(out["facility_j"]) / 900_000.0
     return out
 
 
 class LakesideW2AEnv(EnergyPlusEnv):
-    """Actuate six DSM_HTG_SP_* schedules (°C) on a staged W2A IDF."""
+    """Actuate DSM six-zone schedules or legacy single SCH_HtgSP."""
 
     ACTION_KEYS = ACTION_KEYS
 
     def __init__(self, env_config: Dict[str, Any]):
         cfg = dict(env_config)
         cfg.setdefault("honesty", HONESTY_W2A)
+        self.six_zone = bool(cfg.get("six_zone_actuators", True))
         super().__init__(cfg)
 
     def get_weather_file(self) -> Union[Path, str]:
@@ -99,22 +97,13 @@ class LakesideW2AEnv(EnergyPlusEnv):
         return p
 
     def get_observation_space(self) -> gym.Space:
-        # Flattened length is established after first obs; declare generous Box.
-        # Exact keys ordered in _obs_vector via first observation.
-        n = (
-            len(OBS_META_KEYS)
-            + len(NINE_ZONES)  # zone_t_c
-            + len(NINE_ZONES)  # zone_t_f
-            + 6  # BAS aggregates
-            + 6 * 2  # requested c/f
-            + 6 * 2  # applied c/f
-            + 1  # facility_kw
-            + 6  # applied_* from runner
-        )
+        n = 80 if self.six_zone else 40
         return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(n,), dtype=np.float32)
 
     def get_action_space(self) -> gym.Space:
-        return gym.spaces.Box(low=10.0, high=26.0, shape=(6,), dtype=np.float32)
+        if self.six_zone:
+            return gym.spaces.Box(low=10.0, high=26.0, shape=(6,), dtype=np.float32)
+        return gym.spaces.Box(low=10.0, high=26.0, shape=(1,), dtype=np.float32)
 
     def compute_reward(self, obs: Dict[str, float]) -> float:
         if "facility_j" in obs and obs["facility_j"] == obs["facility_j"]:
@@ -135,7 +124,9 @@ class LakesideW2AEnv(EnergyPlusEnv):
         return {"facility_j": "Electricity:Facility"}
 
     def get_actuators(self) -> Dict[str, Tuple[str, str, str]]:
-        # Stable order = ACTION_KEYS
+        if not self.six_zone:
+            name = str(self.env_config.get("htg_schedule", "SCH_HtgSP"))
+            return {"htg_sp_c": ("Schedule:Compact", "Schedule Value", name)}
         out: Dict[str, Tuple[str, str, str]] = {}
         for key in ACTION_KEYS:
             out[f"htg_sp_c_{key}"] = (
@@ -151,9 +142,10 @@ class LakesideW2AEnv(EnergyPlusEnv):
         req = info.get("action")
         req_list = list(req) if isinstance(req, list) else None
         try:
-            info["obs_dict"] = enrich_obs_with_bas_and_setpoints(od, requested_c=req_list)
+            info["obs_dict"] = enrich_obs_with_bas_and_setpoints(
+                od, requested_c=req_list, six_zone=self.six_zone
+            )
             info["zone_agg_ok"] = True
-            # Rebuild vector from enriched obs for consumers that use obs_dict
         except ValueError as exc:
             info["obs_dict"] = od
             info["zone_agg_ok"] = False

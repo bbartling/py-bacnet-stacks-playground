@@ -8,7 +8,7 @@ MoneyMode = Literal["PHYSICAL_ONLY", "VERIFIED_TARIFF", "ILLUSTRATIVE"]
 
 CONTRACT_VERSION = "eplus_gym_tariff_v1"
 
-# LaTeX (KaTeX) for Streamlit st.latex — billing-floor incremental demand.
+# LaTeX strings retained for docs / reports — Streamlit UI removed.
 LATEX_TOTAL_COST = r"C = C_{\mathrm{energy}} + C_{\mathrm{demand}}^{\mathrm{inc}}"
 LATEX_ENERGY = (
     r"C_{\mathrm{energy}} = \sum_{t=1}^{96} P_t\,\Delta t\, r_{\mathrm{energy}}(t)"
@@ -111,7 +111,7 @@ class TariffContract:
 
 
 def latex_cost_equations() -> Dict[str, str]:
-    """KaTeX strings for Streamlit Optimize Tomorrow UI."""
+    """KaTeX strings for billing-floor docs / report.md (CLI artifacts)."""
     return {
         "total": LATEX_TOTAL_COST,
         "energy": LATEX_ENERGY,

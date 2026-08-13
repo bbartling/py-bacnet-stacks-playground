@@ -35,8 +35,9 @@ as the shipped product.
 | [`eplus_gym/lookup_emulator.py`](../eplus_gym/lookup_emulator.py) | Farm parquet stand-in |
 | [`eplus_gym/month_calendar.py`](../eplus_gym/month_calendar.py) | Calendar-month farm/coverage helpers |
 | [`eplus_gym/simulate.py`](../eplus_gym/simulate.py) | `run_rule_episode` / `run_rule_month_lookup` |
-| [`eplus_gym/envs/lakeside_w2a.py`](../eplus_gym/envs/lakeside_w2a.py) | Lakeside W2A A04 — actuate `SCH_HtgSP` |
-| [`eplus_gym_app/`](../eplus_gym_app/) | **Streamlit DSM console** (published pack; live E+ via CLI subprocess) |
+| [`eplus_gym/envs/lakeside_w2a.py`](../eplus_gym/envs/lakeside_w2a.py) | Lakeside W2A A04 — six `DSM_HTG_SP_*` (or legacy `SCH_HtgSP`) |
+| [`eplus_gym_app/`](../eplus_gym_app/) | Pure helpers (site bundle, staging, KPIs). **Streamlit REMOVED** |
+| [`scripts/vibe22.py`](../scripts/vibe22.py) | **CLI** status / optimize-day / show / approve / export |
 | [`eplus_gym_app/open_meteo_epw.py`](../eplus_gym_app/open_meteo_epw.py) | Open-Meteo archive → AMY EPW (agent weather tool) |
 | [`eplus_gym/train_rllib.py`](../eplus_gym/train_rllib.py) | RLlib stub (not shipped) |
 
@@ -50,8 +51,9 @@ python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
 # Grow IdealLoads farm for full months (dry-run first; --execute needs EnergyPlus)
 python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
 
-# Streamlit DSM console (lookup in-process; live via durable campaign supervisor)
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+# CLI six-zone DSM screening (Streamlit REMOVED)
+python -u scripts\vibe22.py status --site-root $env:SITE_ROOT
+python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
 # Live DSM campaign (preflight → sequential run_eplus_gym_rules children)
 # python -u scripts\run_dsm_campaign.py --site %SITE_ROOT% --request path\to\campaign_request.json
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto

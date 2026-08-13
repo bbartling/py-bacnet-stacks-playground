@@ -53,27 +53,29 @@ def test_live_audits_are_gym_or_plant_only():
     assert not (names & banned)
 
 
-def test_streamlit_app_uses_width_stretch():
-    app_dir = _ROOT / "eplus_gym_app"
-    for path in app_dir.rglob("*.py"):
-        src = path.read_text(encoding="utf-8")
-        assert "use_container_width" not in src, f"{path.name} still uses use_container_width"
-    src = (app_dir / "streamlit_app.py").read_text(encoding="utf-8")
-    assert 'width="stretch"' in src
-    assert "IDF source" not in src
-    assert "Site DSM" in src
-    assert "Lakeside DSM" not in src
-    assert '"Fuel"' in src or "'Fuel'" in src
-    assert '"Energy ECMs"' in src or "'Energy ECMs'" in src
-    assert '"ECMs"' not in src  # bare label retired; use Energy ECMs
-    assert '"Calibration"' in src or "'Calibration'" in src
-    assert '"Optimize Tomorrow"' in src or "'Optimize Tomorrow'" in src
-    assert '"Run DSM"' in src or "'Run DSM'" in src
-    assert "Site Config → staged IDF" in src or "Site Config" in src
-    assert "Farm month" not in src
-    assert "_render_farm_diagnostic" not in src
-    assert "Building and fuel" not in src
-    assert "_render_energy_ecms_tab" in src
+def test_no_streamlit_in_active_tree():
+    """Streamlit REMOVED — CLI entrypoint is scripts/vibe22.py."""
+    banned = ("import streamlit", "from streamlit")
+    roots = (_ROOT / "eplus_gym", _ROOT / "eplus_gym_app", _ROOT / "scripts")
+    skip_parts = {"archive", ".pytest_cache", "__pycache__", "examples"}
+    hits = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*.py"):
+            if any(part in skip_parts for part in path.parts):
+                continue
+            src = path.read_text(encoding="utf-8", errors="ignore")
+            for ban in banned:
+                if ban in src:
+                    hits.append(f"{path.relative_to(_ROOT)}:{ban}")
+    assert hits == [], f"streamlit still live: {hits}"
+
+
+def test_cli_entrypoint_exists():
+    assert (_ROOT / "scripts" / "vibe22.py").is_file()
+    assert not (_ROOT / "eplus_gym_app" / "streamlit_app.py").is_file()
+
 
 
 def test_archived_ml_keeps_eplus_helpers():

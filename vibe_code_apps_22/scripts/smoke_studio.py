@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-"""AppTest walk of Site DSM tabs (no live EnergyPlus)."""
+"""CLI smoke for vibe22 (no Streamlit; no live EnergyPlus required for status)."""
 from __future__ import annotations
 
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
-
-import pandas as pd
 
 _APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_APP))
@@ -15,48 +14,20 @@ sys.path.insert(0, str(_APP))
 
 def _minimal_site(tmp: Path) -> Path:
     (tmp / "utilities").mkdir(parents=True)
-    (tmp / "reports").mkdir(parents=True)
+    (tmp / "reports" / "eplus_gym").mkdir(parents=True)
     (tmp / "eplus" / "models").mkdir(parents=True)
-    campus = {
-        "campus_id": "smoke_campus",
-        "label": "Smoke Campus",
-        "lat": 43.0,
-        "lon": -89.0,
-        "buildings": [
+    (tmp / "utilities" / "campus.json").write_text(
+        json.dumps(
             {
-                "building_id": "b1",
-                "floor_area_ft2": 50000,
-                "property_type": "k12_school",
+                "campus_id": "smoke_campus",
+                "label": "Smoke Campus",
+                "lat": 43.0,
+                "lon": -89.0,
+                "buildings": [{"building_id": "b1", "floor_area_ft2": 50000}],
+                "meters": [],
             }
-        ],
-        "meters": [
-            {
-                "meter_id": "elec",
-                "fuel": "electricity",
-                "unit": "kwh",
-                "file": "electricity.csv",
-                "serves": ["b1"],
-                "bill_columns": {"month": "month", "usage": "kwh"},
-            }
-        ],
-    }
-    (tmp / "utilities" / "campus.json").write_text(json.dumps(campus), encoding="utf-8")
-    (tmp / "utilities" / "electricity.csv").write_text(
-        "month,kwh\n2026-01,1000\n2026-02,1100\n", encoding="utf-8"
-    )
-    rows = []
-    for day, peak in (("2025-12-15", 180.0), ("2026-01-26", 286.0), ("2026-02-10", 210.0)):
-        for h in range(24):
-            rows.append(
-                {
-                    "hour_utc": f"{day}T{h:02d}:00:00-06:00",
-                    "day_type": "Weekday",
-                    "kw_avg": peak if h == 8 else 90.0 + h,
-                    "oat_f": -5.0,
-                }
-            )
-    pd.DataFrame(rows).to_csv(
-        tmp / "reports" / "demand_vs_web_weather_hourly.csv", index=False
+        ),
+        encoding="utf-8",
     )
     (tmp / "eplus" / "models" / "demo_champion.idf").write_text(
         "Version,24.2;\nBuilding,Demo,0,Suburbs,0.04,0.4,FullExterior,25,6;\n",
@@ -67,7 +38,6 @@ def _minimal_site(tmp: Path) -> Path:
             {
                 "schema_version": "site_ui_bundle_v1",
                 "campus_json": "utilities/campus.json",
-                "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
                 "default_model_id": "CHAMPION",
                 "current_model_id": "CHAMPION",
                 "dsm_champion": "CHAMPION",
@@ -79,46 +49,47 @@ def _minimal_site(tmp: Path) -> Path:
                         "family": "W2A_PHYSICAL_DSM",
                         "idf_pin": "demo_champion.idf",
                         "champion": True,
-                        "dial_id": "CHAMPION",
                     }
                 ],
-                "dial_ladder": {"peak_day": "2026-01-26", "models": []},
                 "honesty": {"bas": "BAS_INTERVAL_METER"},
             }
         ),
         encoding="utf-8",
     )
-    (tmp / "reports" / "ecm_compare.json").write_text(
-        json.dumps({"measures": []}), encoding="utf-8"
-    )
     return tmp
 
 
 def main() -> int:
-    import tempfile
+    from eplus_gym_app.optimize_tomorrow import approve_recommendation, list_studies
+    from eplus_gym_app.site_config import load_site_dsm_config, save_site_dsm_config
+    from eplus_native.six_zone_htg_stage import ACTION_KEYS
 
-    from streamlit.testing.v1 import AppTest
-
-    with tempfile.TemporaryDirectory(prefix="vibe22_smoke_") as td:
+    assert ACTION_KEYS == ("1F_A", "1F_B", "1F_C", "1F_D", "2F_A", "2F_B")
+    with tempfile.TemporaryDirectory(prefix="vibe22_cli_smoke_") as td:
         site = _minimal_site(Path(td))
         os.environ["SITE_ROOT"] = str(site)
-        os.environ["LAKESIDE_SITE_ROOT"] = str(site)
-        at = AppTest.from_file(str(_APP / "eplus_gym_app" / "streamlit_app.py"))
-        at.run(timeout=120)
-        if at.exception:
-            print("EXCEPTION", at.exception)
+        cfg = load_site_dsm_config(site)
+        save_site_dsm_config(site, cfg)
+        assert list_studies(site) == []
+        # Approve helper only writes approved_recommendation.json
+        root = site / "reports" / "eplus_gym" / "optimization" / "smoke_study"
+        root.mkdir(parents=True)
+        (root / "recommendation.json").write_text(
+            json.dumps({"recommended": {"feasible": True}}), encoding="utf-8"
+        )
+        out = approve_recommendation(root)
+        assert out.is_file()
+        assert "streamlit" not in out.read_text(encoding="utf-8").lower()
+        # CLI status
+        code = os.system(
+            f'"{sys.executable}" "{_APP / "scripts" / "vibe22.py"}" status --site-root "{site}"'
+        )
+        if code != 0:
+            print("STATUS_FAIL", code)
             return 2
-        titles = " ".join(str(t.value) for t in at.title)
-        assert "Site DSM" in titles
-        assert "Lakeside DSM" not in titles
-        for tab in ("Calibration", "Fuel", "Energy ECMs", "Run DSM"):
-            at.session_state["site_dsm_main_tabs"] = tab
-            at.run(timeout=90)
-            assert not at.exception, tab
-            assert not list(at.error), (tab, [str(e.value) for e in at.error])
-            print("TAB_OK", tab)
-        print("SMOKE_STUDIO_OK")
-        return 0
+    print("SMOKE_CLI_OK")
+    print("streamlit=REMOVED")
+    return 0
 
 
 if __name__ == "__main__":

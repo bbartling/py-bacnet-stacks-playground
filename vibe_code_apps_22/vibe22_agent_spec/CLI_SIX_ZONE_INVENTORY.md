@@ -1,17 +1,17 @@
-# CLI six-zone inventory snapshot
+# CLI six-zone inventory (Phase 0)
 
-- Branch: `fix/vibe22-site-config-dsm`
-- Commit: `3c4c7120`
-- Practice site: `C:\Users\ben\OneDrive\Desktop\testing\sp_creekside`
-- Tutorial copied to `examples/six_zone_coordinate_descent_tutorial.py` (DOCUMENTATION ONLY)
-- Champion: `lakeside_w2a_a04_dual_champion.idf` — shared DualSP `Lakeside_AllZones_Tstat Dual SP Control` → `SCH_HtgSP`
-- Prior Jan26 gate: `reports/eplus_gym/gates/jan26_2026_baseline/`
-- Prior smoke study: `reports/eplus_gym/optimization/econ_mpc_smoke_20260126/`
+**Branch baseline:** `fix/vibe22-site-config-dsm` @ pre-CLI work.
+**Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY
 
-## Classification
-
-| Kind | Paths |
+| Item | Location |
 | --- | --- |
-| Streamlit UI | `eplus_gym_app/streamlit_app.py`, UI renderers in `dsm_console`/`site_config`/`optimize_tomorrow` |
-| Mixed | `dsm_console` staging/KPIs, `site_config` load/save |
-| Pure | `eplus_gym/*`, `eplus_native/*`, tariff/objective/optimize |
+| Streamlit UI (ARCHIVED) | `archive/streamlit_ui_2026-08-13/` |
+| CLI entrypoint | `scripts/vibe22.py` |
+| Six-zone staging | `eplus_native/six_zone_htg_stage.py` |
+| Gym env | `eplus_gym/envs/lakeside_w2a.py` shape `(6,)` |
+| Controller | `eplus_gym/six_zone_daily_controller.py` |
+| Optimizer | `eplus_gym/optimize/six_zone_study.py` |
+| Actuation gate | `scripts/gate_six_zone_actuation.py` |
+| Tutorial (docs only) | `examples/six_zone_coordinate_descent_tutorial.py` |
+
+**Practice site:** `sp_creekside` — Jan26 gate + six-zone actuation READY.

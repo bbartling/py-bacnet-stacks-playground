@@ -173,6 +173,11 @@ def _live_episode(
             begin = date.fromisoformat(str(day)[:10])
         except ValueError:
             begin = None
+    six_zone = bool(
+        getattr(ctrl, "six_zone", False)
+        or ("DSM_HTG_SP_1F_A" in Path(idf).read_text(encoding="utf-8", errors="ignore"))
+    )
+    base_c = float(ctrl.action_c(0))
     env = env_cls(
         {
             "epw": str(epw),
@@ -181,7 +186,9 @@ def _live_episode(
             "verbose": verbose,
             "queue_timeout_s": 120.0,
             "occupied_heating_f": float(getattr(ctrl, "occ_htg_sp_f", 70.0)),
-            "default_action_c": float(ctrl.action_c(0)),
+            "default_action_c": ([base_c] * 6) if six_zone else base_c,
+            # Legacy RuleController path: single SCH_HtgSP unless staged six-zone.
+            "six_zone_actuators": six_zone,
         }
     )
     _obs, info = env.reset()
@@ -195,8 +202,12 @@ def _live_episode(
         }
     )
     rows: List[Dict[str, Any]] = []
+    six_zone = bool(getattr(env, "six_zone", False))
     for t in range(max_steps):
-        action = ctrl.action_c(t)
+        if six_zone:
+            action = [ctrl.action_c(t)] * 6
+        else:
+            action = ctrl.action_c(t)
         _obs_vec, reward, done, truncated, step_info = env.step(action)
         od = step_info.get("obs_dict") or {}
         row = {

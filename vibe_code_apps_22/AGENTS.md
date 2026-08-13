@@ -107,28 +107,31 @@ python -u scripts\process_lakeside.py
 # Twin foundation (needs local EnergyPlus; do not resim unless asked)
 python -u scripts\eplus_observed_targets.py
 
-# PRODUCT — W2A DSM (lookup needs eplus/dsm_farm_w2a; else live)
+# PRODUCT — W2A DSM screening (CLI-first; Streamlit REMOVED)
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+python -u scripts\vibe22.py status --site-root $env:SITE_ROOT
+python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache --simulator LIVE_ENERGYPLUS
 
-# IdealLoads structural farm (CLI only — not the human DSM console)
+# IdealLoads structural farm (CLI only)
 # python -u scripts\run_eplus_gym_rules.py --family idealloads --mode lookup
 ```
 
 Follow [`vibe22_agent_spec/AGENT_LOOP.md`](vibe22_agent_spec/AGENT_LOOP.md) for
 hypothesis → campaign folder → score → republish.
 
-### Site Config + winter AMY (2026-08-13)
+### Site Config + CLI six-zone DSM (2026-08-13)
 
-- Streamlit tabs: **Site Config · Calibration · Fuel · Energy ECMs · Run DSM**.
-- **Energy ECMs** = agent-published open-fdd spreadsheet vs staged E+ compare
-  (`reports/ecm_compare.json` + `reports/notebooks/*.xlsx`). View-only in
-  Streamlit. **Run DSM** = peak / control strategies. VAV/G36 air-loop ECMs
-  need a VAV twin (A04 WAHP = 0 air loops). See
-  [`vibe22_agent_spec/ENERGY_ECMS.md`](vibe22_agent_spec/ENERGY_ECMS.md).
+- **Streamlit: REMOVED.** Entrypoint = [`scripts/vibe22.py`](scripts/vibe22.py).
+- Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**
+  (not operational MPC / RL / verified savings / BACnet).
 - Site Config persists `{SITE_ROOT}/reports/eplus_gym/site_dsm_config.json`
   (occ/unocc heat/cool °F + weekly people/HVAC + optional peak-day override).
   Values patch **staged** IDFs only — never the published champion.
+- Six-zone actuation stages `DSM_HTG_SP_{1F_A..2F_B}` DualSPs on staged copies.
+- **Energy ECMs** = agent-published open-fdd compare
+  (`reports/ecm_compare.json`). VAV/G36 air-loop ECMs need a VAV twin
+  (A04 WAHP = 0 air loops). See
+  [`vibe22_agent_spec/ENERGY_ECMS.md`](vibe22_agent_spec/ENERGY_ECMS.md).
 - Multi-year AMY EPW `DATA PERIODS` must be **year-aware** (`mm/dd/yyyy`).
   Month/day-only headers (`8/1,8/7`) make EnergyPlus treat coverage as a short
   noyear Aug window and reject winter peaks like `2026-01-26`. Staged RunPeriods
@@ -150,8 +153,9 @@ hypothesis → campaign folder → score → republish.
 - Gym **live** mode = `ENERGYPLUS_PYTHON_API` (rllib-energyplus-style callbacks).
 - W2A `auto` **never** falls back to the IdealLoads farm.
 - `promote=False` until hourly DSM gates.
-- **No in-process EnergyPlus** inside Streamlit or Jupyter — live runs are CLI subprocess only.
-- Humans do **not** pick IDF / campus / interval / EPW files in the UI.
+- **No in-process EnergyPlus** inside Jupyter — live runs are CLI subprocess / Gym Runtime only.
+- Humans do **not** pick IDF / campus / interval / EPW files in the CLI product path.
+- Streamlit UI archived under `archive/streamlit_ui_2026-08-13/` — do not revive as product surface.
 - Interval clock: `archive/ml/interval15.py` (`step_15=0 → 00:15`).
 - No live `ml/` package. Helpers are parked under `archive/ml/`.
 - No BACnet WriteProperty.
