@@ -15,7 +15,8 @@ product logic — put them in the site pack / `campus.json`.
 [`vibe22_agent_spec/DATA_CONTRACT.md`](vibe22_agent_spec/DATA_CONTRACT.md),
 [`vibe22_agent_spec/EPLUS_GYM.md`](vibe22_agent_spec/EPLUS_GYM.md),
 [`skills/eplus-gym/SKILL.md`](skills/eplus-gym/SKILL.md),
-[`skills/eplus-economic-mpc/SKILL.md`](skills/eplus-economic-mpc/SKILL.md).
+[`skills/eplus-economic-mpc/SKILL.md`](skills/eplus-economic-mpc/SKILL.md),
+[`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md).
 
 Site SoT (data, E+ runs, historian): set **`SITE_ROOT`** (preferred).
 Aliases: `LAKESIDE_SITE_ROOT`, `VIBE22_SITE_ROOT`. This repo holds **code + small
@@ -43,7 +44,8 @@ QA paste prompt: [`vibe22_agent_spec/AGENT_TESTER_PROMPT.md`](vibe22_agent_spec/
    IDF). Operators never pick IDF / campus / interval files ad hoc.
 5. Run **CLI** six-zone screening on the published champion:
    `python scripts/vibe22.py optimize-day --day … --lookback-days 3 --no-cache`.
-6. Optional later: RLlib PPO stub only (`eplus_gym/train_rllib.py`) — not the product.
+6. Optional RL screening (LIVE only): `python scripts/vibe22_rl.py train|bakeoff|compare`
+   — SB3 PPO/DQN; see `vibe22_agent_spec/RL_DAILY_DSM.md` (`train_rllib.py` is a pointer stub).
 7. Leave room for a future **BACnet** app under `bacnet/` (stub only — **no writes**).
 
 ---

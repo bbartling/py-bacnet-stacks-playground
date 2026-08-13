@@ -1,0 +1,4 @@
+# Optional RL extras for vibe22 (Stable-Baselines3)
+stable-baselines3>=2.3.0
+torch>=2.1.0
+tensorboard>=2.14.0
