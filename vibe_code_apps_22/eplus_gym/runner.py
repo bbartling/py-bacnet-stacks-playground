@@ -12,13 +12,11 @@ from pathlib import Path
 from queue import Empty, Full, Queue
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from eplus_gym.rleplus_path import ensure_rleplus
+from eplus_gym.rleplus_compat import try_rleplus_helpers
 
-ensure_rleplus()
-from rleplus.env.actions import normalize_action  # noqa: E402
-from rleplus.env.meters import meter_indices_from_api_csv as _meter_indices_from_api_csv  # noqa: E402
-from rleplus.env.meters import meter_lookup_key as _meter_lookup_key  # noqa: E402
-from rleplus.env.meters import missing_handle  # noqa: E402
+normalize_action, _meter_indices_from_api_csv, _meter_lookup_key, missing_handle = (
+    try_rleplus_helpers()
+)
 
 
 @dataclass

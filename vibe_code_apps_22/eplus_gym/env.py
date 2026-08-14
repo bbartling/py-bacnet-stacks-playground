@@ -16,11 +16,14 @@ from eplus_gym.rleplus_path import ensure_rleplus
 
 
 def _import_rleplus_energyplus_env():
-    """Production import — pyenergyplus stays lazy inside rleplus.env.energyplus."""
-    ensure_rleplus()
-    from rleplus.env.energyplus import EnergyPlusEnv as RleplusEnergyPlusEnv
+    """Production import when the feat fork is present; CI may use an older clone."""
+    try:
+        ensure_rleplus()
+        from rleplus.env.energyplus import EnergyPlusEnv as RleplusEnergyPlusEnv
 
-    return RleplusEnergyPlusEnv
+        return RleplusEnergyPlusEnv
+    except Exception:  # noqa: BLE001
+        return None
 
 
 from .discover import try_import_energyplus_api
