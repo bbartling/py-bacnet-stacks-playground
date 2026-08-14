@@ -308,22 +308,80 @@ def cmd_report(args) -> int:
     print(SCREENING_CLAIM)
     site = _site(args)
     idf, epw = _paths(site)
+    app = Path(__file__).resolve().parents[1]
     root = site / "reports" / "eplus_gym" / "rl" / args.run_id
-    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
-    repo_copy = Path(__file__).resolve().parents[1] / "plots" / "rl_report"
+    if not root.is_dir():
+        print(f"FAIL: missing run_root {root}", file=sys.stderr)
+        return EXIT_CONFIG
     dqn_root = root / "dqn"
+    pool = None
+    use_year2x = str(getattr(args, "pool", "") or "") == "year2xsyn" or str(args.run_id) == "year2xsyn"
+    if use_year2x:
+        pool_path = root / "day_pool.json"
+        if not pool_path.is_file():
+            print(f"FAIL: missing {pool_path}", file=sys.stderr)
+            return EXIT_CONFIG
+        pool = json.loads(pool_path.read_text(encoding="utf-8"))
+        days = [str(d) for d in pool.get("days") or []]
+        if not days:
+            print("FAIL: empty day_pool days", file=sys.stderr)
+            return EXIT_CONFIG
+        random_n = len(days)
+        repo_copy = app / "plots" / "rl_report_year2x"
+        seed = int(args.seed)
+    else:
+        days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+        random_n = int(args.random_timesteps)
+        repo_copy = app / "plots" / "rl_report"
+        seed = int(args.seed)
+    print(
+        json.dumps(
+            {
+                "phase": "report",
+                "run_id": args.run_id,
+                "n_days": len(days),
+                "random_timesteps": random_n,
+                "repo_copy": str(repo_copy),
+                "year2xsyn": use_year2x,
+            }
+        )
+    )
     out = build_report(
         site_root=site,
         epw=epw,
         champion_idf=idf,
         run_root=root,
         days=days,
-        random_timesteps=int(args.random_timesteps),
+        random_timesteps=random_n,
         heuristic_days=not args.skip_heuristic,
-        seed=int(args.seed),
+        seed=seed,
         repo_copy=repo_copy,
         dqn_run_root=dqn_root if (dqn_root / "episodes.jsonl").is_file() else None,
+        day_pool=pool,
     )
+    if use_year2x:
+        ppo_sum = {}
+        dqn_sum = {}
+        ppo_p = root / "train_summary.json"
+        dqn_p = dqn_root / "train_summary.json"
+        if ppo_p.is_file():
+            ppo_sum = json.loads(ppo_p.read_text(encoding="utf-8"))
+        if dqn_p.is_file():
+            dqn_sum = json.loads(dqn_p.read_text(encoding="utf-8"))
+        (root / "campaign_summary.json").write_text(
+            json.dumps(
+                {
+                    "ppo": ppo_sum,
+                    "dqn": dqn_sum,
+                    "comparison": out,
+                    "scientific_claim": SCREENING_CLAIM,
+                    "resumed": "report_only_no_retrain",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps(out, indent=2))
     print("repo_copy", repo_copy)
     return EXIT_OK
@@ -384,8 +442,14 @@ def main(argv: list[str] | None = None) -> int:
         default="2026-01-20,2026-01-21,2026-01-22,2026-01-23,2026-01-24,2026-01-25,2026-01-26",
     )
     rp.add_argument("--random-timesteps", type=int, default=20)
-    rp.add_argument("--seed", type=int, default=1)
+    rp.add_argument("--seed", type=int, default=0)
     rp.add_argument("--skip-heuristic", action="store_true")
+    rp.add_argument(
+        "--pool",
+        choices=["unique_heating", "year2xsyn"],
+        default="unique_heating",
+        help="year2xsyn loads day_pool.json and writes plots/rl_report_year2x (does not wipe unique-100)",
+    )
     rp.set_defaults(func=cmd_report)
 
     camp = sub.add_parser("campaign", parents=[site_parent])
