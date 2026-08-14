@@ -97,9 +97,14 @@ Refresh when bills change (`scripts/ingest_utility_bills.py` /
 
 Optional agent publish: `{SITE_ROOT}/reports/ecm_compare.json`.
 
-Studio/console ECMs tab reads this (or empty stub). Spreadsheet parity may also
+Console **Energy ECMs** tab reads this (or empty stub) via
+`eplus_gym_app.ecm_panel` / `ecm_publish`. Spreadsheet workbooks live under
+`reports/notebooks/**/*.xlsx` (open-fdd `ECMJob`). Spreadsheet parity may also
 appear as `ecm_full_parity_compare.json` — **never invent** `ss_*` savings numbers.
-Shape aligned with vibe20 `wattlab_ecm_compare_v1` when present.
+Shape aligned with vibe20 `wattlab_ecm_compare_v1` / open-fdd `attach_twin_compare`
+when present (`fitted_sheet_kwh` → `ss_kwh`, `eplus_kwh` → `ep_kwh`).
+
+Agent workflow: [`ENERGY_ECMS.md`](ENERGY_ECMS.md).
 
 ## 6. AMY EPW — `{slug}_amy_*.epw`
 

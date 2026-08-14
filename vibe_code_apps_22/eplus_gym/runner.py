@@ -98,8 +98,11 @@ class EnergyPlusRunner:
         self.meter_handles: Dict[str, int] = {}
         self.actuators = runner_config.actuators
         self.actuator_handles: Dict[str, int] = {}
-        self.last_action = 0.0
+        self.actuator_order: List[str] = list(self.actuators.keys())
+        self.last_action: Any = 0.0
+        self.last_applied: Dict[str, float] = {}
         self.handle_error: Optional[str] = None
+        self.multi_actuator = len(self.actuator_order) > 1
 
     def start(self) -> None:
         self.energyplus_state = self.energyplus_api.state_manager.new_state()
@@ -176,15 +179,66 @@ class EnergyPlusRunner:
         ]
         return eplus_args
 
-    def init_exchange(self, default_action: float) -> Dict[str, float]:
-        self.last_action = float(default_action)
+    def init_exchange(self, default_action: Any) -> Dict[str, float]:
+        self.last_action = self._normalize_action(default_action)
         self.act_queue.put(self.last_action)
         return self.obs_queue.get()
+
+    def _normalize_action(self, action: Any) -> Any:
+        """Scalar for 1 actuator; length-N list for multi-actuator envs."""
+        n = len(self.actuator_order)
+        if n <= 1:
+            if isinstance(action, (list, tuple)):
+                return float(action[0])
+            arr = getattr(action, "reshape", None)
+            if arr is not None:
+                return float(action.reshape(-1)[0])
+            return float(action)
+        vals = list(action) if not isinstance(action, (float, int)) else [float(action)] * n
+        if hasattr(action, "reshape") and not isinstance(action, (list, tuple)):
+            vals = [float(x) for x in action.reshape(-1)]
+        elif isinstance(action, (list, tuple)):
+            vals = [float(x) for x in action]
+        if len(vals) != n:
+            raise ValueError(f"expected {n} actions, got {len(vals)}")
+        if any(v != v or v in (float("inf"), float("-inf")) for v in vals):
+            raise ValueError(f"non-finite action values: {vals}")
+        return vals
+
+    def _runtime_calendar(self, state_argument) -> Dict[str, float]:
+        """Actual EnergyPlus Runtime calendar (not synthetic step dating)."""
+        kind = int(self.x.kind_of_sim(state_argument))
+        warmup = bool(self.x.warmup_flag(state_argument))
+        return {
+            "ep_year": float(self.x.year(state_argument)),
+            "ep_month": float(self.x.month(state_argument)),
+            "ep_day": float(self.x.day_of_month(state_argument)),
+            "ep_hour": float(self.x.hour(state_argument)),
+            "ep_minute": float(self.x.minutes(state_argument)),
+            "kind_of_sim": float(kind),
+            "warmup": 1.0 if warmup else 0.0,
+        }
 
     def _collect_obs(self, state_argument) -> None:
         try:
             if self.simulation_complete or not self._init_callback(state_argument):
                 return
+            # Hard gate: only RunPeriodWeather (3), never sizing/design-day.
+            kind = int(self.x.kind_of_sim(state_argument))
+            if kind != 3 or bool(self.x.warmup_flag(state_argument)):
+                return
+            applied = {}
+            for key, handle in self.actuator_handles.items():
+                if handle == -1:
+                    applied[f"applied_{key}"] = float("nan")
+                    continue
+                try:
+                    applied[f"applied_{key}"] = float(
+                        self.x.get_actuator_value(state_argument, handle)
+                    )
+                except Exception:  # noqa: BLE001
+                    applied[f"applied_{key}"] = float("nan")
+            self.last_applied = applied
             self.next_obs = {
                 **{
                     key: (
@@ -202,6 +256,8 @@ class EnergyPlusRunner:
                     )
                     for key, handle in self.meter_handles.items()
                 },
+                **applied,
+                **self._runtime_calendar(state_argument),
             }
             self.obs_queue.put(self.next_obs)
         except Exception as exc:  # noqa: BLE001 — never raise into ctypes
@@ -218,6 +274,9 @@ class EnergyPlusRunner:
                 return
             if self.handle_error:
                 return
+            kind = int(self.x.kind_of_sim(state_argument))
+            if kind != 3 or bool(self.x.warmup_flag(state_argument)):
+                return
             sys_timestep_duration = self.x.system_time_step(state_argument)
             if (
                 sys_timestep_duration < self.zone_timestep_duration
@@ -231,15 +290,37 @@ class EnergyPlusRunner:
             if next_action is None:
                 self.simulation_complete = True
                 return
-            self.last_action = float(next_action)
-            handle = list(self.actuator_handles.values())[0]
-            if handle == -1:
+            try:
+                self.last_action = self._normalize_action(next_action)
+            except ValueError as exc:
+                self.handle_error = str(exc)
+                self.simulation_complete = True
                 return
-            self.x.set_actuator_value(
-                state=state_argument,
-                actuator_handle=handle,
-                actuator_value=self.last_action,
-            )
+            # Fail on missing/duplicate handles
+            handles = [self.actuator_handles[k] for k in self.actuator_order]
+            if any(h == -1 for h in handles):
+                self.handle_error = f"missing actuator handle: {self.actuator_handles}"
+                self.simulation_complete = True
+                return
+            if len(set(handles)) != len(handles):
+                self.handle_error = f"duplicate actuator handles: {self.actuator_handles}"
+                self.simulation_complete = True
+                return
+            if self.multi_actuator:
+                vals = list(self.last_action)
+                for key, val in zip(self.actuator_order, vals):
+                    self.x.set_actuator_value(
+                        state=state_argument,
+                        actuator_handle=self.actuator_handles[key],
+                        actuator_value=float(val),
+                    )
+            else:
+                key = self.actuator_order[0]
+                self.x.set_actuator_value(
+                    state=state_argument,
+                    actuator_handle=self.actuator_handles[key],
+                    actuator_value=float(self.last_action),
+                )
         except Exception as exc:  # noqa: BLE001 — never raise into ctypes
             self.handle_error = str(exc)
             self.simulation_complete = True
@@ -303,10 +384,10 @@ class EnergyPlusRunner:
             **{k: v for k, v in self.meter_handles.items() if v == -1},
         }
         # kind_of_sim: 1=DesignDay, 2=RunPeriodDesign, 3=RunPeriodWeather
-        # Meters are often unavailable until the weather run-period finishes warmup.
+        # Never initialize / score during sizing or warmup — even if sensors resolve.
         kind = int(self.x.kind_of_sim(state_argument))
         warmup = bool(self.x.warmup_flag(state_argument))
-        if missing_sensors and (kind != 3 or warmup):
+        if kind != 3 or warmup:
             return False
         if missing_sensors and self.verbose:
             print(f"WARN missing E+ sensor handles (NaN obs): {missing_sensors}")

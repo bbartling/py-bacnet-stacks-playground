@@ -81,7 +81,14 @@ def test_write_epw_has_location_and_complete_days(tmp_path: Path):
     text = out.read_text(encoding="utf-8")
     assert text.startswith("LOCATION,Madison_AMY,WI,USA,AMY,726410,43.165,-89.254,-6.0,261.0")
     assert "Open-Meteo" in text
+    hdr = [ln for ln in text.splitlines() if ln.startswith("DATA PERIODS")][0]
+    # EnergyPlus expects mm/dd/yyyy
+    assert hdr.split(",")[5].count("/") == 2
+    assert hdr.split(",")[6].count("/") == 2
     assert meta["rows"] == 48
+    start_tok = hdr.split(",")[5]
+    assert int(start_tok.split("/")[0]) <= 12  # month first
+
     assert classify_epw(out) == KIND_AMY
     span = parse_epw_span(out)
     assert span["start"] == date(2026, 1, 26)

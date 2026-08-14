@@ -1,20 +1,16 @@
-"""Optional RLlib training stub — not required for rule DR.
+"""Optional RLlib stub — shipped trainer is Stable-Baselines3.
 
-Install extras later: pip install 'ray[rllib]' gymnasium
-Then wire LakesideIdealLoadsEnv into an RLlib algorithm (see airboxlab/rllib-energyplus).
-
-This module deliberately does not import ray at module load.
+See: eplus_gym/rl/train_sb3.py and scripts/vibe22_rl.py
+Upstream shape inspiration: https://github.com/airboxlab/rllib-energyplus
 """
 from __future__ import annotations
 
 
 def train_ppo_stub(*, env_config: dict, timesteps: int = 10_000) -> dict:
-    """Placeholder. Raises with install / wiring instructions."""
     raise NotImplementedError(
-        "RLlib training is scaffolded, not shipped. "
-        "1) pip install 'ray[rllib]'  "
-        "2) register LakesideIdealLoadsEnv  "
-        "3) follow https://github.com/airboxlab/rllib-energyplus train/rllib.py  "
+        "RLlib is not the shipped trainer. "
+        "Use: pip install -r requirements-rl.txt && "
+        "python scripts/vibe22_rl.py train --algo PPO --days 2026-01-26 --timesteps 6 "
         f"(requested timesteps={timesteps}, keys={list(env_config)})"
     )
 

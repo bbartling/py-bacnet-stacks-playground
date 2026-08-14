@@ -1,7 +1,6 @@
-﻿# Moved
+﻿# Audits
 
-This hybrid / grey-box audit was archived with the 2026-08-10 E+ gym product cut.
+Hybrid / grey-box audits were purged with the old lab tree (2026-08-13).
 
-See: [../../archive/2026-08-10_pre_eplus_gym/docs/live_docs_sweep/](../../archive/2026-08-10_pre_eplus_gym/docs/live_docs_sweep/)
-
-Live product audit: [eplus_gym_v1.md](eplus_gym_v1.md)
+Live product audit: [eplus_gym_v1.md](eplus_gym_v1.md)  
+Archive map: [../../archive/README.md](../../archive/README.md)

@@ -1,4 +1,4 @@
-"""Guardrails: hybrid / greybox product surface stays in archive, not live."""
+"""Guardrails: no live hybrid/ML product; Streamlit removed; archive/ml helpers only."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,36 +8,21 @@ _ML = _ROOT / "ml"
 _ARCH_ML = _ROOT / "archive" / "ml"
 _CONTRACTS = _ROOT / "contracts"
 _AUDITS = _ROOT / "docs" / "audits"
-_ARCH = _ROOT / "archive" / "2026-08-10_pre_eplus_gym"
+_HYBRID_ARCH = _ROOT / "archive" / "2026-08-10_pre_eplus_gym"
 
 
 def test_hybrid_contracts_not_live():
     assert not (_CONTRACTS / "hybrid_dsm_96_v1.json").is_file()
     assert not (_CONTRACTS / "hybrid_dsm_96_v2.json").is_file()
-    assert (_ARCH / "contracts" / "hybrid_dsm_96_v1.json").is_file()
-    assert (_ARCH / "contracts" / "hybrid_dsm_96_v2.json").is_file()
+
+
+def test_hybrid_pre_eplus_gym_archive_purged():
+    """Old hybrid/desktop/greybox codebase must stay gone (not a live product)."""
+    assert not _HYBRID_ARCH.exists(), "do not restore 2026-08-10_pre_eplus_gym into the tree"
 
 
 def test_live_ml_package_is_gone():
-    assert not _ML.exists(), "live ml/ must stay archived — use archive/ml helpers only"
-
-
-def test_hybrid_ml_helpers_archived():
-    for name in (
-        "simulation_contract.py",
-        "notebook_plots.py",
-        "feature_compile_15min.py",
-        "hybrid_rollout.py",
-        "greybox",
-        "control_twin_lab",
-    ):
-        assert not (_ML / name).exists(), f"live ml still has archived surface: {name}"
-    for name in (
-        "simulation_contract.py",
-        "notebook_plots.py",
-        "feature_compile_15min.py",
-    ):
-        assert (_ARCH / "ml_modules" / name).is_file()
+    assert not _ML.exists(), "live ml/ must stay gone — use archive/ml helpers only"
 
 
 def test_live_audits_are_gym_or_plant_only():
@@ -53,18 +38,28 @@ def test_live_audits_are_gym_or_plant_only():
     assert not (names & banned)
 
 
-def test_streamlit_app_uses_width_stretch():
-    src = (_ROOT / "eplus_gym_app" / "streamlit_app.py").read_text(encoding="utf-8")
-    assert "use_container_width" not in src
-    assert 'width="stretch"' in src
-    assert "IDF source" not in src
-    assert "Site DSM" in src
-    assert "Lakeside DSM" not in src
-    assert '"Fuel"' in src or "'Fuel'" in src
-    assert '"ECMs"' in src or "'ECMs'" in src
-    assert "Farm month" not in src
-    assert "_render_farm_diagnostic" not in src
-    assert "Building and fuel" not in src
+def test_no_streamlit_in_active_tree():
+    """Streamlit REMOVED — CLI entrypoint is scripts/vibe22.py."""
+    banned = ("import streamlit", "from streamlit")
+    roots = (_ROOT / "eplus_gym", _ROOT / "eplus_gym_app", _ROOT / "scripts")
+    skip_parts = {"archive", ".pytest_cache", "__pycache__", "examples"}
+    hits = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*.py"):
+            if any(part in skip_parts for part in path.parts):
+                continue
+            src = path.read_text(encoding="utf-8", errors="ignore")
+            for ban in banned:
+                if ban in src:
+                    hits.append(f"{path.relative_to(_ROOT)}:{ban}")
+    assert hits == [], f"streamlit still live: {hits}"
+
+
+def test_cli_entrypoint_exists():
+    assert (_ROOT / "scripts" / "vibe22.py").is_file()
+    assert not (_ROOT / "eplus_gym_app" / "streamlit_app.py").is_file()
 
 
 def test_archived_ml_keeps_eplus_helpers():
@@ -77,4 +72,4 @@ def test_archived_ml_keeps_eplus_helpers():
         "eplus_multires_metrics.py",
         "energy_math.py",
     ):
-        assert (_ARCH_ML / name).is_file()
+        assert (_ARCH_ML / name).is_file(), f"missing archive/ml/{name}"

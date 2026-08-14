@@ -102,12 +102,15 @@ def test_deployable_strategies_no_prbs():
     assert all(not s.startswith("prbs") for s in DEPLOYABLE_STRATEGIES)
 
 
-def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Frontend smoke via Streamlit AppTest (no live EnergyPlus)."""
-    pytest.importorskip("streamlit")
-    from streamlit.testing.v1 import AppTest
+def test_cli_and_pure_helpers_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """CLI-first smoke (Streamlit REMOVED)."""
+    from eplus_gym_app.ecm_panel import load_ecm_compare
+    from eplus_gym_app.optimize_tomorrow import list_studies
+    from eplus_gym_app.site_bundle import load_site_ui_bundle
+    from eplus_gym_app.site_config import load_site_dsm_config, save_site_dsm_config
+    from eplus_gym_app.plots import eui_peer_bullet_figure as _peer_fig
+    from eplus_native.six_zone_htg_stage import ACTION_KEYS
 
-    # Minimal site UI bundle + farm so overview + tabs load
     (tmp_path / "utilities").mkdir(parents=True)
     (tmp_path / "reports").mkdir(parents=True)
     (tmp_path / "utilities" / "campus.json").write_text(
@@ -129,19 +132,15 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         ),
         encoding="utf-8",
     )
-    rows_h = []
-    for day, peak in (("2025-12-15", 180.0), ("2026-01-26", 286.0), ("2026-02-10", 210.0)):
-        for h in range(24):
-            rows_h.append(
-                {
-                    "hour_utc": f"{day}T{h:02d}:00:00-06:00",
-                    "day_type": "Weekday",
-                    "kw_avg": peak if h == 8 else 90.0 + h,
-                    "oat_f": -5.0,
-                }
-            )
-    pd.DataFrame(rows_h).to_csv(
-        tmp_path / "reports" / "demand_vs_web_weather_hourly.csv", index=False
+    (tmp_path / "eplus" / "models").mkdir(parents=True)
+    (tmp_path / "eplus" / "models" / "demo.idf").write_text(
+        "Version,24.2;\nBuilding,Demo,0,Suburbs,0.04,0.4,FullExterior,25,6;\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "reports" / "demand_vs_web_weather_hourly.csv").write_text(
+        "hour_utc,day_type,kw_avg,oat_f\n"
+        "2026-01-26T08:00:00-06:00,Weekday,200.0,-5.0\n",
+        encoding="utf-8",
     )
     (tmp_path / "reports" / "site_ui_bundle_v1.json").write_text(
         json.dumps(
@@ -149,150 +148,36 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
                 "schema_version": "site_ui_bundle_v1",
                 "campus_json": "utilities/campus.json",
                 "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
-                "default_model_id": "A04",
-                "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+                "default_model_id": "CHAMPION",
+                "current_model_id": "CHAMPION",
+                "dsm_champion": "CHAMPION",
+                "idf_pin": "demo.idf",
                 "model_catalog": [
                     {
-                        "id": "A04",
-                        "label": "A04 champion",
+                        "id": "CHAMPION",
+                        "label": "Demo",
                         "family": "W2A_PHYSICAL_DSM",
-                        "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
-                        "scorecard": "models/eplus/best_scorecard_a04_dual.json",
+                        "idf_pin": "demo.idf",
                         "champion": True,
-                        "dial_id": "A04",
                     }
                 ],
-                "dial_ladder": {
-                    "peak_day": "2026-01-26",
-                    "models": [],
-                    "precomputed_closeness_csv": "plots/analytics/eplus_gl14_vs_peak285/winter_shape_closeness_a04_ladder.csv",
-                },
                 "honesty": {"bas": "BAS_INTERVAL_METER"},
             }
         ),
         encoding="utf-8",
     )
-
-    farm = tmp_path / "eplus" / "dsm_farm_paired"
-    farm.mkdir(parents=True)
-    rows = [
-        {
-            "day": "2026-01-11",
-            "strategy_id": "baseline",
-            "quarter_index": q,
-            "step": q,
-            "facility_kw": 50.0 + q,
-            "oat_f": 5.0,
-        }
-        for q in range(96)
-    ]
-    pd.DataFrame(rows).to_parquet(
-        farm / "heating_dsm_eplus_paired_15min_v1.parquet", index=False
+    (tmp_path / "reports" / "ecm_compare.json").write_text(
+        json.dumps({"measures": []}), encoding="utf-8"
     )
-    weather = tmp_path / "eplus" / "weather"
-    weather.mkdir(parents=True, exist_ok=True)
-    (weather / "madison_amy_202508_202607.epw").write_text("EPW", encoding="utf-8")
-    (weather / "madison_tmy_screening.epw").write_text("EPW", encoding="utf-8")
-    close_dir = tmp_path / "plots" / "analytics" / "eplus_gl14_vs_peak285"
-    close_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(
-        [
-            {
-                "day_type": "weekday",
-                "model": "A04",
-                "component": "Full-day",
-                "closeness_pct": 80.0,
-                "obs_kw": 200.0,
-                "sim_kw": 160.0,
-            },
-            {
-                "day_type": "weekend",
-                "model": "A04",
-                "component": "Full-day",
-                "closeness_pct": 75.0,
-                "obs_kw": 180.0,
-                "sim_kw": 135.0,
-            },
-        ]
-    ).to_csv(close_dir / "winter_shape_closeness_a04_ladder.csv", index=False)
     monkeypatch.setenv("LAKESIDE_SITE_ROOT", str(tmp_path))
-    at = AppTest.from_file(
-        str(Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py")
-    )
-    at.run(timeout=90)
-    assert not at.exception
-    assert any("Site DSM" in str(t.value) for t in at.title)
-    labels = " ".join(str(getattr(w, "label", "")) for w in list(at.radio) + list(at.selectbox))
-    assert "IDF source" not in labels
-    assert "campus.json" not in labels.lower()
-    assert "Demand / interval CSV" not in labels
-    # Humans pick one rule strategy (+ baseline); never IDF/campus/interval.
-    assert "Strategy (+ baseline)" in labels
-    assert len(at.dataframe) >= 1
-    def _copy() -> str:
-        blobs = []
-        for attr in (
-            "caption",
-            "markdown",
-            "info",
-            "warning",
-            "text",
-            "metric",
-            "header",
-            "subheader",
-            "title",
-        ):
-            for w in getattr(at, attr, []):
-                blobs.append(str(getattr(w, "label", "")))
-                blobs.append(str(getattr(w, "value", w)))
-        return " ".join(blobs)
-
-    home = _copy()
-    assert "W2A_PHYSICAL_DSM" in home
-    assert "not" in home.lower() and "IdealLoads" in home and "BOPTEST" in home
-    assert "Building and fuel" not in home
-
-    at.session_state["lakeside_main_tabs"] = "Run DSM"
-    at.session_state["dsm_period"] = "Winter (Dec–Feb)"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
-    radios = [str(getattr(w, "label", "")) for w in at.radio]
-    # Weather radio lives under Advanced expander (default AMY).
-    sliders = list(at.select_slider)
-    assert sliders, "expected Period select_slider"
-    copy = _copy()
-    assert "typical-year EPW on that date" not in copy
-    assert "CLOSED_LOOP_RULE_DR" in copy
-    assert "baseline + one strategy" in copy or "Will run" in copy
-    # Winter window still resolved in period_run_spec / caption.
-    assert "2025-12" in copy or "Winter" in copy
-    for sid in ("baseline", "deep_setback"):
-        assert sid in copy
-    at.session_state["lakeside_main_tabs"] = "Calibration"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
-    cal = _copy()
-    assert "Weekday closeness % (electric kW)" in cal
-    assert "Weekend closeness % (electric kW)" in cal
-    assert "E+ peak kW" in cal
-    assert "E+ kWh" in cal
-    assert "E+ vs Actual peak" in cal
-    assert "E+ vs Actual kWh" in cal
-    assert "GL14 fuel bills" in cal
-    assert "Locked to last Run DSM" in cal or "Follows the Run DSM tab" in cal
-
-    at.session_state["lakeside_main_tabs"] = "Fuel"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
-    fuel = _copy()
-    assert "Fuel" in fuel or "GL14" in fuel or "bill" in fuel.lower() or "EUI" in fuel
-
-    at.session_state["lakeside_main_tabs"] = "ECMs"
-    at.run(timeout=90)
-    assert not at.exception
-    assert not list(at.error)
-    ecm = _copy()
-    assert "ecm" in ecm.lower() or "ECM" in ecm or "measure" in ecm.lower()
+    monkeypatch.setenv("SITE_ROOT", str(tmp_path))
+    assert load_site_ui_bundle(tmp_path) is not None
+    cfg = load_site_dsm_config(tmp_path)
+    assert save_site_dsm_config(tmp_path, cfg).is_file()
+    assert list_studies(tmp_path) == []
+    assert load_ecm_compare(tmp_path)["schema"]
+    assert ACTION_KEYS[0] == "1F_A"
+    assert callable(_peer_fig)
+    assert not (
+        Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py"
+    ).is_file()

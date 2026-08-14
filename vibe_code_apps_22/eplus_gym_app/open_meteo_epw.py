@@ -161,6 +161,17 @@ def to_local_standard(df: pd.DataFrame, utc_offset_hours: float = -6.0) -> pd.Da
     return out.set_index("ts_lst").sort_index()
 
 
+def _epw_date_token(ts: pd.Timestamp | date) -> str:
+    """EnergyPlus DATA PERIODS date: mm/dd/yyyy (required for multi-year AMY).
+
+    EnergyPlus docs / GetNextEnvironment expect mm/dd/yyyy (not yyyy/mm/dd).
+    With Treat Weather as Actual=Yes, year tokens enable absolute-date coverage.
+    """
+    if hasattr(ts, "year"):
+        return f"{int(ts.month)}/{int(ts.day)}/{int(ts.year)}"
+    raise TypeError(f"expected date-like, got {type(ts)!r}")
+
+
 def _epw_header(
     *,
     lat: float,
@@ -176,8 +187,10 @@ def _epw_header(
         f"LOCATION,{location_name},WI,USA,AMY,{wmo},"
         f"{lat:.3f},{lon:.3f},{utc_offset_hours:.1f},{elevation_m:.1f}"
     )
-    start_s = f"{start.month}/{start.day}"
-    end_s = f"{end.month}/{end.day}"
+    # Month/day-only tokens (e.g. 8/1,8/7) make EnergyPlus treat coverage as a
+    # single short noyear window and reject winter RunPeriods like 2026-01-26.
+    start_s = _epw_date_token(start)
+    end_s = _epw_date_token(end)
     dow = start.day_name()
     return [
         loc,
@@ -186,7 +199,7 @@ def _epw_header(
         "GROUND TEMPERATURES,0",
         "HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0",
         "COMMENTS 1,AMY from Open-Meteo archive (UTC to local standard, no DST)",
-        "COMMENTS 2,M&V actual-year weather — not TMY. Do not treat as typical.",
+        "COMMENTS 2,M&V actual-year weather - not TMY. Do not treat as typical.",
         f"DATA PERIODS,1,1,Data,{dow},{start_s},{end_s}",
     ]
 
@@ -304,6 +317,110 @@ def parse_epw_span(path: Path) -> dict[str, Any]:
             start = d
         end = d
     return {"start": start, "end": end, "n_rows": n}
+
+
+def _parse_epw_period_date(token: str, *, fallback_year: int | None = None) -> date | None:
+    """Parse DATA PERIODS start/end token (mm/dd/yyyy, yyyy/mm/dd, or mm/dd)."""
+    parts = [p.strip() for p in str(token).split("/") if p.strip()]
+    try:
+        if len(parts) == 3:
+            a, b, c = int(parts[0]), int(parts[1]), int(parts[2])
+            # mm/dd/yyyy (EnergyPlus preferred) vs yyyy/mm/dd
+            if a > 31:  # year first
+                return date(a, b, c)
+            if c > 31:  # year last
+                return date(c, a, b)
+            # Ambiguous small numbers: prefer mm/dd/yyyy when third looks like year>=1900
+            if c >= 1900:
+                return date(c, a, b)
+            if a >= 1900:
+                return date(a, b, c)
+            return date(c, a, b)
+        if len(parts) == 2 and fallback_year is not None:
+            return date(int(fallback_year), int(parts[0]), int(parts[1]))
+    except ValueError:
+        return None
+    return None
+
+
+def parse_epw_data_periods(path: Path) -> dict[str, Any]:
+    """Read EnergyPlus DATA PERIODS header coverage (what E+ uses at startup)."""
+    header_start: date | None = None
+    header_end: date | None = None
+    raw: str | None = None
+    year_aware = False
+    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.upper().startswith("DATA PERIODS"):
+            continue
+        raw = line.strip()
+        parts = [p.strip() for p in line.split(",")]
+        # DATA PERIODS, n, records/h, name, dow, start, end
+        if len(parts) >= 7:
+            start_tok, end_tok = parts[5], parts[6]
+            year_aware = start_tok.count("/") >= 2 and end_tok.count("/") >= 2
+            header_start = _parse_epw_period_date(start_tok)
+            header_end = _parse_epw_period_date(end_tok)
+        break
+    return {
+        "raw": raw,
+        "start": header_start,
+        "end": header_end,
+        "year_aware": year_aware,
+    }
+
+
+def repair_epw_data_periods(path: Path, *, dry_run: bool = False) -> dict[str, Any]:
+    """Rewrite DATA PERIODS to mm/dd/yyyy from data-row span (in-place).
+
+    Fixes legacy Open-Meteo AMY files that advertised ``8/1,8/7`` (noyear) while
+    data rows spanned a full multi-year window.
+    """
+    path = Path(path)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+    span = parse_epw_span(path)
+    start = span.get("start")
+    end = span.get("end")
+    if start is None or end is None:
+        raise ValueError(f"cannot repair DATA PERIODS; no data rows in {path}")
+    start_s = _epw_date_token(start)
+    end_s = _epw_date_token(end)
+    dow = start.strftime("%A")
+    new_line = f"DATA PERIODS,1,1,Data,{dow},{start_s},{end_s}"
+    out: list[str] = []
+    replaced = False
+    for line in lines:
+        if line.upper().startswith("DATA PERIODS"):
+            out.append(new_line)
+            replaced = True
+        else:
+            out.append(line)
+    if not replaced:
+        # Insert before first data row (digit-leading)
+        inserted = False
+        rebuilt: list[str] = []
+        for line in out:
+            if not inserted and line and line[0].isdigit():
+                rebuilt.append(new_line)
+                inserted = True
+            rebuilt.append(line)
+        out = rebuilt
+        replaced = inserted
+    if not replaced:
+        raise ValueError(f"could not locate DATA PERIODS in {path}")
+    before = parse_epw_data_periods(path)
+    meta = {
+        "epw": str(path),
+        "before": before.get("raw"),
+        "after": new_line,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "changed": before.get("raw") != new_line,
+    }
+    if dry_run or not meta["changed"]:
+        return meta
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    return meta
 
 
 def amy_stale(
@@ -442,6 +559,10 @@ def publish_current_amy(site: Path, epw_path: Path, meta: dict[str, Any] | None 
 
     site = Path(site)
     epw_path = Path(epw_path)
+    try:
+        repair_epw_data_periods(epw_path)
+    except (OSError, ValueError):
+        pass
     weather = site / "eplus" / "weather"
     weather.mkdir(parents=True, exist_ok=True)
     span = parse_epw_span(epw_path)

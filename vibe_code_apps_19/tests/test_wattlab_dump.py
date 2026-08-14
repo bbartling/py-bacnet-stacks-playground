@@ -67,8 +67,29 @@ def test_sensor_stats_tables_slices_by_fan_proof():
     # METER has no proof — excluded from on/off slices
     assert not (on["equipment_id"] == "METER_1").any()
     assert not (off["equipment_id"] == "METER_1").any()
-    # proof column labels the mask source
     assert dat_on.iloc[0]["proof"] == "fan-status"
+
+
+def test_sensor_stats_tables_bool_flag_quantile():
+    """Boolean fault/flag columns must not crash quantile/diff (numpy bool subtract)."""
+    idx = pd.date_range("2024-03-04 08:00", periods=8, freq="1h", tz="UTC")
+    ahu = pd.DataFrame(
+        {
+            "discharge-air-temp": [55.0] * 8,
+            "fan-status": [True, True, True, True, False, False, False, False],
+        },
+        index=idx,
+    )
+    ahu["fan-status"] = ahu["fan-status"].astype(bool)
+    ahu.attrs["equipment_type"] = "AHU"
+    frames = {"AHU_1": ahu}
+    role_map = {"AHU_1": {c: c for c in ahu.columns} | {"equipment_type": "AHU"}}
+    tables = sensor_stats_tables(frames, role_map)
+    fan = tables["all"]
+    fan = fan[(fan["equipment_id"] == "AHU_1") & (fan["role"] == "fan-status")]
+    assert len(fan) == 1
+    assert 0.0 <= float(fan.iloc[0]["p50"]) <= 1.0
+    assert float(fan.iloc[0]["mean"]) == pytest.approx(0.5)
 
 
 _V3_SENSOR_STAT_COLS = {

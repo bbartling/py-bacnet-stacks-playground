@@ -1,4 +1,4 @@
-"""Read published ``reports/ecm_compare.json`` for the ECMs tab."""
+"""Read published ``reports/ecm_compare.json`` for the Energy ECMs tab."""
 from __future__ import annotations
 
 import json
@@ -16,12 +16,17 @@ def empty_ecm_stub() -> dict[str, Any]:
         "schema": SCHEMA,
         "measures": [],
         "status": "empty",
-        "note": "Agents publish reports/ecm_compare.json after ECM runs.",
+        "note": (
+            "Agents publish reports/ecm_compare.json after open-fdd ECMJob "
+            "workbooks + staged EnergyPlus runs."
+        ),
     }
 
 
 def load_ecm_compare(site: Path | str) -> dict[str, Any]:
-    """Load ``{site}/reports/ecm_compare.json`` or an empty stub."""
+    """Load ``{site}/reports/ecm_compare.json`` or an empty stub (normalized)."""
+    from eplus_gym_app.ecm_publish import normalize_compare_payload
+
     root = Path(site)
     path = root / "reports" / DEFAULT_COMPARE_NAME
     if not path.is_file():
@@ -30,12 +35,7 @@ def load_ecm_compare(site: Path | str) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return empty_ecm_stub()
-    if not isinstance(payload, dict):
-        return empty_ecm_stub()
-    if "measures" not in payload or not isinstance(payload.get("measures"), list):
-        payload = dict(payload)
-        payload["measures"] = list(payload.get("measures") or [])
-    return payload
+    return normalize_compare_payload(payload)
 
 
 def ecm_compare_table(payload: dict[str, Any] | None) -> pd.DataFrame:

@@ -1,16 +1,11 @@
-# Archive — vibe22 archaeology
+# vibe22 archive
 
-**Do not import from `archive/` in live product paths.**
+**Live product** is CLI six-zone DSM screening (`scripts/vibe22.py` + `eplus_gym/`).
 
-## Current cut
+| Path | Status |
+| --- | --- |
+| [`ml/`](ml/) | **Kept** — small parked GL14 / multires helpers imported by live calibration scripts. Not an ML product. |
+| [`streamlit_ui_2026-08-13/`](streamlit_ui_2026-08-13/) | **Archived** Streamlit Site DSM UI (removed from product). |
+| `2026-08-10_pre_eplus_gym/` | **PURGED** — former hybrid ONNX / greybox / desktop / control-twin lab. Do not restore into live paths. |
 
-**[`2026-08-10_pre_eplus_gym/`](2026-08-10_pre_eplus_gym/README.md)** — full ledger of hybrid ONNX desktop, grey-box, control-twin lab, phys-LSTM notebooks, and related scripts/tests. Product replaced by [`../eplus_gym/`](../eplus_gym/) + [`../eplus_gym_app/`](../eplus_gym_app/).
-
-Follow-up sweep (same day): moved remaining live hybrid contracts
-(`hybrid_dsm_96_v1/v2.json`), `ml/simulation_contract.py`, `ml/notebook_plots.py`,
-`ml/feature_compile_15min.py`, leftover `ml/artifacts`, and hybrid/greybox audits
-into that tree (`contracts/`, `ml_modules/`, `docs/live_docs_sweep/`).
-
-Earlier interval/billing legacies sit under that tree as `legacy_pre/`.
-
-Live audits: [`../docs/audits/`](../docs/audits/) (gym + plant candidates only).
+Do not recreate a live `ml/` package. Do not revive Streamlit as the product surface.

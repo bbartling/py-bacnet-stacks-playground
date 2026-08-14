@@ -226,7 +226,7 @@ def test_period_run_spec_winter_is_full_calendar_span():
         "day": "2026-01-26",
         "window_days": ["2025-12-01", "2026-01-15", "2026-02-28"],
     }
-    spec = period_run_spec(ctx, "Winter (Dec–Feb)")
+    spec = period_run_spec(ctx, "Winter (Dec-Feb)")
     assert spec["begin"] == "2025-12-01"
     assert spec["end"] == "2026-02-28"
     assert spec["n_days"] == 90
@@ -336,7 +336,7 @@ def test_persist_and_load_last_run(tmp_path: Path):
         kpis={"peak_kw": 120.0},
         strategy="baseline",
         day="2026-01-26",
-        preset="Winter (Dec–Feb)",
+        preset="Winter (Dec-Feb)",
         mode="live",
         epw_name="madison_amy_202508_202607.epw",
         why="test",

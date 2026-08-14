@@ -75,7 +75,7 @@ def test_locked_window_prefers_last_run():
         bas,
         peak_day="2026-01-26",
         last={
-            "preset": "Winter (Dec–Feb)",
+            "preset": "Winter (Dec-Feb)",
             "period": "2025-12-01/2026-02-28",
             "window_days": ["2025-12-15", "2026-01-26", "2026-02-01"],
         },
@@ -83,13 +83,13 @@ def test_locked_window_prefers_last_run():
         session_month="2026-01",
     )
     assert lock["locked"] is True
-    assert lock["preset"] == "Winter (Dec–Feb)"
+    assert lock["preset"] == "Winter (Dec-Feb)"
     assert lock["days"] == ["2025-12-15", "2026-01-26", "2026-02-01"]
 
 
 def test_days_winter_includes_dec_jan_feb():
     bas = _bas_frame()
-    days = days_for_period(bas, preset="Winter (Dec–Feb)", peak_day="2026-01-26")
+    days = days_for_period(bas, preset="Winter (Dec-Feb)", peak_day="2026-01-26")
     assert any(d.startswith("2025-12") for d in days)
     assert any(d.startswith("2026-01") for d in days)
     assert any(d.startswith("2026-02") for d in days)

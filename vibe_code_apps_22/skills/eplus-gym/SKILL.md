@@ -3,9 +3,9 @@ name: eplus-gym
 description: >-
   Any-building EnergyPlus DSM gym (vibe22): rule demand-response on the
   published W2A champion via eplus_gym. Lookup farm (eplus/dsm_farm_w2a) or
-  live EnergyPlus via CLI subprocess. Streamlit Run DSM never binds pyenergyplus
-  in-process. IdealLoads farm is STRUCTURAL_LOAD_DIAGNOSTIC and CLI-only.
-  Practice pack: Lakeside / sp_creekside (A04).
+  live EnergyPlus via CLI (scripts/vibe22.py). Streamlit REMOVED. IdealLoads
+  farm is STRUCTURAL_LOAD_DIAGNOSTIC and CLI-only. Practice pack: Lakeside /
+  sp_creekside (A04).
 ---
 
 # E+ gym (vibe22)
@@ -16,64 +16,49 @@ description: >-
 [`../../vibe22_agent_spec/AGENT_LOOP.md`](../../vibe22_agent_spec/AGENT_LOOP.md) ·
 weather: [`../open-meteo-epw/SKILL.md`](../open-meteo-epw/SKILL.md)
 
-**Do not** revive hybrid ONNX / grey-box / control-twin lab from
-`archive/2026-08-10_pre_eplus_gym/` into the live path.
+**Do not** revive hybrid ONNX / grey-box / control-twin lab (purged; see
+`archive/README.md`) into the live path.
 
 ## Honesty
 
-- W2A champion = `W2A_PHYSICAL_DSM` (human DSM console)
+- W2A champion = `W2A_PHYSICAL_DSM`
 - IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC` (CLI screening only)
 - Lookup = `FARM_LOOKUP_EMULATOR` (not closed-loop)
-- Live = `ENERGYPLUS_PYTHON_API` (via CLI subprocess from Streamlit)
+- Live = `ENERGYPLUS_PYTHON_API` (Gym Runtime / CLI)
+- Claim: **ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY**
 - `promote=False`
 - W2A `auto` **never** falls back to IdealLoads `dsm_farm_paired`
 
-## Human console
+## CLI entrypoint (Streamlit REMOVED)
 
 ```powershell
 cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"  # practice
-streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+python -u scripts\vibe22.py status --site-root $env:SITE_ROOT
+python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache --simulator LIVE_ENERGYPLUS
 ```
 
-Tabs: **Run DSM** · **Calibration** · **Fuel** · **ECMs**.  
-No IDF / campus / interval pickers. Pack comes from `ingest_site_pack.py`.
+Six-zone actuation (staged DualSP schedules `DSM_HTG_SP_*`) must PASS
+`scripts/gate_six_zone_actuation.py` before optimization.
 
-## DSM campaign supervisor
+Optional LIVE RL screening (SB3 PPO/DQN, day MDP):
+`python scripts/vibe22_rl.py bakeoff …` — see
+[`../rl-daily-dsm/SKILL.md`](../rl-daily-dsm/SKILL.md). Lookup/farm is **not**
+valid for RL training.
 
-Live Run DSM starts `scripts/run_dsm_campaign.py` once (Popen). Streamlit only
-polls `{SITE_ROOT}/reports/eplus_gym/current_dsm_run.json` via `@st.fragment`.
-Preflight (EPW span ⊆ coverage, IDF hash, max_steps) runs **before** any EnergyPlus
-child. Defaults: Peak day · AMY · baseline + one strategy. Cancel writes
-`cancel_dsm_run.request`. `last_dsm_run.json` updates only after all jobs validate.
+Site Config JSON: `{SITE}/reports/eplus_gym/site_dsm_config.json` — patches
+**staged** IDFs only.
 
-**Weather:** AMY = Open-Meteo actual year (M&V). Refresh with
-`python -u scripts\eplus_fetch_open_meteo_epw.py`. Never auto-pick Chicago
-screening as TMY. See `open-meteo-epw`.
+## Modes
 
-**Run DSM:** lookup if `{site}/eplus/dsm_farm_w2a` exists; else live via
-**subprocess** to `scripts/run_eplus_gym_rules.py --family w2a --mode live`.  
-Do **not** import `pyenergyplus` inside the Streamlit server.  
-Still **no** live `pyenergyplus` inside Jupyter.
+| Mode | Provenance |
+| --- | --- |
+| lookup | `FARM_LOOKUP_EMULATOR` |
+| live | `ENERGYPLUS_PYTHON_API` |
 
-## CLI
+## Guardrails
 
-```powershell
-python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
-python -u scripts\run_eplus_gym_rules.py --family w2a --mode lookup --day 2026-01-26
-python -u scripts\run_eplus_gym_rules.py --family w2a --mode live --epw PATH.epw --idf PATH.idf
-# IdealLoads structural only:
-python -u scripts\run_eplus_gym_rules.py --family idealloads --mode lookup
-```
-
-Live needs EnergyPlus + `ENERGYPLUS_ROOT` + EPW/IDF.
-
-## Controllers
-
-Named strategies from `contracts/control_strategies_v1/*.json` → heating SP °C
-on `SCH_HtgSP` (live W2A or IdealLoads) or farm trajectory (lookup).
-
-## Twin pins
-
-Never overwrite IdealLoads `*_best_utility.idf` or the pack W2A champion. See
-`eplus-gl14` / `w2a-plant-dial` / `site-pack`.
+- Never mutate published champion IDF
+- No BACnet writes
+- Approve writes only `approved_recommendation.json`
+- PHYSICAL_ONLY default — illustrative $ never selects

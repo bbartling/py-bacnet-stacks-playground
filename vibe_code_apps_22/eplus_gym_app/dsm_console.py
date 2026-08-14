@@ -1,4 +1,4 @@
-﻿"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
+"""BOPTEST-shaped DSM Run panel (W2A champion only)."""
 from __future__ import annotations
 
 import json
@@ -30,11 +30,42 @@ _APP = Path(__file__).resolve().parents[1]
 _CLI = _APP / "scripts" / "run_eplus_gym_rules.py"
 
 STRATEGY_LABELS = {
-    "baseline": "Baseline",
-    "flat_24_7": "Flat 24/7",
-    "deep_setback": "Deep setback",
-    "stagger_preheat": "Stagger preheat",
-    "morning_all_on": "Morning all-on",
+    "baseline": "E+ Site Config (twin)",
+    "flat_24_7": "E+ Flat 24/7",
+    "deep_setback": "E+ Deep setback",
+    "stagger_preheat": "E+ Stagger preheat",
+    "morning_all_on": "E+ Morning all-on",
+    "optimized": "E+ Optimized (proposal)",
+}
+
+# Short tutorial copy for Results strategy tabs (what the rule does to E+).
+STRATEGY_TUTORIALS: dict[str, str] = {
+    "baseline": (
+        "**E+ Site Config (twin)** is *not* the BAS meter. It is EnergyPlus replaying "
+        "the published W2A twin with your Site Config occupied/unoccupied heat. "
+        "Use it to judge how close the twin is to **Actual BAS**, and as the "
+        "reference when comparing other E+ strategies (kW trim / kWh penalty)."
+    ),
+    "flat_24_7": (
+        "**Flat 24/7** holds occupied heat all day and night (no setback). "
+        "Usually the highest peak and kWh - a 'what if we never set back' bound."
+    ),
+    "deep_setback": (
+        "**Deep setback** drops unoccupied heat further than Site Config "
+        "(deeper than the twin baseline). Expect lower unoccupied heating energy and a "
+        "possible morning recovery peak - compare peak kW and kWh vs the twin baseline "
+        "and vs Actual BAS."
+    ),
+    "stagger_preheat": (
+        "**Stagger preheat** stages morning recovery across zones to shave coincident peak."
+    ),
+    "morning_all_on": (
+        "**Morning all-on** pulls heating early together - often a peak-forming stress test."
+    ),
+    "optimized": (
+        "**Optimized (proposal)** comes from **Optimize Tomorrow** (economic screening). "
+        "It is a recommendation artifact only - not auto-written to Site Config or BACnet."
+    ),
 }
 
 
@@ -51,7 +82,7 @@ def pick_frame(
 
 
 def frame_map(value: Any) -> dict[str, pd.DataFrame]:
-    """Coerce session/disk payload to a strâ†’DataFrame map (never bool(DataFrame))."""
+    """Coerce session/disk payload to a str->DataFrame map (never bool(DataFrame))."""
     if not isinstance(value, dict):
         return {}
     out: dict[str, pd.DataFrame] = {}
@@ -93,24 +124,39 @@ def default_calendar_month(months: list[str], peak_day: str | None) -> str:
     return months[0] if months else "2026-01"
 
 
-def strategy_library() -> dict[str, Any]:
-    """Desktop strategy cards + 96-step SP series. Not list_strategies() (skips index.json)."""
-    from eplus_gym.controllers import RuleController, load_strategy_contract
+def strategy_library(site_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Desktop strategy cards + 96-step SP series (Site Config deg F when provided)."""
+    from eplus_gym.controllers import RuleController, effective_htg_setpoints_f
+
+    sp = (site_cfg or {}).get("setpoints_f") if isinstance(site_cfg, dict) else None
+    occ = None
+    unocc = None
+    if isinstance(sp, dict):
+        if "occupied_heating_f" in sp:
+            occ = float(sp["occupied_heating_f"])
+        if "unoccupied_heating_f" in sp:
+            unocc = float(sp["unoccupied_heating_f"])
 
     rows: list[dict[str, Any]] = []
     series: dict[str, list[float]] = {}
     for sid in DEPLOYABLE_STRATEGIES:
-        meta = load_strategy_contract(sid).get("meta") or {}
-        ctrl = RuleController(sid)
+        eff = effective_htg_setpoints_f(
+            sid, occ_htg_sp_f=occ, unocc_htg_sp_f=unocc
+        )
+        ctrl = RuleController(sid, occ_htg_sp_f=occ, unocc_htg_sp_f=unocc)
         series[sid] = ctrl.series_f()
         rows.append(
             {
                 "strategy_id": sid,
                 "label": STRATEGY_LABELS.get(sid, sid),
-                "occ_htg_sp_f": float(meta.get("occ_htg_sp_f", 68.0)),
-                "unocc_htg_sp_f": float(meta.get("unocc_htg_sp_f", 65.0)),
-                "preheat_lead_h": float(meta.get("preheat_lead_h") or 0.0),
-                "stagger_min": float(meta.get("stagger_min") or 0.0),
+                "occ_htg_sp_f": eff["occ_htg_sp_f"],
+                "unocc_htg_sp_f": eff["unocc_htg_sp_f"],
+                "preheat_lead_h": float(
+                    (ctrl.contract.get("meta") or {}).get("preheat_lead_h") or 0.0
+                ),
+                "stagger_min": float(
+                    (ctrl.contract.get("meta") or {}).get("stagger_min") or 0.0
+                ),
             }
         )
     return {"rows": rows, "series": series}
@@ -124,7 +170,7 @@ def live_run_jobs(
     end: str,
     max_steps: int,
 ) -> list[dict[str, Any]]:
-    """One CLI job per strategy Ã— weather. Keys are strategy:weather_kind."""
+    """One CLI job per strategy x weather. Keys are strategy:weather_kind."""
     jobs: list[dict[str, Any]] = []
     for sid in strategies:
         for kind, epw in weathers:
@@ -210,8 +256,8 @@ def dsm_kpis(
 def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Window-total kW trim and kWh penalty vs the baseline strategy.
 
-    kw_trim = baseline peak kW âˆ’ strategy peak kW  (+ = trimmed demand)
-    kwh_penalty = strategy kWh âˆ’ baseline kWh      (+ = energy penalty)
+    kw_trim = baseline peak kW - strategy peak kW  (+ = trimmed demand)
+    kwh_penalty = strategy kWh - baseline kWh      (+ = energy penalty)
     Totals cover the whole selected window (peak day / month / winter / year).
     """
     base = kpis_by.get("baseline") or {}
@@ -230,6 +276,24 @@ def attach_baseline_deltas(kpis_by: dict[str, dict[str, Any]]) -> dict[str, dict
             row["kwh_penalty"] = float(kwh) - float(b_kwh)
         elif sid == "baseline" and kwh is not None:
             row["kwh_penalty"] = 0.0
+    return kpis_by
+
+
+def attach_actual_deltas(
+    kpis_by: dict[str, dict[str, Any]],
+    actual_peak_kw: float | None,
+) -> dict[str, dict[str, Any]]:
+    """Fill vs_actual_pct from BAS meter peak when missing (AMY day <-> meter day)."""
+    if actual_peak_kw in (None, 0):
+        return kpis_by
+    ap = float(actual_peak_kw)
+    for row in kpis_by.values():
+        peak = row.get("peak_kw")
+        if peak is None:
+            continue
+        if row.get("vs_actual_pct") is None:
+            row["vs_actual_pct"] = (float(peak) - ap) / ap * 100.0
+        row["actual_peak_kw"] = ap
     return kpis_by
 
 
@@ -412,11 +476,35 @@ def actual_day_profile(bundle: SiteUiBundle, day: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def stage_idf_for_period(src: Path, dest: Path, begin: str, end: str) -> Path:
-    """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion."""
+def stage_idf_for_period(
+    src: Path,
+    dest: Path,
+    begin: str,
+    end: str,
+    *,
+    site_root: Path | None = None,
+    site_config: dict[str, Any] | None = None,
+    six_zone_actuators: bool = False,
+) -> Path:
+    """Copy IDF with RunPeriod clipped to ``begin``..``end``. Never overwrite champion.
+
+    When ``site_root`` or ``site_config`` is provided, patch setpoints + people/HVAC
+    schedules from Site Config onto the **staged** copy only.
+    When ``six_zone_actuators`` is True, split DualSP into six DSM heating
+    schedules for independent Gym actuators (CLI six-zone optimizer).
+    """
     from datetime import date
 
-    from eplus_native.idf_stage import patch_run_period
+    from eplus_native.idf_stage import (
+        disable_sizing_periods,
+        ensure_zone_mean_air_temperature_outputs,
+        patch_run_period,
+    )
+    from eplus_native.schedule_calendar_repair import apply_site_config_to_idf
+    from eplus_native.six_zone_htg_stage import (
+        stage_six_zone_heating_actuators,
+        verify_six_zone_staging,
+    )
 
     src = Path(src)
     dest = Path(dest)
@@ -425,25 +513,80 @@ def stage_idf_for_period(src: Path, dest: Path, begin: str, end: str) -> Path:
     b = date.fromisoformat(str(begin)[:10])
     e = date.fromisoformat(str(end)[:10])
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(
-        patch_run_period(
-            src.read_text(encoding="utf-8"),
-            begin_month=b.month,
-            begin_day=b.day,
-            end_month=e.month,
-            end_day=e.day,
-            begin_year=b.year,
-            end_year=e.year,
-            name=f"DSM_{b.isoformat()}_{e.isoformat()}",
-        ),
-        encoding="utf-8",
+    text = patch_run_period(
+        src.read_text(encoding="utf-8"),
+        begin_month=b.month,
+        begin_day=b.day,
+        end_month=e.month,
+        end_day=e.day,
+        begin_year=b.year,
+        end_year=e.year,
+        name=f"DSM_{b.isoformat()}_{e.isoformat()}",
     )
+    # Operational weather-only scoring: never run sizing-period callbacks.
+    text = disable_sizing_periods(text)
+    text = ensure_zone_mean_air_temperature_outputs(text)
+    six_zone_prov: dict[str, Any] = {}
+    if six_zone_actuators:
+        text, six_zone_prov = stage_six_zone_heating_actuators(text)
+        verdict = verify_six_zone_staging(text)
+        if not verdict["ok"]:
+            raise ValueError("six-zone staging failed: " + "; ".join(verdict["issues"]))
+        six_zone_prov["verify"] = verdict
+    cfg = site_config
+    if cfg is None and site_root is not None:
+        try:
+            from eplus_gym_app.site_config import (
+                calendar_contract_from_site_config,
+                load_site_dsm_config,
+                save_apply_report,
+            )
+
+            cfg = calendar_contract_from_site_config(load_site_dsm_config(site_root))
+        except Exception:  # noqa: BLE001
+            cfg = None
+    elif cfg is not None and "setpoints_f" not in cfg:
+        try:
+            from eplus_gym_app.site_config import calendar_contract_from_site_config
+
+            cfg = calendar_contract_from_site_config(cfg)
+        except Exception:  # noqa: BLE001
+            pass
+    report: dict[str, Any] = {"six_zone_actuators": six_zone_prov}
+    if cfg is not None:
+        text, sc_report = apply_site_config_to_idf(text, cfg)
+        report.update(sc_report)
+        if site_root is not None:
+            try:
+                from eplus_gym_app.site_config import save_apply_report
+
+                save_apply_report(
+                    site_root,
+                    {
+                        **report,
+                        "staged_idf": str(dest),
+                        "begin": str(begin)[:10],
+                        "end": str(end)[:10],
+                        "source_idf": str(src),
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
+    dest.write_text(text, encoding="utf-8")
     return dest
 
-
-def stage_idf_for_day(src: Path, dest: Path, day: str) -> Path:
+def stage_idf_for_day(
+    src: Path,
+    dest: Path,
+    day: str,
+    *,
+    site_root: Path | None = None,
+    site_config: dict[str, Any] | None = None,
+) -> Path:
     """Copy IDF with RunPeriod clipped to ``day``. Never overwrite the champion."""
-    return stage_idf_for_period(src, dest, day, day)
+    return stage_idf_for_period(
+        src, dest, day, day, site_root=site_root, site_config=site_config
+    )
 
 
 def format_hms(seconds: float) -> str:
@@ -492,7 +635,7 @@ def summarize_eplus_failure(log: Path, *, exit_code: int | None = None) -> str:
         break
     if exit_code not in (None, 0):
         bits.insert(0, f"exit code {exit_code}")
-    return " · ".join(dict.fromkeys(bits)) or text[-300:]
+    return "  |  ".join(dict.fromkeys(bits)) or text[-300:]
 
 
 def wait_live_subprocess(
@@ -520,11 +663,11 @@ def wait_live_subprocess(
                 except OSError:
                     snippet = ""
                 if "energyplus terminated" in snippet or "error(s) detected" in snippet:
-                    health = " · E+ ERROR in log"
+                    health = "  |  E+ ERROR in log"
             status.update(
                 label=(
-                    f"{job_label} · sim {job_index}/{job_total} · "
-                    f"job {format_hms(job_elapsed)} · total {format_hms(camp_elapsed)}"
+                    f"{job_label}  |  sim {job_index}/{job_total}  |  "
+                    f"job {format_hms(job_elapsed)}  |  total {format_hms(camp_elapsed)}"
                     f"{health}"
                 ),
                 state="running",
@@ -654,7 +797,7 @@ def persist_last_run(
         "kpis": kpis,
         "frame": df,
         "actual": actual,
-        "title": f"E+ champion {strategy} vs Actual meter · {day} · {preset}",
+        "title": f"E+ champion {strategy} vs Actual meter  |  {day}  |  {preset}",
         "strategy": strategy,
         "day": day,
         "preset": preset,
@@ -667,6 +810,7 @@ def persist_last_run(
         "png": png,
         "elapsed_s": elapsed_s,
         "out_dir": out_dir,
+        "site": str(Path(site)),
         "weather_mode": weather_mode,
         "period": period,
         "max_steps": max_steps,
@@ -750,9 +894,7 @@ def _store_run(
     frames: dict[str, pd.DataFrame] | None = None,
     strategies: list[str] | None = None,
     kpis_by_strategy: dict[str, Any] | None = None,
-) -> None:
-    import streamlit as st
-
+) -> dict:
     payload = persist_last_run(
         site,
         df=df,
@@ -782,8 +924,7 @@ def _store_run(
     )
     if isinstance(frames, dict) and frames:
         payload["frames"] = frames
-    st.session_state["dsm_last"] = payload
-    st.session_state["lakeside_main_tabs"] = "Run DSM"
+    return payload
 
 
 def _actual_peak(bundle: SiteUiBundle, day: str) -> float | None:
@@ -850,460 +991,4 @@ def start_dsm_campaign_subprocess(*, site: Path, request_path: Path) -> subproce
         env=env,
     )
 
-
-def render_run_dsm_tab(bundle: SiteUiBundle) -> None:
-    import streamlit as st
-    from datetime import timedelta
-
-    from eplus_gym_app.dsm_campaign import (
-        active_campaign_running,
-        build_jobs,
-        cancel_request_path,
-        current_run_path,
-        default_strategy_selection,
-        elapsed_seconds,
-        peak_day_smoke_ok,
-        reconcile_campaign,
-        request_cancel,
-        write_campaign,  # noqa: F401 â€” imported for tests/monkeypatch
-    )
-    from eplus_gym_app.dsm_preflight import sha256_file
-    from eplus_gym_app.plots import (
-        COLORS,
-        dsm_panel_figure,
-        dsm_trajectory_figure,
-        period_daily_peak_figure,
-        strategy_setpoint_figure,
-    )
-
-    st.subheader("Run DSM")
-    st.caption(
-        f"Champion `{bundle.dsm_champion}` · W2A_PHYSICAL_DSM · promote=False. "
-        "Default: **Peak day** · **AMY** · baseline + one strategy (2 jobs). "
-        "Live E+ is closed-loop (`CLOSED_LOOP_RULE_DR` / `SCH_HtgSP` every 15 min) via "
-        "durable campaign supervisor (`current_dsm_run.json`); this page only polls status."
-    )
-    mode, reason = resolve_dsm_mode(bundle.site)
-    st.info(f"Mode: **{mode}** â€” {reason}")
-
-    # Reconcile stale campaigns on every render
-    camp = reconcile_campaign(bundle.site)
-
-    lib = strategy_library()
-    st.markdown("**Strategy library**")
-    st.dataframe(pd.DataFrame(lib["rows"]), width="stretch", hide_index=True)
-    st.plotly_chart(
-        strategy_setpoint_figure(lib["series"]),
-        width="stretch",
-        key="dsm_strategy_sp_library",
-    )
-
-    inv = weather_inventory(bundle.site, published=bundle.epw)
-    if inv.get("stale_bundle_epw"):
-        st.warning(inv.get("stale_bundle_note") or "Published bundle EPW is stale vs amy_meta.")
-
-    month_opts = calendar_month_options(bundle)
-    default_m = default_calendar_month(month_opts, bundle.dial_ladder.peak_day)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        preset = st.select_slider(
-            "Period", options=list(PERIOD_PRESETS), value="Peak day", key="dsm_period"
-        )
-    with c2:
-        month = st.selectbox(
-            "Month",
-            options=month_opts,
-            index=month_opts.index(default_m) if default_m in month_opts else 0,
-            key="dsm_month",
-            disabled=preset != "Calendar month",
-        )
-    with c3:
-        non_base = [s for s in DEPLOYABLE_STRATEGIES if s != "baseline"]
-        selected = st.selectbox(
-            "Strategy (+ baseline)",
-            options=non_base,
-            index=non_base.index("deep_setback") if "deep_setback" in non_base else 0,
-            key="dsm_strategy_pick",
-            format_func=lambda s: STRATEGY_LABELS.get(s, s),
-        )
-
-    with st.expander("Advanced weather / batch", expanded=False):
-        wx_mode = st.radio(
-            "Weather",
-            options=["AMY", "TMY", "Both"],
-            index=0,
-            key="dsm_weather",
-            help="Default AMY. Both/TMY and run-all-five live here.",
-        )
-        run_all_five = st.checkbox("Run all five strategies", value=False, key="dsm_run_all")
-        if inv.get("tmy") is None:
-            st.caption(inv.get("tmy_missing_note") or "No Madison MSN TMY on this site.")
-
-    ctx = pick_run_context(bundle, preset, month if preset == "Calendar month" else None)
-    spec = period_run_spec(ctx, preset)
-    day = spec["peak_day"]
-    strategies = (
-        list(DEPLOYABLE_STRATEGIES)
-        if run_all_five
-        else default_strategy_selection(selected)
-    )
-    pairs = epws_for_mode(wx_mode, inv)
-    jobs = live_run_jobs(
-        strategies=strategies,
-        weathers=pairs,
-        begin=spec["begin"],
-        end=spec["end"],
-        max_steps=int(spec["max_steps"]),
-    )
-    epw_names = ", ".join(f"{k}={p.name}" for k, p in pairs) if pairs else "(no EPW)"
-
-    champ = bundle.champion()
-    idf = (champ.idf_path if champ else None) or bundle.idf_path
-    idf_hash = sha256_file(Path(idf)) if idf and Path(idf).is_file() else ""
-    amy_hash = None
-    if inv.get("amy") and Path(inv["amy"]).is_file():
-        amy_hash = sha256_file(Path(inv["amy"]))
-    calendar_ok = peak_day_smoke_ok(
-        bundle.site, idf_sha256=idf_hash, epw_sha256=amy_hash
-    )
-    if preset == "Calendar year" and not calendar_ok:
-        st.error(
-            "Calendar year is gated until a successful peak-day smoke completes "
-            "for this IDF + AMY hash. Run Peak day first."
-        )
-
-    st.markdown(
-        f"**Will run** `{', '.join(strategies)}` · `{spec['begin']}` â†’ `{spec['end']}` · "
-        f"**{spec['n_days']} days** · **{spec['max_steps']} steps** · "
-        f"**{len(jobs)} job(s)** · weather `{wx_mode}` ({epw_names}). "
-        f"Meter-peak day: `{day}` â€” {ctx['why']}."
-    )
-
-    @st.fragment(run_every=timedelta(seconds=1))
-    def _campaign_status_fragment() -> None:
-        doc = reconcile_campaign(bundle.site) or {}
-        state = str(doc.get("state") or "idle")
-        done = int(doc.get("completed_jobs") or 0)
-        total = int(doc.get("total_jobs") or 0)
-        elapsed = elapsed_seconds(doc) if doc else 0.0
-        err = doc.get("error") or {}
-        msg = ""
-        if isinstance(err, dict):
-            msg = str(err.get("message") or "")
-        st.markdown(
-            f"**Campaign:** `{state}` · "
-            f"**{done} / {total}** · "
-            f"elapsed **{format_hms(elapsed)}**"
-            + (f" · `{doc.get('run_id')}`" if doc.get("run_id") else "")
-        )
-        if state in {"failed", "cancelled"} and msg:
-            st.error(msg)
-        elif state == "succeeded":
-            st.success(f"Campaign succeeded ({done}/{total}) in {format_hms(elapsed)}")
-        elif state in {"preflight", "queued", "starting", "running"}:
-            st.info(msg or "Supervisor runningâ€¦")
-            if st.button("Cancel campaign", key="dsm_cancel_btn"):
-                request_cancel(bundle.site)
-                st.warning("Cancel requested")
-
-    _campaign_status_fragment()
-
-    long_campaign = len(jobs) > 2 or int(spec["n_days"]) > 7 or preset in {
-        "Winter (Decâ€“Feb)",
-        "Calendar year",
-    }
-    run_label = "Run DSM" if not run_all_five else "Run all 5 strategies"
-    if st.button(run_label, key="dsm_run_btn", type="primary"):
-        if preset == "Calendar year" and not calendar_ok:
-            st.error("Calendar year blocked until peak-day smoke succeeds.")
-            return
-        if long_campaign:
-            st.warning(
-                f"Long campaign: {len(jobs)} jobs · {preset} · {spec['period']} · "
-                f"~{spec['max_steps']} steps/job · IDF `{Path(idf).name if idf else '?'}` · "
-                f"EPW {epw_names}"
-            )
-        actual_peak = ctx.get("actual_peak_kw")
-        if actual_peak is None:
-            actual_peak = _actual_peak(bundle, day)
-        actual = actual_day_profile(bundle, day)
-        if mode == "error":
-            st.error(reason)
-            return
-        if active_campaign_running(bundle.site):
-            st.error("A DSM campaign is already running for this site.")
-            return
-        if mode == "lookup":
-            frames_by: dict[str, pd.DataFrame] = {}
-            kpis_by: dict[str, Any] = {}
-            for sid in strategies:
-                try:
-                    pack = run_dsm_lookup(
-                        site_root=bundle.site,
-                        strategy_id=sid,
-                        day=day,
-                        actual_peak_kw=actual_peak,
-                    )
-                except FileNotFoundError:
-                    continue
-                frames_by[f"{sid}:lookup"] = pack["frame"]
-                kpis_by[sid] = pack["kpis"]
-            if not frames_by:
-                st.error("No W2A farm days for the selected strategies.")
-                return
-            attach_baseline_deltas(kpis_by)
-            primary = pick_frame(frames_by, "baseline:lookup")
-            if primary is None:
-                primary = next(iter(frames_by.values()))
-            _store_run(
-                site=bundle.site,
-                df=primary,
-                actual=actual,
-                kpis=kpis_by.get("baseline") or next(iter(kpis_by.values())),
-                strategy="all",
-                day=day,
-                preset=preset,
-                mode="lookup",
-                epw_name=epw_names,
-                why=str(ctx["why"]),
-                window_days=list(spec["window_days"]),
-                weather_mode=wx_mode,
-                period=spec["period"],
-                max_steps=96,
-                n_days=1,
-                weather_kind=None,
-                tmy_note=inv.get("tmy_missing_note"),
-                frames=frames_by,
-                strategies=list(kpis_by.keys()),
-                kpis_by_strategy=kpis_by,
-            )
-            st.rerun()
-            return
-
-        if idf is None or not Path(idf).is_file():
-            st.error("No champion IDF on the published pack.")
-            return
-        if not pairs:
-            st.error(
-                "No AMY or site TMY EPW. Agent must publish {site_slug}_amy_*.epw. "
-                "Chicago screening is not used."
-            )
-            return
-
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        run_id = f"{stamp}_dsm"
-        req_dir = Path(bundle.site) / "reports" / "eplus_gym" / "runs" / run_id
-        req_dir.mkdir(parents=True, exist_ok=True)
-        request = {
-            "run_id": run_id,
-            "idf": str(idf),
-            "expected_idf_sha256": idf_hash or None,
-            "begin": spec["begin"],
-            "end": spec["end"],
-            "n_days": int(spec["n_days"]),
-            "max_steps": int(spec["max_steps"]),
-            "strategies": strategies,
-            "weather_mode": wx_mode,
-            "preset": preset,
-            "peak_day": day,
-            "jobs": [
-                {
-                    "strategy_id": j["strategy_id"],
-                    "weather_kind": j["weather_kind"],
-                    "epw": str(j["epw"]),
-                    "begin": j["begin"],
-                    "end": j["end"],
-                    "max_steps": int(j["max_steps"]),
-                    "key": j["key"],
-                }
-                for j in jobs
-            ],
-            "require_energyplus": True,
-        }
-        req_path = req_dir / "campaign_request.json"
-        req_path.write_text(json.dumps(request, indent=2), encoding="utf-8")
-        try:
-            start_dsm_campaign_subprocess(site=Path(bundle.site), request_path=req_path)
-        except OSError as exc:
-            st.error(f"Failed to start campaign supervisor: {exc}")
-            return
-        st.success(f"Started campaign `{run_id}` ({len(jobs)} jobs). Status updates above.")
-        st.rerun()
-
-    last = st.session_state.get("dsm_last")
-    if not isinstance(last, dict) or last.get("frame") is None:
-        loaded = load_last_run(bundle)
-        if loaded:
-            st.session_state["dsm_last"] = loaded
-            last = loaded
-    if not isinstance(last, dict):
-        return
-    stale = (
-        last.get("day") != day
-        or last.get("preset") != preset
-        or last.get("weather_mode") != wx_mode
-        or str(last.get("period") or "") != spec["period"]
-    )
-    if stale:
-        st.warning(
-            f"Chart below is the **last Run** (`{last.get('preset')}` · `{last.get('period')}` · "
-            f"`{last.get('weather_mode')}`). "
-            f"Click **{run_label}** for `{preset}` -> `{spec['period']}`."
-        )
-    kpis_by = dict(last.get("kpis_by_strategy") or {})
-    if not kpis_by and last.get("kpis"):
-        kpis_by = {str(last.get("strategy") or "run"): last["kpis"]}
-    actual = last.get("actual")
-    if not isinstance(actual, pd.DataFrame):
-        actual = None
-    frames = frame_map(last.get("frames"))
-    if not frames:
-        primary = coalesce_frame(last.get("frame"))
-        if primary is not None:
-            sid0 = str(last.get("strategy") or "baseline")
-            kind0 = str(last.get("weather_kind") or KIND_AMY)
-            frames = {f"{sid0}:{kind0}": primary}
-    primary_frame = coalesce_frame(last.get("frame"), pick_frame(frames, *list(frames.keys())))
-    if primary_frame is None:
-        st.info("Last run pointer found but no trajectory frame on disk.")
-        return
-    eplus = _eplus_with_oat_f(primary_frame)
-    actual_peak_show = None
-    if actual is not None and not actual.empty and "kw_avg" in actual.columns:
-        actual_peak_show = float(actual["kw_avg"].max())
-    elapsed_map = last.get("elapsed_by_weather") or {}
-    if elapsed_map:
-        elapsed_bit = (
-            f" · {format_hms(sum(elapsed_map.values()))} total ({len(elapsed_map)} runs)"
-        )
-    else:
-        elapsed = last.get("elapsed_s")
-        elapsed_bit = (
-            f" · EnergyPlus wall {format_hms(elapsed)}"
-            if isinstance(elapsed, (int, float))
-            else ""
-        )
-    ran = list(last.get("strategies") or kpis_by.keys()) or ["all"]
-    st.header("Results")
-    st.info(
-        f"**Last run** `{last.get('preset')}` · period `{last.get('period') or last.get('day')}` · "
-        f"{len(ran)} strategies ({', '.join(ran)}) · "
-        f"{last.get('n_days') or last.get('window_n') or '?'} days · "
-        f"{last.get('max_steps') or '?'} steps{elapsed_bit}. "
-        "Charts below."
-    )
-    _render_dsm_results_charts(
-        last=last,
-        kpis_by=kpis_by,
-        actual=actual,
-        frames=frames,
-        eplus=eplus,
-        day=str(last.get("day") or day),
-        COLORS=COLORS,
-        dsm_panel_figure=dsm_panel_figure,
-        dsm_trajectory_figure=dsm_trajectory_figure,
-        period_daily_peak_figure=period_daily_peak_figure,
-    )
-
-
-def _render_dsm_results_charts(**kwargs):
-    import streamlit as st
-
-    last = kwargs["last"]
-    kpis_by = kwargs["kpis_by"]
-    actual = kwargs["actual"]
-    frames = kwargs["frames"]
-    eplus = kwargs["eplus"]
-    day = kwargs["day"]
-    COLORS = kwargs["COLORS"]
-    dsm_panel_figure = kwargs["dsm_panel_figure"]
-    dsm_trajectory_figure = kwargs["dsm_trajectory_figure"]
-    period_daily_peak_figure = kwargs["period_daily_peak_figure"]
-
-    if kpis_by:
-        rows = []
-        for sid, row in kpis_by.items():
-            rows.append(
-                {
-                    "strategy": sid,
-                    "peak_kw": row.get("peak_kw"),
-                    "kwh": row.get("kwh"),
-                    "kw_trim": row.get("kw_trim"),
-                    "kwh_penalty": row.get("kwh_penalty"),
-                    "vs_baseline_pct": row.get("vs_baseline_pct"),
-                    "vs_actual_pct": row.get("vs_actual_pct"),
-                }
-            )
-        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
-
-    peak_slices = {}
-    for key, df in frames.items():
-        peak_slices[key] = slice_traj_for_day(df, day)
-    extra = []
-    for key, sl in peak_slices.items():
-        if sl is None or getattr(sl, "empty", True):
-            continue
-        sid, kind = split_frame_key(key)
-        wx = _WX_LABEL.get(kind, kind) if kind and kind != "lookup" else ""
-        extra.append((f"{sid} {wx}".strip(), COLORS.get(sid, "#2a9d8f"), sl))
-    primary_slice = None
-    for prefer in (f"baseline:{KIND_AMY}", "baseline:lookup"):
-        sl = peak_slices.get(prefer)
-        if sl is not None and not sl.empty:
-            primary_slice = sl
-            break
-    if primary_slice is None:
-        primary_slice = next(
-            (v for v in peak_slices.values() if v is not None and not v.empty), eplus
-        )
-    left, right = st.columns(2)
-    with left:
-        st.plotly_chart(
-            dsm_panel_figure(
-                actual if actual is not None else pd.DataFrame(),
-                title=f"Actual BAS meter · {last.get('day')}",
-                ycol="kw_avg",
-                name="Actual (BAS meter)",
-                color="#1f2a30",
-                oat_col="oat_f",
-                oat_name="Actual OAT °F",
-            ),
-            width="stretch",
-            key=f"dsm_actual_{last.get('day')}_{last.get('preset')}",
-        )
-    with right:
-        st.plotly_chart(
-            dsm_panel_figure(
-                primary_slice if primary_slice is not None else eplus,
-                title=f"EnergyPlus champion baseline · {last.get('day')}",
-                ycol="facility_kw",
-                name="E+ champion baseline kW",
-                color=COLORS.get("baseline", "#2a9d8f"),
-                oat_col="oat_f",
-                oat_name="E+ EPW OAT °F",
-            ),
-            width="stretch",
-            key=f"dsm_eplus_{last.get('day')}_all_{last.get('mode')}",
-        )
-    st.plotly_chart(
-        dsm_trajectory_figure(
-            primary_slice if primary_slice is not None else eplus,
-            actual=actual,
-            title=f"Peak-day 15-min overlay · {last.get('day')}",
-            extra_eplus=extra if extra else None,
-        ),
-        width="stretch",
-        key=f"dsm_overlay_{last.get('day')}_all_{last.get('preset')}_{last.get('mode')}",
-    )
-    daily = daily_peaks_from_traj(eplus)
-    if daily is not None and not daily.empty:
-        st.plotly_chart(
-            period_daily_peak_figure(
-                daily,
-                highlight_day=str(day)[:10],
-                title="Daily peak kW over run window",
-            ),
-            width="stretch",
-            key=f"dsm_daily_{last.get('period')}",
-        )
+# Streamlit Run DSM UI archived to archive/streamlit_ui_2026-08-13/.

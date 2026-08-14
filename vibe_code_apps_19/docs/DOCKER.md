@@ -244,7 +244,7 @@ Independent. Keep **`develop` loose** for iterate-fast; optional light protect o
 
 ## WattLab dump (Export → vibe20)
 
-The GHCR `vibe19` image ships the **Export** WattLab dump (FDD findings, analytic CSVs, diurnal profiles, data-derived `model_seed.json`). EnergyPlus calibration/ECM screening lives in vibe20 (`ghcr.io/bbartling/vibe20` or a local checkout). Details: [vibe_code_apps_20/README.md](../vibe_code_apps_20/README.md).
+The GHCR `vibe19` image ships the **Export** WattLab dump (FDD findings, analytic CSVs, diurnal profiles, data-derived `model_seed.json`). Boolean fault/flag columns are coerced to float before quantile/diff so summary export does not crash. Image tip updates after merge to `develop` (PR smoke does not push). EnergyPlus calibration/ECM screening lives in vibe20 (`ghcr.io/bbartling/vibe20` or a local checkout). Details: [vibe_code_apps_20/README.md](../vibe_code_apps_20/README.md).
 
 ## Notes
 

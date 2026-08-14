@@ -318,6 +318,57 @@ def ensure_per_area_dsm_schedules(
     return text
 
 
+def disable_sizing_periods(text: str) -> str:
+    """Force ``Run Simulation for Sizing Periods = No`` on SimulationControl.
+
+    Operational DSM staging must not score design-day / sizing-period callbacks.
+    Never call this on the published champion in place — only staged copies.
+    """
+    lines = text.splitlines()
+    out: list[str] = []
+    in_sc = False
+    for line in lines:
+        if re.match(r"^\s*SimulationControl\s*,", line, re.I):
+            in_sc = True
+            out.append(line)
+            continue
+        if in_sc:
+            if "Run Simulation for Sizing Periods" in line:
+                m = re.match(r"^(\s*)([^,;]+)(.*)$", line)
+                if m:
+                    line = f"{m.group(1)}No{m.group(3)}"
+            if ";" in line.split("!")[0]:
+                in_sc = False
+        out.append(line)
+    return "\n".join(out)
+
+
+def ensure_zone_mean_air_temperature_outputs(
+    text: str,
+    zones: tuple[str, ...] | list[str] | None = None,
+) -> str:
+    """Ensure Timestep Zone Mean Air Temperature Output:Variable rows exist."""
+    from eplus_native.idf_inspect import NINE_ZONES
+
+    wanted = tuple(zones) if zones is not None else NINE_ZONES
+    missing = [
+        z
+        for z in wanted
+        if not re.search(
+            rf"Output:Variable\s*,\s*{re.escape(z)}\s*,\s*Zone Mean Air Temperature\s*,",
+            text,
+            re.I,
+        )
+    ]
+    if not missing:
+        return text
+    blocks = [
+        f"Output:Variable,\n    {z},\n    Zone Mean Air Temperature,\n    Timestep;"
+        for z in missing
+    ]
+    return text.rstrip() + "\n\n! DSM staging: zone mean air temps\n" + "\n".join(blocks) + "\n"
+
+
 def patch_run_period(
     text: str,
     *,
@@ -328,8 +379,16 @@ def patch_run_period(
     begin_year: int | None = None,
     end_year: int | None = None,
     name: str = "DSM_WINDOW",
+    treat_weather_as_actual: bool | None = None,
 ) -> str:
-    """Replace first RunPeriod object dates (keeps other fields)."""
+    """Replace first RunPeriod object dates (keeps other fields).
+
+    When Begin/End Year are set, ``Treat Weather as Actual`` defaults to Yes so
+    EnergyPlus uses absolute multi-year DATA PERIODS coverage (mm/dd Julian
+    matching would reject winter days inside an Aug-start AMY).
+    """
+    if treat_weather_as_actual is None:
+        treat_weather_as_actual = begin_year is not None and end_year is not None
     lines = text.splitlines()
     out = []
     in_rp = False
@@ -367,6 +426,11 @@ def patch_run_period(
                 m = re.match(r"^(\s*)([0-9]+)(.*)$", line)
                 if m:
                     line = f"{m.group(1)}{end_year}{m.group(3)}"
+            elif "Treat Weather as Actual" in line and treat_weather_as_actual is not None:
+                m = re.match(r"^(\s*)([^,;]+)(.*)$", line)
+                if m:
+                    val = "Yes" if treat_weather_as_actual else "No"
+                    line = f"{m.group(1)}{val}{m.group(3)}"
             if ";" in line.split("!")[0]:
                 in_rp = False
         out.append(line)

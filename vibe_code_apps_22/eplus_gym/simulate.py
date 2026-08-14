@@ -24,9 +24,128 @@ FAMILY_IDEALLOADS = "idealloads"
 
 
 def day_for_step(begin: str, step: int) -> str:
-    """Calendar day for a closed-loop step (96 steps/day)."""
+    """DEPRECATED synthetic calendar — lookup emulator only.
+
+    Live EnergyPlus trajectories must use Runtime ``ep_year/ep_month/ep_day``.
+    """
     return (date.fromisoformat(str(begin)[:10]) + timedelta(days=int(step) // 96)).isoformat()
 
+
+def runtime_day_from_obs(od: Dict[str, Any]) -> Optional[str]:
+    """ISO date from EnergyPlus Runtime calendar fields on an observation."""
+    try:
+        y = int(float(od["ep_year"]))
+        m = int(float(od["ep_month"]))
+        d = int(float(od["ep_day"]))
+        if y <= 0 or m <= 0 or d <= 0:
+            return None
+        return date(y, m, d).isoformat()
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def validate_live_trajectory_calendar(
+    rows: List[Dict[str, Any]],
+    *,
+    expected_day: Optional[str] = None,
+    expected_end: Optional[str] = None,
+    expect_steps: int = 96,
+) -> Dict[str, Any]:
+    """Fail closed on sizing contamination / synthetic dating / wrong count.
+
+    One-day runs (``expect_steps==96``): every scored row must land on
+    ``expected_day``. Multi-day runs: Runtime dates must fall inside
+    ``[expected_day, expected_end]`` (inclusive) and be monotonic.
+    """
+    issues: List[str] = []
+    if len(rows) != int(expect_steps):
+        issues.append(f"expected {expect_steps} scored rows, got {len(rows)}")
+    kinds = [int(float(r.get("kind_of_sim", -1))) for r in rows]
+    if any(k != 3 for k in kinds):
+        issues.append("non-weather kind_of_sim in scored rows (sizing contamination)")
+    warm = [float(r.get("warmup", 0.0)) for r in rows]
+    if any(w > 0.5 for w in warm):
+        issues.append("warmup rows present in scored trajectory")
+    days = [runtime_day_from_obs(r) for r in rows]
+    if any(d is None for d in days):
+        issues.append("missing Runtime calendar fields on scored rows")
+    valid_days = [d for d in days if d]
+    one_day = int(expect_steps) <= 96
+    if expected_day and valid_days:
+        if one_day:
+            if any(d != expected_day for d in valid_days):
+                issues.append(
+                    f"calendar day != expected {expected_day}: {sorted(set(valid_days))}"
+                )
+        else:
+            try:
+                begin_d = date.fromisoformat(str(expected_day)[:10])
+                end_s = expected_end or (
+                    begin_d + timedelta(days=max(0, (int(expect_steps) - 1) // 96))
+                ).isoformat()
+                end_d = date.fromisoformat(str(end_s)[:10])
+                out_of_range = [
+                    d
+                    for d in valid_days
+                    if not (begin_d <= date.fromisoformat(d) <= end_d)
+                ]
+                if out_of_range:
+                    issues.append(
+                        f"Runtime dates outside {begin_d.isoformat()}..{end_d.isoformat()}: "
+                        f"{sorted(set(out_of_range))[:8]}"
+                    )
+            except ValueError as exc:
+                issues.append(f"bad expected period bounds: {exc}")
+    # Contaminated OAT pattern only meaningful on a single weather day
+    if one_day:
+        oats = [
+            float(r["oat_c"])
+            for r in rows
+            if "oat_c" in r and r["oat_c"] == r["oat_c"]
+        ]
+        if len(oats) >= 10:
+            first = oats[: max(1, len(oats) // 2)]
+            second = oats[len(oats) // 2 :]
+            if (
+                abs(sum(first) / len(first) + 17.8) < 1.5
+                and abs(sum(second) / len(second) - 24.65) < 2.0
+            ):
+                issues.append(
+                    "contaminated OAT pattern (~−17.8°C then ~+24.65°C) — sizing-day signature"
+                )
+    # Monotonic 15-min stamps
+    stamps = []
+    for r in rows:
+        try:
+            stamps.append(
+                (
+                    int(float(r["ep_year"])),
+                    int(float(r["ep_month"])),
+                    int(float(r["ep_day"])),
+                    int(float(r["ep_hour"])),
+                    int(float(r["ep_minute"])),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    if len(stamps) >= 2:
+        for a, b in zip(stamps, stamps[1:]):
+            if b < a:
+                issues.append("non-monotonic Runtime timestamps")
+                break
+    ok = not issues
+    return {"ok": ok, "issues": issues}
+
+
+def detect_synthetic_step_dating(rows: List[Dict[str, Any]], begin: str) -> bool:
+    """True if ``day`` column matches deprecated day_for_step(begin, step)."""
+    if not rows or "day" not in rows[0] or "step" not in rows[0]:
+        return False
+    return all(
+        str(r.get("day")) == day_for_step(begin, int(r["step"]))
+        and "ep_year" not in r
+        for r in rows
+    )
 
 def _norm_family(family: str) -> str:
     raw = str(family or FAMILY_IDEALLOADS).strip().lower()
@@ -54,6 +173,11 @@ def _live_episode(
             begin = date.fromisoformat(str(day)[:10])
         except ValueError:
             begin = None
+    six_zone = bool(
+        getattr(ctrl, "six_zone", False)
+        or ("DSM_HTG_SP_1F_A" in Path(idf).read_text(encoding="utf-8", errors="ignore"))
+    )
+    base_c = float(ctrl.action_c(0))
     env = env_cls(
         {
             "epw": str(epw),
@@ -61,6 +185,10 @@ def _live_episode(
             "output": str(output),
             "verbose": verbose,
             "queue_timeout_s": 120.0,
+            "occupied_heating_f": float(getattr(ctrl, "occ_htg_sp_f", 70.0)),
+            "default_action_c": ([base_c] * 6) if six_zone else base_c,
+            # Legacy RuleController path: single SCH_HtgSP unless staged six-zone.
+            "six_zone_actuators": six_zone,
         }
     )
     _obs, info = env.reset()
@@ -74,8 +202,12 @@ def _live_episode(
         }
     )
     rows: List[Dict[str, Any]] = []
+    six_zone = bool(getattr(env, "six_zone", False))
     for t in range(max_steps):
-        action = ctrl.action_c(t)
+        if six_zone:
+            action = [ctrl.action_c(t)] * 6
+        else:
+            action = ctrl.action_c(t)
         _obs_vec, reward, done, truncated, step_info = env.step(action)
         od = step_info.get("obs_dict") or {}
         row = {
@@ -83,10 +215,16 @@ def _live_episode(
             "htg_sp_f": ctrl.setpoint_f(t),
             "htg_sp_c": action,
             "reward": reward,
-            **{k: float(v) for k, v in od.items()},
+            **{k: float(v) for k, v in od.items() if isinstance(v, (int, float))},
         }
-        if begin is not None:
-            row["day"] = day_for_step(begin.isoformat(), t)
+        # Prefer EnergyPlus Runtime calendar — never fabricate via day_for_step.
+        rt_day = runtime_day_from_obs(od)
+        if rt_day:
+            row["day"] = rt_day
+        elif begin is not None:
+            # Legacy fallback only when Runtime fields absent (should not happen live).
+            row["day"] = begin.isoformat()
+            row["day_source"] = "requested_begin_fallback"
         if "facility_kw" not in row and "facility_j" in row:
             # Electricity:Facility at 15-min zone timestep → kW
             j = row["facility_j"]
@@ -95,6 +233,23 @@ def _live_episode(
         if done or truncated:
             break
     env.close()
+    expected = begin.isoformat() if begin is not None else None
+    expected_end = None
+    if begin is not None and int(max_steps) > 96:
+        expected_end = (
+            begin + timedelta(days=max(0, (int(max_steps) - 1) // 96))
+        ).isoformat()
+    cal = validate_live_trajectory_calendar(
+        rows,
+        expected_day=expected,
+        expected_end=expected_end,
+        expect_steps=max_steps,
+    )
+    meta["calendar_validation"] = cal
+    if not cal["ok"]:
+        raise ValueError(
+            "live trajectory calendar validation failed: " + "; ".join(cal["issues"])
+        )
     return {"rows": rows, "meta": meta, "controller": ctrl}
 
 
@@ -182,7 +337,23 @@ def run_rule_episode(
     """
     site_root = Path(site_root)
     fam = _norm_family(family)
-    ctrl = RuleController(strategy_id)
+    occ_f: float | None = None
+    unocc_f: float | None = None
+    try:
+        from eplus_gym_app.site_config import load_site_dsm_config
+
+        sp = (load_site_dsm_config(site_root).get("setpoints_f") or {})
+        if "occupied_heating_f" in sp:
+            occ_f = float(sp["occupied_heating_f"])
+        if "unoccupied_heating_f" in sp:
+            unocc_f = float(sp["unoccupied_heating_f"])
+    except Exception:  # noqa: BLE001
+        occ_f = unocc_f = None
+    ctrl = RuleController(
+        strategy_id,
+        occ_htg_sp_f=occ_f,
+        unocc_htg_sp_f=unocc_f,
+    )
     honesty = HONESTY_W2A if fam == FAMILY_W2A else HONESTY_IDEALLOADS
     meta: Dict[str, Any] = {
         "strategy_id": strategy_id,
@@ -194,6 +365,10 @@ def run_rule_episode(
         "period": period,
         "weather_kind": weather_kind,
         "max_steps": int(max_steps),
+        "site_occ_htg_sp_f": occ_f,
+        "site_unocc_htg_sp_f": unocc_f,
+        "eff_occ_htg_sp_f": ctrl.occ_htg_sp_f,
+        "eff_unocc_htg_sp_f": ctrl.unocc_htg_sp_f,
     }
 
     if fam == FAMILY_W2A:

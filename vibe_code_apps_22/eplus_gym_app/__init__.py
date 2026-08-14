@@ -1,1 +1,1 @@
-"""Streamlit DSM console: published pack, fuel + current IDF, Run DSM on A04."""
+"""Streamlit DSM helpers were archived; CLI is scripts/vibe22.py."""
