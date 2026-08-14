@@ -81,6 +81,64 @@ export default function A04Gl14() {
         overlay does not reopen this monthly gate.
       </Callout>
 
+      <H2>Guideline 14 terms (tutorial)</H2>
+      <Text tone="secondary">
+        Both numbers use the same 10 billed months. They are not two different
+        time series. NMBE is the whole-window bias (the “did the year of bills
+        add up?” check). CVRMSE is the month-to-month scatter (the “did each
+        month land?” check). A04 must pass both.
+      </Text>
+      <Row gap={12} align="stretch">
+        <Card style={{ flex: 1 }}>
+          <CardHeader>NMBE — window / year bias</CardHeader>
+          <CardBody>
+            <Stack gap={8}>
+              <Stat value="+0.98%" label="A04 vs |NMBE| ≤ 5%" tone="success" />
+              <Text>
+                Normalized Mean Bias Error. Sum of (bill − sim) over all 10
+                months, scaled by mean bill. Positive here: bills a bit higher
+                than A04 overall (twin slightly low on the year). Over and under
+                months cancel, so NMBE can look fine while February is −14%.
+              </Text>
+              <Text tone="secondary" size="small">
+                Formula: 100 × sum(m − ŷ) / ((n−1) × mean(m)). Think “net kWh
+                over the billing window,” not a per-month cap.
+              </Text>
+            </Stack>
+          </CardBody>
+        </Card>
+        <Card style={{ flex: 1 }}>
+          <CardHeader>CVRMSE — month-to-month scatter</CardHeader>
+          <CardBody>
+            <Stack gap={8}>
+              <Stat value="10.45%" label="A04 vs CVRMSE ≤ 15%" tone="success" />
+              <Text>
+                Coefficient of Variation of RMSE. Squares every month’s miss, so
+                Feb −14% and Apr −15% still count even if the year nets near
+                zero. This is the check that the monthly pattern is not wild.
+              </Text>
+              <Text tone="secondary" size="small">
+                Formula: 100 × sqrt(sum((m − ŷ)²)/(n−1)) / mean(m). Think
+                “typical month error as a % of average bill.”
+              </Text>
+            </Stack>
+          </CardBody>
+        </Card>
+      </Row>
+      <Table
+        headers={["Term", "What it answers", "Gate", "A04"]}
+        rows={[
+          ["NMBE", "Whole 10-month window bias (year-ish net)", "|NMBE| ≤ 5%", "+0.98% PASS"],
+          ["CVRMSE", "How much individual months bounce", "≤ 15%", "10.45% PASS"],
+          ["Month % diff", "Diagnostic line only — not a gate", "none", "Feb −14%, Apr −15% ok"],
+          ["Hourly CVRMSE", "Different screen; not this A04 claim", "≤ 30% if you claim hourly", "not the billed-month pass"],
+        ]}
+      />
+      <Callout tone="neutral" title="Not 15-minute GL14">
+        Interval / DSM shape is a separate honesty gap (load-duration below).
+        Passing monthly billed NMBE+CVRMSE does not mean hourly or 15-min GL14.
+      </Callout>
+
       <H2>Monthly percent difference (the GL14 series)</H2>
       <Text tone="secondary" size="small">
         (A04 sim − billed kWh) / billed kWh. Source: champion sim eplusmtr.csv
