@@ -311,3 +311,6 @@ vibe_code_apps_21/*/MemoryCaptures/
 vibe_code_apps_21/*/.vs/
 vibe_code_apps_21/*/*.csproj
 vibe_code_apps_21/*/*.sln
+
+.worktrees/
+
