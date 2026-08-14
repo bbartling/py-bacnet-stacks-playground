@@ -177,6 +177,10 @@ class DailySixZoneGymEnv(gym.Env):
                 params=params.to_dict(),
                 ep_dir=ep_dir,
                 queue_timeout_s=float(self.cfg.get("queue_timeout_s", 180.0)),
+                lookback_days=int(self.cfg.get("lookback_days", 1)),
+                reward_name=str(self.cfg.get("reward_name") or "legacy_reward_v1"),
+                reward_weights=self.reward_weights.__dict__,
+                mtd_peak_kw=float(self._prior_peak),
             )
             if self.isolate_eplus:
                 payload = run_live_day_subprocess(

@@ -15,6 +15,7 @@ if str(_APP) not in sys.path:
 from eplus_gym.rl import SCREENING_CLAIM, SIMULATOR_REQUIRED  # noqa: E402
 from eplus_gym.rl.compare_baseline import (  # noqa: E402
     compare_policies,
+    load_eval_params_from_run,
     load_params_from_recommendation,
     load_rl_action_as_params,
 )
@@ -120,10 +121,12 @@ def cmd_compare(args) -> int:
     idf, epw = _paths(site)
     root = site / "reports" / "eplus_gym" / "rl" / args.run_id
     root.mkdir(parents=True, exist_ok=True)
-    # Prefer last RL reward.json params under run
-    rl_params = None
-    for p in sorted(root.rglob("reward.json")):
-        rl_params = load_rl_action_as_params(p)
+    # Deterministic zip predict. Last train reward.json is not eval.
+    rl_params, rl_src = load_eval_params_from_run(root, day=args.day, epw=epw, algo="PPO")
+    if rl_params is None:
+        for p in sorted(root.rglob("reward.json")):
+            rl_params = load_rl_action_as_params(p)
+            rl_src = "train_reward_json_not_eval"
     descent = None
     if args.descent_recommendation:
         descent = load_params_from_recommendation(Path(args.descent_recommendation))
@@ -145,6 +148,7 @@ def cmd_compare(args) -> int:
         rl_params=rl_params,
         descent_params=descent,
     )
+    out["rl_params_source"] = rl_src
     print(json.dumps(out, indent=2))
     return EXIT_OK
 

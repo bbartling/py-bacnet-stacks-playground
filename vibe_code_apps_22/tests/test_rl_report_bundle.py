@@ -53,8 +53,8 @@ def test_load_jsonl_and_report_schema(tmp_path: Path):
         '{"reward": -4200, "day": "2026-01-26", "daily_kwh": 3200, "peak_kw": 220, "pre8_violations": 2}\n',
         encoding="utf-8",
     )
-    rows = load_jsonl_episodes(run / "episodes.jsonl")
-    assert rows[0]["policy"] == "PPO"
+    rows = load_jsonl_episodes(run / "episodes.jsonl", policy="PPO_train")
+    assert rows[0]["policy"] == "PPO_train"
 
     def fake_run_day(**kwargs):
         day = kwargs["day"]
@@ -89,11 +89,13 @@ def test_load_jsonl_and_report_schema(tmp_path: Path):
     df = pd.read_csv(csv)
     assert "policy" in df.columns and "reward" in df.columns
     assert (df["policy"] == "random_walk").sum() == 2
-    assert (df["policy"] == "DQN").sum() == 1
+    assert (df["policy"] == "DQN_train").sum() == 1
     assert (tmp_path / "repo_copy" / "comparison.json").is_file()
     overlay = tmp_path / "repo_copy" / "plots" / "learning_curve_smoothed.png"
     assert overlay.is_file()
     assert out["scientific_claim"].startswith("ENERGYPLUS")
+    assert out["train_jsonl_is_not_eval"] is True
+    assert out["winner_mean_reward"] == "random_walk"
 
 
 def test_violin_plot_toy(tmp_path: Path):

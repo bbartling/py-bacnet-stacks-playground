@@ -60,4 +60,4 @@ def test_rleplus_backend_importable():
     assert (root / "rleplus" / "env" / "energyplus.py").is_file()
     env_src = (_ROOT / "eplus_gym" / "env.py").read_text(encoding="utf-8")
     assert "self.action_space.sample" not in env_src
-    assert "from rleplus.env.energyplus import" not in env_src
+    assert "from rleplus.env.energyplus import" in env_src

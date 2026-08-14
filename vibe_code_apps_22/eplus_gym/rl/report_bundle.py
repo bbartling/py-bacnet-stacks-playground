@@ -53,6 +53,7 @@ def load_jsonl_episodes(path: Path, *, policy: str = "PPO") -> List[Dict[str, An
         rec = json.loads(line)
         rec["policy"] = policy
         rec["recovery_min"] = rec.get("recovery_min")
+        rec.setdefault("artifact_kind", "train_exploration")
         rows.append(rec)
     return rows
 
@@ -257,9 +258,9 @@ def build_report(
     plots_dir = report_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = load_jsonl_episodes(run_root / "episodes.jsonl", policy="PPO")
+    rows = load_jsonl_episodes(run_root / "episodes.jsonl", policy="PPO_train")
     dqn_root = Path(dqn_run_root) if dqn_run_root else (run_root / "dqn")
-    rows.extend(load_jsonl_episodes(dqn_root / "episodes.jsonl", policy="DQN"))
+    rows.extend(load_jsonl_episodes(dqn_root / "episodes.jsonl", policy="DQN_train"))
     rows.extend(
         run_random_walk(
             site_root=site_root,
@@ -292,12 +293,19 @@ def build_report(
     df.to_csv(csv_path, index=False)
     write_report_plots(df, plots_dir)
     stats = _summarize(df)
-    winner = max(stats.keys(), key=lambda k: float(stats[k].get("mean_reward", -1e18))) if stats else None
+    eval_keys = [k for k in stats if k in {"random_walk", "heuristic", "coordinate_descent", "PPO_eval", "DQN_eval"}]
+    winner = (
+        max(eval_keys, key=lambda k: float(stats[k].get("mean_reward", -1e18)))
+        if eval_keys
+        else None
+    )
     comparison = {
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
         "policies": stats,
         "winner_mean_reward": winner,
+        "winner_is_held_out_eval": True,
+        "train_jsonl_is_not_eval": True,
         "n_rows": int(len(df)),
         "days": list(days),
         "n_days": len(days),
@@ -306,9 +314,9 @@ def build_report(
         "dqn_run_root": str(dqn_root),
         "episodes_csv": str(csv_path),
         "plots_dir": str(plots_dir),
-        "note": "Random walk = uniform sample in locked daily action box. "
-        "DQN uses Discrete(64), not PPO continuous box. "
-        "Illustrative screening scores, not verified savings.",
+        "note": "PPO_train/DQN_train jsonl is SB3 exploration, not deterministic eval. "
+        "Do not crown a winner from train jsonl. Random walk = uniform sample in the daily action box. "
+        "DQN Discrete(64) is an ablation vs PPO continuous. Screening only.",
     }
     (report_dir / "comparison.json").write_text(
         json.dumps(comparison, indent=2) + "\n", encoding="utf-8"

@@ -99,6 +99,16 @@ def calendar_day(day_id: str) -> str:
     return str(day_id).split("__", 1)[0][:10]
 
 
+def calendar_fold_key(day_id: str) -> str:
+    """Synthetic clones share the observed calendar day's fold."""
+    return calendar_day(day_id)
+
+
+def illustrative_school_day(day_id: str) -> bool:
+    d = date.fromisoformat(calendar_day(day_id))
+    return d.weekday() < 5
+
+
 def write_day_perturbed_epw(
     src: Path,
     dest: Path,

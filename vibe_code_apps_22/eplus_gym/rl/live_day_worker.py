@@ -13,6 +13,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict
 
+from eplus_gym.rl.reward import FAIL_REWARD
+
 
 def run_live_day_inprocess(
     *,
@@ -23,13 +25,18 @@ def run_live_day_inprocess(
     params: Dict[str, Any],
     ep_dir: Path,
     queue_timeout_s: float = 180.0,
+    lookback_days: int = 1,
+    reward_name: str = "legacy_reward_v1",
+    reward_weights: Dict[str, Any] | None = None,
+    mtd_peak_kw: float = 0.0,
 ) -> Dict[str, Any]:
     """Execute one day; safe only in a process that has not imported torch."""
     import pandas as pd
 
     from eplus_gym.episode import SCREENING_CLAIM, run_controller_episode
     from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv
-    from eplus_gym.rl.reward import compute_daily_reward
+    from eplus_gym.rl.day_pool import illustrative_school_day
+    from eplus_gym.rl.reward import RewardWeights, score_day
     from eplus_gym.six_zone_daily_controller import SixZoneDailyController
     from eplus_gym.stage_idf import stage_idf_for_period
 
@@ -61,14 +68,21 @@ def run_live_day_inprocess(
     result = run_controller_episode(
         factory,
         ctrl,
-        lookback_days=0,
+        lookback_days=int(lookback_days),
         scored_day=day,
         max_steps=96,
     )
     df = pd.DataFrame(result["rows"])
     pq = ep_dir / "trajectory.parquet"
     df.to_parquet(pq, index=False)
-    br = compute_daily_reward(df)
+    w = RewardWeights(**reward_weights) if isinstance(reward_weights, dict) else RewardWeights()
+    br = score_day(
+        df,
+        reward_name=str(reward_name),
+        weights=w,
+        school_day=illustrative_school_day(day),
+        mtd_peak_kw=float(mtd_peak_kw),
+    )
     payload = {
         "reward": br.reward,
         "daily_kwh": br.daily_kwh,
@@ -101,6 +115,10 @@ def run_live_day_subprocess(
     ep_dir: Path,
     queue_timeout_s: float = 180.0,
     timeout_s: float = 600.0,
+    lookback_days: int = 1,
+    reward_name: str = "legacy_reward_v1",
+    reward_weights: Dict[str, Any] | None = None,
+    mtd_peak_kw: float = 0.0,
 ) -> Dict[str, Any]:
     """Spawn a fresh interpreter for one LIVE day; return reward payload."""
     ep_dir = Path(ep_dir)
@@ -113,6 +131,10 @@ def run_live_day_subprocess(
         "params": params,
         "ep_dir": str(ep_dir),
         "queue_timeout_s": float(queue_timeout_s),
+        "lookback_days": int(lookback_days),
+        "reward_name": str(reward_name),
+        "reward_weights": reward_weights,
+        "mtd_peak_kw": float(mtd_peak_kw),
     }
     job_path = ep_dir / "job.json"
     out_path = ep_dir / "worker_result.json"
@@ -137,9 +159,19 @@ def run_live_day_subprocess(
     )
     if proc.returncode != 0 or not out_path.is_file():
         err = (proc.stderr or proc.stdout or "")[-4000:]
-        raise RuntimeError(
-            f"LIVE day worker failed rc={proc.returncode} day={day}\n{err}"
-        )
+        payload = {
+            "reward": FAIL_REWARD,
+            "failed": True,
+            "error": f"rc={proc.returncode} day={day} {err[-800:]}",
+            "daily_kwh": None,
+            "peak_kw": None,
+            "pre8_violations": 0,
+            "params": params,
+            "day": str(day),
+            "n_rows": 0,
+        }
+        out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        return payload
     return json.loads(out_path.read_text(encoding="utf-8"))
 
 
@@ -159,6 +191,10 @@ def main(argv: list[str] | None = None) -> int:
             params=dict(job["params"]),
             ep_dir=Path(job["ep_dir"]),
             queue_timeout_s=float(job.get("queue_timeout_s", 180.0)),
+            lookback_days=int(job.get("lookback_days", 1)),
+            reward_name=str(job.get("reward_name") or "legacy_reward_v1"),
+            reward_weights=job.get("reward_weights"),
+            mtd_peak_kw=float(job.get("mtd_peak_kw") or 0.0),
         )
         Path(args.out).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         return 0
