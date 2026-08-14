@@ -91,14 +91,19 @@ def run_random_walk(
         cal = calendar_day(day_id)
         day_epw = spec_epw(day_pool, day_id, epw)
         params = sample_random_params(rng)
-        payload = run_day(
-            site_root=site_root,
-            epw=day_epw,
-            champion_idf=champion_idf,
-            day=cal,
-            ctrl=SixZoneDailyController(params),
-            out_dir=Path(run_root) / "report" / "random" / f"{i:04d}_{day_id}",
-        )
+        out_dir = Path(run_root) / "report" / "random" / f"{i:04d}_{day_id}"
+        wr = out_dir / "worker_result.json"
+        if wr.is_file():
+            payload = json.loads(wr.read_text(encoding="utf-8"))
+        else:
+            payload = run_day(
+                site_root=site_root,
+                epw=day_epw,
+                champion_idf=champion_idf,
+                day=cal,
+                ctrl=SixZoneDailyController(params),
+                out_dir=out_dir,
+            )
         rows.append(_row_from_live(payload, policy="random_walk", day=day_id))
     return rows
 
@@ -133,14 +138,19 @@ def run_heuristic_week(
             hours_below_m10c=hm10,
         )
         params = pack.predict_params(obs)
-        payload = run_day(
-            site_root=site_root,
-            epw=day_epw,
-            champion_idf=champion_idf,
-            day=cal,
-            ctrl=SixZoneDailyController(params),
-            out_dir=Path(run_root) / "report" / "heuristic" / f"{i:04d}_{day_id}",
-        )
+        out_dir = Path(run_root) / "report" / "heuristic" / f"{i:04d}_{day_id}"
+        wr = out_dir / "worker_result.json"
+        if wr.is_file():
+            payload = json.loads(wr.read_text(encoding="utf-8"))
+        else:
+            payload = run_day(
+                site_root=site_root,
+                epw=day_epw,
+                champion_idf=champion_idf,
+                day=cal,
+                ctrl=SixZoneDailyController(params),
+                out_dir=out_dir,
+            )
         rows.append(_row_from_live(payload, policy="heuristic", day=str(day_id)))
     return rows
 

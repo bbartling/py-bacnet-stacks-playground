@@ -13,6 +13,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict
 
+from eplus_gym.rl.reward import FAIL_REWARD
+
 
 def run_live_day_inprocess(
     *,
@@ -137,9 +139,19 @@ def run_live_day_subprocess(
     )
     if proc.returncode != 0 or not out_path.is_file():
         err = (proc.stderr or proc.stdout or "")[-4000:]
-        raise RuntimeError(
-            f"LIVE day worker failed rc={proc.returncode} day={day}\n{err}"
-        )
+        payload = {
+            "reward": FAIL_REWARD,
+            "failed": True,
+            "error": f"rc={proc.returncode} day={day} {err[-800:]}",
+            "daily_kwh": None,
+            "peak_kw": None,
+            "pre8_violations": 0,
+            "params": params,
+            "day": str(day),
+            "n_rows": 0,
+        }
+        out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        return payload
     return json.loads(out_path.read_text(encoding="utf-8"))
 
 

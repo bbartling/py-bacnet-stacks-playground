@@ -16,6 +16,7 @@ __pycache__/
 !vibe_code_apps_22/data/sample/**/*.csv
 !vibe_code_apps_22/tests/fixtures/**/*.csv
 !vibe_code_apps_22/plots/rl_report/episodes.csv
+!vibe_code_apps_22/plots/rl_report_year2x/episodes.csv
 !vibe_code_apps_23/utilities/**/*.csv
 !vibe_code_apps_23/scorecards/**/*.csv
 

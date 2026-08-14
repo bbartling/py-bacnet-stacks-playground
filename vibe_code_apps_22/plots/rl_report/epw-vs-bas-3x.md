@@ -30,3 +30,10 @@ PPO mean kWh is close to the meter; peaks run high (~175 vs ~141 kW). Random wal
 ## 3× days
 
 Resampling the same 99 days: PPO still beats random; PPO vs heuristic win rate ~63% at n=100 → ~76% at n=300. That is ranking precision, not a new climate.
+
+## year2xsyn (complete; TRAIN not eval)
+
+Site campaign `year2xsyn` finished (random 487/487, heuristic 485 ok / 2 heap fails). Repo copy: [`../rl_report_year2x/README.md`](../rl_report_year2x/README.md).
+
+PPO/DQN jsonl is **TRAIN exploration**, not deterministic `predict()` eval. **No winner.** Saved PPO saturates lower bounds. DQN is Discrete(64) ablation.
+
