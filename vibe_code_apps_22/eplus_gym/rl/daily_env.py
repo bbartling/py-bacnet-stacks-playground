@@ -14,6 +14,7 @@ import numpy as np
 
 from eplus_gym.episode import SCREENING_CLAIM
 from eplus_gym.rl import SCHOOL_START_STEP, SIMULATOR_REQUIRED
+from eplus_gym.rl.day_pool import calendar_day
 from eplus_gym.rl.live_day_worker import run_live_day_inprocess, run_live_day_subprocess
 from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.rl.reward import FAIL_REWARD, RewardBreakdown, RewardWeights
@@ -61,6 +62,10 @@ class DailySixZoneGymEnv(gym.Env):
             or (self.site_root / "reports" / "eplus_gym" / "rl" / "_episodes")
         )
         self.days: list[str] = [str(d) for d in (self.cfg.get("days") or ["2026-01-26"])]
+        self._specs: dict[str, dict] = {}
+        for spec in self.cfg.get("day_specs") or []:
+            if isinstance(spec, dict) and spec.get("id"):
+                self._specs[str(spec["id"])] = spec
         self.algo_space = str(self.cfg.get("action_kind") or "continuous")
         rw = self.cfg.get("reward_weights")
         self.reward_weights = (
@@ -91,9 +96,28 @@ class DailySixZoneGymEnv(gym.Env):
             return d
         return str(self.days[int(self._rng.integers(0, len(self.days)))])
 
+    def _norm_id(self, raw: str) -> str:
+        s = str(raw)
+        if "__" in s:
+            return s
+        return s[:10]
+
+    def _calendar(self, day_id: str) -> str:
+        spec = self._specs.get(day_id)
+        if spec and spec.get("day"):
+            return str(spec["day"])[:10]
+        return calendar_day(day_id)
+
+    def _epw_for(self, day_id: str) -> Path:
+        spec = self._specs.get(day_id)
+        if spec and spec.get("epw"):
+            return Path(spec["epw"])
+        return self.epw
+
     def _obs_for_day(self, day_s: str) -> np.ndarray:
-        d = date.fromisoformat(day_s)
-        fc = forecast_from_epw_replay(self.epw, d)
+        cal = self._calendar(day_s)
+        d = date.fromisoformat(cal)
+        fc = forecast_from_epw_replay(self._epw_for(day_s), d)
         mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
         return build_day_observation(
             month=d.month,
@@ -117,7 +141,7 @@ class DailySixZoneGymEnv(gym.Env):
         if seed is not None:
             self._rng = np.random.default_rng(int(seed))
         opts = options or {}
-        day_s = str(opts.get("day") or self._pick_day())[:10]
+        day_s = self._norm_id(str(opts.get("day") or self._pick_day()))
         self._last_day = day_s
         info = {
             "scientific_claim": SCREENING_CLAIM,
@@ -125,18 +149,21 @@ class DailySixZoneGymEnv(gym.Env):
             "day": day_s,
             "school_start_step": SCHOOL_START_STEP,
             "isolate_eplus": self.isolate_eplus,
+            "weather_kind": (self._specs.get(day_s) or {}).get("kind", "observed"),
         }
         return self._obs_for_day(day_s), info
 
     def step(self, action):
         day_s = self._last_day or self._pick_day()
+        cal = self._calendar(day_s)
+        epw = self._epw_for(day_s)
         if self.algo_space == "discrete":
             params = decode_discrete(int(np.asarray(action).reshape(-1)[0]))
         else:
             params = decode_continuous(action)
 
         self._ep_counter += 1
-        ep_dir = self.output_root / f"{day_s}_{self._ep_counter:05d}"
+        ep_dir = self.output_root / f"{day_s.replace(':', '_')}_{self._ep_counter:05d}"
         ep_dir.mkdir(parents=True, exist_ok=True)
 
         failed = False
@@ -144,9 +171,9 @@ class DailySixZoneGymEnv(gym.Env):
         try:
             kwargs = dict(
                 site_root=self.site_root,
-                epw=self.epw,
+                epw=epw,
                 champion_idf=self.champion_idf,
-                day=day_s,
+                day=cal,
                 params=params.to_dict(),
                 ep_dir=ep_dir,
                 queue_timeout_s=float(self.cfg.get("queue_timeout_s", 180.0)),
@@ -208,6 +235,7 @@ class DailySixZoneGymEnv(gym.Env):
             "simulator": SIMULATOR_REQUIRED,
             "n_rows": int(payload.get("n_rows") or 0),
             "isolate_eplus": self.isolate_eplus,
+            "weather_kind": (self._specs.get(day_s) or {}).get("kind", "observed"),
         }
         return self._obs_for_day(day_s), float(br.reward), True, False, info
 

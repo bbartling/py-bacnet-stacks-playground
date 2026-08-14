@@ -15,6 +15,7 @@ from eplus_gym.rl.compare_baseline import (
     _run_day,
     load_params_from_recommendation,
 )
+from eplus_gym.rl.day_pool import calendar_day, spec_epw
 from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.rl.plots import (
     plot_cumulative_reward,
@@ -80,22 +81,25 @@ def run_random_walk(
     run_root: Path,
     seed: int = 1,
     run_day: RunDayFn = _run_day,
+    day_pool: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     rng = np.random.default_rng(int(seed))
     rows: List[Dict[str, Any]] = []
-    day_list = [str(d)[:10] for d in days] or WINTER_DAYS
+    day_list = [str(d) for d in days] or WINTER_DAYS
     for i in range(int(n)):
-        day = day_list[i % len(day_list)]
+        day_id = day_list[i % len(day_list)]
+        cal = calendar_day(day_id)
+        day_epw = spec_epw(day_pool, day_id, epw)
         params = sample_random_params(rng)
         payload = run_day(
             site_root=site_root,
-            epw=epw,
+            epw=day_epw,
             champion_idf=champion_idf,
-            day=day,
+            day=cal,
             ctrl=SixZoneDailyController(params),
-            out_dir=Path(run_root) / "report" / "random" / f"{i:04d}_{day}",
+            out_dir=Path(run_root) / "report" / "random" / f"{i:04d}_{day_id}",
         )
-        rows.append(_row_from_live(payload, policy="random_walk", day=day))
+        rows.append(_row_from_live(payload, policy="random_walk", day=day_id))
     return rows
 
 
@@ -107,12 +111,15 @@ def run_heuristic_week(
     days: Sequence[str],
     run_root: Path,
     run_day: RunDayFn = _run_day,
+    day_pool: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     pack = DailyPolicyPack(algo="HEURISTIC")
     rows: List[Dict[str, Any]] = []
-    for i, day_s in enumerate(days):
-        d = date.fromisoformat(str(day_s)[:10])
-        fc = forecast_from_epw_replay(epw, d)
+    for i, day_id in enumerate(days):
+        cal = calendar_day(str(day_id))
+        d = date.fromisoformat(cal)
+        day_epw = spec_epw(day_pool, str(day_id), epw)
+        fc = forecast_from_epw_replay(day_epw, d)
         mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
         obs = build_day_observation(
             month=d.month,
@@ -128,13 +135,13 @@ def run_heuristic_week(
         params = pack.predict_params(obs)
         payload = run_day(
             site_root=site_root,
-            epw=epw,
+            epw=day_epw,
             champion_idf=champion_idf,
-            day=str(day_s)[:10],
+            day=cal,
             ctrl=SixZoneDailyController(params),
-            out_dir=Path(run_root) / "report" / "heuristic" / f"{i:04d}_{day_s}",
+            out_dir=Path(run_root) / "report" / "heuristic" / f"{i:04d}_{day_id}",
         )
-        rows.append(_row_from_live(payload, policy="heuristic", day=str(day_s)[:10]))
+        rows.append(_row_from_live(payload, policy="heuristic", day=str(day_id)))
     return rows
 
 
@@ -263,6 +270,7 @@ def build_report(
             run_root=run_root,
             seed=seed,
             run_day=run_day,
+            day_pool=day_pool,
         )
     )
     if heuristic_days:
@@ -274,6 +282,7 @@ def build_report(
                 days=days,
                 run_root=run_root,
                 run_day=run_day,
+                day_pool=day_pool,
             )
         )
     if not day_pool:

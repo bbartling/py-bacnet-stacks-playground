@@ -18,7 +18,10 @@ from eplus_gym.rl.compare_baseline import (  # noqa: E402
     load_params_from_recommendation,
     load_rl_action_as_params,
 )
-from eplus_gym.rl.day_pool import sample_unique_heating_days  # noqa: E402
+from eplus_gym.rl.day_pool import (  # noqa: E402
+    build_year_plus_heating2x_pool,
+    sample_unique_heating_days,
+)
 from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
@@ -225,12 +228,23 @@ def cmd_campaign(args) -> int:
     idf, epw = _paths(site)
     champ_hash = sha256_file(idf)
     n = int(args.n_days)
-    pool = sample_unique_heating_days(epw, n=n, seed=int(args.seed))
+    if str(getattr(args, "pool", "unique_heating")) == "year2xsyn":
+        synth = site / "reports" / "eplus_gym" / "rl" / (args.run_id or "year2xsyn") / "synthetic_epw"
+        pool = build_year_plus_heating2x_pool(epw, seed=int(args.seed), synth_dir=synth)
+    else:
+        pool = sample_unique_heating_days(epw, n=n, seed=int(args.seed))
     days = list(pool["days"])
+    specs = list(pool.get("specs") or [])
     if not days:
         print("FAIL: no unique EPW days", file=sys.stderr)
         return EXIT_CONFIG
-    run_id = args.run_id or "unique100_winter"
+    run_id = args.run_id
+    if pool.get("pool") == "year_plus_heating2x_synthetic" and run_id in (
+        "unique100_winter",
+        None,
+        "",
+    ):
+        run_id = "year2xsyn"
     root = site / "reports" / "eplus_gym" / "rl" / run_id
     root.mkdir(parents=True, exist_ok=True)
     (root / "day_pool.json").write_text(json.dumps(pool, indent=2) + "\n", encoding="utf-8")
@@ -244,16 +258,21 @@ def cmd_campaign(args) -> int:
         seed=int(args.seed),
         occupied_heating_f=70.0,
         unoccupied_heating_f=65.0,
+        day_specs=specs,
     )
-    print(json.dumps({"phase": "PPO", "n_days": len(days), "shortfall": pool["shortfall"]}))
+    print(json.dumps({"phase": "PPO", "n_days": len(days), "pool": pool.get("pool"), "shortfall": pool["shortfall"]}))
     ppo_sum = train_sb3(algo="PPO", run_root=root, **kwargs)
     print(json.dumps({"phase": "DQN", "n_days": len(days)}))
     dqn_sum = train_sb3(algo="DQN", run_root=dqn_root, **kwargs)
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
         return EXIT_INTEGRITY
-    repo_copy = Path(__file__).resolve().parents[1] / "plots" / "rl_report"
-    print(json.dumps({"phase": "report", "random_and_heuristic": len(days)}))
+    repo_copy = Path(__file__).resolve().parents[1] / (
+        "plots/rl_report_year2x"
+        if pool.get("pool") == "year_plus_heating2x_synthetic"
+        else "plots/rl_report"
+    )
+    print(json.dumps({"phase": "report", "random_and_heuristic": len(days), "repo_copy": str(repo_copy)}))
     comparison = build_report(
         site_root=site,
         epw=epw,
@@ -375,6 +394,12 @@ def main(argv: list[str] | None = None) -> int:
     camp.add_argument("--run-id", default="unique100_winter")
     camp.add_argument("--simulator", default=SIMULATOR_REQUIRED)
     camp.add_argument("--skip-heuristic", action="store_true")
+    camp.add_argument(
+        "--pool",
+        choices=["unique_heating", "year2xsyn"],
+        default="unique_heating",
+        help="unique_heating = n unique EPW days; year2xsyn = full AMY + synthetic 2x heating",
+    )
     camp.set_defaults(func=cmd_campaign)
 
     args = p.parse_args(argv)

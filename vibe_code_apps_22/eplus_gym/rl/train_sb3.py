@@ -34,6 +34,7 @@ def train_sb3(
     seed: int = 0,
     occupied_heating_f: float = 70.0,
     unoccupied_heating_f: float = 65.0,
+    day_specs: Sequence[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -64,6 +65,7 @@ def train_sb3(
         "seed": int(seed),
         "occupied_heating_f": float(occupied_heating_f),
         "unoccupied_heating_f": float(unoccupied_heating_f),
+        "day_specs": list(day_specs or []),
     }
     (run_root / "config.json").write_text(
         json.dumps(

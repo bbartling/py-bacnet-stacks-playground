@@ -45,3 +45,26 @@ def test_sample_heating_first(tmp_path: Path):
     out = sample_unique_heating_days(epw, n=2, seed=1)
     assert out["n_selected"] == 2
     assert set(out["days"]) <= {"2026-01-20", "2026-01-21"}
+
+
+def test_calendar_day_and_synthetic_pool(tmp_path: Path):
+    from eplus_gym.rl.day_pool import (
+        build_year_plus_heating2x_pool,
+        calendar_day,
+        write_day_perturbed_epw,
+    )
+    from datetime import date
+
+    assert calendar_day("2026-01-26__syn") == "2026-01-26"
+    epw = tmp_path / "t.epw"
+    _tiny_epw(epw)
+    dest = tmp_path / "p.epw"
+    write_day_perturbed_epw(epw, dest, date(2026, 1, 20), 3.0)
+    src_line = [ln for ln in epw.read_text().splitlines() if ln.startswith("2026,1,20,")][0]
+    dst_line = [ln for ln in dest.read_text().splitlines() if ln.startswith("2026,1,20,")][0]
+    assert float(dst_line.split(",")[6]) == float(src_line.split(",")[6]) + 3.0
+    pool = build_year_plus_heating2x_pool(epw, seed=0, synth_dir=tmp_path / "syn")
+    assert pool["n_observed"] == 5
+    assert pool["n_synthetic"] == 2
+    assert pool["n_selected"] == 7
+    assert any(s["kind"] == "synthetic" for s in pool["specs"])

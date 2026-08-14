@@ -33,5 +33,6 @@ Winner by mean reward: **PPO**. Ranking vs random did **not** flip. Pre-8 did no
 
 Close, not bit-identical (queue/init + one excluded heap abort). Champion hash unchanged. No TensorBoard. No Amphitheater IDF. No `*.pkl` in git.
 
-Cursor canvas (open beside chat in Cursor): [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx) — EPW vs web OAT vs BAS meter on the same 99 days. Imports `cursor/canvas`; GitHub will not render it live.
+Cursor canvas (IDE only): [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx). **GitHub-rendered writeup:** [`epw-vs-bas-3x.md`](epw-vs-bas-3x.md) (PNG charts). A04 meets GL14 on the frozen-baseline calibration; that overlay is PPO-operated E+ vs meter, not a GL14 retest.
+
 

@@ -11,7 +11,10 @@ description: >-
 
 ```powershell
 python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_rleplus --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py campaign --pool year2xsyn --run-id year2xsyn --site-root $env:SITE_ROOT
 ```
+
+`--pool year2xsyn` = all unique AMY dates plus a synthetic Nov–Mar clone (dry-bulb N(0,2.5°C)). Still LIVE EnergyPlus. Not a second real winter.
 
 SoT: [`../../vibe22_agent_spec/RL_DAILY_DSM.md`](../../vibe22_agent_spec/RL_DAILY_DSM.md) ·
 [`../../vibe22_agent_spec/CONTRIBUTING_RL.md`](../../vibe22_agent_spec/CONTRIBUTING_RL.md)
