@@ -4,6 +4,8 @@ GitHub renders this Markdown. The Cursor canvas ([`epw-vs-bas-3x.canvas.tsx`](ep
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
+In this report an **EnergyPlus day** means one EnergyPlus run on A04 for one EPW date. It is **not** BAS/meter data. The code flag is still `LIVE_ENERGYPLUS` (refuse surrogates). PPO/DQN weights already sit on the site as SB3 `.zip` files; ranking leftover work does not reload those zips to keep training.
+
 **A04 dual champion already meets Guideline 14** on the frozen-baseline calibration vs **billed monthly kWh**. Charts for that test: [`a04-gl14.md`](a04-gl14.md). The table below is **not** that test. It is PPO/heuristic **operated** EnergyPlus vs CS meter on the same 99 calendar days. Do not use it to reopen GL14.
 
 ## Weather (AMY EPW is already actual-year Open-Meteo)
@@ -12,7 +14,7 @@ Daily-mean OAT RMSE **2.3 °F**, MAE **1.9 °F**, EPW **1.8 °F cooler**. Overla
 
 ![Daily-mean OAT EPW vs Open-Meteo](plots/epw_vs_web_oat.png)
 
-## Load: CS meter vs LIVE A04 (PPO / heuristic)
+## Load: CS meter vs EnergyPlus A04 (PPO / heuristic)
 
 ![Mean daily kWh BAS vs EnergyPlus](plots/bas_vs_eplus_kwh.png)
 

@@ -9,9 +9,11 @@ Backend: airboxlab/rllib-energyplus Gym/runner SoT + Lakeside DualSP patch. Cham
 python scripts/vibe22_rl.py campaign --n-days 100 --seed 0 --run-id unique100_rleplus --site-root $env:SITE_ROOT
 ```
 
-## Snapshot (LIVE unique100_rleplus, Nov 2025–Mar 2026, sp_creekside)
+## Snapshot (EnergyPlus unique100_rleplus, Nov 2025–Mar 2026, sp_creekside)
 
-Same unique-100 heating-season EPW days (seed 0) as the prior in-tree campaign. Means **exclude failed LIVE days**. PPO log has 104 SB3 padding rows; **1** PPO day (`2025-12-04`) aborted with Windows EnergyPlus heap `0xC0000374` — excluded from means (pre-8 still 0 on the 103 successes).
+Same unique-100 heating-season EPW days (seed 0) as the prior in-tree campaign. Means **exclude failed EnergyPlus days**. PPO log has 104 SB3 padding rows; **1** PPO day (`2025-12-04`) aborted with Windows EnergyPlus heap `0xC0000374` — excluded from means (pre-8 still 0 on the 103 successes).
+
+**EnergyPlus day** = one EnergyPlus process, not the CS meter. Code still says `LIVE_ENERGYPLUS`.
 
 | Policy | n (ok) | Mean reward | Mean peak kW | Mean kWh | Mean pre-8 |
 | --- | ---: | ---: | ---: | ---: | ---: |
