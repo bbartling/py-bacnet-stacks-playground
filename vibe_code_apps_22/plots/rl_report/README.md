@@ -33,6 +33,8 @@ Winner by mean reward: **PPO**. Ranking vs random did **not** flip. Pre-8 did no
 
 Close, not bit-identical (queue/init + one excluded heap abort). Champion hash unchanged. No TensorBoard. No Amphitheater IDF. No `*.pkl` in git.
 
-Cursor canvas (IDE only): [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx). **GitHub-rendered writeup:** [`epw-vs-bas-3x.md`](epw-vs-bas-3x.md) (PNG charts). A04 meets GL14 on the frozen-baseline calibration; that overlay is PPO-operated E+ vs meter, not a GL14 retest.
+**A04 monthly GL14 (GitHub-rendered):** [`a04-gl14.md`](a04-gl14.md). Frozen schedules vs billed kWh — not the PPO overlay.
+
+Cursor canvases (IDE only): [`a04-gl14.canvas.tsx`](a04-gl14.canvas.tsx), [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx). EPW/BAS unique-100 writeup: [`epw-vs-bas-3x.md`](epw-vs-bas-3x.md).
 
 

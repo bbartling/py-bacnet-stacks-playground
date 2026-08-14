@@ -4,7 +4,7 @@ GitHub renders this Markdown. The Cursor canvas ([`epw-vs-bas-3x.canvas.tsx`](ep
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**A04 dual champion already meets Guideline 14** on the frozen-baseline calibration vs utility/meter (site GL14 campaign). The table below is **not** that test. It is PPO/heuristic **operated** EnergyPlus vs CS meter on the same 99 calendar days — mixed policy + twin. Do not use it to reopen GL14.
+**A04 dual champion already meets Guideline 14** on the frozen-baseline calibration vs **billed monthly kWh**. Charts for that test: [`a04-gl14.md`](a04-gl14.md). The table below is **not** that test. It is PPO/heuristic **operated** EnergyPlus vs CS meter on the same 99 calendar days. Do not use it to reopen GL14.
 
 ## Weather (AMY EPW is already actual-year Open-Meteo)
 
