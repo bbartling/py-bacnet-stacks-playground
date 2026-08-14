@@ -1,7 +1,7 @@
 """Encode/decode RL actions ↔ SixZoneDailyParams."""
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -60,6 +60,27 @@ def discrete_action_space() -> gym.spaces.Discrete:
 
 def _clip(v: float, lo: float, hi: float) -> float:
     return float(min(hi, max(lo, v)))
+
+
+def sample_random_params(rng: np.random.Generator | None = None) -> SixZoneDailyParams:
+    """Uniform random walk in the locked daily action box (not Brownian kW)."""
+    r = rng or np.random.default_rng()
+    start = int(r.integers(START_LO, START_HI + 1))
+    end = int(r.integers(max(END_LO, start + 1), END_HI + 1))
+    rec = int(round(float(r.uniform(REC_LO, REC_HI)) / 15.0) * 15)
+    zo = {
+        key: ZoneOffsets(setback_offset_f=float(r.uniform(SETBACK_LO, SETBACK_HI)))
+        for key in ACTION_KEYS
+    }
+    return SixZoneDailyParams(
+        occupied_heating_f=float(r.uniform(OCC_F_LO, OCC_F_HI)),
+        unoccupied_heating_f=float(r.uniform(UNOCC_F_LO, UNOCC_F_HI)),
+        occupancy_start_step=start,
+        occupancy_end_step=end,
+        recovery_start_minutes_before_occupancy=rec,
+        recovery_ramp_minutes=60,
+        zone_offsets=zo,
+    )
 
 
 def decode_continuous(action: Sequence[float] | np.ndarray) -> SixZoneDailyParams:
@@ -144,8 +165,13 @@ def build_day_observation(
     prior_kwh: float = 0.0,
     site_occ_f: float = 70.0,
     site_unocc_f: float = 65.0,
+    morning_min_c: float | None = None,
+    hours_below_0c: float = 0.0,
+    hours_below_m10c: float = 0.0,
+    forecast_is_live: float = 0.0,
 ) -> np.ndarray:
-    """Fixed-length start-of-day context vector."""
+    """Fixed-length start-of-day context (calendar + midnight 24h forecast stats)."""
+    morn = oat_min_c if morning_min_c is None else float(morning_min_c)
     return np.asarray(
         [
             month / 12.0,
@@ -159,15 +185,11 @@ def build_day_observation(
             site_occ_f / 80.0,
             site_unocc_f / 80.0,
             SCHOOL_START_STEP / 95.0,
-            1.0,  # live flag
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            1.0,  # live EnergyPlus pretrain / screening flag
+            morn / 40.0,
+            float(hours_below_0c) / 24.0,
+            float(hours_below_m10c) / 24.0,
+            float(forecast_is_live),
         ],
         dtype=np.float32,
     )
-
-
-def params_to_dict(params: SixZoneDailyParams) -> dict[str, Any]:
-    return params.to_dict()

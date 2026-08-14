@@ -185,8 +185,3 @@ def score_trajectory(
         delta_cost=delta_cost,
         extras={"latex": latex_cost_equations()},
     )
-
-
-def may_select_winner_with_dollars(tariff: TariffContract) -> bool:
-    """Illustrative $ must never select an operational winner."""
-    return tariff.money_mode == "VERIFIED_TARIFF" and bool(tariff.verified)

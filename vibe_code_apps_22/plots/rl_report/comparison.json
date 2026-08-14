@@ -1,0 +1,53 @@
+{
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "simulator": "LIVE_ENERGYPLUS",
+  "policies": {
+    "PPO": {
+      "n": 24,
+      "mean_reward": -4078.35114855404,
+      "median_reward": -4272.564999028282,
+      "mean_peak_kw": 242.06237408693656,
+      "mean_daily_kwh": 3436.7961437499266,
+      "mean_pre8_violations": 0.0
+    },
+    "coordinate_descent": {
+      "n": 1,
+      "mean_reward": -4333.357407348834,
+      "median_reward": -4333.357407348834,
+      "mean_peak_kw": 250.78220193484827,
+      "mean_daily_kwh": 4065.6918054625485,
+      "mean_pre8_violations": 1.0
+    },
+    "heuristic": {
+      "n": 7,
+      "mean_reward": -3929.314591577291,
+      "median_reward": -3882.7366824419255,
+      "mean_peak_kw": 228.59637389076502,
+      "mean_daily_kwh": 3718.7717187411326,
+      "mean_pre8_violations": 1.0
+    },
+    "random_walk": {
+      "n": 20,
+      "mean_reward": -4182.0239785158965,
+      "median_reward": -4079.3483006069764,
+      "mean_peak_kw": 236.16417751855488,
+      "mean_daily_kwh": 3872.9939194083186,
+      "mean_pre8_violations": 2.1
+    }
+  },
+  "winner_mean_reward": "heuristic",
+  "n_rows": 52,
+  "days": [
+    "2026-01-20",
+    "2026-01-21",
+    "2026-01-22",
+    "2026-01-23",
+    "2026-01-24",
+    "2026-01-25",
+    "2026-01-26"
+  ],
+  "random_timesteps": 20,
+  "episodes_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\office_pretrain_horizon\\report\\episodes.csv",
+  "plots_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\office_pretrain_horizon\\report\\plots",
+  "note": "Random walk = uniform sample in locked daily action box. Illustrative screening scores, not verified savings."
+}

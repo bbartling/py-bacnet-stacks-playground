@@ -17,7 +17,7 @@ if str(_APP) not in sys.path:
 
 from eplus_gym_app.campus_fuel import Campus
 from eplus_gym_app.ecm_panel import ecm_compare_table, load_ecm_compare
-from eplus_gym_app.fuel_dashboard import eui_peer_band, hdd_cdd_monthly
+from fuel_dashboard import eui_peer_band, hdd_cdd_monthly
 from eplus_gym_app.geom_tables import envelope_table, knobs_table, zones_table
 from eplus_gym_app.idf_geometry import idf_massing_figure, parse_idf_geometry
 from eplus_gym_app.load_profiles import (

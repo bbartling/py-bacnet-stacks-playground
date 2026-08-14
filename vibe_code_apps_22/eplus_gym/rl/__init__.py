@@ -5,6 +5,9 @@ subprocess isolation (torch + EnergyPlus delete_state is unsafe in-process).
 """
 from __future__ import annotations
 
-SCREENING_CLAIM = "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY"
+from eplus_gym.episode import SCREENING_CLAIM, SIMULATOR
+
 SIMULATOR_REQUIRED = "LIVE_ENERGYPLUS"
 SCHOOL_START_STEP = 32  # 08:00
+
+__all__ = ["SCREENING_CLAIM", "SIMULATOR", "SIMULATOR_REQUIRED", "SCHOOL_START_STEP"]

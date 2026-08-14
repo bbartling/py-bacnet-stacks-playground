@@ -19,7 +19,9 @@ def test_eui_peer_bullet_figure_smoke():
 
 
 def test_dsm_console_ascii_only():
-    text = Path("eplus_gym_app/dsm_console.py").read_text(encoding="utf-8")
+    text = (Path(__file__).resolve().parents[1] / "eplus_gym_app" / "dsm_console.py").read_text(
+        encoding="utf-8"
+    )
     assert "â†" not in text
     assert "â€" not in text
     bad = [c for c in text if ord(c) > 127]

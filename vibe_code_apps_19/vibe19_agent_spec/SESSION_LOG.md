@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-14 — WattLab summary export: bool quantile crash
+
+- `app/wattlab_dump.py`: coerce series to float64 (`_as_float_series`) before `quantile`/`diff` so boolean fault/flag columns do not raise `numpy boolean subtract`.
+- Test: `tests/test_wattlab_dump.py::test_sensor_stats_tables_bool_flag_quantile`.
+- Image tip `ghcr.io/bbartling/vibe19:latest` updates **after merge to develop** (PR smoke does not push GHCR). Then `scripts/docker_update_vibe19.ps1`.
+
+---
+
 ## 2026-07-25 — BUG-030–040 notebook / xlsx agent fixes
 
 - vibe20: in-place `prefill` (no wipe); ROI B=H + live NPV formula + `npv_usd_at_build`; preview `data_only=False`; validate warns empty E+; ECMs Advanced expander; tests `test_notebook_builder.py`.

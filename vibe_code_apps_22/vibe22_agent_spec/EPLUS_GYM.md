@@ -101,8 +101,8 @@ adds `DSM_HTG_SP_*` DualSPs via `eplus_native/six_zone_htg_stage.py`.
 
 Cursor MCP `user-energyplus` is for inspect / RunPeriod / validate
 (`inspect_schedules`, `modify_run_period` on copies, `validate_idf`,
-`list_zones`). It is **not** a live setpoint actuator path. See
-[`../eplus_gym_app/eplus_mcp_bridge.py`](../eplus_gym_app/eplus_mcp_bridge.py).
+`list_zones`). It is **not** a live setpoint actuator path. Optional MCP
+checklist is not a product module (bridge removed).
 
 ## Twin foundation (still live)
 

@@ -9,7 +9,7 @@ Parked GL14 helpers: [`../archive/ml/`](../archive/ml/). Hybrid lab scripts: **p
 | Script | Role |
 | --- | --- |
 | `vibe22.py` | **CLI** status / optimize-day / show-study / approve / export |
-| `vibe22_rl.py` | **CLI** LIVE SB3 PPO/DQN daily RL (`train` / `bakeoff` / `compare`) |
+| `vibe22_rl.py` | **CLI** LIVE SB3 daily RL (`train` / `bakeoff` / `compare` / `pretrain` / `midnight-tick` / `report`) |
 | `gate_six_zone_actuation.py` | Real E+ six DualSP perturbation gate |
 | `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
 | `eplus_fetch_open_meteo_epw.py` | Open-Meteo archive @ site lat/lon → AMY EPW |
@@ -29,7 +29,6 @@ Parked GL14 helpers: [`../archive/ml/`](../archive/ml/). Hybrid lab scripts: **p
 | `eplus_w2a_plant_calib.py` / `eplus_w2a_peak_monthly_dial.py` | W2A dial (never overwrite A04) |
 | `eplus_heating_dsm_farm.py` | Paired IdealLoads farm (feeds gym **lookup**) |
 | `eplus_w2a_dsm_farm_scaffold.py` | Stage W2A copy (no champion overwrite) |
-| `build_real_15min_store.py` | Real BAS parquet (site analytics) |
 | `export_control_contracts.py` | Strategy contracts for gym controllers |
 | `validate_mvm.py` / `validate_eplus_multires.py` | Multi-res validation |
 | `ingest_utility_bills.py` | Utility G14 inputs |

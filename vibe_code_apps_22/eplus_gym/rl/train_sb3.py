@@ -11,6 +11,7 @@ import numpy as np
 from eplus_gym.rl import SCREENING_CLAIM, SIMULATOR_REQUIRED
 from eplus_gym.rl.daily_env import DailySixZoneGymEnv
 from eplus_gym.rl.plots import plot_algo_bakeoff_bars, plot_learning_curve
+from eplus_gym.rl.policy_pack import pack_from_sb3_zip
 
 
 def _new_run_id(prefix: str = "rl") -> str:
@@ -145,6 +146,15 @@ def train_sb3(
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
     }
+    (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    pack = pack_from_sb3_zip(
+        model_path,
+        algo=algo_u,
+        meta={"run_root": str(run_root), "days": list(days), "timesteps": int(timesteps)},
+    )
+    pack_path = models_dir / "daily_policy.pkl"
+    pack.save(pack_path)
+    summary["policy_pack"] = str(pack_path)
     (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     env.close()
     return summary

@@ -30,7 +30,14 @@ $env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 python scripts/vibe22_rl.py train --algo PPO --days 2026-01-26 --timesteps 6 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py compare --run-id <id> --day 2026-01-26 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py pretrain --algo PPO --timesteps 20 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py midnight-tick --day 2026-01-26 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py report --run-id office_pretrain_horizon --random-timesteps 20 --site-root $env:SITE_ROOT
 ```
+
+Report pack (git): [`../../plots/rl_report/`](../../plots/rl_report/README.md) — `episodes.csv`, `comparison.json`, matplotlib PNGs.
+
+**Do not overhaul** into more algorithms until PPO vs **random_walk** vs heuristic is the documented baseline. Snapshot winner by mean reward: heuristic; PPO wins pre-8 comfort (0 violations).
 
 Artifacts: `{SITE}/reports/eplus_gym/rl/<run_id>/` (models, episodes, plots, summaries, hashes).
 

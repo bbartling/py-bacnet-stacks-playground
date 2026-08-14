@@ -15,6 +15,7 @@ import numpy as np
 from eplus_gym.episode import SCREENING_CLAIM
 from eplus_gym.rl import SCHOOL_START_STEP, SIMULATOR_REQUIRED
 from eplus_gym.rl.live_day_worker import run_live_day_inprocess, run_live_day_subprocess
+from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.rl.reward import FAIL_REWARD, RewardBreakdown, RewardWeights
 from eplus_gym.rl.spaces import (
     build_day_observation,
@@ -24,28 +25,6 @@ from eplus_gym.rl.spaces import (
     discrete_action_space,
     observation_space,
 )
-
-
-def _oat_stats_from_epw(epw: Path, day: date) -> tuple[float, float, float]:
-    """Parse EPW dry-bulb for civil day (simple line filter)."""
-    temps: list[float] = []
-    text = Path(epw).read_text(encoding="utf-8", errors="ignore").splitlines()
-    for line in text:
-        if not line or line[0].isalpha() or line.startswith("!"):
-            continue
-        parts = line.split(",")
-        if len(parts) < 7:
-            continue
-        try:
-            mo, dy = int(parts[1]), int(parts[2])
-            if mo == day.month and dy == day.day:
-                temps.append(float(parts[6]))
-        except ValueError:
-            continue
-    if not temps:
-        return 0.0, 0.0, 0.0
-    arr = np.asarray(temps, dtype=float)
-    return float(arr.mean()), float(arr.min()), float(arr.max())
 
 
 def _breakdown_from_payload(payload: Dict[str, Any]) -> RewardBreakdown:
@@ -114,18 +93,23 @@ class DailySixZoneGymEnv(gym.Env):
 
     def _obs_for_day(self, day_s: str) -> np.ndarray:
         d = date.fromisoformat(day_s)
-        oat_mean, oat_min, oat_max = _oat_stats_from_epw(self.epw, d)
+        fc = forecast_from_epw_replay(self.epw, d)
+        mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
         return build_day_observation(
             month=d.month,
             dow=d.weekday(),
             doy=int(d.strftime("%j")),
-            oat_mean_c=oat_mean,
-            oat_min_c=oat_min,
-            oat_max_c=oat_max,
+            oat_mean_c=mean_c,
+            oat_min_c=min_c,
+            oat_max_c=max_c,
             prior_peak_kw=self._prior_peak,
             prior_kwh=self._prior_kwh,
             site_occ_f=self.site_occ_f,
             site_unocc_f=self.site_unocc_f,
+            morning_min_c=morn_c,
+            hours_below_0c=h0,
+            hours_below_m10c=hm10,
+            forecast_is_live=0.0,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):

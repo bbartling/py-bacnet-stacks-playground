@@ -42,6 +42,7 @@ config.py
 *.onnx.data
 *.joblib
 *.pt
+*.pkl
 *.parquet
 Thumbs.db
 Desktop.ini

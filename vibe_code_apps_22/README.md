@@ -5,7 +5,7 @@ Unified **code** workspace for **any building** (practice pack: Lakeside ES /
 
 - Site pack ingest → `site_ui_bundle_v1` (humans never pick IDF/campus files)
 - EnergyPlus IdealLoads / W2A twin pins (G14 foundation)
-- **EnergyPlus control gym** — rule demand-response (`eplus_gym/`), optional RL later
+- **EnergyPlus control gym** — rule demand-response (`eplus_gym/`), LIVE SB3 daily RL (`scripts/vibe22_rl.py`)
 - **CLI** Site DSM screening (`scripts/vibe22.py`) — Streamlit REMOVED
 - Future BACnet live app slot (`bacnet/`) — **no writes**
 
@@ -25,7 +25,10 @@ python -u scripts\ingest_site_pack.py
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
 python -u scripts\vibe22.py status
 python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
+python -u scripts\vibe22_rl.py report --run-id office_pretrain_horizon --random-timesteps 20
 ```
+
+RL vs random-walk charts + CSV/JSON for reports: [`plots/rl_report/`](plots/rl_report/README.md).
 
 No `$env:SITE_ROOT=...` needed once `config.py` points at your pack.
 
@@ -35,7 +38,8 @@ No `$env:SITE_ROOT=...` needed once `config.py` points at your pack.
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | Agent entry / mission |
 | [`vibe22_agent_spec/`](vibe22_agent_spec/README.md) | Spec index (loop, data contract, QA) |
-| [`skills/`](skills/site-pack/SKILL.md) | site-pack · eplus-gym · open-meteo-epw · … |
+| [`skills/`](skills/site-pack/SKILL.md) | site-pack · eplus-gym · rl-daily-dsm · open-meteo-epw · … |
+| [`plots/rl_report/`](plots/rl_report/README.md) | PPO vs random-walk vs heuristic charts + episodes.csv |
 | [`docs/audits/eplus_gym_v1.md`](docs/audits/eplus_gym_v1.md) | Honesty / vs rllib-energyplus |
 | [`archive/README.md`](archive/README.md) | archive/ml kept; hybrid lab purged; Streamlit archived |
 

@@ -18,6 +18,9 @@ from eplus_gym.rl.compare_baseline import (  # noqa: E402
     load_params_from_recommendation,
     load_rl_action_as_params,
 )
+from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
+from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
+from eplus_gym.rl.report_bundle import build_report  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
 from eplus_gym_app.dsm_preflight import sha256_file  # noqa: E402
 from eplus_gym_app.site_bundle import load_site_ui_bundle  # noqa: E402
@@ -149,6 +152,100 @@ def cmd_compare(args) -> int:
     return EXIT_OK
 
 
+def cmd_pretrain(args) -> int:
+    """Office continuous-horizon pretrain: many 1-day LIVE episodes, pickle pack."""
+    print(SCREENING_CLAIM)
+    if args.simulator != SIMULATOR_REQUIRED:
+        print("REFUSED: only LIVE_ENERGYPLUS", file=sys.stderr)
+        return EXIT_INTEGRITY
+    site = _site(args)
+    idf, epw = _paths(site)
+    champ_hash = sha256_file(idf)
+    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+    run_id = args.run_id or "office_pretrain_horizon"
+    root = site / "reports" / "eplus_gym" / "rl" / run_id
+    cfg = load_site_dsm_config(site)
+    sp = cfg.get("setpoints_f") or {}
+    summary = train_sb3(
+        site_root=site,
+        epw=epw,
+        champion_idf=idf,
+        days=days,
+        algo=args.algo,
+        timesteps=int(args.timesteps),
+        run_root=root,
+        seed=int(args.seed),
+        occupied_heating_f=float(sp.get("occupied_heating_f", 70.0)),
+        unoccupied_heating_f=float(sp.get("unoccupied_heating_f", 65.0)),
+    )
+    if sha256_file(idf) != champ_hash:
+        print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
+        return EXIT_INTEGRITY
+    pack = root / "models" / "daily_policy.pkl"
+    shared = site / "reports" / "eplus_gym" / "rl" / "field_shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    if pack.is_file():
+        dest = shared / "daily_policy.pkl"
+        dest.write_bytes(pack.read_bytes())
+        js = pack.with_suffix(".json")
+        if js.is_file():
+            (shared / "daily_policy.json").write_text(js.read_text(encoding="utf-8"), encoding="utf-8")
+        summary["field_shared_pack"] = str(dest)
+    (root / "hashes.json").write_text(
+        json.dumps({"champion_sha256": champ_hash, "unchanged": True}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(summary, indent=2))
+    print("policy_pack", pack)
+    return EXIT_OK
+
+
+def cmd_midnight(args) -> int:
+    print(SCREENING_CLAIM)
+    site = _site(args)
+    _idf, epw = _paths(site)
+    pack = Path(args.pack) if args.pack else (
+        site / "reports" / "eplus_gym" / "rl" / "field_shared" / "daily_policy.pkl"
+    )
+    if not pack.is_file():
+        DailyPolicyPack().save(pack)
+    out = Path(args.out) if args.out else (
+        site / "reports" / "eplus_gym" / "rl" / "field_shared" / "proposed_setpoints.json"
+    )
+    proposal = midnight_tick(
+        pack_path=pack,
+        day=args.day,
+        epw=epw,
+        forecast_source=args.forecast_source,
+        out_path=out,
+    )
+    print(json.dumps(proposal, indent=2))
+    return EXIT_OK
+
+
+def cmd_report(args) -> int:
+    print(SCREENING_CLAIM)
+    site = _site(args)
+    idf, epw = _paths(site)
+    root = site / "reports" / "eplus_gym" / "rl" / args.run_id
+    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+    repo_copy = Path(__file__).resolve().parents[1] / "plots" / "rl_report"
+    out = build_report(
+        site_root=site,
+        epw=epw,
+        champion_idf=idf,
+        run_root=root,
+        days=days,
+        random_timesteps=int(args.random_timesteps),
+        heuristic_days=not args.skip_heuristic,
+        seed=int(args.seed),
+        repo_copy=repo_copy,
+    )
+    print(json.dumps(out, indent=2))
+    print("repo_copy", repo_copy)
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=SCREENING_CLAIM)
     site_parent = argparse.ArgumentParser(add_help=False)
@@ -177,6 +274,36 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--day", default="2026-01-26")
     c.add_argument("--descent-recommendation", default=None)
     c.set_defaults(func=cmd_compare)
+
+    pt = sub.add_parser("pretrain", parents=[site_parent])
+    pt.add_argument("--algo", choices=["PPO", "DQN"], default="PPO")
+    pt.add_argument(
+        "--days",
+        default="2026-01-20,2026-01-21,2026-01-22,2026-01-23,2026-01-24,2026-01-25,2026-01-26",
+    )
+    pt.add_argument("--timesteps", type=int, default=20)
+    pt.add_argument("--seed", type=int, default=0)
+    pt.add_argument("--run-id", default="office_pretrain_horizon")
+    pt.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    pt.set_defaults(func=cmd_pretrain)
+
+    m = sub.add_parser("midnight-tick", parents=[site_parent])
+    m.add_argument("--day", default="2026-01-26")
+    m.add_argument("--pack", default=None)
+    m.add_argument("--out", default=None)
+    m.add_argument("--forecast-source", default="epw_replay")
+    m.set_defaults(func=cmd_midnight)
+
+    rp = sub.add_parser("report", parents=[site_parent])
+    rp.add_argument("--run-id", default="office_pretrain_horizon")
+    rp.add_argument(
+        "--days",
+        default="2026-01-20,2026-01-21,2026-01-22,2026-01-23,2026-01-24,2026-01-25,2026-01-26",
+    )
+    rp.add_argument("--random-timesteps", type=int, default=20)
+    rp.add_argument("--seed", type=int, default=1)
+    rp.add_argument("--skip-heuristic", action="store_true")
+    rp.set_defaults(func=cmd_report)
 
     args = p.parse_args(argv)
     try:

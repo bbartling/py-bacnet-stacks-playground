@@ -133,3 +133,152 @@ def plot_rl_vs_baseline(
     fig.savefig(out, dpi=120)
     plt.close(fig)
     return out
+
+
+def plot_learning_curve_smoothed(
+    rewards: Sequence[float],
+    plots_dir: Path,
+    *,
+    window: int = 5,
+    title: str = "Learning curve (LIVE)",
+    filename: str = "learning_curve_smoothed.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    y = pd.Series(list(rewards), dtype=float)
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    ax.plot(y.index, y.values, color="#9ecae1", linewidth=1.0, label="episode")
+    if len(y) >= 2:
+        roll = y.rolling(window=min(window, len(y)), min_periods=1).mean()
+        ax.plot(roll.index, roll.values, color="#08519c", linewidth=2.0, label=f"rolling mean ({window})")
+    ax.set_xlabel("episode")
+    ax.set_ylabel("reward")
+    ax.set_title(title)
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
+def plot_reward_violin(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    filename: str = "reward_violin.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    policies = list(df["policy"].unique())
+    data = [df.loc[df["policy"] == p, "reward"].dropna().astype(float).tolist() for p in policies]
+    data = [d if d else [float("nan")] for d in data]
+    ax.violinplot([[x for x in d if x == x] or [0.0] for d in data], showmeans=True, showmedians=True)
+    ax.set_xticks(range(1, len(policies) + 1))
+    ax.set_xticklabels(policies, rotation=15)
+    ax.set_ylabel("episode reward")
+    ax.set_title("Return distribution (LIVE day MDP)")
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
+def plot_cumulative_reward(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    filename: str = "cumulative_reward.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    for policy, g in df.groupby("policy"):
+        y = pd.to_numeric(g["reward"], errors="coerce").cumsum()
+        ax.plot(range(len(y)), y.values, linewidth=1.8, label=str(policy))
+    ax.set_xlabel("episode (within policy)")
+    ax.set_ylabel("cumulative reward")
+    ax.set_title("Cumulative return")
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
+def plot_peak_vs_kwh_scatter(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    filename: str = "peak_vs_kwh.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    fig, ax = plt.subplots(figsize=(7.5, 5))
+    for policy, g in df.groupby("policy"):
+        ax.scatter(
+            pd.to_numeric(g["daily_kwh"], errors="coerce"),
+            pd.to_numeric(g["peak_kw"], errors="coerce"),
+            s=36,
+            alpha=0.75,
+            label=str(policy),
+        )
+    ax.set_xlabel("daily kWh")
+    ax.set_ylabel("peak kW")
+    ax.set_title("Energy vs peak (LIVE)")
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
+def plot_pre8_bars(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    filename: str = "pre8_violations.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    g = df.groupby("policy")["pre8_violations"].mean()
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.bar([str(x) for x in g.index], g.values, color="#e6550d")
+    ax.set_ylabel("mean pre-8AM zone violations")
+    ax.set_title("Comfort miss before school start (step 32)")
+    ax.tick_params(axis="x", rotation=15)
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
+def plot_recovery_hist(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    filename: str = "recovery_lead_hist.png",
+) -> Path:
+    out = _ensure(plots_dir) / filename
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    plotted = False
+    for policy, g in df.groupby("policy"):
+        if "recovery_min" not in g.columns:
+            continue
+        vals = pd.to_numeric(g["recovery_min"], errors="coerce").dropna()
+        if vals.empty:
+            continue
+        ax.hist(vals, bins=8, alpha=0.45, label=str(policy))
+        plotted = True
+    if not plotted:
+        ax.text(0.5, 0.5, "no recovery_min", ha="center")
+    ax.set_xlabel("recovery lead (min)")
+    ax.set_ylabel("episodes")
+    ax.set_title("Policy behavior: recovery lead")
+    if plotted:
+        ax.legend(loc="best")
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out

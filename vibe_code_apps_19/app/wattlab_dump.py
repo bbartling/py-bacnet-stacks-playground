@@ -138,8 +138,21 @@ def _plausible_range(role: str, units: str) -> tuple[float, float] | None:
     return None
 
 
+def _as_float_series(values: pd.Series) -> pd.Series:
+    """Coerce to float64 so quantile/diff never hit numpy boolean subtract."""
+    num = pd.to_numeric(values, errors="coerce")
+    if getattr(num.dtype, "kind", "") == "b" or str(num.dtype) == "bool":
+        num = num.astype("float64")
+    else:
+        try:
+            num = num.astype("float64")
+        except (TypeError, ValueError):
+            num = pd.to_numeric(num, errors="coerce").astype("float64")
+    return num.dropna()
+
+
 def _median_or_none(values: pd.Series) -> float | None:
-    num = pd.to_numeric(values, errors="coerce").dropna()
+    num = _as_float_series(values)
     if num.empty:
         return None
     return round(float(num.median()), 3)
@@ -159,6 +172,10 @@ def _stats_row(
     nominal_seconds: float = 300.0,
 ) -> dict[str, Any] | None:
     raw_num = pd.to_numeric(s, errors="coerce")
+    try:
+        raw_num = raw_num.astype("float64")
+    except (TypeError, ValueError):
+        raw_num = pd.to_numeric(s.map(lambda x: float(x) if x is not None else float("nan")), errors="coerce")
     num = raw_num.dropna()
     if num.empty:
         return None
@@ -413,7 +430,7 @@ def _diurnal_stat_row(
     hour: int,
     values: pd.Series,
 ) -> dict[str, Any] | None:
-    num = pd.to_numeric(values, errors="coerce").dropna()
+    num = _as_float_series(values)
     if num.empty:
         return None
     return {

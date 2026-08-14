@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from .controllers import RuleController, f_to_c
+from .controllers import f_to_c
 
 
 @dataclass(frozen=True)
@@ -152,8 +152,3 @@ def controller_from_site_and_params(
             occupancy_end_step=end,
         )
     )
-
-
-def as_rule_compatible(ctrl: ParametricDailyController) -> RuleController:
-    """Shim: RuleController interface already matched (setpoint_f/action_c/series_f)."""
-    return ctrl  # type: ignore[return-value]

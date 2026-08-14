@@ -29,7 +29,9 @@ DSM screening** (+ optional LIVE SB3 daily RL). Claim: **ENERGYPLUS DSM OPTIMIZA
 Hybrid ONNX / greybox / desktop lab: **PURGED** (do not restore). Parked helpers:
 [`archive/ml/`](archive/ml/). Streamlit UI: [`archive/streamlit_ui_2026-08-13/`](archive/streamlit_ui_2026-08-13/).
 IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. W2A DSM = `W2A_PHYSICAL_DSM`.
-RL daily six-zone: **SHIPPED** — see [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md).
+RL daily six-zone: **SHIPPED** (screening). Blog/report pack: [`plots/rl_report/`](plots/rl_report/README.md)
+(PPO vs random-walk vs cold-morning heuristic vs coordinate descent). Do **not** overhaul
+into SAC/RLlib until that comparison is the story. See [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md).
 
 QA paste prompt: [`vibe22_agent_spec/AGENT_TESTER_PROMPT.md`](vibe22_agent_spec/AGENT_TESTER_PROMPT.md).
 
