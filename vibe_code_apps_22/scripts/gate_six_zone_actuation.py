@@ -15,10 +15,9 @@ if str(_APP) not in sys.path:
 
 from eplus_gym.episode import SCREENING_CLAIM, run_controller_episode  # noqa: E402
 from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv  # noqa: E402
+from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
 from eplus_gym.six_zone_daily_controller import ACTION_KEYS  # noqa: E402
-from eplus_gym_app.dsm_console import stage_idf_for_period  # noqa: E402
-from eplus_gym_app.dsm_preflight import sha256_file  # noqa: E402
-from eplus_gym_app.site_bundle import load_site_ui_bundle  # noqa: E402
+from eplus_gym.stage_idf import stage_idf_for_period  # noqa: E402
 
 
 class ConstSixAction:
@@ -33,12 +32,10 @@ def main() -> int:
     print(SCREENING_CLAIM)
     site = Path(os.environ.get("SITE_ROOT") or r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
     day = "2026-01-26"
-    bundle = load_site_ui_bundle(site)
-    champ = bundle.champion()
-    idf = Path(champ.idf_path) if champ and champ.idf_path else Path(bundle.idf_path or "")
-    epw = Path(bundle.epw) if bundle.epw else None
-    if not idf.is_file() or epw is None or not epw.is_file():
-        print("NO-GO: missing idf/epw")
+    try:
+        idf, epw = resolve_a04_and_epw(site)
+    except FileNotFoundError as exc:
+        print(f"NO-GO: {exc}")
         return 2
     champ_hash = sha256_file(idf)
     out = site / "reports" / "eplus_gym" / "gates" / "six_zone_actuation"

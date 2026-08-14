@@ -4,34 +4,42 @@
   "policies": {
     "DQN": {
       "n": 100,
-      "mean_reward": -3128.0701204656125,
-      "median_reward": -3178.7439450590664,
-      "mean_peak_kw": 185.6592221557773,
-      "mean_daily_kwh": 2375.47400927873,
+      "n_logged": 100,
+      "n_failed": 0,
+      "mean_reward": -3084.9068862729687,
+      "median_reward": -3116.153451430837,
+      "mean_peak_kw": 183.0943242486059,
+      "mean_daily_kwh": 2338.0498391915603,
       "mean_pre8_violations": 0.99
     },
     "PPO": {
-      "n": 104,
-      "mean_reward": -2991.75411074373,
-      "median_reward": -2904.1189170479333,
-      "mean_peak_kw": 179.39688831647288,
-      "mean_daily_kwh": 2223.019370484794,
+      "n": 103,
+      "n_logged": 104,
+      "n_failed": 1,
+      "mean_reward": -2906.1607634091524,
+      "median_reward": -2799.70083047572,
+      "mean_peak_kw": 174.06914654717707,
+      "mean_daily_kwh": 2173.764337844184,
       "mean_pre8_violations": 0.0
     },
     "heuristic": {
       "n": 100,
-      "mean_reward": -3001.055622535608,
-      "median_reward": -3047.4166335325745,
-      "mean_peak_kw": 176.66327536475217,
-      "mean_daily_kwh": 2572.0078027565673,
+      "n_logged": 100,
+      "n_failed": 0,
+      "mean_reward": -2954.508699548131,
+      "median_reward": -2990.694038231416,
+      "mean_peak_kw": 173.8435350979659,
+      "mean_daily_kwh": 2536.030050557346,
       "mean_pre8_violations": 0.78
     },
     "random_walk": {
       "n": 100,
-      "mean_reward": -3223.3922158213477,
-      "median_reward": -3213.266908413333,
-      "mean_peak_kw": 175.83571143901776,
-      "mean_daily_kwh": 2640.4031600447233,
+      "n_logged": 100,
+      "n_failed": 0,
+      "mean_reward": -3138.1300505631702,
+      "median_reward": -3125.037824240253,
+      "mean_peak_kw": 170.30909456840197,
+      "mean_daily_kwh": 2605.289195131512,
       "mean_pre8_violations": 2.85
     }
   },
@@ -246,12 +254,14 @@
     ],
     "n_requested": 100,
     "n_selected": 100,
-    "n_available": 372,
+    "n_available": 336,
     "seed": 0,
     "shortfall": 0
   },
-  "dqn_run_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\unique100_winter\\dqn",
-  "episodes_csv": "episodes.csv",
-  "plots_dir": "plots",
-  "note": "Random walk = uniform sample in locked daily action box. DQN uses Discrete(64), not PPO continuous box. Illustrative screening scores, not verified savings."
+  "dqn_run_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\unique100_rleplus\\dqn",
+  "episodes_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\unique100_rleplus\\report\\episodes.csv",
+  "plots_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\unique100_rleplus\\report\\plots",
+  "note": "Random walk = uniform sample in locked daily action box. DQN uses Discrete(64), not PPO continuous box. Means exclude failed LIVE days (PPO had 1 Windows heap abort 0xC0000374 on 2025-12-04; pre-8 still 0 on successes). Illustrative screening scores, not verified savings.",
+  "rleplus_backend": true,
+  "run_id": "unique100_rleplus"
 }

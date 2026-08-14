@@ -1,15 +1,8 @@
 pandas>=2.0
 matplotlib>=3.7
-pyarrow>=14.0
-requests>=2.28
-eppy>=0.5.63
 numpy>=1.24
 gymnasium>=0.29
-openpyxl>=3.1
-plotly>=5.18
-# Streamlit REMOVED — CLI entrypoint: scripts/vibe22.py
-# Optional / twin tooling (not required for gym lookup mode)
-scikit-learn>=1.3
-joblib>=1.3
-# Optional RL later: pip install 'ray[rllib]'
-# Legacy hybrid ONNX stack archived — torch/onnx not required for eplus_gym
+# RL trainer (no ray[rllib])
+stable-baselines3>=2.3.0
+torch>=2.1.0
+eppy>=0.5.63

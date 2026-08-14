@@ -1,29 +1,6 @@
-"""Lakeside EnergyPlus control gym (rllib-energyplus-inspired).
+"""Lakeside EnergyPlus RL gym (rleplus runner + A04 DualSP)."""
 
-Rule DR first; optional RLlib later. IdealLoads = STRUCTURAL_LOAD_DIAGNOSTIC.
-Never overwrite A04 / IdealLoads champion IDFs.
-"""
+from .honesty import PROMOTE, PROVENANCE_LIVE  # noqa: F401
+from .rleplus_path import ensure_rleplus, find_rleplus_root  # noqa: F401
 
-from .honesty import (  # noqa: F401
-    HONESTY_IDEALLOADS,
-    LOOKUP_EMULATOR,
-    PROMOTE,
-    PROVENANCE_LIVE,
-)
-from .controllers import (  # noqa: F401
-    RuleController,
-    effective_htg_setpoints_f,
-    list_strategies,
-)
-from .simulate import run_rule_episode  # noqa: F401
-
-__all__ = [
-    "HONESTY_IDEALLOADS",
-    "LOOKUP_EMULATOR",
-    "PROMOTE",
-    "PROVENANCE_LIVE",
-    "RuleController",
-    "effective_htg_setpoints_f",
-    "list_strategies",
-    "run_rule_episode",
-]
+__all__ = ["PROMOTE", "PROVENANCE_LIVE", "ensure_rleplus", "find_rleplus_root"]

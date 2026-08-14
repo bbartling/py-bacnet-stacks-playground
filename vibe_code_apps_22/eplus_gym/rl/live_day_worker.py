@@ -31,7 +31,7 @@ def run_live_day_inprocess(
     from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv
     from eplus_gym.rl.reward import compute_daily_reward
     from eplus_gym.six_zone_daily_controller import SixZoneDailyController
-    from eplus_gym_app.dsm_console import stage_idf_for_period
+    from eplus_gym.stage_idf import stage_idf_for_period
 
     ep_dir = Path(ep_dir)
     ep_dir.mkdir(parents=True, exist_ok=True)

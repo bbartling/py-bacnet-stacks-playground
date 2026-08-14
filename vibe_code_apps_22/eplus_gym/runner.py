@@ -1,16 +1,16 @@
-"""EnergyPlus threaded runner — borrowed shape from airboxlab/rllib-energyplus.
+"""EnergyPlus threaded runner — Lakeside multi-actuator patch on rleplus.
 
-Queues sync Python controllers with E+ zone-timestep callbacks.
+His Amphitheater runner asserts a single float actuator. Six DualSP needs a
+vector send + Electricity:Facility meter-index 0 workaround.
 """
 from __future__ import annotations
 
 import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty, Full, Queue
 from typing import Any, Dict, List, Optional, Tuple, Union
-
 
 def _meter_lookup_key(name: str) -> str:
     return str(name).split("[", 1)[0].strip().upper()
@@ -63,7 +63,12 @@ class RunnerConfig:
 
 
 class EnergyPlusRunner:
-    """Run EnergyPlus in a background thread; exchange obs/actions via queues."""
+    """Run EnergyPlus in a background thread; exchange obs/actions via queues.
+
+    Lakeside patch on airboxlab/rllib-energyplus: six DualSP actuators +
+    Electricity:Facility meter index 0. Do not import his EnergyPlusRunner
+    (it loads pyenergyplus at module import).
+    """
 
     def __init__(
         self,

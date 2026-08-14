@@ -185,14 +185,23 @@ def load_descent_rows(site_root: Path, run_root: Path) -> List[Dict[str, Any]]:
 def _summarize(df: pd.DataFrame) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     for policy, g in df.groupby("policy"):
-        r = pd.to_numeric(g["reward"], errors="coerce")
+        if "failed" in g.columns:
+            failed = g["failed"].eq(True) | g["failed"].eq("True") | g["failed"].eq(1)
+            ok = g.loc[~failed]
+        else:
+            ok = g
+        r = pd.to_numeric(ok["reward"], errors="coerce")
         out[str(policy)] = {
-            "n": int(len(g)),
+            "n": int(len(ok)),
+            "n_logged": int(len(g)),
+            "n_failed": int(len(g) - len(ok)),
             "mean_reward": float(r.mean()) if len(r) else float("nan"),
             "median_reward": float(r.median()) if len(r) else float("nan"),
-            "mean_peak_kw": float(pd.to_numeric(g["peak_kw"], errors="coerce").mean()),
-            "mean_daily_kwh": float(pd.to_numeric(g["daily_kwh"], errors="coerce").mean()),
-            "mean_pre8_violations": float(pd.to_numeric(g["pre8_violations"], errors="coerce").mean()),
+            "mean_peak_kw": float(pd.to_numeric(ok["peak_kw"], errors="coerce").mean()),
+            "mean_daily_kwh": float(pd.to_numeric(ok["daily_kwh"], errors="coerce").mean()),
+            "mean_pre8_violations": float(
+                pd.to_numeric(ok["pre8_violations"], errors="coerce").mean()
+            ),
         }
     return out
 

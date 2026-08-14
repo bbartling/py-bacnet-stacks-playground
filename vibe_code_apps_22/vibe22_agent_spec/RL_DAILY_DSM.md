@@ -14,8 +14,10 @@ Not operational MPC. Not verified savings. Not BACnet.
 | School start | 08:00 = step **32** |
 | Reward | `-(C_energy + C_peak) - λ_pre8 * V_pre8 - λ_occ * V_occ` |
 | Plots | matplotlib → `reports/eplus_gym/rl/<run_id>/` and [`../plots/rl_report/`](../plots/rl_report/README.md) |
-| Trainer | Stable-Baselines3 PPO + DQN |
-| Baselines | random walk (uniform action box), cold-morning heuristic, `vibe22.py` coordinate descent |
+| IDF | `lakeside_w2a_a04_dual_champion.idf` fail-closed |
+| Gym | airboxlab/rllib-energyplus runner (submodule) |
+| Trainer | Stable-Baselines3 PPO + DQN (not Ray) |
+| Baselines | random walk, cold-morning heuristic |
 | Process model | Trainer = torch/SB3; each LIVE day = **subprocess** worker |
 
 ## Install

@@ -1,10 +1,13 @@
-"""Gymnasium EnergyPlusEnv base — shape from airboxlab/rllib-energyplus."""
+"""Gymnasium EnergyPlusEnv — rleplus Gym/runner API without importing his module.
+
+His ``rleplus.env.energyplus`` imports pyenergyplus at module load (fails CI).
+We keep the same Gym surface and never call ``action_space.sample()``.
+Amphitheater IDF is unused. Lakeside A04 only. Submodule is source of truth.
+"""
 from __future__ import annotations
 
-import abc
-from pathlib import Path
 from queue import Empty, Full, Queue
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
 import numpy as np
@@ -14,13 +17,13 @@ from .honesty import HONESTY_IDEALLOADS, PROMOTE, PROVENANCE_LIVE
 from .runner import EnergyPlusRunner, RunnerConfig
 
 
-class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
-    """Abstract E+ gym. Subclass for Lakeside IdealLoads / future W2A."""
+class EnergyPlusEnv(gym.Env):
+    """Lakeside adapter: rleplus Gym API + deterministic DualSP defaults."""
 
     metadata = {"render_modes": []}
 
     def __init__(self, env_config: Dict[str, Any]):
-        super().__init__()
+        gym.Env.__init__(self)
         self.env_config = env_config
         self.episode = -1
         self.timestep = 0
@@ -64,38 +67,6 @@ class EnergyPlusEnv(gym.Env, metaclass=abc.ABCMeta):
                 self.env_config.get("eplus_timestep_duration", 0.25)
             ),
         )
-
-    @abc.abstractmethod
-    def get_weather_file(self) -> Union[Path, str]:
-        ...
-
-    @abc.abstractmethod
-    def get_idf_file(self) -> Union[Path, str]:
-        ...
-
-    @abc.abstractmethod
-    def get_observation_space(self) -> gym.Space:
-        ...
-
-    @abc.abstractmethod
-    def get_action_space(self) -> gym.Space:
-        ...
-
-    @abc.abstractmethod
-    def compute_reward(self, obs: Dict[str, float]) -> float:
-        ...
-
-    @abc.abstractmethod
-    def get_variables(self) -> Dict[str, Tuple[str, str]]:
-        ...
-
-    @abc.abstractmethod
-    def get_meters(self) -> Dict[str, str]:
-        ...
-
-    @abc.abstractmethod
-    def get_actuators(self) -> Dict[str, Tuple[str, str, str]]:
-        ...
 
     def _resolve_default_action(self, env_config: Dict[str, Any]):
         if "default_action_c" in env_config:

@@ -1,11 +1,12 @@
 # vibe22 archive
 
-**Live product** is CLI six-zone DSM screening (`scripts/vibe22.py` + `eplus_gym/`).
+**Live product** is A04 + rleplus + `scripts/vibe22_rl.py`.
 
 | Path | Status |
 | --- | --- |
-| [`ml/`](ml/) | **Kept** — small parked GL14 / multires helpers imported by live calibration scripts. Not an ML product. |
-| [`streamlit_ui_2026-08-13/`](streamlit_ui_2026-08-13/) | **Archived** Streamlit Site DSM UI (removed from product). |
-| `2026-08-10_pre_eplus_gym/` | **PURGED** — former hybrid ONNX / greybox / desktop / control-twin lab. Do not restore into live paths. |
+| [`2026-08-14_pre_rl_only/`](2026-08-14_pre_rl_only/) | Pre RL-only DSM CLI, eplus_gym_app, GL14, non-RL tests |
+| [`ml/`](ml/) | Parked helpers — not a live package |
+| [`streamlit_ui_2026-08-13/`](streamlit_ui_2026-08-13/) | Archived Streamlit |
+| `2026-08-10_pre_eplus_gym/` | **Must stay absent** |
 
-Do not recreate a live `ml/` package. Do not revive Streamlit as the product surface.
+Do not restore Streamlit or `scripts/vibe22.py` as the live surface.

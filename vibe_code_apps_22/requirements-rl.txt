@@ -1,4 +1,3 @@
-# Optional RL extras for vibe22 (Stable-Baselines3)
+# Optional RL extras (same as requirements.txt trainer pins)
 stable-baselines3>=2.3.0
 torch>=2.1.0
-tensorboard>=2.14.0

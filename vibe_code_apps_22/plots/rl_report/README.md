@@ -3,38 +3,32 @@
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY  
 Not operational MPC. Not verified savings. Not BACnet.
 
-Regenerate (LIVE, ~400 EnergyPlus days):
+Backend: airboxlab/rllib-energyplus Gym/runner SoT + Lakeside DualSP patch. Champion **A04**. Trainer SB3. Run id `unique100_rleplus`.
 
 ```powershell
-python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_winter --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py campaign --n-days 100 --seed 0 --run-id unique100_rleplus --site-root $env:SITE_ROOT
 ```
 
-## Files
+## Snapshot (LIVE unique100_rleplus, Nov 2025–Mar 2026, sp_creekside)
 
-| File | Use |
-| --- | --- |
-| `episodes.csv` | Long table: policy, day, reward, kWh, peak kW, pre8 violations, recovery_min |
-| `comparison.json` | Per-policy means, winner by mean reward, honesty stamp |
-| `plots/learning_curve_smoothed.png` | PPO vs DQN vs random_walk reward vs episode (rolling mean) |
-| `plots/reward_violin.png` | Return distribution by policy |
-| `plots/cumulative_reward.png` | Cumulative return |
-| `plots/peak_vs_kwh.png` | Peak vs energy scatter |
-| `plots/pre8_violations.png` | Mean comfort misses before 08:00 |
-| `plots/recovery_lead_hist.png` | Recovery-lead behavior |
+Same unique-100 heating-season EPW days (seed 0) as the prior in-tree campaign. Means **exclude failed LIVE days**. PPO log has 104 SB3 padding rows; **1** PPO day (`2025-12-04`) aborted with Windows EnergyPlus heap `0xC0000374` — excluded from means (pre-8 still 0 on the 103 successes).
 
-## Snapshot (LIVE unique100, Nov 2025–Mar 2026, sp_creekside)
-
-100 distinct heating-season EPW days (seed 0). Same day list for every policy. PPO log has 104 rows (SB3 rollout padding), not extra unique weather.
-
-| Policy | n | Mean reward | Mean peak kW | Mean kWh | Mean pre-8 violations |
+| Policy | n (ok) | Mean reward | Mean peak kW | Mean kWh | Mean pre-8 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| PPO (continuous) | 104 | **−2992** | 179 | 2223 | **0.0** |
-| heuristic (cold morning) | 100 | −3001 | 177 | 2572 | 0.78 |
-| DQN (Discrete 64) | 100 | −3128 | 186 | 2375 | 0.99 |
-| random_walk (uniform box) | 100 | −3223 | 176 | 2640 | 2.85 |
+| PPO (continuous) | 103 | **−2906** | 174 | 2174 | **0.0** |
+| heuristic (cold morning) | 100 | −2955 | 174 | 2536 | 0.78 |
+| DQN (Discrete 64) | 100 | −3085 | 183 | 2338 | 0.99 |
+| random_walk (uniform box) | 100 | −3138 | 170 | 2605 | 2.85 |
 
-Winner by mean reward: **PPO**, narrowly over heuristic. Random walk is worst on reward and pre-8 comfort. DQN is a **different action box** (64-grid, occ frozen 70 °F, shared setback) — not the same MDP as PPO.
+Winner by mean reward: **PPO**. Ranking vs random did **not** flip. Pre-8 did not explode.
 
-Do not treat this as verified savings or a field champion. Overlay plots mix weather with policy; PPO beating random + matching heuristic on this pool is screening evidence only.
+### Delta vs prior in-tree snapshot (PPO −2992, heuristic −3001, DQN −3128, random −3223)
 
-`random_walk` = uniform sample in locked daily action bounds. Not Brownian motion in kW. No TensorBoard.
+| Policy | Prior mean | rleplus mean | Δ |
+| --- | ---: | ---: | ---: |
+| PPO | −2992 | −2906 | +86 (better) |
+| heuristic | −3001 | −2955 | +46 |
+| DQN | −3128 | −3085 | +43 |
+| random_walk | −3223 | −3138 | +85 |
+
+Close, not bit-identical (queue/init + one excluded heap abort). Champion hash unchanged. No TensorBoard. No Amphitheater IDF. No `*.pkl` in git.

@@ -23,9 +23,7 @@ from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
-from eplus_gym_app.dsm_preflight import sha256_file  # noqa: E402
-from eplus_gym_app.site_bundle import load_site_ui_bundle  # noqa: E402
-from eplus_gym_app.site_config import load_site_dsm_config  # noqa: E402
+from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
 
 EXIT_OK = 0
 EXIT_CONFIG = 1
@@ -41,14 +39,11 @@ def _site(args) -> Path:
 
 
 def _paths(site: Path):
-    bundle = load_site_ui_bundle(site)
-    champ = bundle.champion()
-    idf = Path(champ.idf_path) if champ and champ.idf_path else Path(bundle.idf_path or "")
-    epw = Path(bundle.epw) if bundle.epw else None
-    if not idf.is_file() or epw is None or not epw.is_file():
-        print("FAIL: champion/epw missing", file=sys.stderr)
-        raise SystemExit(EXIT_CONFIG)
-    return idf, epw
+    try:
+        return resolve_a04_and_epw(site)
+    except FileNotFoundError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        raise SystemExit(EXIT_CONFIG) from exc
 
 
 def cmd_train(args) -> int:
@@ -62,8 +57,6 @@ def cmd_train(args) -> int:
     days = [d.strip() for d in str(args.days).split(",") if d.strip()]
     run_id = args.run_id or f"train_{args.algo.lower()}"
     root = site / "reports" / "eplus_gym" / "rl" / run_id
-    cfg = load_site_dsm_config(site)
-    sp = cfg.get("setpoints_f") or {}
     summary = train_sb3(
         site_root=site,
         epw=epw,
@@ -73,8 +66,8 @@ def cmd_train(args) -> int:
         timesteps=int(args.timesteps),
         run_root=root,
         seed=int(args.seed),
-        occupied_heating_f=float(sp.get("occupied_heating_f", 70.0)),
-        unoccupied_heating_f=float(sp.get("unoccupied_heating_f", 65.0)),
+        occupied_heating_f=70.0,
+        unoccupied_heating_f=65.0,
     )
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
@@ -165,8 +158,6 @@ def cmd_pretrain(args) -> int:
     days = [d.strip() for d in str(args.days).split(",") if d.strip()]
     run_id = args.run_id or "office_pretrain_horizon"
     root = site / "reports" / "eplus_gym" / "rl" / run_id
-    cfg = load_site_dsm_config(site)
-    sp = cfg.get("setpoints_f") or {}
     summary = train_sb3(
         site_root=site,
         epw=epw,
@@ -176,8 +167,8 @@ def cmd_pretrain(args) -> int:
         timesteps=int(args.timesteps),
         run_root=root,
         seed=int(args.seed),
-        occupied_heating_f=float(sp.get("occupied_heating_f", 70.0)),
-        unoccupied_heating_f=float(sp.get("unoccupied_heating_f", 65.0)),
+        occupied_heating_f=70.0,
+        unoccupied_heating_f=65.0,
     )
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
@@ -244,8 +235,6 @@ def cmd_campaign(args) -> int:
     root.mkdir(parents=True, exist_ok=True)
     (root / "day_pool.json").write_text(json.dumps(pool, indent=2) + "\n", encoding="utf-8")
     dqn_root = root / "dqn"
-    cfg = load_site_dsm_config(site)
-    sp = cfg.get("setpoints_f") or {}
     kwargs = dict(
         site_root=site,
         epw=epw,
@@ -253,8 +242,8 @@ def cmd_campaign(args) -> int:
         days=days,
         timesteps=len(days),
         seed=int(args.seed),
-        occupied_heating_f=float(sp.get("occupied_heating_f", 70.0)),
-        unoccupied_heating_f=float(sp.get("unoccupied_heating_f", 65.0)),
+        occupied_heating_f=70.0,
+        unoccupied_heating_f=65.0,
     )
     print(json.dumps({"phase": "PPO", "n_days": len(days), "shortfall": pool["shortfall"]}))
     ppo_sum = train_sb3(algo="PPO", run_root=root, **kwargs)

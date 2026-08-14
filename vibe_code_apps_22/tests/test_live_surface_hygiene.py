@@ -1,48 +1,26 @@
-"""Guardrails: no live hybrid/ML product; Streamlit removed; archive/ml helpers only."""
+"""Guardrails: RL-only live tree; rleplus backend; A04 champion; no Streamlit."""
 from __future__ import annotations
 
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _ML = _ROOT / "ml"
-_ARCH_ML = _ROOT / "archive" / "ml"
-_CONTRACTS = _ROOT / "contracts"
-_AUDITS = _ROOT / "docs" / "audits"
 _HYBRID_ARCH = _ROOT / "archive" / "2026-08-10_pre_eplus_gym"
-
-
-def test_hybrid_contracts_not_live():
-    assert not (_CONTRACTS / "hybrid_dsm_96_v1.json").is_file()
-    assert not (_CONTRACTS / "hybrid_dsm_96_v2.json").is_file()
+_A04 = "lakeside_w2a_a04_dual_champion.idf"
 
 
 def test_hybrid_pre_eplus_gym_archive_purged():
-    """Old hybrid/desktop/greybox codebase must stay gone (not a live product)."""
     assert not _HYBRID_ARCH.exists(), "do not restore 2026-08-10_pre_eplus_gym into the tree"
 
 
 def test_live_ml_package_is_gone():
-    assert not _ML.exists(), "live ml/ must stay gone — use archive/ml helpers only"
-
-
-def test_live_audits_are_gym_or_plant_only():
-    names = {p.name for p in _AUDITS.glob("*.md")}
-    assert "eplus_gym_v1.md" in names
-    assert "plant_point_candidates.md" in names
-    banned = {
-        "interval_semantics_audit.md",
-        "simulation_root_cause_audit.md",
-        "greybox_sensor_manifest.md",
-        "lag_train_serve_parity.md",
-    }
-    assert not (names & banned)
+    assert not _ML.exists()
 
 
 def test_no_streamlit_in_active_tree():
-    """Streamlit REMOVED — CLI entrypoint is scripts/vibe22.py."""
     banned = ("import streamlit", "from streamlit")
-    roots = (_ROOT / "eplus_gym", _ROOT / "eplus_gym_app", _ROOT / "scripts")
-    skip_parts = {"archive", ".pytest_cache", "__pycache__", "examples"}
+    roots = (_ROOT / "eplus_gym", _ROOT / "scripts")
+    skip_parts = {"archive", ".pytest_cache", "__pycache__", "examples", "third_party"}
     hits = []
     for root in roots:
         if not root.is_dir():
@@ -57,19 +35,29 @@ def test_no_streamlit_in_active_tree():
     assert hits == [], f"streamlit still live: {hits}"
 
 
-def test_cli_entrypoint_exists():
-    assert (_ROOT / "scripts" / "vibe22.py").is_file()
-    assert not (_ROOT / "eplus_gym_app" / "streamlit_app.py").is_file()
+def test_cli_is_rl_only():
+    assert (_ROOT / "scripts" / "vibe22_rl.py").is_file()
+    assert not (_ROOT / "scripts" / "vibe22.py").is_file()
+    assert not (_ROOT / "eplus_gym_app").exists()
+    live_py = sorted(p.name for p in (_ROOT / "scripts").glob("*.py"))
+    assert live_py == ["gate_six_zone_actuation.py", "vibe22_rl.py"]
 
 
-def test_archived_ml_keeps_eplus_helpers():
-    for name in (
-        "interval15.py",
-        "feature_compile_heating_dsm.py",
-        "physics_families.py",
-        "artifact_paths.py",
-        "eplus_validation_contract.py",
-        "eplus_multires_metrics.py",
-        "energy_math.py",
-    ):
-        assert (_ARCH_ML / name).is_file(), f"missing archive/ml/{name}"
+def test_a04_champion_filename():
+    from eplus_gym.envs.lakeside_w2a import A04_IDF_NAME, is_a04_idf_filename
+
+    assert A04_IDF_NAME == _A04
+    pinned = _ROOT / "models" / "eplus" / _A04
+    assert pinned.is_file(), f"missing repo pin {pinned}"
+    assert is_a04_idf_filename(f"staged_{_A04}")
+    assert not is_a04_idf_filename("amphitheater.idf")
+
+
+def test_rleplus_backend_importable():
+    from eplus_gym.rleplus_path import find_rleplus_root
+
+    root = find_rleplus_root()
+    assert (root / "rleplus" / "env" / "energyplus.py").is_file()
+    env_src = (_ROOT / "eplus_gym" / "env.py").read_text(encoding="utf-8")
+    assert "self.action_space.sample" not in env_src
+    assert "from rleplus.env.energyplus import" not in env_src
