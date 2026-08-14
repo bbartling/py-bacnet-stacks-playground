@@ -37,6 +37,6 @@ Close, not bit-identical (queue/init + one excluded heap abort). Champion hash u
 
 **A04 monthly GL14 (GitHub-rendered):** [`a04-gl14.md`](a04-gl14.md). Frozen schedules vs billed kWh — not the PPO overlay.
 
-Cursor canvases (IDE only): [`a04-gl14.canvas.tsx`](a04-gl14.canvas.tsx), [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx). EPW/BAS unique-100 writeup: [`epw-vs-bas-3x.md`](epw-vs-bas-3x.md).
+Cursor canvases (IDE only): [`a04-gl14.canvas.tsx`](a04-gl14.canvas.tsx), [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx), [`reward-legacy-vs-operator.canvas.tsx`](reward-legacy-vs-operator.canvas.tsx). year2xsyn TRAIN: [`../rl_report_year2x/year2x-train.canvas.tsx`](../rl_report_year2x/year2x-train.canvas.tsx). EPW/BAS unique-100 writeup: [`epw-vs-bas-3x.md`](epw-vs-bas-3x.md).
 
 

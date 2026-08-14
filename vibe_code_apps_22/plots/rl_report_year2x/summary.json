@@ -1,0 +1,76 @@
+{
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "run_id": "year2xsyn",
+  "split": "TRAIN",
+  "action_source": "STOCHASTIC_TRAINING_POLICY",
+  "reward_name": "legacy_reward_v1",
+  "watermark": "TRAIN_EXPLORATION_NOT_DETERMINISTIC_EVAL",
+  "winner_mean_reward": null,
+  "pool": "year_plus_heating2x_synthetic",
+  "n_days": 487,
+  "n_observed": 336,
+  "n_synthetic": 151,
+  "seed": 0,
+  "n_rows": 1950,
+  "heap_fails": [
+    {"policy": "heuristic", "day": "2025-09-29"},
+    {"policy": "heuristic", "day": "2026-02-02__syn"}
+  ],
+  "ppo_bound_saturation": {
+    "occupied_heating_f": 68,
+    "unoccupied_heating_f": 58,
+    "occupied_setpoint_start_step": 20,
+    "occupancy_end_step": 60,
+    "recovery_min": 0
+  },
+  "policies": {
+    "PPO_train": {
+      "n": 488,
+      "n_failed": 0,
+      "mean_reward": -2525.57,
+      "mean_peak_kw": 153.11,
+      "mean_daily_kwh": 1707.53,
+      "mean_pre8_violations": 0.006
+    },
+    "DQN_train": {
+      "n": 488,
+      "n_failed": 0,
+      "mean_reward": -2536.28,
+      "mean_peak_kw": 151.35,
+      "mean_daily_kwh": 1944.43,
+      "mean_pre8_violations": 0.527
+    },
+    "heuristic": {
+      "n": 485,
+      "n_logged": 487,
+      "n_failed": 2,
+      "mean_reward": -2540.15,
+      "mean_peak_kw": 151.17,
+      "mean_daily_kwh": 1947.28,
+      "mean_pre8_violations": 0.687
+    },
+    "random_walk": {
+      "n": 487,
+      "n_failed": 0,
+      "mean_reward": -2624.98,
+      "mean_peak_kw": 147.40,
+      "mean_daily_kwh": 1968.19,
+      "mean_pre8_violations": 1.988
+    }
+  },
+  "unique100_legacy": {
+    "run_id": "unique100_rleplus",
+    "reward_name": "legacy_reward_v1",
+    "policies": {
+      "PPO": {"n": 103, "n_failed": 1, "mean_reward": -2906.16, "mean_peak_kw": 174.07, "mean_daily_kwh": 2173.76, "mean_pre8_violations": 0.0},
+      "heuristic": {"n": 100, "n_failed": 0, "mean_reward": -2954.51, "mean_peak_kw": 173.84, "mean_daily_kwh": 2536.03, "mean_pre8_violations": 0.78},
+      "DQN": {"n": 100, "n_failed": 0, "mean_reward": -3084.91, "mean_peak_kw": 183.09, "mean_daily_kwh": 2338.05, "mean_pre8_violations": 0.99},
+      "random_walk": {"n": 100, "n_failed": 0, "mean_reward": -3138.13, "mean_peak_kw": 170.31, "mean_daily_kwh": 2605.29, "mean_pre8_violations": 2.85}
+    }
+  },
+  "illustrative_rates": {
+    "energy_usd_per_kwh": 0.12,
+    "demand_usd_per_kw": 15.0,
+    "note": "Same rates as legacy_reward_v1. operator_pay_v1 was not re-run on these EnergyPlus days."
+  }
+}

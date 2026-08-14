@@ -30,9 +30,9 @@ const YEAR2X_DAYS = 487;
 const YEAR2X_PHASES = 4;
 const YEAR2X_TOTAL = YEAR2X_DAYS * YEAR2X_PHASES;
 const PPO_DONE = 487;
-const DQN_DONE = 246;
-const RANDOM_DONE = 0;
-const HEUR_DONE = 0;
+const DQN_DONE = 487;
+const RANDOM_DONE = 487;
+const HEUR_DONE = 487;
 const YEAR2X_DONE = PPO_DONE + DQN_DONE + RANDOM_DONE + HEUR_DONE;
 const YEAR2X_PCT = Math.round((100 * YEAR2X_DONE) / YEAR2X_TOTAL);
 
@@ -42,8 +42,8 @@ export default function EpwVsBas3x() {
       <Stack gap={6}>
         <Row gap={8} align="center">
           <H1>EPW vs BAS — unique-100 RL, plus EnergyPlus campaign status</H1>
-          <Pill tone="warning" active>
-            year2xsyn running
+          <Pill tone="success" active>
+            year2xsyn complete
           </Pill>
         </Row>
         <Text tone="secondary">
@@ -61,12 +61,10 @@ export default function EpwVsBas3x() {
         to keep training.
       </Callout>
 
-      <Callout tone="warning" title="Snapshot 2026-08-14 — not a live slider">
-        vibe22_rl.py campaign --pool year2xsyn still had campaign PID 31216. DQN
-        was on the order of day 246 / 487. PPO already finished this pool (mean
-        reward −2526 on 488 log rows, 0 failed in episodes.jsonl). Random walk and
-        heuristic have not started. Unrelated: an old E20 run_eplus_gym_rules.py
-        job was also still on the box — not this campaign.
+      <Callout tone="info" title="year2xsyn frozen 2026-08-14">
+        All four EnergyPlus passes finished. PPO/DQN jsonl is TRAIN, not eval. Do
+        not call a winner. Dedicated canvas: year2x-train.canvas.tsx. Reward was
+        legacy_reward_v1; operator_pay_v1 was not used on those days.
       </Callout>
 
       <H2>year2xsyn EnergyPlus-day completion</H2>
@@ -89,9 +87,9 @@ export default function EpwVsBas3x() {
       />
       <Grid columns={4} gap={12}>
         <Stat value="DONE 487/487" label="PPO" tone="success" />
-        <Stat value="246/487" label="DQN (current phase)" tone="warning" />
-        <Stat value="0/487" label="Random walk (queued)" />
-        <Stat value="0/487" label="Heuristic (queued)" />
+        <Stat value="DONE 487/487" label="DQN" tone="success" />
+        <Stat value="487/487" label="Random walk" tone="success" />
+        <Stat value="485 ok / 2 fail" label="Heuristic" tone="warning" />
       </Grid>
 
       <H2>Audit log</H2>
@@ -119,29 +117,29 @@ export default function EpwVsBas3x() {
           [
             "year2xsyn DQN",
             "DQN train",
-            "RUNNING",
-            "~246 reward.json under dqn/episodes; campaign PID 31216; jsonl not flushed yet",
+            "OK — 0 failed in episodes.jsonl",
+            "488 log rows; train mean_reward −2536; Discrete(64) ablation",
           ],
           [
             "year2xsyn report phase",
             "random + heuristic",
-            "NOT STARTED",
-            "Starts after DQN; then plots/rl_report_year2x (does not clobber unique-100)",
+            "DONE",
+            "random 487/487; heuristic 485 ok, heap fails 2025-09-29 and 2026-02-02__syn",
           ],
           [
-            "other process on box",
-            "run_eplus_gym_rules.py E20",
-            "RUNNING (unrelated)",
-            "lakeside_w2a_e20_l22_enhanced_champion.idf Jan–Jul 2026 — not A04 year2xsyn",
+            "year2xsyn freeze",
+            "plots/rl_report_year2x",
+            "TRAIN watermark",
+            "Not a winner; legacy_reward_v1 only; operator_pay not run",
           ],
         ]}
         rowTone={[
           "warning",
           "success",
           "success",
+          "success",
           "warning",
-          undefined,
-          "danger",
+          "warning",
         ]}
       />
 
