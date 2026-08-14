@@ -18,6 +18,7 @@ from eplus_gym.rl.compare_baseline import (  # noqa: E402
     load_params_from_recommendation,
     load_rl_action_as_params,
 )
+from eplus_gym.rl.day_pool import sample_unique_heating_days  # noqa: E402
 from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
@@ -223,6 +224,78 @@ def cmd_midnight(args) -> int:
     return EXIT_OK
 
 
+def cmd_campaign(args) -> int:
+    """100 unique heating-season days: PPO + DQN train, then random/heuristic report."""
+    print(SCREENING_CLAIM)
+    if args.simulator != SIMULATOR_REQUIRED:
+        print("REFUSED: only LIVE_ENERGYPLUS", file=sys.stderr)
+        return EXIT_INTEGRITY
+    site = _site(args)
+    idf, epw = _paths(site)
+    champ_hash = sha256_file(idf)
+    n = int(args.n_days)
+    pool = sample_unique_heating_days(epw, n=n, seed=int(args.seed))
+    days = list(pool["days"])
+    if not days:
+        print("FAIL: no unique EPW days", file=sys.stderr)
+        return EXIT_CONFIG
+    run_id = args.run_id or "unique100_winter"
+    root = site / "reports" / "eplus_gym" / "rl" / run_id
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "day_pool.json").write_text(json.dumps(pool, indent=2) + "\n", encoding="utf-8")
+    dqn_root = root / "dqn"
+    cfg = load_site_dsm_config(site)
+    sp = cfg.get("setpoints_f") or {}
+    kwargs = dict(
+        site_root=site,
+        epw=epw,
+        champion_idf=idf,
+        days=days,
+        timesteps=len(days),
+        seed=int(args.seed),
+        occupied_heating_f=float(sp.get("occupied_heating_f", 70.0)),
+        unoccupied_heating_f=float(sp.get("unoccupied_heating_f", 65.0)),
+    )
+    print(json.dumps({"phase": "PPO", "n_days": len(days), "shortfall": pool["shortfall"]}))
+    ppo_sum = train_sb3(algo="PPO", run_root=root, **kwargs)
+    print(json.dumps({"phase": "DQN", "n_days": len(days)}))
+    dqn_sum = train_sb3(algo="DQN", run_root=dqn_root, **kwargs)
+    if sha256_file(idf) != champ_hash:
+        print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
+        return EXIT_INTEGRITY
+    repo_copy = Path(__file__).resolve().parents[1] / "plots" / "rl_report"
+    print(json.dumps({"phase": "report", "random_and_heuristic": len(days)}))
+    comparison = build_report(
+        site_root=site,
+        epw=epw,
+        champion_idf=idf,
+        run_root=root,
+        days=days,
+        random_timesteps=len(days),
+        heuristic_days=not args.skip_heuristic,
+        seed=int(args.seed),
+        repo_copy=repo_copy,
+        dqn_run_root=dqn_root,
+        day_pool=pool,
+    )
+    (root / "campaign_summary.json").write_text(
+        json.dumps(
+            {
+                "ppo": ppo_sum,
+                "dqn": dqn_sum,
+                "comparison": comparison,
+                "scientific_claim": SCREENING_CLAIM,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(comparison, indent=2))
+    print("repo_copy", repo_copy)
+    return EXIT_OK
+
+
 def cmd_report(args) -> int:
     print(SCREENING_CLAIM)
     site = _site(args)
@@ -230,6 +303,7 @@ def cmd_report(args) -> int:
     root = site / "reports" / "eplus_gym" / "rl" / args.run_id
     days = [d.strip() for d in str(args.days).split(",") if d.strip()]
     repo_copy = Path(__file__).resolve().parents[1] / "plots" / "rl_report"
+    dqn_root = root / "dqn"
     out = build_report(
         site_root=site,
         epw=epw,
@@ -240,6 +314,7 @@ def cmd_report(args) -> int:
         heuristic_days=not args.skip_heuristic,
         seed=int(args.seed),
         repo_copy=repo_copy,
+        dqn_run_root=dqn_root if (dqn_root / "episodes.jsonl").is_file() else None,
     )
     print(json.dumps(out, indent=2))
     print("repo_copy", repo_copy)
@@ -304,6 +379,14 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--seed", type=int, default=1)
     rp.add_argument("--skip-heuristic", action="store_true")
     rp.set_defaults(func=cmd_report)
+
+    camp = sub.add_parser("campaign", parents=[site_parent])
+    camp.add_argument("--n-days", type=int, default=100)
+    camp.add_argument("--seed", type=int, default=0)
+    camp.add_argument("--run-id", default="unique100_winter")
+    camp.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    camp.add_argument("--skip-heuristic", action="store_true")
+    camp.set_defaults(func=cmd_campaign)
 
     args = p.parse_args(argv)
     try:

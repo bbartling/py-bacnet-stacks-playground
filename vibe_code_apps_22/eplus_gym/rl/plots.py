@@ -135,6 +135,47 @@ def plot_rl_vs_baseline(
     return out
 
 
+OVERLAY_POLICIES = ("PPO", "DQN", "random_walk")
+
+
+def plot_policy_learning_overlay(
+    df: pd.DataFrame,
+    plots_dir: Path,
+    *,
+    window: int = 5,
+    filename: str = "learning_curve_smoothed.png",
+) -> Path:
+    """Episode index vs reward for PPO / DQN / random_walk (rolling mean)."""
+    out = _ensure(plots_dir) / filename
+    fig, ax = plt.subplots(figsize=(8.5, 4.4))
+    colors = {"PPO": "#08519c", "DQN": "#d94801", "random_walk": "#636363"}
+    plotted = False
+    for policy in OVERLAY_POLICIES:
+        g = df.loc[df["policy"] == policy]
+        if g.empty:
+            continue
+        y = pd.to_numeric(g["reward"], errors="coerce").reset_index(drop=True)
+        c = colors.get(str(policy), "#333333")
+        ax.plot(y.index, y.values, color=c, linewidth=0.8, alpha=0.35)
+        if len(y) >= 2:
+            roll = y.rolling(window=min(window, len(y)), min_periods=1).mean()
+            ax.plot(roll.index, roll.values, color=c, linewidth=2.0, label=str(policy))
+        else:
+            ax.plot(y.index, y.values, color=c, linewidth=2.0, label=str(policy))
+        plotted = True
+    if not plotted:
+        ax.text(0.5, 0.5, "no PPO/DQN/random_walk rows", ha="center")
+    ax.set_xlabel("episode")
+    ax.set_ylabel("reward")
+    ax.set_title("LIVE reward vs episode (random walk = no learning)")
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=140)
+    plt.close(fig)
+    return out
+
+
 def plot_learning_curve_smoothed(
     rewards: Sequence[float],
     plots_dir: Path,

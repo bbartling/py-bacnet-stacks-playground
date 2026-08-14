@@ -25,7 +25,7 @@ python -u scripts\ingest_site_pack.py
 python -u scripts\run_eplus_gym_rules.py --family w2a --mode auto
 python -u scripts\vibe22.py status
 python -u scripts\vibe22.py optimize-day --day 2026-01-26 --lookback-days 3 --budget 8 --no-cache
-python -u scripts\vibe22_rl.py report --run-id office_pretrain_horizon --random-timesteps 20
+python -u scripts\vibe22_rl.py campaign --n-days 100 --run-id unique100_winter
 ```
 
 RL vs random-walk charts + CSV/JSON for reports: [`plots/rl_report/`](plots/rl_report/README.md).

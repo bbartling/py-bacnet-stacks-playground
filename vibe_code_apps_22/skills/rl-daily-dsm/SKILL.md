@@ -32,12 +32,12 @@ python scripts/vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root 
 python scripts/vibe22_rl.py compare --run-id <id> --day 2026-01-26 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py pretrain --algo PPO --timesteps 20 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py midnight-tick --day 2026-01-26 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py report --run-id office_pretrain_horizon --random-timesteps 20 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_winter --site-root $env:SITE_ROOT
 ```
 
 Report pack (git): [`../../plots/rl_report/`](../../plots/rl_report/README.md) — `episodes.csv`, `comparison.json`, matplotlib PNGs.
 
-**Do not overhaul** into more algorithms until PPO vs **random_walk** vs heuristic is the documented baseline. Snapshot winner by mean reward: heuristic; PPO wins pre-8 comfort (0 violations).
+**Do not overhaul** into SAC/RLlib. Snapshot unique100: PPO mean reward ≈ −2992 (winner, pre8=0); heuristic ≈ −3001; DQN ≈ −3128; random_walk ≈ −3223. DQN is Discrete(64), not PPO's continuous box.
 
 Artifacts: `{SITE}/reports/eplus_gym/rl/<run_id>/` (models, episodes, plots, summaries, hashes).
 

@@ -31,25 +31,26 @@ python scripts/vibe22_rl.py train --algo PPO --days 2026-01-26 --timesteps 6 --s
 python scripts/vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py compare --run-id <id> --day 2026-01-26 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py pretrain --algo PPO --timesteps 20 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py report --run-id office_pretrain_horizon --random-timesteps 20 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_winter --site-root $env:SITE_ROOT
 ```
 
 Git-visible report: [`../plots/rl_report/`](../plots/rl_report/README.md) (`episodes.csv`, `comparison.json`, PNGs).
 
-## Verdict (2026-08-14 report @ sp_creekside)
+## Verdict (2026-08-14 unique100 @ sp_creekside)
 
 | Gate | Status |
 | --- | --- |
 | LIVE only | **PASS** (surrogate refused) |
-| Unit spaces/reward/isolate/report | **PASS** (pytest) |
+| Unit spaces/reward/isolate/report/day-pool | **PASS** (pytest) |
 | Six-zone actuation | READY (precondition) |
-| LIVE PPO office pretrain (`timesteps=20`) | **PASS** `office_pretrain_horizon` mean_reward ≈ −4078, pre8=0 |
-| LIVE random_walk (`n=20`) | **PASS** mean_reward ≈ −4182, pre8≈2.1 |
-| LIVE heuristic week (`n=7`) | **PASS** mean_reward ≈ −3929 (best mean), pre8=1 |
-| Coordinate descent (1 scored day) | mean_reward ≈ −4333 |
+| Unique heating days | **PASS** n=100, EPW available 372, shortfall 0 |
+| LIVE PPO (`unique100_winter`) | **PASS** mean_reward ≈ −2992, pre8=0 (n=104 log rows) |
+| LIVE DQN Discrete(64) | **PASS** mean_reward ≈ −3128, pre8≈0.99 (n=100) |
+| LIVE random_walk | **PASS** mean_reward ≈ −3223, pre8≈2.85 (n=100) |
+| LIVE heuristic | **PASS** mean_reward ≈ −3001, pre8≈0.78 (n=100) |
 | Surrogate / lookup RL | **NO-GO** |
 
-**Do not overhaul** (SAC/A2C/RLlib) yet: the cold-morning heuristic still beats 20-step PPO on mean reward; PPO is better on pre-8 comfort. Next science is more LIVE days or imitating the heuristic, not more algorithms.
+Winner by mean reward on this pool: **PPO** (narrowly over heuristic). Random walk is last. DQN uses a coarser action box — not an apples-to-apples trainer bakeoff. Overlay is weather + policy; not verified savings. No TensorBoard.
 
 Smoke/report rewards are illustrative screening scores only — not verified savings.
 

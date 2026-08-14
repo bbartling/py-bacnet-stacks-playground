@@ -18,8 +18,8 @@ from eplus_gym.rl.compare_baseline import (
 from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.rl.plots import (
     plot_cumulative_reward,
-    plot_learning_curve_smoothed,
     plot_peak_vs_kwh_scatter,
+    plot_policy_learning_overlay,
     plot_pre8_bars,
     plot_recovery_hist,
     plot_reward_violin,
@@ -198,19 +198,26 @@ def _summarize(df: pd.DataFrame) -> Dict[str, Any]:
 
 
 def write_report_plots(df: pd.DataFrame, plots_dir: Path) -> None:
-    ppo = df[df["policy"] == "PPO"]
-    if len(ppo):
-        plot_learning_curve_smoothed(
-            pd.to_numeric(ppo["reward"], errors="coerce").tolist(),
-            plots_dir,
-            title="PPO LIVE learning curve",
-        )
+    if len(df):
+        plot_policy_learning_overlay(df, plots_dir)
     if df["policy"].nunique() >= 1 and len(df):
         plot_reward_violin(df, plots_dir)
         plot_cumulative_reward(df, plots_dir)
         plot_peak_vs_kwh_scatter(df, plots_dir)
         plot_pre8_bars(df, plots_dir)
         plot_recovery_hist(df, plots_dir)
+
+
+def _wipe_repo_copy(dest: Path) -> None:
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("episodes.csv", "comparison.json"):
+        p = dest / name
+        if p.is_file():
+            p.unlink()
+    plot_dest = dest / "plots"
+    if plot_dest.is_dir():
+        for png in plot_dest.glob("*.png"):
+            png.unlink()
 
 
 def build_report(
@@ -225,6 +232,8 @@ def build_report(
     seed: int = 1,
     repo_copy: Path | None = None,
     run_day: RunDayFn = _run_day,
+    dqn_run_root: Path | None = None,
+    day_pool: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     run_root = Path(run_root)
     days = list(days or WINTER_DAYS)
@@ -233,6 +242,8 @@ def build_report(
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     rows = load_jsonl_episodes(run_root / "episodes.jsonl", policy="PPO")
+    dqn_root = Path(dqn_run_root) if dqn_run_root else (run_root / "dqn")
+    rows.extend(load_jsonl_episodes(dqn_root / "episodes.jsonl", policy="DQN"))
     rows.extend(
         run_random_walk(
             site_root=site_root,
@@ -256,7 +267,8 @@ def build_report(
                 run_day=run_day,
             )
         )
-    rows.extend(load_descent_rows(site_root, run_root))
+    if not day_pool:
+        rows.extend(load_descent_rows(site_root, run_root))
     df = pd.DataFrame(rows)
     csv_path = report_dir / "episodes.csv"
     df.to_csv(csv_path, index=False)
@@ -270,10 +282,14 @@ def build_report(
         "winner_mean_reward": winner,
         "n_rows": int(len(df)),
         "days": list(days),
+        "n_days": len(days),
         "random_timesteps": int(random_timesteps),
+        "day_pool": day_pool or {},
+        "dqn_run_root": str(dqn_root),
         "episodes_csv": str(csv_path),
         "plots_dir": str(plots_dir),
         "note": "Random walk = uniform sample in locked daily action box. "
+        "DQN uses Discrete(64), not PPO continuous box. "
         "Illustrative screening scores, not verified savings.",
     }
     (report_dir / "comparison.json").write_text(
@@ -281,7 +297,7 @@ def build_report(
     )
     if repo_copy is not None:
         dest = Path(repo_copy)
-        dest.mkdir(parents=True, exist_ok=True)
+        _wipe_repo_copy(dest)
         shutil.copy2(csv_path, dest / "episodes.csv")
         shutil.copy2(report_dir / "comparison.json", dest / "comparison.json")
         plot_dest = dest / "plots"

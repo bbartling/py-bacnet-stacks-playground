@@ -48,6 +48,11 @@ def test_load_jsonl_and_report_schema(tmp_path: Path):
         '{"reward": -4000, "day": "2026-01-26", "daily_kwh": 3000, "peak_kw": 200, "pre8_violations": 0}\n',
         encoding="utf-8",
     )
+    (run / "dqn").mkdir()
+    (run / "dqn" / "episodes.jsonl").write_text(
+        '{"reward": -4200, "day": "2026-01-26", "daily_kwh": 3200, "peak_kw": 220, "pre8_violations": 2}\n',
+        encoding="utf-8",
+    )
     rows = load_jsonl_episodes(run / "episodes.jsonl")
     assert rows[0]["policy"] == "PPO"
 
@@ -84,7 +89,10 @@ def test_load_jsonl_and_report_schema(tmp_path: Path):
     df = pd.read_csv(csv)
     assert "policy" in df.columns and "reward" in df.columns
     assert (df["policy"] == "random_walk").sum() == 2
+    assert (df["policy"] == "DQN").sum() == 1
     assert (tmp_path / "repo_copy" / "comparison.json").is_file()
+    overlay = tmp_path / "repo_copy" / "plots" / "learning_curve_smoothed.png"
+    assert overlay.is_file()
     assert out["scientific_claim"].startswith("ENERGYPLUS")
 
 
@@ -96,4 +104,19 @@ def test_violin_plot_toy(tmp_path: Path):
         }
     )
     p = plot_reward_violin(df, tmp_path)
+    assert p.is_file()
+
+
+def test_policy_learning_overlay_toy(tmp_path: Path):
+    from eplus_gym.rl.plots import plot_policy_learning_overlay
+
+    df = pd.DataFrame(
+        {
+            "policy": ["PPO"] * 4 + ["DQN"] * 4 + ["random_walk"] * 4,
+            "reward": list(range(-4100, -4096))
+            + list(range(-4300, -4296))
+            + list(range(-4500, -4496)),
+        }
+    )
+    p = plot_policy_learning_overlay(df, tmp_path)
     assert p.is_file()

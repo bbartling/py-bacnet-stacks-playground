@@ -9,7 +9,7 @@ Parked GL14 helpers: [`../archive/ml/`](../archive/ml/). Hybrid lab scripts: **p
 | Script | Role |
 | --- | --- |
 | `vibe22.py` | **CLI** status / optimize-day / show-study / approve / export |
-| `vibe22_rl.py` | **CLI** LIVE SB3 daily RL (`train` / `bakeoff` / `compare` / `pretrain` / `midnight-tick` / `report`) |
+| `vibe22_rl.py` | **CLI** LIVE SB3 daily RL (`train` / `bakeoff` / `compare` / `pretrain` / `midnight-tick` / `report` / `campaign`) |
 | `gate_six_zone_actuation.py` | Real E+ six DualSP perturbation gate |
 | `ingest_site_pack.py` | Zip/folder → site layout + `site_ui_bundle_v1.json` |
 | `eplus_fetch_open_meteo_epw.py` | Open-Meteo archive @ site lat/lon → AMY EPW |
