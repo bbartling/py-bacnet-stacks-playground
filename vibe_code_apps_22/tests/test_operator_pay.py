@@ -66,3 +66,34 @@ def test_score_day_dispatch():
     a = score_day(df, reward_name="legacy_reward_v1")
     b = score_day(df, reward_name="operator_pay_v1", school_day=True, mtd_peak_kw=50.0)
     assert a.peak_cost > b.peak_cost
+
+
+def test_paycheck_2x_3x_and_readiness_zero():
+    from eplus_gym.rl.reward import operator_paycheck
+
+    two = operator_paycheck(
+        baseline_cost=200.0, candidate_cost=150.0, readiness_ok=True, savings_multiplier=2
+    )
+    three = operator_paycheck(
+        baseline_cost=200.0, candidate_cost=150.0, readiness_ok=True, savings_multiplier=3
+    )
+    assert two["raw_pay_usd"] == 200.0
+    assert three["raw_pay_usd"] == 250.0
+    z = operator_paycheck(
+        baseline_cost=200.0, candidate_cost=50.0, readiness_ok=False, savings_multiplier=2
+    )
+    assert z["raw_pay_usd"] == 0.0
+    neg = operator_paycheck(
+        baseline_cost=100.0, candidate_cost=180.0, readiness_ok=True, savings_multiplier=2
+    )
+    assert neg["raw_pay_usd"] == 0.0
+
+
+def test_occupied_setpoint_alias():
+    from eplus_gym.six_zone_daily_controller import SixZoneDailyParams
+
+    p = SixZoneDailyParams(occupancy_start_step=30)
+    assert p.occupied_setpoint_start_step == 30
+    d = p.to_dict()
+    assert d["occupied_setpoint_start_step"] == 30
+

@@ -19,6 +19,14 @@ not a district calendar).
 Paired claims require a `NO_SETBACK_70F_BASELINE` trajectory unless 24/7 HVAC
 is proven. Do not promote bound-saturated PPO from train jsonl.
 
+`operator_paycheck` implements ILLUSTRATIVE `100 + multiplier * savings` with
+cap and $0 on readiness fail. Multiplier **2** and **3** are separate named
+experiments (`operator_pay_2x_v1`, `operator_pay_3x_v1`).
+
+`occupancy_start_step` is aliased as `occupied_setpoint_start_step` (DualSP
+heating schedules only unless proven otherwise).
+
+
 ## Eval vs train
 `model.learn()` jsonl is exploration. Reports may crown a winner only from
 held-out deterministic eval (`PPO_eval` / random / heuristic). Compare loads

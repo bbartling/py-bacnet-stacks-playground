@@ -263,6 +263,35 @@ def operator_pay_v1(
     )
 
 
+def operator_paycheck(
+    *,
+    baseline_cost: float,
+    candidate_cost: float,
+    readiness_ok: bool,
+    savings_multiplier: float,
+    base_wage_usd: float = 100.0,
+    payout_cap_usd: float = 500.0,
+) -> Dict[str, Any]:
+    """ILLUSTRATIVE paycheck. 2x and 3x are separate experiments, not a random jackpot."""
+    if float(savings_multiplier) not in {2.0, 3.0}:
+        raise ValueError("savings_multiplier must be 2 or 3 (separate experiments)")
+    savings = float(baseline_cost) - float(candidate_cost)
+    if not readiness_ok:
+        raw = 0.0
+    else:
+        raw = float(base_wage_usd) + float(savings_multiplier) * savings
+        raw = max(0.0, min(float(payout_cap_usd), raw))
+    return {
+        "savings_usd": float(savings),
+        "raw_pay_usd": float(raw),
+        "savings_multiplier": float(savings_multiplier),
+        "base_wage_usd": float(base_wage_usd),
+        "payout_cap_usd": float(payout_cap_usd),
+        "readiness_ok": bool(readiness_ok),
+        "money_mode": MONEY_ILLUSTRATIVE,
+    }
+
+
 def score_day(
     df: pd.DataFrame | None,
     *,

@@ -41,8 +41,18 @@ class SixZoneDailyParams:
             if key not in self.zone_offsets:
                 self.zone_offsets[key] = ZoneOffsets()
 
+    @property
+    def occupied_setpoint_start_step(self) -> int:
+        """Heating DualSP occupied start. Not proven to move People/HVAC availability."""
+        return int(self.occupancy_start_step)
+
+    @occupied_setpoint_start_step.setter
+    def occupied_setpoint_start_step(self, value: int) -> None:
+        self.occupancy_start_step = int(value)
+
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
+        d["occupied_setpoint_start_step"] = int(self.occupancy_start_step)
         return d
 
 
