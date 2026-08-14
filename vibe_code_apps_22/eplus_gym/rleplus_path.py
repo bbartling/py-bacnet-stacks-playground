@@ -18,6 +18,7 @@ def rleplus_roots() -> list[Path]:
         [
             _VIBE22 / "third_party" / "rllib-energyplus",
             _REPO / "third_party" / "rllib-energyplus",
+            Path.home() / "Documents" / "rllib-energyplus" / ".worktrees" / "feat-generic-runner",
             Path.home() / "Documents" / "rllib-energyplus",
         ]
     )

@@ -12,29 +12,13 @@ from pathlib import Path
 from queue import Empty, Full, Queue
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-def _meter_lookup_key(name: str) -> str:
-    return str(name).split("[", 1)[0].strip().upper()
+from eplus_gym.rleplus_path import ensure_rleplus
 
-
-def _meter_indices_from_api_csv(raw: Union[bytes, str]) -> Dict[str, int]:
-    """Map meter names to 0-based handles from list_available_api_data_csv."""
-    text = raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
-    indices: Dict[str, int] = {}
-    in_meters = False
-    idx = 0
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == "**METERS**":
-            in_meters = True
-            continue
-        if in_meters and stripped.startswith("**"):
-            break
-        if in_meters and stripped.upper().startswith("OUTPUTMETER,"):
-            parts = stripped.split(",")
-            if len(parts) >= 2:
-                indices[_meter_lookup_key(parts[1])] = idx
-                idx += 1
-    return indices
+ensure_rleplus()
+from rleplus.env.actions import normalize_action  # noqa: E402
+from rleplus.env.meters import meter_indices_from_api_csv as _meter_indices_from_api_csv  # noqa: E402
+from rleplus.env.meters import meter_lookup_key as _meter_lookup_key  # noqa: E402
+from rleplus.env.meters import missing_handle  # noqa: E402
 
 
 @dataclass
@@ -190,25 +174,7 @@ class EnergyPlusRunner:
         return self.obs_queue.get()
 
     def _normalize_action(self, action: Any) -> Any:
-        """Scalar for 1 actuator; length-N list for multi-actuator envs."""
-        n = len(self.actuator_order)
-        if n <= 1:
-            if isinstance(action, (list, tuple)):
-                return float(action[0])
-            arr = getattr(action, "reshape", None)
-            if arr is not None:
-                return float(action.reshape(-1)[0])
-            return float(action)
-        vals = list(action) if not isinstance(action, (float, int)) else [float(action)] * n
-        if hasattr(action, "reshape") and not isinstance(action, (list, tuple)):
-            vals = [float(x) for x in action.reshape(-1)]
-        elif isinstance(action, (list, tuple)):
-            vals = [float(x) for x in action]
-        if len(vals) != n:
-            raise ValueError(f"expected {n} actions, got {len(vals)}")
-        if any(v != v or v in (float("inf"), float("-inf")) for v in vals):
-            raise ValueError(f"non-finite action values: {vals}")
-        return vals
+        return normalize_action(action, len(self.actuator_order))
 
     def _runtime_calendar(self, state_argument) -> Dict[str, float]:
         """Actual EnergyPlus Runtime calendar (not synthetic step dating)."""
@@ -234,7 +200,7 @@ class EnergyPlusRunner:
                 return
             applied = {}
             for key, handle in self.actuator_handles.items():
-                if handle == -1:
+                if missing_handle(handle):
                     applied[f"applied_{key}"] = float("nan")
                     continue
                 try:
@@ -303,7 +269,7 @@ class EnergyPlusRunner:
                 return
             # Fail on missing/duplicate handles
             handles = [self.actuator_handles[k] for k in self.actuator_order]
-            if any(h == -1 for h in handles):
+            if any(missing_handle(h) for h in handles):
                 self.handle_error = f"missing actuator handle: {self.actuator_handles}"
                 self.simulation_complete = True
                 return
@@ -358,7 +324,7 @@ class EnergyPlusRunner:
         self.meter_handles = {}
         for key, meter in self.meters.items():
             handle = self.x.get_meter_handle(state_argument, meter)
-            if handle == -1:
+            if missing_handle(handle):
                 # EnergyPlus getMeterHandle treats meter index 0 as missing
                 # (Electricity:Facility is usually 0). Fall back to API CSV order.
                 if meter_index is None:
@@ -372,7 +338,7 @@ class EnergyPlusRunner:
             for key, actuator in self.actuators.items()
         }
         # Actuators are required; sensors may be NaN if IDF lacks Output:Variable/Meter.
-        if any(v == -1 for v in self.actuator_handles.values()):
+        if any(missing_handle(v) for v in self.actuator_handles.values()):
             available = self.x.list_available_api_data_csv(state_argument).decode(
                 "utf-8", errors="replace"
             )
@@ -385,8 +351,8 @@ class EnergyPlusRunner:
             )
             return False
         missing_sensors = {
-            **{k: v for k, v in self.var_handles.items() if v == -1},
-            **{k: v for k, v in self.meter_handles.items() if v == -1},
+            **{k: v for k, v in self.var_handles.items() if missing_handle(v)},
+            **{k: v for k, v in self.meter_handles.items() if missing_handle(v)},
         }
         # kind_of_sim: 1=DesignDay, 2=RunPeriodDesign, 3=RunPeriodWeather
         # Never initialize / score during sizing or warmup — even if sensors resolve.

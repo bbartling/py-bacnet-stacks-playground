@@ -117,12 +117,48 @@ def load_params_from_recommendation(path: Path) -> SixZoneDailyParams | None:
     return SixZoneDailyController(params).params
 
 
-def load_rl_action_as_params(path: Path) -> SixZoneDailyParams | None:
-    """Load last continuous action vector from a train episode reward.json if present."""
-    if not path.is_file():
-        return None
-    doc = json.loads(path.read_text(encoding="utf-8"))
-    params = doc.get("params")
-    if isinstance(params, dict):
-        return SixZoneDailyController(params).params
-    return None
+def load_eval_params_from_run(
+    run_root: Path,
+    *,
+    day: str,
+    epw: Path,
+    algo: str = "PPO",
+) -> tuple[SixZoneDailyParams | None, str]:
+    """Deterministic zip predict first. Train reward.json is not eval."""
+    from datetime import date
+
+    from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
+    from eplus_gym.rl.policy_pack import pack_from_sb3_zip
+    from eplus_gym.rl.spaces import build_day_observation
+
+    root = Path(run_root)
+    algo_u = str(algo).upper()
+    zips = [
+        root / "models" / f"{algo_u.lower()}_final.zip",
+        root / "models" / "ppo_final.zip",
+        root / "dqn" / "models" / "dqn_final.zip",
+    ]
+    zip_path = next((p for p in zips if p.is_file()), None)
+    if zip_path is not None:
+        pack = pack_from_sb3_zip(zip_path, algo=algo_u)
+        d = date.fromisoformat(str(day)[:10])
+        fc = forecast_from_epw_replay(Path(epw), d)
+        mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
+        obs = build_day_observation(
+            month=d.month,
+            dow=d.weekday(),
+            doy=int(d.strftime("%j")),
+            oat_mean_c=mean_c,
+            oat_min_c=min_c,
+            oat_max_c=max_c,
+            morning_min_c=morn_c,
+            hours_below_0c=h0,
+            hours_below_m10c=hm10,
+        )
+        return pack.predict_params(obs), f"sb3_zip_deterministic:{zip_path.name}"
+    last = None
+    for p in sorted(root.rglob("reward.json")):
+        cand = load_rl_action_as_params(p)
+        if cand is not None:
+            last = cand
+    return last, "train_reward_json_not_eval"

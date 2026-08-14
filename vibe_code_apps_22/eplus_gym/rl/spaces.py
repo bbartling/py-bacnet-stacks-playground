@@ -14,8 +14,8 @@ from eplus_gym.six_zone_daily_controller import (
 )
 
 # Continuous Box order (PPO):
-# 0 occ_f, 1 unocc_f, 2 start_step, 3 end_step, 4 recovery_min,
-# 5..10 setback_offset_f for ACTION_KEYS
+# 0 occ_f, 1 unocc_f, 2 occupied_setpoint_start_step (stored occupancy_start_step),
+# 3 end_step, 4 recovery_min, 5..10 setback_offset_f for ACTION_KEYS
 N_CONT = 5 + len(ACTION_KEYS)
 
 OCC_F_LO, OCC_F_HI = 68.0, 72.0
