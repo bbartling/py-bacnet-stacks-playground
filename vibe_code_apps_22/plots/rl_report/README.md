@@ -32,3 +32,6 @@ Winner by mean reward: **PPO**. Ranking vs random did **not** flip. Pre-8 did no
 | random_walk | −3223 | −3138 | +85 |
 
 Close, not bit-identical (queue/init + one excluded heap abort). Champion hash unchanged. No TensorBoard. No Amphitheater IDF. No `*.pkl` in git.
+
+Cursor canvas (open beside chat in Cursor): [`epw-vs-bas-3x.canvas.tsx`](epw-vs-bas-3x.canvas.tsx) — EPW vs web OAT vs BAS meter on the same 99 days. Imports `cursor/canvas`; GitHub will not render it live.
+
