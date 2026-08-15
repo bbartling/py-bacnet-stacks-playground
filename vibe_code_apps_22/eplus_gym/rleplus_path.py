@@ -56,7 +56,10 @@ PINNED_GENERIC_RUNNER_SHA_PREFIX = "01c5dc7"
 def rleplus_git_sha(root: Path | None = None) -> str | None:
     import subprocess
 
-    path = Path(root) if root else find_rleplus_root()
+    try:
+        path = Path(root) if root else find_rleplus_root()
+    except FileNotFoundError:
+        return None
     try:
         out = subprocess.check_output(
             ["git", "-C", str(path), "rev-parse", "HEAD"],
