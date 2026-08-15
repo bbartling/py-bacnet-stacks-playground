@@ -1,8 +1,7 @@
 """Optional 3-day EnergyPlus smoke (cold / shoulder / weekend)."""
 from __future__ import annotations
 
-import argparse
-import json
+import os
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,10 @@ from eplus_gym.six_zone_daily_controller import SixZoneDailyParams
 
 @pytest.mark.eplus
 def test_three_day_energyplus_smoke(tmp_path: Path):
-    site = Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
+    site_root = os.environ.get("SITE_ROOT")
+    if not site_root:
+        pytest.skip("SITE_ROOT is required for the EnergyPlus smoke test")
+    site = Path(site_root)
     epw = site / "eplus" / "weather" / "madison_amy_202508_202608.epw"
     idf = Path(__file__).resolve().parents[1] / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
     if not epw.is_file() or not idf.is_file():

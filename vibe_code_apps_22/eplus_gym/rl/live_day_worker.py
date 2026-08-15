@@ -117,7 +117,6 @@ def run_live_day_inprocess(
         "scientific_claim": SCREENING_CLAIM,
         "simulator": "LIVE_ENERGYPLUS",
     }
-    (ep_dir / "reward.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     err = ep_dir / "eplus" / "eplusout.err"
     if not err.is_file():
         found = list(ep_dir.rglob("eplusout.err"))
@@ -127,6 +126,7 @@ def run_live_day_inprocess(
     payload["lookback_days"] = lb
     payload["n_all_rows"] = int(len(result.get("all_rows") or []))
     assert_eplus_quality(gate)
+    (ep_dir / "reward.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return payload
 
 

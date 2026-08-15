@@ -310,6 +310,10 @@ def operator_pay_multiplier_v1(
     baseline_peak_cost: float | None = None,
 ) -> RewardBreakdown:
     """ILLUSTRATIVE 2x/3x operator pay. Readiness fail uses READINESS_FAIL_REWARD."""
+    if money_mode != MONEY_ILLUSTRATIVE:
+        raise ValueError(
+            f"money_mode={money_mode!r} rejected; VERIFIED_TARIFF is not implemented on this path"
+        )
     name = f"operator_pay_{int(multiplier)}x_v1"
     w = weights or RewardWeights()
     floor = float(mtd_peak_kw if mtd_peak_kw is not None else billing_floor_kw)

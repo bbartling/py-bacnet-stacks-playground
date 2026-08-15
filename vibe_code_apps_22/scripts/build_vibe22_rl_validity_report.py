@@ -104,11 +104,11 @@ def build_report(*, site_root: Path | None, run_id: str | None, out: Path) -> Pa
     try:
         rroot = find_rleplus_root()
         rsha = rleplus_git_sha(rroot)
-    except Exception:
+    except FileNotFoundError:
         rroot, rsha = None, None
 
     winner = None
-    if year2x:
+    if year2x and year2x.get("winner_is_held_out_eval") is True:
         winner = year2x.get("winner_mean_reward")
 
     md = f"""# Vibe22 RL scientific validity and roadmap (2026-08-15)

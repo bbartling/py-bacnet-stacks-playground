@@ -51,6 +51,8 @@ def test_2x_and_3x_are_separate_and_deterministic():
     assert b.extras["reward_name"] == "operator_pay_3x_v1"
     assert a.reward == a2.reward
     assert a.reward != b.reward
+    with pytest.raises(ValueError, match="VERIFIED_TARIFF"):
+        operator_pay_2x_v1(df, school_day=True, money_mode="VERIFIED_TARIFF")
 
 
 def test_same_billing_floor_for_pair():
@@ -70,6 +72,9 @@ def test_mtd_peak_is_running_max_and_resets_month():
     assert st.billing_floor_kw() == 100.0
     floor_feb = st.start_of_day(date(2026, 2, 1))
     assert floor_feb == 0.0
+    st.observe_peak(50.0)
+    st.start_of_day(date(2026, 1, 15))
+    assert st.billing_floor_kw() == 100.0
 
 
 def test_syn_clone_cannot_cross_splits():
@@ -87,30 +92,43 @@ def test_syn_clone_cannot_cross_splits():
         assert_no_twin_leakage(leaked)
 
 
-def test_train_jsonl_never_held_out_winner():
+def test_winner_null_without_locked_test(tmp_path: Path):
     from eplus_gym.rl.report_bundle import build_report
 
-    # schema covered in test_rl_report_bundle; lock the flag contract here
-    assert True
-
-
-def test_winner_null_without_locked_test():
-    from eplus_gym.rl.report_bundle import _summarize
-
-    df = pd.DataFrame(
-        {
-            "policy": ["random_walk", "heuristic", "PPO_train"],
-            "reward": [-1.0, -2.0, -0.5],
-            "failed": [False, False, False],
-            "peak_kw": [1, 1, 1],
-            "daily_kwh": [1, 1, 1],
-            "pre8_violations": [0, 0, 0],
-        }
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "episodes.jsonl").write_text(
+        '{"reward": -1, "day": "2026-01-26", "daily_kwh": 1, "peak_kw": 1, "pre8_violations": 0, "reward_name": "legacy_reward_v1"}\n',
+        encoding="utf-8",
     )
-    stats = _summarize(df)
-    assert "PPO_train" in stats
-    # winner logic lives in build_report; train labels are not eval keys
-    assert "PPO_eval" not in stats
+    dummy = tmp_path / "dummy.epw"
+    dummy.write_text("dummy\n", encoding="utf-8")
+
+    def fake_run_day(**kwargs):
+        day = kwargs["day"]
+        params = kwargs["ctrl"].params.to_dict()
+        return {
+            "reward": -2.0,
+            "daily_kwh": 1.0,
+            "peak_kw": 1.0,
+            "pre8_violations": 0,
+            "failed": False,
+            "params": params,
+            "day": day,
+        }
+
+    out = build_report(
+        site_root=tmp_path,
+        epw=dummy,
+        champion_idf=dummy,
+        run_root=run,
+        days=["2026-01-26"],
+        random_timesteps=1,
+        heuristic_days=False,
+        run_day=fake_run_day,
+    )
+    assert out["winner_mean_reward"] is None
+    assert out["winner_is_held_out_eval"] is False
 
 
 def test_missing_policy_pack_fails_closed(tmp_path: Path):
@@ -174,6 +192,7 @@ def test_year_qualify_epw(tmp_path: Path):
     rec = stage_year_aware_epw(src, dest)
     text = dest.read_text(encoding="utf-8")
     assert "8/1/2025" in text and "7/2/2026" in text
+    assert "Friday" in text
     assert rec["source_sha256"] != rec["staged_sha256"]
     orig = src.read_text(encoding="utf-8")
     assert "8/1,7/2" in orig

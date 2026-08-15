@@ -18,6 +18,16 @@ from eplus_gym.rl.policy_pack import DailyPolicyPack
 from eplus_gym.rl.spaces import build_day_observation
 
 
+def _forecast_is_test_fixture(source: str) -> bool:
+    s = str(source).lower()
+    return "test_fixture" in s or "fixture" in s
+
+
+def _forecast_is_non_live(source: str) -> bool:
+    s = str(source).lower()
+    return _forecast_is_test_fixture(s) or "replay" in s
+
+
 def midnight_tick(
     *,
     pack_path: Path,
@@ -54,7 +64,7 @@ def midnight_tick(
         morning_min_c=morn_c,
         hours_below_0c=h0,
         hours_below_m10c=hm10,
-        forecast_is_live=0.0 if "replay" in fc.source else 1.0,
+        forecast_is_live=0.0 if _forecast_is_non_live(fc.source) else 1.0,
     )
     params = pack.predict_params(obs)
     proposal = {
@@ -70,7 +80,7 @@ def midnight_tick(
         "note": "Advisory only. Heating-setpoint schedule, not occupancy control. "
         "Default hourly [-5C]*24 is a TEST FIXTURE, not OpenWeatherMap. Never auto-write BACnet.",
         "observation_contract": "vibe22.obs.v1_16d_no_zone_temps",
-        "forecast_is_test_fixture": True,
+        "forecast_is_test_fixture": _forecast_is_test_fixture(fc.source),
     }
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -119,6 +119,7 @@ def train_sb3(
                         "peak_kw": br.get("peak_kw"),
                         "pre8_violations": br.get("pre8_violations"),
                         "failed": info.get("failed"),
+                        "reward_name": str(reward_name),
                     }
                 )
             return True
