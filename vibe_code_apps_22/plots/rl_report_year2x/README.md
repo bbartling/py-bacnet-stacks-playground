@@ -1,4 +1,4 @@
-# year2xsyn report (TRAIN exploration, not eval)
+# year2xsyn report (HISTORICAL_TRAIN_EXPLORATION, not eval)
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY  
 Not operational control. Not verified savings. Not BACnet.

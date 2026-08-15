@@ -52,7 +52,7 @@ Git-visible report: [`../plots/rl_report/`](../plots/rl_report/README.md) (`epis
 | LIVE heuristic | **PASS** mean_reward ≈ −3001, pre8≈0.78 (n=100) |
 | Surrogate / lookup RL | **NO-GO** |
 
-Winner by mean reward on this pool: **PPO** (narrowly over heuristic). Random walk is last. DQN uses a coarser action box — not an apples-to-apples trainer bakeoff. Overlay is weather + policy; not verified savings. No TensorBoard.
+Winner by mean reward on this **LEGACY TRAIN** pool: **not a locked-test winner; do not promote.** DQN Discrete(64) is a coarse ablation, not comparable to PPO. Overlay is weather + policy; not verified savings. No TensorBoard.
 
 Smoke/report rewards are illustrative screening scores only — not verified savings.
 

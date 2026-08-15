@@ -12,6 +12,7 @@ from eplus_gym.rl import SCREENING_CLAIM, SIMULATOR_REQUIRED
 from eplus_gym.rl.daily_env import DailySixZoneGymEnv
 from eplus_gym.rl.plots import plot_algo_bakeoff_bars, plot_learning_curve
 from eplus_gym.rl.policy_pack import pack_from_sb3_zip
+from eplus_gym.rl.split_manifest import assert_train_fold_only
 
 
 def _new_run_id(prefix: str = "rl") -> str:
@@ -35,6 +36,7 @@ def train_sb3(
     occupied_heating_f: float = 70.0,
     unoccupied_heating_f: float = 65.0,
     day_specs: Sequence[Dict[str, Any]] | None = None,
+    reward_name: str = "legacy_reward_v1",
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -48,6 +50,7 @@ def train_sb3(
     algo_u = str(algo).upper()
     if algo_u not in {"PPO", "DQN"}:
         raise ValueError("algo must be PPO or DQN")
+    assert_train_fold_only(days)
     run_root = Path(run_root)
     run_root.mkdir(parents=True, exist_ok=True)
     plots_dir = run_root / "plots"
@@ -66,6 +69,7 @@ def train_sb3(
         "occupied_heating_f": float(occupied_heating_f),
         "unoccupied_heating_f": float(unoccupied_heating_f),
         "day_specs": list(day_specs or []),
+        "reward_name": str(reward_name),
     }
     (run_root / "config.json").write_text(
         json.dumps(
@@ -117,6 +121,7 @@ def train_sb3(
                         "peak_kw": br.get("peak_kw"),
                         "pre8_violations": br.get("pre8_violations"),
                         "failed": info.get("failed"),
+                        "reward_name": str(reward_name),
                     }
                 )
             return True

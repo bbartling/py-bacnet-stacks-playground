@@ -1,8 +1,10 @@
-# AGENTS.md — Vibe 22 RL-only (A04 + rleplus)
+# AGENTS.md — Vibe 22 RL-only (A04 + rllib-shaped local runner)
 
-LIVE six-zone daily RL on **Lakeside A04 dual champion**. Gym/runner from
-[airboxlab/rllib-energyplus](https://github.com/airboxlab/rllib-energyplus)
-(`third_party/rllib-energyplus`). Trainer: **Stable-Baselines3**. No Ray, no Amphitheater IDF.
+LIVE six-zone daily RL on **Lakeside A04 dual champion**. Product Gym is local
+`eplus_gym` (not a thin rllib wrapper). Generic helpers pin to rllib-energyplus
+`feat/generic-runner` @ `01c5dc7`. Trainer: **Stable-Baselines3**. No Ray, no Amphitheater IDF.
+Do not overwrite `year2xsyn` site artifacts.
+
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 

@@ -1,0 +1,5 @@
+{
+  "run_id": null,
+  "status": "NOT_RUN",
+  "reason": "Three-day EnergyPlus smoke is green (Severe=0, 96/192 rows) but a multi-seed PPO/DQN campaign was not started. New run_id must not be year2xsyn. Locked-test deterministic eval remains NOT RUN."
+}

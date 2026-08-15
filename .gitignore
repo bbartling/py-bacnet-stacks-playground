@@ -315,3 +315,11 @@ vibe_code_apps_21/*/*.sln
 
 .worktrees/
 
+# Local EnergyPlus smoke trees (validity recovery)
+vibe_code_apps_22/_smoke_*/
+vibe_code_apps_22/docs/audits/figures/postfix/smoke/
+vibe_code_apps_22/docs/audits/figures/postfix/pair_*/
+!vibe_code_apps_22/docs/audits/figures/postfix/*.json
+!vibe_code_apps_22/docs/audits/figures/postfix/*.png
+
+

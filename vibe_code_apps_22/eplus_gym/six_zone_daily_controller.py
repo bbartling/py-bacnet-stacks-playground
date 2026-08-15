@@ -93,6 +93,16 @@ def build_zone_series_f(params: SixZoneDailyParams, action_key: str) -> List[flo
     return series
 
 
+def incumbent_lookback_params() -> SixZoneDailyParams:
+    """Fixed BAS-style lookback: site 70/65, no zone setbacks."""
+    return SixZoneDailyParams()
+
+
+def incumbent_lookback_series_c() -> Dict[str, List[float]]:
+    p = incumbent_lookback_params()
+    return {k: [f_to_c(v) for v in build_zone_series_f(p, k)] for k in ACTION_KEYS}
+
+
 class SixZoneDailyController:
     """Emits length-6 °C actions in stable ACTION_KEYS order."""
 
@@ -102,11 +112,14 @@ class SixZoneDailyController:
         if params is None:
             params = SixZoneDailyParams()
         elif isinstance(params, dict):
+            from dataclasses import fields as dc_fields
+
+            allowed = {f.name for f in dc_fields(SixZoneDailyParams)}
             zo = params.get("zone_offsets") or {}
             parsed = {
                 k: ZoneOffsets(**v) if isinstance(v, dict) else v for k, v in zo.items()
             }
-            kwargs = {k: v for k, v in params.items() if k != "zone_offsets"}
+            kwargs = {k: v for k, v in params.items() if k in allowed and k != "zone_offsets"}
             params = SixZoneDailyParams(**kwargs, zone_offsets=parsed)
         self.params = params
         self._series_f: Dict[str, List[float]] = {
@@ -115,16 +128,16 @@ class SixZoneDailyController:
         self._series_c: Dict[str, List[float]] = {
             k: [f_to_c(v) for v in self._series_f[k]] for k in ACTION_KEYS
         }
-        # Baseline lookback uses global unocc/occ without zone moves unless provided
-        self._lookback = self
+        self._lookback_series_c: Dict[str, List[float]] = incumbent_lookback_series_c()
 
     def action(self, step: int) -> np.ndarray:
         t = int(step) % 96
         return np.asarray([self._series_c[k][t] for k in ACTION_KEYS], dtype=np.float32)
 
     def action_lookback(self, step: int) -> np.ndarray:
-        """Baseline lookback controls (same as action unless overridden)."""
-        return self.action(step)
+        """Incumbent/BAS lookback — independent of the candidate schedule."""
+        t = int(step) % 96
+        return np.asarray([self._lookback_series_c[k][t] for k in ACTION_KEYS], dtype=np.float32)
 
     def series_f(self) -> Dict[str, List[float]]:
         return {k: list(self._series_f[k]) for k in ACTION_KEYS}

@@ -55,6 +55,9 @@ def load_jsonl_episodes(path: Path, *, policy: str = "PPO") -> List[Dict[str, An
         rec["recovery_min"] = rec.get("recovery_min")
         rec.setdefault("artifact_kind", "train_exploration")
         rows.append(rec)
+    names = {str(r.get("reward_name")) for r in rows if r.get("reward_name")}
+    if len(names) > 1:
+        raise ValueError(f"mixed reward_name in {path}: {sorted(names)}")
     return rows
 
 
@@ -303,18 +306,32 @@ def build_report(
     df.to_csv(csv_path, index=False)
     write_report_plots(df, plots_dir)
     stats = _summarize(df)
-    eval_keys = [k for k in stats if k in {"random_walk", "heuristic", "coordinate_descent", "PPO_eval", "DQN_eval"}]
-    winner = (
-        max(eval_keys, key=lambda k: float(stats[k].get("mean_reward", -1e18)))
-        if eval_keys
-        else None
-    )
+    eligible_names = {"PPO_eval", "DQN_eval", "BAS_incumbent_eval"}
+    locked = bool((day_pool or {}).get("split") == "LOCKED_TEST")
+    winner = None
+    winner_is_held_out = False
+    if locked:
+        eligible = []
+        for k in stats:
+            if k not in eligible_names:
+                continue
+            n_ok = int(stats[k].get("n") or 0)
+            mean = stats[k].get("mean_reward")
+            try:
+                mean_f = float(mean)
+            except (TypeError, ValueError):
+                continue
+            if n_ok > 0 and mean_f == mean_f:
+                eligible.append(k)
+        if eligible:
+            winner = max(eligible, key=lambda k: float(stats[k]["mean_reward"]))
+            winner_is_held_out = True
     comparison = {
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
         "policies": stats,
         "winner_mean_reward": winner,
-        "winner_is_held_out_eval": True,
+        "winner_is_held_out_eval": winner_is_held_out,
         "train_jsonl_is_not_eval": True,
         "n_rows": int(len(df)),
         "days": list(days),

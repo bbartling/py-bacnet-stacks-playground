@@ -149,7 +149,11 @@ def decode_discrete(index: int) -> SixZoneDailyParams:
     )
 
 
-def observation_space(n: int = 16) -> gym.spaces.Box:
+OBS_SCHEMA_V2 = "vibe22.obs.v2"
+N_OBS_V2 = 19
+
+
+def observation_space(n: int = N_OBS_V2) -> gym.spaces.Box:
     return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(n,), dtype=np.float32)
 
 
@@ -161,17 +165,35 @@ def build_day_observation(
     oat_mean_c: float,
     oat_min_c: float,
     oat_max_c: float,
-    prior_peak_kw: float = 0.0,
-    prior_kwh: float = 0.0,
-    site_occ_f: float = 70.0,
-    site_unocc_f: float = 65.0,
+    billing_floor_kw: float = 0.0,
+    mtd_peak_kw: float = 0.0,
     morning_min_c: float | None = None,
     hours_below_0c: float = 0.0,
     hours_below_m10c: float = 0.0,
     forecast_is_live: float = 0.0,
+    illustrative_school_day: float = 0.0,
+    zone_temps_f: Sequence[float] | None = None,
+    prior_peak_kw: float | None = None,
+    prior_kwh: float | None = None,
+    site_occ_f: float | None = None,
+    site_unocc_f: float | None = None,
 ) -> np.ndarray:
-    """Fixed-length start-of-day context (calendar + midnight 24h forecast stats)."""
+    """vibe22.obs.v2: calendar + compact forecast + billing + six start-of-day zone F.
+
+    Compact 6 forecast stats (not 24 hourly OAT) to avoid overfitting a 1-step
+    contextual bandit. Full hourly OAT belongs on the episode artifact.
+    ``prior_peak_kw`` is accepted as an alias for ``mtd_peak_kw``.
+    """
+    _ = (prior_kwh, site_occ_f, site_unocc_f)
+    if prior_peak_kw is not None and not mtd_peak_kw:
+        mtd_peak_kw = float(prior_peak_kw)
     morn = oat_min_c if morning_min_c is None else float(morning_min_c)
+    zt = [70.0] * 6
+    if zone_temps_f is not None:
+        vals = [float(x) for x in zone_temps_f]
+        if len(vals) != 6:
+            raise ValueError(f"need 6 zone temps, got {len(vals)}")
+        zt = vals
     return np.asarray(
         [
             month / 12.0,
@@ -180,15 +202,18 @@ def build_day_observation(
             oat_mean_c / 40.0,
             oat_min_c / 40.0,
             oat_max_c / 40.0,
-            prior_peak_kw / 500.0,
-            prior_kwh / 5000.0,
-            site_occ_f / 80.0,
-            site_unocc_f / 80.0,
-            SCHOOL_START_STEP / 95.0,
-            1.0,  # live EnergyPlus pretrain / screening flag
             morn / 40.0,
             float(hours_below_0c) / 24.0,
             float(hours_below_m10c) / 24.0,
+            float(billing_floor_kw) / 500.0,
+            float(mtd_peak_kw) / 500.0,
+            float(illustrative_school_day),
+            zt[0] / 100.0,
+            zt[1] / 100.0,
+            zt[2] / 100.0,
+            zt[3] / 100.0,
+            zt[4] / 100.0,
+            zt[5] / 100.0,
             float(forecast_is_live),
         ],
         dtype=np.float32,

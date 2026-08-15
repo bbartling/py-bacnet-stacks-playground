@@ -1,0 +1,14 @@
+{
+  "run_id": null,
+  "status": "NOT_RUN",
+  "locked_january_opened": false,
+  "reason": "P1 subprocess smoke and Jan26 paired physics passed. Full train fold (days through 2025-12-14, ~136 calendar days) times 3 chronological passes times PPO plus DQN ablation plus incumbent baselines is not executed in this commit. Model selection never saw locked January.",
+  "budget": {
+    "approx_train_days": 136,
+    "validation_days": 17,
+    "locked_test_days": 31,
+    "pilot_eplus_calls_estimate": 950,
+    "full_campaign_eplus_calls_estimate": 4100,
+    "rough_sec_per_192_step_day": 5
+  }
+}

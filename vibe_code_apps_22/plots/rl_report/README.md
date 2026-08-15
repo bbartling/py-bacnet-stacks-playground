@@ -1,9 +1,10 @@
-# RL report bundle (blog / other agents)
+**LEGACY_TRAIN_EXPLORATION** — unique-100 (`unique100_rleplus`). Not a locked-test winner. Not operational.
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY  
 Not operational MPC. Not verified savings. Not BACnet.
 
-Backend: airboxlab/rllib-energyplus Gym/runner SoT + Lakeside DualSP patch. Champion **A04**. Trainer SB3. Run id `unique100_rleplus`.
+Backend: **rllib-shaped local runner** + Lakeside DualSP. Champion **A04**. Trainer SB3. Run id `unique100_rleplus`.
+
 
 ```powershell
 python scripts/vibe22_rl.py campaign --n-days 100 --seed 0 --run-id unique100_rleplus --site-root $env:SITE_ROOT
@@ -22,7 +23,7 @@ Same unique-100 heating-season EPW days (seed 0) as the prior in-tree campaign. 
 | DQN (Discrete 64) | 100 | −3085 | 183 | 2338 | 0.99 |
 | random_walk (uniform box) | 100 | −3138 | 170 | 2605 | 2.85 |
 
-Winner by mean reward: **PPO**. Ranking vs random did **not** flip. Pre-8 did not explode.
+Winner by mean reward in this TRAIN snapshot: **not a held-out eval; do not promote.** Ranking vs random did **not** flip. Pre-8 did not explode.
 
 ### Delta vs prior in-tree snapshot (PPO −2992, heuristic −3001, DQN −3128, random −3223)
 

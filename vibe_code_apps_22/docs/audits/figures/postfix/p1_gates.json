@@ -1,0 +1,46 @@
+{
+  "smoke": [
+    {
+      "day": "2026-01-25",
+      "failed": false,
+      "n_rows": 96,
+      "n_all_rows": 192,
+      "severe": 0,
+      "fatal": 0,
+      "actuator_handle_warnings": null,
+      "peak_kw": 187.73736308673602,
+      "daily_kwh": 3951.0600729780094
+    },
+    {
+      "day": "2026-01-26",
+      "failed": false,
+      "n_rows": 96,
+      "n_all_rows": 192,
+      "severe": 0,
+      "fatal": 0,
+      "actuator_handle_warnings": null,
+      "peak_kw": 246.5023852990757,
+      "daily_kwh": 4257.258274758415
+    },
+    {
+      "day": "2026-03-16",
+      "failed": false,
+      "n_rows": 96,
+      "n_all_rows": 192,
+      "severe": 0,
+      "fatal": 0,
+      "actuator_handle_warnings": null,
+      "peak_kw": 201.82166972503444,
+      "daily_kwh": 3275.649948714122
+    }
+  ],
+  "pair": {
+    "incumbent_peak": 246.5023852990757,
+    "perturbed_peak": 257.7742611165084,
+    "incumbent_kwh": 4257.258274758415,
+    "perturbed_kwh": 3736.726911841679,
+    "physics_moved": true,
+    "incumbent_failed": false,
+    "perturbed_failed": false
+  }
+}

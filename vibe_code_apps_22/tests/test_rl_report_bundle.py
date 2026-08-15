@@ -95,7 +95,8 @@ def test_load_jsonl_and_report_schema(tmp_path: Path):
     assert overlay.is_file()
     assert out["scientific_claim"].startswith("ENERGYPLUS")
     assert out["train_jsonl_is_not_eval"] is True
-    assert out["winner_mean_reward"] == "random_walk"
+    assert out["winner_mean_reward"] is None
+    assert out["winner_is_held_out_eval"] is False
 
 
 def test_violin_plot_toy(tmp_path: Path):

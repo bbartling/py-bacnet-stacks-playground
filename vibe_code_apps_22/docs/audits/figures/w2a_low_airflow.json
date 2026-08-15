@@ -1,0 +1,10 @@
+{
+  "verdict": "NO-GO_SCREENING_ONLY",
+  "note": "EnergyPlus prints the W2A <25% rated airflow warning once per run (repeats suppressed). Cannot compute timestep fraction from eplusout.err. Do not retune plant to silence warnings at the cost of GL14/peak.",
+  "days": {
+    "2026-01-26": {"severe": 0, "fatal": 0, "warning_count": 22798, "w2a_first_warning_present": true, "actuator_handle_warning_lines": 6954},
+    "2026-03-16": {"severe": 0, "fatal": 0, "warning_count": 62572, "w2a_first_warning_present": true, "actuator_handle_warning_lines": 6966},
+    "2026-01-25": {"severe": 0, "fatal": 0, "warning_count": 17500, "w2a_first_warning_present": true, "actuator_handle_warning_lines": 7056}
+  },
+  "timestep_fraction_below_25pct_rated_flow": "UNKNOWN_RECURRING_SUPPRESSED"
+}
