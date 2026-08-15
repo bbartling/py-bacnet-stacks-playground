@@ -38,14 +38,15 @@ def find_rleplus_root() -> Path:
             generic.append(root.resolve())
     if generic:
         return generic[0]
-    if any_root:
+    if env and any_root:
         raise FileNotFoundError(
-            "rllib-energyplus found but missing feat/generic-runner helpers "
+            "RLEPLUS_ROOT is set but missing feat/generic-runner helpers "
             "(rleplus/env/day_run.py). Pin SHA 01c5dc7; do not use main 89a2426."
         )
     raise FileNotFoundError(
-        "rllib-energyplus not found. Clone https://github.com/airboxlab/rllib-energyplus "
-        "to third_party/rllib-energyplus or set RLEPLUS_ROOT. Do not pip-install Ray/Pearl."
+        "rllib-energyplus generic-runner (01c5dc7 / day_run.py) not found. "
+        "Set RLEPLUS_ROOT or clone the feat/generic-runner worktree. "
+        "Do not use origin/main a8993f0 or local main 89a2426."
     )
 
 

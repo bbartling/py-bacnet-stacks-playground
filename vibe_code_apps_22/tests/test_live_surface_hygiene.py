@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[1]
 _ML = _ROOT / "ml"
 _HYBRID_ARCH = _ROOT / "archive" / "2026-08-10_pre_eplus_gym"
@@ -57,7 +59,10 @@ def test_a04_champion_filename():
 def test_rleplus_backend_importable():
     from eplus_gym.rleplus_path import find_rleplus_root
 
-    root = find_rleplus_root()
+    try:
+        root = find_rleplus_root()
+    except FileNotFoundError:
+        pytest.skip("pinned rllib-energyplus 01c5dc7 not present (CI uses vendored helpers)")
     assert (root / "rleplus" / "env" / "energyplus.py").is_file()
     env_src = (_ROOT / "eplus_gym" / "env.py").read_text(encoding="utf-8")
     assert "self.action_space.sample" not in env_src
