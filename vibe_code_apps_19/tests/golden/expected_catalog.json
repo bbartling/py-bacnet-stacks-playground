@@ -1,5 +1,5 @@
 {
-  "open_fdd_version": "4.4.0",
+  "open_fdd_version": "4.4.1",
   "diagnostic_count": 62,
   "rule_catalog_version": "59-diagnostics+4-sql-analytics",
   "catalog_schema_version": "open-fdd-catalog-v1",

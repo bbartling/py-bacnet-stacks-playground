@@ -22,6 +22,7 @@ from profile_wattlab_export import (  # noqa: E402
     measure_export,
 )
 
+from app.agent_api import export_agent_bundle
 from app.rules.base import RuleResult
 from app.wattlab_dump import write_fdd_evidence, write_shared_telemetry
 
@@ -356,3 +357,26 @@ def test_shared_telemetry_one_file_per_equipment_deterministic(tmp_path: Path):
     forensic_df = pd.read_csv(forensic["AHU_A"])
     assert "extra" in forensic_df.columns
     assert list(forensic_df.columns).count("timestamp") == 1
+
+
+_DIAGNOSTIC_ORACLE_CSVS = {
+    "vav_health_matrix.csv",
+    "mech_cooling_oat_bins.csv",
+    "motor_hours.csv",
+    "motor_weekly.csv",
+}
+
+
+def test_diagnostic_dump_tables_oracle_csvs(tmp_path: Path):
+    dataset, run = build_profile_fixture()
+    export_agent_bundle(
+        dataset, run, tmp_path, include_bootstrap=False, profile="diagnostic"
+    )
+    names = {p.name for p in tmp_path.rglob("*") if p.is_file()}
+    assert _DIAGNOSTIC_ORACLE_CSVS <= names
+    for name in _DIAGNOSTIC_ORACLE_CSVS:
+        df = pd.read_csv(tmp_path / name)
+        assert not df.empty, name
+    manifest = json.loads((tmp_path / "MANIFEST.json").read_text(encoding="utf-8"))
+    man_paths = {e.get("path") for e in manifest.get("files") or []}
+    assert _DIAGNOSTIC_ORACLE_CSVS <= man_paths

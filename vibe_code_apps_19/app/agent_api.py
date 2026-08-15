@@ -613,6 +613,7 @@ def export_agent_bundle(
             run.summary = summary
 
     # Long-format findings + profile-aware evidence + shared telemetry
+    findings = pd.DataFrame()
     if run.results:
         findings = fdd_findings_table(run.results)
         if isinstance(findings, pd.DataFrame) and not findings.empty:
@@ -633,6 +634,21 @@ def export_agent_bundle(
         for ts_path in export_counts.written:
             rel = ts_path.relative_to(out).as_posix()
             written[f"fdd_timeseries:{rel}"] = ts_path
+
+    if export_profile in ("diagnostic", "forensic"):
+        from open_fdd.analytics import dump_tables
+
+        dumped = dump_tables(
+            out,
+            frames=dataset.frames,
+            role_map=dataset.role_map,
+            rule_results=findings if isinstance(findings, pd.DataFrame) and not findings.empty else None,
+            weather=dataset.weather,
+            building_id=dataset.building_id,
+            unit_system=dataset.unit_system,
+        )
+        for name, path in dumped.items():
+            written[Path(name).stem] = path
 
     for eq_id, tel_path in write_shared_telemetry(
         dataset.frames,
