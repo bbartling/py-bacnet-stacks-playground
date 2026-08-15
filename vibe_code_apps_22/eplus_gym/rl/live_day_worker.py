@@ -29,6 +29,8 @@ def run_live_day_inprocess(
     reward_name: str = "legacy_reward_v1",
     reward_weights: Dict[str, Any] | None = None,
     mtd_peak_kw: float = 0.0,
+    skip_paired_baseline: bool = False,
+    cache_dir: Path | None = None,
 ) -> Dict[str, Any]:
     """Execute one day; safe only in a process that has not imported torch."""
     import pandas as pd
@@ -91,13 +93,81 @@ def run_live_day_inprocess(
     df = pd.DataFrame(result["rows"])
     pq = ep_dir / "trajectory.parquet"
     df.to_parquet(pq, index=False)
+    all_rows = list(result.get("all_rows") or [])
+    pq_all = ep_dir / "trajectory_all.parquet"
+    pd.DataFrame(all_rows).to_parquet(pq_all, index=False)
+    from eplus_gym.rl.trajectory_provenance import (
+        extract_lookback_end_zone_temps,
+        write_episode_manifest,
+    )
+
+    start_temps = None
+    if lb > 0 and all_rows:
+        start_temps = extract_lookback_end_zone_temps(all_rows)
+    man = write_episode_manifest(
+        ep_dir,
+        n_rows=int(len(df)),
+        n_all_rows=int(len(all_rows)),
+        trajectory=pq,
+        trajectory_all=pq_all,
+    )
     w = RewardWeights(**reward_weights) if isinstance(reward_weights, dict) else RewardWeights()
+    baseline_kwh = None
+    baseline_peak_kw = None
+    needs_base = str(reward_name) in {"operator_pay_2x_v1", "operator_pay_3x_v1"}
+    if needs_base and not skip_paired_baseline:
+        from eplus_gym.rl.baseline_cache import (
+            BASELINE_INCUMBENT,
+            get_or_compute_incumbent_baseline,
+            key_from_paths,
+        )
+        from eplus_gym.six_zone_daily_controller import incumbent_lookback_params
+
+        cache = Path(cache_dir) if cache_dir else Path(site_root) / "reports" / "eplus_gym" / "rl" / "baseline_cache"
+        prov = key_from_paths(
+            idf=Path(champion_idf),
+            staged_epw=Path(staged_epw),
+            day=str(day)[:10],
+            lookback_days=lb,
+            baseline_name=BASELINE_INCUMBENT,
+            energyplus_version="EnergyPlus",
+            reward_name=str(reward_name),
+            billing_floor_kw=float(mtd_peak_kw),
+        )
+
+        def _compute() -> tuple[float, float]:
+            nested = ep_dir / "_incumbent_baseline"
+            inc_payload = run_live_day_inprocess(
+                site_root=site_root,
+                epw=epw,
+                champion_idf=champion_idf,
+                day=day,
+                params=incumbent_lookback_params().to_dict(),
+                ep_dir=nested,
+                queue_timeout_s=queue_timeout_s,
+                lookback_days=lb,
+                reward_name="legacy_reward_v1",
+                reward_weights=reward_weights,
+                mtd_peak_kw=mtd_peak_kw,
+                skip_paired_baseline=True,
+                cache_dir=cache,
+            )
+            if inc_payload.get("failed"):
+                raise ValueError(f"incumbent baseline sim failed: {inc_payload.get('error')}")
+            return float(inc_payload["daily_kwh"]), float(inc_payload["peak_kw"])
+
+        rec = get_or_compute_incumbent_baseline(cache_dir=cache, provenance=prov, compute=_compute)
+        baseline_kwh = float(rec["baseline_kwh"])
+        baseline_peak_kw = float(rec["baseline_peak_kw"])
     br = score_day(
         df,
         reward_name=str(reward_name),
         weights=w,
         school_day=illustrative_school_day(day),
         mtd_peak_kw=float(mtd_peak_kw),
+        billing_floor_kw=float(mtd_peak_kw),
+        baseline_kwh=baseline_kwh,
+        baseline_peak_kw=baseline_peak_kw,
     )
     payload = {
         "reward": br.reward,
@@ -113,7 +183,13 @@ def run_live_day_inprocess(
         "params": ctrl.params.to_dict(),
         "day": day,
         "n_rows": int(len(df)),
+        "n_all_rows": int(len(all_rows)),
         "trajectory": str(pq),
+        "trajectory_all": str(pq_all),
+        "start_zone_temps_f": start_temps,
+        "episode_manifest": man,
+        "baseline_kwh": baseline_kwh,
+        "baseline_peak_kw": baseline_peak_kw,
         "scientific_claim": SCREENING_CLAIM,
         "simulator": "LIVE_ENERGYPLUS",
     }
@@ -144,6 +220,8 @@ def run_live_day_subprocess(
     reward_name: str = "legacy_reward_v1",
     reward_weights: Dict[str, Any] | None = None,
     mtd_peak_kw: float = 0.0,
+    skip_paired_baseline: bool = False,
+    cache_dir: Path | None = None,
 ) -> Dict[str, Any]:
     """Spawn a fresh interpreter for one LIVE day; return reward payload."""
     ep_dir = Path(ep_dir)
@@ -160,6 +238,8 @@ def run_live_day_subprocess(
         "reward_name": str(reward_name),
         "reward_weights": reward_weights,
         "mtd_peak_kw": float(mtd_peak_kw),
+        "skip_paired_baseline": bool(skip_paired_baseline),
+        "cache_dir": str(cache_dir) if cache_dir else None,
     }
     job_path = ep_dir / "job.json"
     out_path = ep_dir / "worker_result.json"
@@ -220,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
             reward_name=str(job.get("reward_name") or "legacy_reward_v1"),
             reward_weights=job.get("reward_weights"),
             mtd_peak_kw=float(job.get("mtd_peak_kw") or 0.0),
+            skip_paired_baseline=bool(job.get("skip_paired_baseline") or False),
+            cache_dir=Path(job["cache_dir"]) if job.get("cache_dir") else None,
         )
         Path(args.out).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         return 0

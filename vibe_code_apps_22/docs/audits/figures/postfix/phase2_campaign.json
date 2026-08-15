@@ -1,8 +1,9 @@
 {
   "run_id": null,
   "status": "NOT_RUN",
-  "locked_january_opened": false,
-  "reason": "P1 subprocess smoke and Jan26 paired physics passed. Full train fold (days through 2025-12-14, ~136 calendar days) times 3 chronological passes times PPO plus DQN ablation plus incumbent baselines is not executed in this commit. Model selection never saw locked January.",
+  "january_is_pristine_holdout": false,
+  "january_note": "Calibration and P1 used 2026-01-26. Chronology may still be used for future model selection. No new untouched final test window is designated.",
+  "reason": "P1 subprocess smoke and Jan26 paired physics passed as a manual control perturbation, not RL. Full train fold was not executed. Valid post-fix RL training episodes remain 0.",
   "budget": {
     "approx_train_days": 136,
     "validation_days": 17,

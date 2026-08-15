@@ -1,0 +1,42 @@
+{
+  "schema": "vibe22.experiment_ledger.v1",
+  "a04_sha256_pin": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "a04_sha256_verified": null,
+  "calibration_scope": "monthly_partial_period_guideline_14_screen",
+  "valid_postfix_training_episodes": 0,
+  "historical_invalid_training_episodes": {
+    "PPO": 488,
+    "DQN": 488,
+    "run_id": "year2xsyn",
+    "exclusion": "INVALID_PRE_FIX_EPLUS_SEVERE"
+  },
+  "valid_postfix_eplus_gate_calls": 5,
+  "gate_days": [
+    "2026-01-25",
+    "2026-01-26",
+    "2026-03-16"
+  ],
+  "jan26_pair": {
+    "kind": "manual_control_perturbation",
+    "not_rl_policy": true,
+    "incumbent_peak_kw": 246.5023852990757,
+    "perturbed_peak_kw": 257.7742611165084,
+    "incumbent_kwh": 4257.258274758415,
+    "perturbed_kwh": 3736.726911841679
+  },
+  "deterministic_validation_episodes": 0,
+  "heldout_test_episodes": 0,
+  "january_status": "not_pristine_untouched_holdout; calibration and P1 used 2026-01-26; chronology may still be used for future model selection; no new final test window designated",
+  "excluded": [
+    {
+      "run_id": "year2xsyn",
+      "reason": "INVALID_PRE_FIX_EPLUS_SEVERE \u2014 TRAIN EXPLORATION ONLY; not a learning result"
+    },
+    {
+      "kind": "train_reward_json_as_eval",
+      "reason": "last train reward.json is not deterministic evaluation"
+    }
+  ],
+  "p1_gates_path": "C:/Users/ben/Documents/py-bacnet-stacks-playground/.worktrees/vibe22-postfix-pilot-readiness/vibe_code_apps_22/docs/audits/figures/postfix/p1_gates.json",
+  "sha256": "a67c1b55cb0e1db9816376ecb681329aa5de4648f00bdc25eb47528da9e8f95b"
+}

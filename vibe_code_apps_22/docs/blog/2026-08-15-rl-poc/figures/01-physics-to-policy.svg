@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071827"/>
+      <stop offset="1" stop-color="#102f45"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".25"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#68d6e6"/>
+    </marker>
+    <style>
+      .title{font:700 46px Inter,Segoe UI,Arial,sans-serif;fill:#fff}
+      .sub{font:400 22px Inter,Segoe UI,Arial,sans-serif;fill:#b9d6e4}
+      .h{font:700 27px Inter,Segoe UI,Arial,sans-serif;fill:#fff}
+      .t{font:400 20px Inter,Segoe UI,Arial,sans-serif;fill:#d7e7ee}
+      .tiny{font:600 17px Inter,Segoe UI,Arial,sans-serif;fill:#8fc6d8;letter-spacing:.8px}
+      .card{fill:#163d54;stroke:#38718a;stroke-width:2}
+      .accent{fill:#0e6576;stroke:#54c7da;stroke-width:2}
+      .warn{fill:#533d19;stroke:#e5b65f;stroke-width:2}
+      .arrow{stroke:#68d6e6;stroke-width:5;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <text x="80" y="86" class="title">From calibrated physics to a daily DSM experiment</text>
+  <text x="80" y="126" class="sub">EnergyPlus is the training plant. The Gym wrapper makes every policy face the same test.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="210" width="310" height="330" rx="28" class="card"/>
+    <text x="105" y="258" class="tiny">MEASURED CONTEXT</text>
+    <text x="105" y="310" class="h">Building + weather</text>
+    <text x="105" y="358" class="t">• 24-hour forecast</text>
+    <text x="105" y="398" class="t">• Six current zone temps</text>
+    <text x="105" y="438" class="t">• School-day calendar</text>
+    <text x="105" y="478" class="t">• Billing floor + MTD peak</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="470" y="210" width="300" height="330" rx="28" class="accent"/>
+    <text x="505" y="258" class="tiny">DAILY POLICY</text>
+    <text x="505" y="310" class="h">PPO / DQN / rule</text>
+    <text x="505" y="358" class="t">Chooses one daily plan:</text>
+    <text x="505" y="402" class="t">• occupied setpoint</text>
+    <text x="505" y="442" class="t">• setback by zone</text>
+    <text x="505" y="482" class="t">• start, stop, recovery</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="860" y="210" width="300" height="330" rx="28" class="card"/>
+    <text x="895" y="258" class="tiny">TRAINING PLANT</text>
+    <text x="895" y="310" class="h">A04 EnergyPlus</text>
+    <text x="895" y="358" class="t">Six BAS-aligned zones</text>
+    <text x="895" y="402" class="t">192 × 15-min steps:</text>
+    <text x="895" y="442" class="t">• fixed D−1 lookback</text>
+    <text x="895" y="482" class="t">• D target day</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1250" y="210" width="280" height="330" rx="28" class="card"/>
+    <text x="1285" y="258" class="tiny">MEASURE + SCORE</text>
+    <text x="1285" y="310" class="h">96 scored steps</text>
+    <text x="1285" y="358" class="t">• facility kW</text>
+    <text x="1285" y="398" class="t">• daily kWh</text>
+    <text x="1285" y="438" class="t">• six zone temps</text>
+    <text x="1285" y="478" class="t">• comfort + reward</text>
+  </g>
+
+  <path d="M380 375 H460" class="arrow"/>
+  <path d="M770 375 H850" class="arrow"/>
+  <path d="M1160 375 H1240" class="arrow"/>
+  <path d="M1390 550 C1390 695 635 695 635 550" class="arrow"/>
+  <text x="775" y="710" class="tiny" text-anchor="middle">TRAJECTORY → REWARD → POLICY UPDATE</text>
+
+  <rect x="170" y="738" width="1260" height="98" rx="22" class="warn"/>
+  <text x="800" y="778" class="h" text-anchor="middle">Physics-informed head start ≠ operational proof</text>
+  <text x="800" y="814" class="t" text-anchor="middle">Monthly calibration, held-out control tests, safety logic, and field validation answer different questions.</text>
+</svg>

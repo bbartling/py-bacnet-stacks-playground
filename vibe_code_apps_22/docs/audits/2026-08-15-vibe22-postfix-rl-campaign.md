@@ -4,7 +4,7 @@
 
 **Verdict:** `NO_GO_INSUFFICIENT_EVIDENCE`
 
-P0 experiment integrity is in code. P1 EnergyPlus subprocess smoke and January 26 paired physics **passed**. A multi-seed train/validation campaign and the locked January test were **not opened**.
+P0 experiment integrity is in code. P1 EnergyPlus subprocess smoke and January 26 paired physics **passed** as a **manual control perturbation**, not an RL policy. Valid post-fix RL training episodes remain **0**. January is **not** a pristine untouched holdout (calibration and P1 used 2026-01-26).
 
 Not operationally ready. Not BACnet ready. Not optimized.
 
@@ -20,7 +20,7 @@ Not operationally ready. Not BACnet ready. Not optimized.
 | Repeated actuator-handle warnings? | **0** on P1 smoke (`actuator_handle_warnings` null) |
 | W2A low-airflow | Still disclosed / structural |
 | Pilot/full PPO-DQN campaign | **NOT RUN** |
-| Locked January opened? | **No** |
+| January holdout | **Not pristine** — calibration and P1 used 2026-01-26 |
 
 ## 2. Implementation changes
 
@@ -122,9 +122,7 @@ Do not write BACnet. Do not auto-promote. Offline screening of the **simulator**
 
 ## Handoff
 
-- Branch: `fix/vibe22-rl-scientific-validity` (PR #91), merge to `develop` after this postfix commit.
-- run_id(s): none trained (`postfix_pilot_20260815` reserved, **NOT RUN**).
-- Locked January opened: **no**.
-- Verdict: `NO_GO_INSUFFICIENT_EVIDENCE`.
-- P1 physics: GO (`physics_moved: true`).
-- CI: wait for `vibe22-ci` / `python-tests` on the postfix push before merge.
+- See [`2026-08-15-vibe22-rl-poc-closure.md`](2026-08-15-vibe22-rl-poc-closure.md) for the evidence-closure PR.
+- run_id(s): none trained. Valid post-fix RL episodes = 0.
+- January is not a pristine holdout.
+- Verdict: `NO_GO_INSUFFICIENT_EVIDENCE` for learned savings; architecture POC is separately `GO_FOR_BLOG_WITH_LIMITATIONS`.
