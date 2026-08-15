@@ -1,4 +1,4 @@
-canonical_rule_count: 59
+canonical_rule_count: 62
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -728,6 +728,36 @@ rules:
   - fault_sample_count
   source_function: ahu_sat_dev
   known_limitations: ''
+- rule_id: RESET-1
+  family: ahu
+  title: SAT reset not tracking outdoor air
+  description: Flags SAT setpoint that is not tracking the outdoor-air reset curve.
+  summary: Flags SAT setpoint that is not tracking the outdoor-air reset curve.
+  required_roles:
+  - discharge-air-temp-sp
+  - outside-air-temp
+  optional_roles:
+  - fan-status
+  - fan-cmd
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - reset_err_f
+  - reset_sat_at_65
+  - reset_slope
+  - reset_oat_ref
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: reset1
+  known_limitations: Canonical OpenFDD 4.4.0
 - rule_id: AHU-DUCTHI
   family: ahu
   title: Duct static pressure high
@@ -1109,6 +1139,33 @@ rules:
   - fault_sample_count
   source_function: vav1
   known_limitations: ''
+- rule_id: VAV-2
+  family: vav
+  title: Night setback miss
+  description: Flags unoccupied zones that never drop into heating setback.
+  summary: Flags unoccupied zones that never drop into heating setback.
+  required_roles:
+  - zone-air-temp
+  - occupied
+  optional_roles:
+  - occ-mode
+  equipment_kinds:
+  - vav
+  - zone
+  tunable_params:
+  - setback_hi
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav2
+  known_limitations: Canonical OpenFDD 4.4.0
 - rule_id: VAV-3
   family: vav
   title: Excessive reheat during warm weather
@@ -1186,6 +1243,33 @@ rules:
   - fault_sample_count
   source_function: vav5
   known_limitations: ''
+- rule_id: VAV-6
+  family: vav
+  title: Reheat when cooling available
+  description: Flags reheat while outdoor air is cool enough for free cooling.
+  summary: Flags reheat while outdoor air is cool enough for free cooling.
+  required_roles:
+  - outside-air-temp
+  - reheat-valve
+  optional_roles:
+  - cooling-available
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - free_cool_oat
+  - reheat_pct
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav6
+  known_limitations: Canonical OpenFDD 4.4.0
 - rule_id: VAV-REHEAT
   family: vav
   title: Reheat valve stuck / no temp rise

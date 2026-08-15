@@ -7,8 +7,18 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-MIN_OPEN_FDD = (4, 3, 0)
+
+def installed_open_fdd_path() -> str:
+    try:
+        import open_fdd
+
+        return str(Path(open_fdd.__file__).resolve())
+    except Exception:
+        return "(open_fdd import failed)"
+
+MIN_OPEN_FDD = (4, 4, 0)
 MAX_OPEN_FDD_MAJOR = 5
+MIN_OPEN_FDD_SPEC = ">=4.4.0,<5"
 
 _APP_ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,29 +49,31 @@ def installed_open_fdd_version() -> str:
         return version("open-fdd")
     except PackageNotFoundError as exc:
         raise OpenFddVersionError(
-            "open-fdd is not installed. Install open-fdd[reporting]>=4.3.0,<5."
+            f"open-fdd is not installed. Install open-fdd[reporting]{MIN_OPEN_FDD_SPEC}."
         ) from exc
 
 
 def require_supported_open_fdd() -> str:
-    """Refuse stale host wheels (3.0.1 / 4.2.0) and future major 5+."""
+    """Refuse stale host wheels (3.0.1 / 4.3.0) and future major 5+."""
     ver = installed_open_fdd_version()
+    path = installed_open_fdd_path()
     parsed = _parse_pep440_major_minor_patch(ver)
     if parsed[0] >= MAX_OPEN_FDD_MAJOR:
         raise OpenFddVersionError(
-            f"open-fdd {ver} is too new for this application (need <{MAX_OPEN_FDD_MAJOR})."
+            f"open-fdd {ver} at {path} is too new (need <{MAX_OPEN_FDD_MAJOR})."
         )
     if parsed < MIN_OPEN_FDD:
         raise OpenFddVersionError(
-            f"open-fdd {ver} is too old. Need >=4.3.0,<5 (do not use host 3.0.1 or 4.2.0)."
+            f"open-fdd {ver} at {path} is too old. Need {MIN_OPEN_FDD_SPEC} "
+            "(do not use host 3.0.1 or 4.3.0)."
         )
     try:
         from open_fdd import __version__ as runtime
     except Exception as exc:  # pragma: no cover
-        raise OpenFddVersionError(f"open-fdd import failed: {exc}") from exc
+        raise OpenFddVersionError(f"open-fdd import failed ({path}): {exc}") from exc
     if str(runtime).split("+", 1)[0] != ver.split("+", 1)[0]:
         raise OpenFddVersionError(
-            f"open-fdd import version {runtime!r} does not match installed {ver!r}."
+            f"open-fdd import version {runtime!r} does not match installed {ver!r} at {path}."
         )
     return ver
 

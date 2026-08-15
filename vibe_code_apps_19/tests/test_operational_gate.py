@@ -127,6 +127,7 @@ def test_mechanical_rules_not_always_except_known():
         "CMD-1",
         "MECH-OAT-1",
         "CHW-NOLOAD-1",
+        "VAV-2",  # OpenFDD 4.4.0 gate catalog
     }
     for r in CANONICAL_RULES:
         kind = RULE_GATES[r.id].kind

@@ -54,4 +54,6 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.model_seed:infer_schedules",
     "app.model_seed:operating_signatures",
     "app.open_meteo:fetch_open_meteo",
+    "app.vav_health:compute_vav_health_matrix",
+    "app.ui_vav_health:render_vav_health_overview",
 )

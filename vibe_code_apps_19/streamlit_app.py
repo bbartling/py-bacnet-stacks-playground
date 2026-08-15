@@ -1,4 +1,4 @@
-"""Vibe Code App 19 — 50-rule pandas/Streamlit FDD demo."""
+"""Vibe Code App 19 — Streamlit pandas FDD demo (OpenFDD PyPI cookbook)."""
 
 from __future__ import annotations
 
@@ -59,6 +59,7 @@ from app.dashboard_contract import REQUIRED_MAIN_SECTIONS  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
 from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode, occupied_hours_per_week  # noqa: E402
 from app.ui_rcx_tab import render_rcx_plots_tab  # noqa: E402
+from app.ui_vav_health import render_vav_health_overview  # noqa: E402
 from app.unit_system import c_to_f, f_to_c, units_map_for_system  # noqa: E402
 from app.mapping_wizard import (  # noqa: E402
     DEFAULT_BUILDING_ID,
@@ -2401,6 +2402,7 @@ def main() -> None:
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
         min_air_hours = _render_building_schedule_overview()
+        render_vav_health_overview()
         _render_plant_motor_weekly(
             motor_weekly,
             key_prefix="overview",

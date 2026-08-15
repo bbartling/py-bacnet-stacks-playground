@@ -1,14 +1,12 @@
 {
-  "open_fdd_version": "4.3.0",
-  "diagnostic_count": 59,
+  "open_fdd_version": "4.4.0",
+  "diagnostic_count": 62,
   "rule_catalog_version": "59-diagnostics+4-sql-analytics",
   "catalog_schema_version": "open-fdd-catalog-v1",
-  "rule_catalog_hash": "097eeda2282a17e785e70f1e9f941c554a8eeeb294ae581746d4d3c21b2e6072",
-  "effective_config_hash": "097eeda2282a17e785e70f1e9f941c554a8eeeb294ae581746d4d3c21b2e6072",
-  "pypi_430_wheel_hash": "5acedd0ddc0bd91e0307539c4f029683197c995fdabb111412b760e74568d274",
-  "openfdd_710_sched1_hash": "097eeda2282a17e785e70f1e9f941c554a8eeeb294ae581746d4d3c21b2e6072",
+  "rule_catalog_hash": "2e684dbb8f3188f06942c3cb0155aef4149713e7244b9f7733262f182465cba9",
+  "effective_config_hash": "2e684dbb8f3188f06942c3cb0155aef4149713e7244b9f7733262f182465cba9",
   "bundle_schema": "openfdd_engineering_bundle_v1",
   "legacy_bundle_schema": "wattlab_dump_v3",
   "building100_equipment": 48,
-  "building100_result_rows": 2832
+  "building100_result_rows": 2976
 }

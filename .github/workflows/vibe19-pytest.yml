@@ -28,21 +28,14 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -e ".[dev,engineering-report]" -c constraints.txt
-          # Overlay git OpenFDD so occupied-string + hydronic-ungate land before PyPI 4.3.1.
-          # Override with repo variable OPENFDD_GIT_SHA to pin a SHA.
-          OFDD_REF="${{ vars.OPENFDD_GIT_SHA }}"
-          if [ -z "$OFDD_REF" ]; then
-            OFDD_REF="master"
-          fi
-          pip install --upgrade --force-reinstall --no-deps \
-            "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@${OFDD_REF}"
-          python -c "import open_fdd,inspect; from open_fdd.catalog import rule_catalog_hash; print(open_fdd.__file__, open_fdd.__version__, rule_catalog_hash())"
+          python -c "import open_fdd,inspect; from open_fdd.catalog import rule_catalog_hash; from open_fdd.analytics.vav_health import SCHEMA_VERSION; print(open_fdd.__file__, open_fdd.__version__, rule_catalog_hash(), SCHEMA_VERSION)"
       - name: Runtime OpenFDD pin
         run: python -c "from app.openfdd_runtime import require_supported_open_fdd; print(require_supported_open_fdd())"
       - name: Focused contract tests
         run: |
           python -m pytest -q \
             tests/test_openfdd_runtime.py \
+            tests/test_vav_health.py \
             tests/test_parent_ahu_map.py \
             tests/test_data_contract.py \
             tests/test_topology_enrich.py \

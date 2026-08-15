@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-14 — PyPI OpenFDD 4.4.0 + VAV health matrix
+
+- Pin `open-fdd[reporting]==4.4.0` (pyproject / requirements / constraints). Drop GitHub ZIP overlay in CI.
+- Overview: canonical VAV health matrix after occupancy controls (`app/vav_health.py` adapter only).
+- Runtime guard `>=4.4.0,<5`; catalog pin 62 diagnostics / hash `2e684dbb…`.
+- GHCR `:latest` updates after this lands on develop (`vibe19-ghcr.yml`).
+
+---
+
 ## 2026-08-14 — WattLab summary export: bool quantile crash
 
 - `app/wattlab_dump.py`: coerce series to float64 (`_as_float_series`) before `quantile`/`diff` so boolean fault/flag columns do not raise `numpy boolean subtract`.

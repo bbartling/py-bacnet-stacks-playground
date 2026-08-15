@@ -98,7 +98,10 @@ def test_sched247_uses_duct_static_as_on_evidence() -> None:
         300.0,
         require_operational_gates=False,
     )
-    assert r.status == "FAULT", r.notes
+    # OpenFDD 4.4.0: fan-status off is canonical proof; duct static is inferred runtime only.
+    assert r.status == "PASS", r.notes
+    assert float(r.metrics.get("proven_runtime_hours") or 0) == 0.0
+    assert float(r.metrics.get("inferred_runtime_hours") or 0) > 0
 
 
 def test_rcx_non_tower_scatter_presets_say_dry_bulb() -> None:

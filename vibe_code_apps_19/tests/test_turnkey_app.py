@@ -419,45 +419,18 @@ def test_mech_cooling_one_device_message_and_coverage(
     radio.set_value("Export")
     at.run()
     assert not at.exception
-
-    # Export-profile selectbox defaults to Summary and persists across section reruns.
-    profile_box = next(
-        (s for s in at.main.selectbox if getattr(s, "label", "") == "Export profile"),
-        None,
-    )
-    assert profile_box is not None
-    assert profile_box.value == "Summary (default)"
+    export_text = _main_text(at)
+    assert "OpenFDD Engineering Bundle" in export_text
     assert at.session_state["wattlab_export_profile"] == "summary"
-    profile_box.set_value("Diagnostic")
-    at.run()
-    assert not at.exception
-    assert at.session_state["wattlab_export_profile"] == "diagnostic"
+    assert not any(getattr(s, "label", "") == "Export profile" for s in at.main.selectbox)
 
     radio = _section_radio(at)
     radio.set_value("Overview")
     at.run()
     assert not at.exception
-    radio = _section_radio(at)
-    radio.set_value("Export")
-    at.run()
-    assert not at.exception
-    profile_box = next(
-        s for s in at.main.selectbox if getattr(s, "label", "") == "Export profile"
-    )
-    assert profile_box.value == "Diagnostic"
-    assert at.session_state["wattlab_export_profile"] == "diagnostic"
-
-    proof = next(
-        c
-        for c in at.sidebar.checkbox
-        if c.label == "Use mapped mechanical-cooling status proof"
-    )
-    assert proof.value is True
-    radio = _section_radio(at)
-    radio.set_value("Overview")
-    at.run()
-    assert not at.exception
-    assert "Only CHILLER_2 had observed compressor runtime during this period." in _main_text(at)
+    overview = _main_text(at)
+    assert "VAV health" in overview
+    assert "Only CHILLER_2 had observed compressor runtime during this period." in overview
 
 
 @pytest.mark.timeout(120)

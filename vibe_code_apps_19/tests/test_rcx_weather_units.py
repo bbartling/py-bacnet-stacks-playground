@@ -11,7 +11,7 @@ from app.unit_system import convert_series, f_to_c
 from app.weather_psychrometrics import dewpoint_f_from_db_rh, enrich_weather_frame, wetbulb_f_stull
 
 
-def test_canonical_rule_count_still_50():
+def test_canonical_rule_count_matches_pin():
     from tests.catalog_contract import pinned_diagnostic_count
 
     assert len(RULES) == pinned_diagnostic_count()

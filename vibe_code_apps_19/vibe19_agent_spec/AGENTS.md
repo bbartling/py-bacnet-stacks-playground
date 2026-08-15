@@ -29,7 +29,7 @@ session. Production Rust Open-FDD is a **separate** repo.
 ## AI agent quick rules (read first)
 
 1. **Never commit client CSV history** — browse/paste a local building folder; keep trees out of git.
-2. **59 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`.
+2. **62 canonical diagnostics on OpenFDD 4.4.0** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`. (Manifest `rule_catalog_version` may still read `59-diagnostics+4-sql-analytics`.)
 3. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph** in this app.
 4. **Rules follow Open-FDD pandas cookbook** — raw mask → optional operational gate → `confirm_fault()` → rollup hours.
 5. **Operational gates** — most rules require fan/pump/compressor proof; see `docs/OPERATIONAL_GATES.md`. Prefer `fan_status` over `fan_cmd`.

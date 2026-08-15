@@ -1,4 +1,4 @@
-# Agent prompt — Streamlit 50-rule pandas FDD demo
+# Agent prompt — Streamlit pandas FDD demo (pinned OpenFDD catalog)
 
 **Open-FDD (Rust/DataFusion):** `C:\Users\ben\Documents\open-fdd` — do **not** re-add Rust here.
 
@@ -8,9 +8,10 @@ Codex / Claude / Cursor: paste this file as the session brief. For **Cloud zip p
 
 ## Mission
 
-Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rule pandas cookbook**:
+Maintain Vibe App 19 as an **educational Streamlit demo** consuming the **pinned PyPI OpenFDD cookbook** (`open-fdd[reporting]==4.4.0`, 62 diagnostic rules; catalog version string remains `59-diagnostics+4-sql-analytics`):
 
-- `app/rules/cookbook_catalog.py` — 50 canonical rule definitions
+- `app/rules/` — thin shims to `open_fdd` (do not fork fault equations)
+- `app/vav_health.py` — thin adapter for `open_fdd.analytics.vav_health`
 - `app/rules/custom_boilerplate.py` + `custom_rules.py` — agent **CUSTOM-*** pandas / ML sketches
 - `app/rules/runner.py` — skip / equipment-off / not-applicable execution
 - `configs/rule_inventory.yaml` + `rule_defaults.yaml`
@@ -25,7 +26,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`. Agent extras use `CUSTOM-*` ids via `custom_rules.py` (see CUSTOM_RULES.md).
+1. **Pinned OpenFDD catalog (62 diagnostics on 4.4.0)** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`. Agent extras use `CUSTOM-*` ids via `custom_rules.py` (see CUSTOM_RULES.md). Do not reimplement VAV-health math in Vibe19.
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph**
 3. **No client historian trees in git** — local: browse folder; Cloud/shared: upload zip only (see package spec). Demo zip `data/demo_package_v1.zip` is OK
 4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`

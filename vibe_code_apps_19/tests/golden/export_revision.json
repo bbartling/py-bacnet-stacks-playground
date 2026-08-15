@@ -1,9 +1,9 @@
 {
   "application": "vibe19-fdd-demo",
   "application_version": "0.2.0",
-  "open_fdd_version": "4.3.0",
+  "open_fdd_version": "4.4.0",
   "bundle_schema": "openfdd_engineering_bundle_v1",
   "legacy_bundle_schema": "wattlab_dump_v3",
-  "rule_catalog_hash": "097eeda2282a17e785e70f1e9f941c554a8eeeb294ae581746d4d3c21b2e6072",
-  "note": "streamlit_application_git_sha is recorded at export time in MANIFEST provenance; hash pins open-fdd#710 SCHED-1 portable occupancy tip"
+  "rule_catalog_hash": "2e684dbb8f3188f06942c3cb0155aef4149713e7244b9f7733262f182465cba9",
+  "note": "Pin PyPI open-fdd[reporting]==4.4.0 (vav_health_matrix_v1). Manifest catalog_version string is still 59-diagnostics+4-sql-analytics; live RULES length is 62."
 }

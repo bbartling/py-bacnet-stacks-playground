@@ -2,13 +2,13 @@
 name: vibe19-streamlit-demo
 description: >-
   Use when working on Open FDD Vibe Coder Streamlit FDD demo: streamlit_app.py,
-  50-rule pandas cookbook, building folder browse, Haystack-like column map JSON,
+  OpenFDD pandas cookbook (PyPI 4.4.0), building folder browse, Haystack-like column map JSON,
   Plots validation cards, Data Model, FDD DOCX, RCx Plots, analytics, occupancy
   calendar, unit toggle. Triggers on: Streamlit, streamlit_app, BUILDING tree,
-  Haystack points, column map, RCx, Plots, DOCX, 50 rules.
+  Haystack points, column map, RCx, Plots, DOCX, cookbook rules.
 ---
 
-# Vibe19 — Streamlit 50-rule pandas FDD demo
+# Vibe19 — Streamlit pandas FDD demo (OpenFDD 4.4.0)
 
 **Brand:** Open FDD Vibe Coder (`shared/branding.py`).
 

@@ -52,7 +52,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
+| Overview | Metrics, occupancy calendar → `occ_mode`, **VAV health matrix** (broken box / poor comfort / rogue damper; OpenFDD `vav_health_matrix_v1`), motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
 | Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx**; **FDD Engineering Findings Report** (button-triggered) |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |

@@ -2,6 +2,7 @@ chart_type,empty_reason,outlier_count,preset_id,role,row_count,series_count,titl
 box,,0.000000,duct_static_box,duct-static-pressure,270.000000,1.000000,AHU — duct static fan-on (box)
 metering,,0.000000,meter_elec_cdd,elec-power,3.000000,1.000000,Metering — electric kWh/month vs CDD (scatter + stats)
 metering,,0.000000,meter_gas_hdd,gas-flow,3.000000,1.000000,Metering — gas/month vs HDD (scatter + stats)
+ranking,,0.000000,vav_health_matrix,zone-air-temp,128.000000,1.000000,Zones — VAV health (broken / comfort / rogue)
 ranking,,0.000000,zone_comfort_rank,zone-air-temp,128.000000,1.000000,Zones — comfort fail ranking (occupied hours)
 scatter_oat,,0.000000,ahu_sat_reset_scatter,discharge-air-temp,360.000000,1.000000,AHU — SAT vs web dry-bulb (scatter)
 scatter_oat,,0.000000,chw_reset_scatter,chilled-water-supply-temp,360.000000,1.000000,Chiller / CHW — leave temp vs web dry-bulb (scatter)

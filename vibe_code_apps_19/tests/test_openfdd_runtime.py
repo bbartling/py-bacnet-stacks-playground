@@ -10,7 +10,7 @@ from tests.catalog_contract import assert_live_catalog_matches_pin, pinned_diagn
 
 def test_require_supported_open_fdd():
     ver = require_supported_open_fdd()
-    assert ver.startswith("4.3.")
+    assert ver.startswith("4.4.")
 
 
 def test_catalog_pin_matches_installed_package():
@@ -33,4 +33,12 @@ def test_refuse_host_301(monkeypatch):
 
     monkeypatch.setattr(rt, "installed_open_fdd_version", lambda: "3.0.1")
     with pytest.raises(OpenFddVersionError, match="too old"):
+        rt.require_supported_open_fdd()
+
+
+def test_refuse_host_430(monkeypatch):
+    from app import openfdd_runtime as rt
+
+    monkeypatch.setattr(rt, "installed_open_fdd_version", lambda: "4.3.0")
+    with pytest.raises(OpenFddVersionError, match="4.3.0"):
         rt.require_supported_open_fdd()
