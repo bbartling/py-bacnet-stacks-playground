@@ -159,6 +159,8 @@ year2xsyn: **1951** `eplusout.err`, all Completed Successfully, **2 Severe** (DA
 
 Post-fix 3-day smoke: {smoke_txt}
 
+year2xsyn RL curves: **INVALID_PRE_FIX_EPLUS_SEVERE — TRAIN EXPLORATION ONLY**.
+
 ## 5. A04 calibration context
 
 Monthly utility (n=10): NMBE ≈ **+0.98%**, CVRMSE ≈ **10.45%**. Jan 26 15-min peak ≈ 287.5 kW. **Monthly GL14 is not hourly DSM validation.**

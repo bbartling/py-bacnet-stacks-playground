@@ -1,20 +1,22 @@
 # Observation / action contracts (advisory; no BACnet)
 
-## Observation `vibe22.obs.v1` (current: 16-D)
+## Observation `vibe22.obs.v2` (19-D)
 
-Calendar + OAT forecast stats + prior peak/kWh + site setpoints.
-**Does not include** the six BAS zone temperatures (1F_A..2F_B).
-`forecast_is_live=0` for EPW replay.
+Calendar (month, dow, doy) + compact 24h forecast stats (mean/min/max/morning/hours<0C/hours<-10C)
++ billing floor + MTD peak + illustrative school-day flag + six start-of-day zone F
+(1F_A..2F_B from end of **fixed incumbent lookback**) + forecast_is_live.
 
-Future `vibe22.obs.v2` must add: 24 hourly forecast, issue time/provider,
-missingness flags, six zone temps, MTD billing peak, tariff state, school
-calendar, prior-day kWh/peak, previous action, plant/loop state.
+**Not** 24 hourly OAT in the MDP (overfit risk for a 1-step contextual bandit).
+Full hourly OAT belongs on the episode artifact.
+
+Weekday school flag is an **illustrative school-day calendar**, not a verified occupancy calendar.
+
+Old `vibe22.obs.v1` 16-D packs fail closed on load.
 
 ## Action `vibe22.act.v1`
 
 Low-dimensional DualSP heating **setpoint** parameterization expanding to six
-96-step schedules (occupied/unoccupied F, start/end step, recovery, six offsets).
-Not occupancy scheduling unless People/HVAC availability actuators are proven.
+96-step schedules. Lookback day uses a **fixed incumbent** schedule independent of the candidate.
 
 ## Sidecar
 

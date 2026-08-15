@@ -35,9 +35,12 @@ def _toy_df(*, peak=100.0, kwh_steps=96, school_ok=True):
 
 
 def test_readiness_fail_worse_than_valid_operator_pay():
-    ok = operator_pay_2x_v1(_toy_df(school_ok=True), school_day=True, billing_floor_kw=0)
-    bad = operator_pay_2x_v1(_toy_df(school_ok=False), school_day=True, billing_floor_kw=0)
+    kw = dict(school_day=True, billing_floor_kw=0, baseline_kwh=200.0, baseline_peak_kw=120.0)
+    ok = operator_pay_2x_v1(_toy_df(school_ok=True), **kw)
+    bad = operator_pay_2x_v1(_toy_df(school_ok=False), **kw)
     assert bad.reward == READINESS_FAIL_REWARD
+    assert bad.extras["infeasible"] is True
+    assert bad.extras["display_paycheck_usd"] == 0.0
     assert bad.reward < ok.reward
     assert ok.reward > -1e5
 
@@ -136,7 +139,7 @@ def test_missing_policy_pack_fails_closed(tmp_path: Path):
 
     p = DailyPolicyPack(algo="PPO", sb3_zip_bytes=None)
     with pytest.raises(FileNotFoundError):
-        p.predict_action(__import__("numpy").zeros(16, dtype="float32"))
+        p.predict_action(__import__("numpy").zeros(19, dtype="float32"))
 
 
 def test_forecast_fixture_marked(tmp_path: Path):
@@ -242,6 +245,65 @@ def test_lookback_returns_96_of_192():
     assert len(out["all_rows"]) == 192
     assert all(not r["lookback"] for r in out["rows"])
     assert sum(1 for r in out["all_rows"] if r["lookback"]) == 96
+
+
+def test_lookback_actions_independent_of_candidate():
+    from eplus_gym.six_zone_daily_controller import SixZoneDailyController, SixZoneDailyParams
+
+    a = SixZoneDailyController(SixZoneDailyParams(occupied_heating_f=68.0, unoccupied_heating_f=58.0))
+    b = SixZoneDailyController(SixZoneDailyParams(occupied_heating_f=72.0, unoccupied_heating_f=68.0))
+    for t in range(96):
+        assert list(a.action_lookback(t)) == list(b.action_lookback(t))
+    assert list(a.action(0)) != list(b.action(0))
+
+
+def test_forward_split_keeps_jan_locked():
+    m = build_split_manifest(
+        ["2025-11-01", "2025-12-20", "2026-01-10", "2026-01-10__syn", "2026-03-01"]
+    )
+    assert_no_twin_leakage(m)
+    assert "2025-11-01" in m["train"]
+    assert "2025-12-20" in m["validation"]
+    assert "2026-01-10" in m["locked_test"]
+    assert "2026-01-10__syn" in m["locked_test"]
+    assert "2026-03-01" in m["post_test_diagnostic"]
+
+
+def test_persist_train_fold_drops_locked_january(tmp_path: Path):
+    from eplus_gym.rl.split_manifest import persist_train_fold, assert_train_fold_only
+
+    train, specs, m = persist_train_fold(
+        ["2025-11-01", "2026-01-10", "2026-01-10__syn"],
+        tmp_path / "split_manifest.json",
+        day_specs=[{"day": "2025-11-01"}, {"day": "2026-01-10"}],
+    )
+    assert train == ["2025-11-01"]
+    assert specs == [{"day": "2025-11-01"}]
+    assert (tmp_path / "split_manifest.json").is_file()
+    assert m["sha256"]
+    with pytest.raises(ValueError, match="non-train"):
+        assert_train_fold_only(["2026-01-10"])
+    with pytest.raises(ValueError, match="empty"):
+        persist_train_fold(["2026-01-15"], tmp_path / "empty.json")
+
+
+def test_obs_v2_has_zone_temps_and_floor():
+    from eplus_gym.rl.spaces import N_OBS_V2, build_day_observation
+
+    obs = build_day_observation(
+        month=1,
+        dow=0,
+        doy=26,
+        oat_mean_c=-5.0,
+        oat_min_c=-10.0,
+        oat_max_c=0.0,
+        billing_floor_kw=180.0,
+        zone_temps_f=[70, 71, 69, 68, 72, 70],
+        illustrative_school_day=1.0,
+    )
+    assert obs.shape == (N_OBS_V2,)
+    assert abs(float(obs[9]) - 180.0 / 500.0) < 1e-5
+    assert abs(float(obs[12]) - 0.70) < 1e-5
 
 
 def test_historical_operator_pay_v1_still_zeros():

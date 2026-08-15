@@ -42,7 +42,7 @@ def test_cli_is_rl_only():
     assert not (_ROOT / "scripts" / "vibe22.py").is_file()
     assert not (_ROOT / "eplus_gym_app").exists()
     live_py = sorted(p.name for p in (_ROOT / "scripts").glob("*.py"))
-    required = {"gate_six_zone_actuation.py", "vibe22_rl.py", "build_vibe22_rl_validity_report.py"}
+    required = {"gate_six_zone_actuation.py", "vibe22_rl.py", "build_vibe22_rl_validity_report.py", "postfix_p1_gates.py"}
     assert required <= set(live_py)
 
 

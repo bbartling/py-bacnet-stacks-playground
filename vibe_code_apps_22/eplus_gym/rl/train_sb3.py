@@ -12,6 +12,7 @@ from eplus_gym.rl import SCREENING_CLAIM, SIMULATOR_REQUIRED
 from eplus_gym.rl.daily_env import DailySixZoneGymEnv
 from eplus_gym.rl.plots import plot_algo_bakeoff_bars, plot_learning_curve
 from eplus_gym.rl.policy_pack import pack_from_sb3_zip
+from eplus_gym.rl.split_manifest import assert_train_fold_only
 
 
 def _new_run_id(prefix: str = "rl") -> str:
@@ -49,6 +50,7 @@ def train_sb3(
     algo_u = str(algo).upper()
     if algo_u not in {"PPO", "DQN"}:
         raise ValueError("algo must be PPO or DQN")
+    assert_train_fold_only(days)
     run_root = Path(run_root)
     run_root.mkdir(parents=True, exist_ok=True)
     plots_dir = run_root / "plots"

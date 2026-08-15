@@ -1,4 +1,4 @@
-"""Optional 3-day EnergyPlus smoke (cold / shoulder / weekend)."""
+"""Optional 3-day EnergyPlus smoke via subprocess (cold / shoulder / weekend)."""
 from __future__ import annotations
 
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from eplus_gym.rl.live_day_worker import run_live_day_inprocess
+from eplus_gym.rl.live_day_worker import run_live_day_subprocess
 from eplus_gym.six_zone_daily_controller import SixZoneDailyParams
 
 
@@ -20,11 +20,11 @@ def test_three_day_energyplus_smoke(tmp_path: Path):
     idf = Path(__file__).resolve().parents[1] / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
     if not epw.is_file() or not idf.is_file():
         pytest.skip("site EPW or champion IDF missing")
-    days = ["2026-01-26", "2026-03-16", "2026-01-25"]  # school cold, shoulder, weekend
+    days = ["2026-01-26", "2026-03-16", "2026-01-25"]
     params = SixZoneDailyParams().to_dict()
     for day in days:
         ep_dir = tmp_path / day
-        payload = run_live_day_inprocess(
+        payload = run_live_day_subprocess(
             site_root=site,
             epw=epw,
             champion_idf=idf,
@@ -33,9 +33,11 @@ def test_three_day_energyplus_smoke(tmp_path: Path):
             ep_dir=ep_dir,
             lookback_days=1,
         )
+        assert payload.get("failed") is False
         assert payload.get("n_rows") == 96
         assert payload.get("n_all_rows") == 192
         q = payload.get("eplus_quality") or {}
         assert q.get("severe_count") == 0
         assert q.get("fatal_count") == 0
-        assert payload.get("failed") is False
+        rec = q.get("recurring") or {}
+        assert int(rec.get("actuator_handle") or 0) == 0

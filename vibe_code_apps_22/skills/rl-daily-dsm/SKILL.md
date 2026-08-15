@@ -16,5 +16,6 @@ python scripts/vibe22_rl.py campaign --pool year2xsyn --run-id year2xsyn --site-
 
 `--pool year2xsyn` = all unique AMY dates plus a synthetic Nov–Mar clone (dry-bulb N(0,2.5°C)). Still LIVE EnergyPlus. Not a second real winter.
 
-SoT: [`../../vibe22_agent_spec/RL_DAILY_DSM.md`](../../vibe22_agent_spec/RL_DAILY_DSM.md) ·
+One action is selected for an entire weather day (contextual-bandit-like daily policy). DQN Discrete(64) is a coarse ablation, not a PPO bakeoff winner.
+
 [`../../vibe22_agent_spec/CONTRIBUTING_RL.md`](../../vibe22_agent_spec/CONTRIBUTING_RL.md)

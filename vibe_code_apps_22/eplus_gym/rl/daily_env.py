@@ -20,6 +20,7 @@ from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.rl.billing_state import BillingState
 from eplus_gym.rl.reward import FAIL_REWARD, RewardBreakdown, RewardWeights
 from eplus_gym.rl.spaces import (
+    N_OBS_V2,
     build_day_observation,
     continuous_action_space,
     decode_continuous,
@@ -62,7 +63,10 @@ class DailySixZoneGymEnv(gym.Env):
             self.cfg.get("output_root")
             or (self.site_root / "reports" / "eplus_gym" / "rl" / "_episodes")
         )
-        self.days: list[str] = [str(d) for d in (self.cfg.get("days") or ["2026-01-26"])]
+        self.days: list[str] = sorted(
+            [str(d) for d in (self.cfg.get("days") or ["2026-01-26"])],
+            key=lambda x: str(x)[:10],
+        )
         self._specs: dict[str, dict] = {}
         for spec in self.cfg.get("day_specs") or []:
             if isinstance(spec, dict) and spec.get("id"):
@@ -79,11 +83,13 @@ class DailySixZoneGymEnv(gym.Env):
         self._day_i = 0
         self._prior_peak = 0.0
         self._prior_kwh = 0.0
-        self._billing = BillingState(
+        self._start_temps: dict[str, list[float]] = dict(self.cfg.get("start_temps") or {})
+        self._billing_init = dict(
             floor_kw=float(self.cfg.get("billing_floor_kw") or 0.0),
             ratchet_kw=float(self.cfg.get("ratchet_kw") or 0.0),
             contract_kw=float(self.cfg.get("contract_demand_kw") or 0.0),
         )
+        self._billing = BillingState(**self._billing_init)
         self._last_day: Optional[str] = None
         self._rng = np.random.default_rng(int(self.cfg.get("seed", 0)))
         self._ep_counter = 0
@@ -92,11 +98,15 @@ class DailySixZoneGymEnv(gym.Env):
             self.action_space = discrete_action_space()
         else:
             self.action_space = continuous_action_space()
-        self.observation_space = observation_space(16)
+        self.observation_space = observation_space(N_OBS_V2)
         self.sha256_file: Callable[[Path], str] | None = self.cfg.get("sha256_file")
 
     def _pick_day(self) -> str:
         if self.cfg.get("cycle_days", True):
+            if self._day_i > 0 and self._day_i % max(1, len(self.days)) == 0:
+                self._billing = BillingState(**self._billing_init)
+                self._prior_peak = 0.0
+                self._prior_kwh = 0.0
             d = self.days[self._day_i % len(self.days)]
             self._day_i += 1
             return d
@@ -125,6 +135,8 @@ class DailySixZoneGymEnv(gym.Env):
         d = date.fromisoformat(cal)
         fc = forecast_from_epw_replay(self._epw_for(day_s), d)
         mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
+        floor = float(self._billing.start_of_day(cal))
+        temps = self._start_temps.get(cal) or self._start_temps.get(day_s) or [70.0] * 6
         return build_day_observation(
             month=d.month,
             dow=d.weekday(),
@@ -132,14 +144,14 @@ class DailySixZoneGymEnv(gym.Env):
             oat_mean_c=mean_c,
             oat_min_c=min_c,
             oat_max_c=max_c,
-            prior_peak_kw=self._prior_peak,
-            prior_kwh=self._prior_kwh,
-            site_occ_f=self.site_occ_f,
-            site_unocc_f=self.site_unocc_f,
+            billing_floor_kw=floor,
+            mtd_peak_kw=floor,
             morning_min_c=morn_c,
             hours_below_0c=h0,
             hours_below_m10c=hm10,
             forecast_is_live=0.0,
+            illustrative_school_day=1.0 if d.weekday() < 5 else 0.0,
+            zone_temps_f=temps,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):

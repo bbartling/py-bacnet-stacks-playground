@@ -75,6 +75,7 @@ class EnergyPlusRunner:
         self.energyplus_state: Any = None
         self.sim_results: Dict[str, Any] = {}
         self.initialized = False
+        self._variables_requested = False
         self.progress_value = 0
         self.simulation_complete = False
         self.zone_timestep_duration = runner_config.eplus_timestep_duration
@@ -95,12 +96,7 @@ class EnergyPlusRunner:
         self.energyplus_state = self.energyplus_api.state_manager.new_state()
         runtime = self.energyplus_api.runtime
 
-        # Request Output:Variable-style sensors before the run (E+ API requirement).
-        for _key, (var_name, var_key) in self.variables.items():
-            try:
-                self.x.request_variable(self.energyplus_state, var_name, var_key)
-            except Exception:  # noqa: BLE001
-                pass
+        self._request_output_variables()
 
         def _report_progress(progress: int) -> None:
             self.progress_value = progress
@@ -304,16 +300,25 @@ class EnergyPlusRunner:
             return False
         return not self.x.warmup_flag(state_argument)
 
+    def _request_output_variables(self) -> None:
+        if self._variables_requested:
+            return
+        for _key, (var_name, var_key) in self.variables.items():
+            try:
+                self.x.request_variable(self.energyplus_state, var_name, var_key)
+            except Exception:  # noqa: BLE001
+                pass
+        self._variables_requested = True
+
     def _init_handles(self, state_argument) -> bool:
         if self.initialized:
             return True
         if not self.x.api_data_fully_ready(state_argument):
             return False
-        for _key, (var_name, var_key) in self.variables.items():
-            try:
-                self.x.request_variable(state_argument, var_name, var_key)
-            except Exception:  # noqa: BLE001
-                pass
+        kind = int(self.x.kind_of_sim(state_argument))
+        warmup = bool(self.x.warmup_flag(state_argument))
+        if kind != 3 or warmup:
+            return False
         self.var_handles = {
             key: self.x.get_variable_handle(state_argument, *var)
             for key, var in self.variables.items()
@@ -352,12 +357,6 @@ class EnergyPlusRunner:
             **{k: v for k, v in self.var_handles.items() if missing_handle(v)},
             **{k: v for k, v in self.meter_handles.items() if missing_handle(v)},
         }
-        # kind_of_sim: 1=DesignDay, 2=RunPeriodDesign, 3=RunPeriodWeather
-        # Never initialize / score during sizing or warmup — even if sensors resolve.
-        kind = int(self.x.kind_of_sim(state_argument))
-        warmup = bool(self.x.warmup_flag(state_argument))
-        if kind != 3 or warmup:
-            return False
         if missing_sensors and self.verbose:
             print(f"WARN missing E+ sensor handles (NaN obs): {missing_sensors}")
         self.initialized = True

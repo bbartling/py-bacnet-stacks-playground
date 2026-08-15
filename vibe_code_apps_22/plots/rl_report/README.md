@@ -23,7 +23,7 @@ Same unique-100 heating-season EPW days (seed 0) as the prior in-tree campaign. 
 | DQN (Discrete 64) | 100 | −3085 | 183 | 2338 | 0.99 |
 | random_walk (uniform box) | 100 | −3138 | 170 | 2605 | 2.85 |
 
-Winner by mean reward in this TRAIN snapshot: **PPO (not a held-out eval; do not promote).** Ranking vs random did **not** flip. Pre-8 did not explode.
+Winner by mean reward in this TRAIN snapshot: **not a held-out eval; do not promote.** Ranking vs random did **not** flip. Pre-8 did not explode.
 
 ### Delta vs prior in-tree snapshot (PPO −2992, heuristic −3001, DQN −3128, random −3223)
 

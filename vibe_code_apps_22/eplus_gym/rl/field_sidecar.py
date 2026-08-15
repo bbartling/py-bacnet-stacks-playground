@@ -57,14 +57,14 @@ def midnight_tick(
         oat_mean_c=mean_c,
         oat_min_c=min_c,
         oat_max_c=max_c,
-        prior_peak_kw=prior_peak_kw,
-        prior_kwh=prior_kwh,
-        site_occ_f=site_occ_f,
-        site_unocc_f=site_unocc_f,
+        billing_floor_kw=prior_peak_kw,
+        mtd_peak_kw=prior_peak_kw,
         morning_min_c=morn_c,
         hours_below_0c=h0,
         hours_below_m10c=hm10,
         forecast_is_live=0.0 if _forecast_is_non_live(fc.source) else 1.0,
+        illustrative_school_day=1.0 if d.weekday() < 5 else 0.0,
+        zone_temps_f=[70.0] * 6,
     )
     params = pack.predict_params(obs)
     proposal = {
@@ -79,7 +79,7 @@ def midnight_tick(
         "params": params.to_dict(),
         "note": "Advisory only. Heating-setpoint schedule, not occupancy control. "
         "Default hourly [-5C]*24 is a TEST FIXTURE, not OpenWeatherMap. Never auto-write BACnet.",
-        "observation_contract": "vibe22.obs.v1_16d_no_zone_temps",
+        "observation_contract": "vibe22.obs.v2",
         "forecast_is_test_fixture": _forecast_is_test_fixture(fc.source),
     }
     out = Path(out_path)

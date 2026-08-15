@@ -26,6 +26,7 @@ from eplus_gym.rl.day_pool import (  # noqa: E402
 from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
+from eplus_gym.rl.split_manifest import persist_train_fold  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
 from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
 
@@ -61,6 +62,8 @@ def cmd_train(args) -> int:
     days = [d.strip() for d in str(args.days).split(",") if d.strip()]
     run_id = args.run_id or f"train_{args.algo.lower()}"
     root = site / "reports" / "eplus_gym" / "rl" / run_id
+    days, _specs, manifest = persist_train_fold(days, root / "split_manifest.json")
+    print(json.dumps({"split": manifest.get("n"), "sha256": manifest.get("sha256")}))
     summary = train_sb3(
         site_root=site,
         epw=epw,
@@ -72,6 +75,7 @@ def cmd_train(args) -> int:
         seed=int(args.seed),
         occupied_heating_f=70.0,
         unoccupied_heating_f=65.0,
+        reward_name=str(getattr(args, "reward_name", "legacy_reward_v1")),
     )
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
@@ -207,7 +211,8 @@ def cmd_midnight(args) -> int:
         site / "reports" / "eplus_gym" / "rl" / "field_shared" / "daily_policy.pkl"
     )
     if not pack.is_file():
-        DailyPolicyPack().save(pack)
+        print(f"FAIL: missing policy pack {pack}", file=sys.stderr)
+        return EXIT_CONFIG
     out = Path(args.out) if args.out else (
         site / "reports" / "eplus_gym" / "rl" / "field_shared" / "proposed_setpoints.json"
     )
@@ -219,6 +224,38 @@ def cmd_midnight(args) -> int:
         out_path=out,
     )
     print(json.dumps(proposal, indent=2))
+    return EXIT_OK
+
+
+def cmd_eval(args) -> int:
+    print(SCREENING_CLAIM)
+    site = _site(args)
+    idf, epw = _paths(site)
+    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+    root = site / "reports" / "eplus_gym" / "rl" / args.run_id
+    from eplus_gym.rl.eval_policy import eval_days
+    from eplus_gym.six_zone_daily_controller import SixZoneDailyParams, incumbent_lookback_params
+
+    override = None
+    pack = Path(args.pack) if args.pack else None
+    if args.arm == "incumbent":
+        override = incumbent_lookback_params().to_dict()
+        pack = None
+    elif args.arm == "no_setback":
+        override = SixZoneDailyParams(occupied_heating_f=70.0, unoccupied_heating_f=70.0).to_dict()
+        pack = None
+    rows = eval_days(
+        site_root=site,
+        epw=epw,
+        champion_idf=idf,
+        days=days,
+        pack_path=pack,
+        out_csv=root / "eval_episodes.csv",
+        policy_label=str(args.arm) + "_eval",
+        reward_name=str(args.reward_name),
+        params_override=override,
+    )
+    print(json.dumps({"n": len(rows), "failed": sum(1 for r in rows if r.get("failed"))}, indent=2))
     return EXIT_OK
 
 
@@ -252,6 +289,18 @@ def cmd_campaign(args) -> int:
     root = site / "reports" / "eplus_gym" / "rl" / run_id
     root.mkdir(parents=True, exist_ok=True)
     (root / "day_pool.json").write_text(json.dumps(pool, indent=2) + "\n", encoding="utf-8")
+    days, specs, manifest = persist_train_fold(
+        days, root / "split_manifest.json", day_specs=specs
+    )
+    print(
+        json.dumps(
+            {
+                "split": manifest.get("n"),
+                "sha256": manifest.get("sha256"),
+                "train_only": True,
+            }
+        )
+    )
     dqn_root = root / "dqn"
     kwargs = dict(
         site_root=site,
@@ -263,6 +312,20 @@ def cmd_campaign(args) -> int:
         occupied_heating_f=70.0,
         unoccupied_heating_f=65.0,
         day_specs=specs,
+        reward_name=str(args.reward_name),
+    )
+    n_train = len(days)
+    print(
+        json.dumps(
+            {
+                "budget": {
+                    "n_days": n_train,
+                    "expected_eplus_calls_ppo_one_pass": n_train,
+                    "note": "contextual bandit; one E+ day per SB3 step; DQN ablation extra",
+                    "rough_wall_s": n_train * 20,
+                }
+            }
+        )
     )
     print(json.dumps({"phase": "PPO", "n_days": len(days), "pool": pool.get("pool"), "shortfall": pool["shortfall"]}))
     ppo_sum = train_sb3(algo="PPO", run_root=root, **kwargs)
@@ -404,6 +467,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--seed", type=int, default=0)
     t.add_argument("--run-id", default=None)
     t.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    t.add_argument("--reward-name", required=True)
     t.set_defaults(func=cmd_train)
 
     b = sub.add_parser("bakeoff", parents=[site_parent])
@@ -468,7 +532,16 @@ def main(argv: list[str] | None = None) -> int:
         default="unique_heating",
         help="unique_heating = n unique EPW days; year2xsyn = full AMY + synthetic 2x heating",
     )
+    camp.add_argument("--reward-name", required=True)
     camp.set_defaults(func=cmd_campaign)
+
+    ev = sub.add_parser("eval", parents=[site_parent])
+    ev.add_argument("--run-id", required=True)
+    ev.add_argument("--days", required=True)
+    ev.add_argument("--arm", default="incumbent")
+    ev.add_argument("--pack", default=None)
+    ev.add_argument("--reward-name", required=True)
+    ev.set_defaults(func=cmd_eval)
 
     args = p.parse_args(argv)
     try:

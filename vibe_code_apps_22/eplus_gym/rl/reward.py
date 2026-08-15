@@ -11,7 +11,9 @@ from eplus_gym.objective import BAS_ZONE_COLS, DT_H, _facility_series
 from eplus_gym.rl import SCHOOL_START_STEP
 
 FAIL_REWARD = -1.0e6
-READINESS_FAIL_REWARD = FAIL_REWARD
+INFEASIBLE_TRAIN_REWARD = -10.0
+TRAIN_PAY_SCALE = 0.01
+READINESS_FAIL_REWARD = INFEASIBLE_TRAIN_REWARD
 
 
 @dataclass
@@ -309,7 +311,7 @@ def operator_pay_multiplier_v1(
     baseline_energy_cost: float | None = None,
     baseline_peak_cost: float | None = None,
 ) -> RewardBreakdown:
-    """ILLUSTRATIVE 2x/3x operator pay. Readiness fail uses READINESS_FAIL_REWARD."""
+    """ILLUSTRATIVE 2x/3x operator pay. Readiness fail uses bounded infeasible train reward."""
     if money_mode != MONEY_ILLUSTRATIVE:
         raise ValueError(
             f"money_mode={money_mode!r} rejected; VERIFIED_TARIFF is not implemented on this path"
@@ -317,6 +319,9 @@ def operator_pay_multiplier_v1(
     name = f"operator_pay_{int(multiplier)}x_v1"
     w = weights or RewardWeights()
     floor = float(mtd_peak_kw if mtd_peak_kw is not None else billing_floor_kw)
+    require_base = not failed and df is not None and len(df) > 0
+    if require_base and (baseline_kwh is None or baseline_peak_kw is None):
+        raise ValueError("paired EnergyPlus baseline_kwh/baseline_peak_kw required")
     if failed or df is None or len(df) == 0:
         br = compute_daily_reward(None, weights=w, failed=True)
         br.extras["reward_name"] = name
@@ -348,20 +353,23 @@ def operator_pay_multiplier_v1(
         _n, _i, b_pc = incremental_demand(floor, b_peak, float(w.demand_rate_per_kw))
         base_cost = float(baseline_kwh) * float(w.energy_rate_per_kwh) + b_pc
     else:
-        base_cost = cand_cost
+        raise ValueError("paired EnergyPlus baseline required; refusing candidate-as-baseline")
     pay = operator_paycheck(
         baseline_cost=base_cost,
         candidate_cost=cand_cost,
         readiness_ok=bool(ready) if school_day else True,
         savings_multiplier=float(multiplier),
     )
-    if school_day and not ready:
-        reward = float(READINESS_FAIL_REWARD)
+    infeasible = bool(school_day and not ready)
+    display = 0.0 if infeasible else float(pay["raw_pay_usd"])
+    if infeasible:
+        train_r = float(INFEASIBLE_TRAIN_REWARD)
     else:
-        reward = float(pay["raw_pay_usd"]) - float(w.lambda_pre8) * float(pre8_viol)
-        reward -= float(w.lambda_occ) * float(occ_viol)
+        train_r = float(display) * TRAIN_PAY_SCALE
+        train_r -= 0.01 * float(w.lambda_pre8) * float(pre8_viol)
+        train_r -= 0.01 * float(w.lambda_occ) * float(occ_viol)
     return RewardBreakdown(
-        reward=float(reward),
+        reward=float(train_r),
         daily_kwh=kwh,
         peak_kw=peak,
         energy_cost=float(energy_cost),
@@ -375,8 +383,14 @@ def operator_pay_multiplier_v1(
             "money_mode": money_mode,
             "school_day": bool(school_day),
             "readiness_ok": bool(ready) if school_day else True,
+            "infeasible": infeasible,
             "billing_floor_kw": float(floor),
-            "display_paycheck_usd": pay["raw_pay_usd"],
+            "display_paycheck_usd": display,
+            "training_reward": float(train_r),
+            "baseline_kwh": float(baseline_kwh),
+            "baseline_peak_kw": float(baseline_peak_kw),
+            "candidate_energy_cost": float(energy_cost),
+            "baseline_energy_cost": float(base_cost),
             "savings_multiplier": float(multiplier),
             "claim": "screening_only",
         },

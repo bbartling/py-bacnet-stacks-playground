@@ -16,14 +16,15 @@ from eplus_gym.rl import SCREENING_CLAIM, SCHOOL_START_STEP, SIMULATOR_REQUIRED
 from eplus_gym.rl.spaces import decode_continuous, decode_discrete
 from eplus_gym.six_zone_daily_controller import SixZoneDailyParams
 
-SCHEMA = "vibe22.rl.daily_policy_pack.v1"
+SCHEMA = "vibe22.rl.daily_policy_pack.v2"
+OBS_SCHEMA = "vibe22.obs.v2"
 
 
 def _heuristic_action(obs: np.ndarray) -> np.ndarray:
     """Cold-morning → extra recovery + deeper setback. No E+ required."""
-    # obs[12] = morning_min_c / 40
-    morn = float(obs[12]) * 40.0 if obs.size > 12 else 0.0
-    freeze_h = float(obs[13]) * 24.0 if obs.size > 13 else 0.0
+    obs = np.asarray(obs, dtype=np.float32).reshape(-1)
+    morn = float(obs[6]) * 40.0 if obs.size > 6 else 0.0
+    freeze_h = float(obs[7]) * 24.0 if obs.size > 7 else 0.0
     rec = 0.0
     if morn < -5.0 or freeze_h >= 8:
         rec = 180.0
@@ -44,7 +45,8 @@ class DailyPolicyPack:
     schema: str = SCHEMA
     scientific_claim: str = SCREENING_CLAIM
     algo: str = "HEURISTIC"
-    observation_dim: int = 16
+    observation_dim: int = 19
+    observation_schema: str = OBS_SCHEMA
     school_start_step: int = SCHOOL_START_STEP
     simulator_pretrain: str = SIMULATOR_REQUIRED
     bacnet_writes: bool = False
@@ -91,6 +93,7 @@ class DailyPolicyPack:
                     "scientific_claim": self.scientific_claim,
                     "algo": self.algo,
                     "observation_dim": self.observation_dim,
+                    "observation_schema": getattr(self, "observation_schema", OBS_SCHEMA),
                     "school_start_step": self.school_start_step,
                     "bacnet_writes": False,
                     "has_sb3": bool(self.sb3_zip_bytes),
@@ -109,6 +112,11 @@ class DailyPolicyPack:
         obj = pickle.loads(Path(path).read_bytes())
         if not isinstance(obj, DailyPolicyPack):
             raise TypeError(f"not a DailyPolicyPack: {type(obj)}")
+        schema = getattr(obj, "observation_schema", None) or (
+            OBS_SCHEMA if getattr(obj, "observation_dim", 0) == 19 else "vibe22.obs.v1_16d"
+        )
+        if schema != OBS_SCHEMA:
+            raise ValueError(f"incompatible observation schema {schema}; need {OBS_SCHEMA}")
         return obj
 
 
@@ -118,8 +126,12 @@ def pack_from_sb3_zip(
     algo: str,
     meta: Dict[str, Any] | None = None,
 ) -> DailyPolicyPack:
+    from eplus_gym.rl.spaces import N_OBS_V2
+
     return DailyPolicyPack(
         algo=str(algo).upper(),
         sb3_zip_bytes=Path(zip_path).read_bytes(),
+        observation_dim=N_OBS_V2,
+        observation_schema=OBS_SCHEMA,
         meta=dict(meta or {}),
     )
