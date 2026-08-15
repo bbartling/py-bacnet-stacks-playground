@@ -8,7 +8,7 @@ Codex / Claude / Cursor: paste this file as the session brief. For **Cloud zip p
 
 ## Mission
 
-Maintain Vibe App 19 as an **educational Streamlit demo** consuming the **pinned PyPI OpenFDD cookbook** (`open-fdd[reporting]==4.4.0`, 62 diagnostic rules; catalog version string remains `59-diagnostics+4-sql-analytics`):
+Maintain Vibe App 19 as an **educational Streamlit demo** consuming the **pinned PyPI OpenFDD cookbook** (`open-fdd[reporting]==4.4.1`, 62 diagnostic rules; catalog version string remains `59-diagnostics+4-sql-analytics`):
 
 - `app/rules/` — thin shims to `open_fdd` (do not fork fault equations)
 - `app/vav_health.py` — thin adapter for `open_fdd.analytics.vav_health`
@@ -26,7 +26,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** consuming the **pinned
 
 ## Hard rules
 
-1. **Pinned OpenFDD catalog (62 diagnostics on 4.4.0)** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`. Agent extras use `CUSTOM-*` ids via `custom_rules.py` (see CUSTOM_RULES.md). Do not reimplement VAV-health math in Vibe19.
+1. **Pinned OpenFDD catalog (62 diagnostics on 4.4.1)** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`. Agent extras use `CUSTOM-*` ids via `custom_rules.py` (see CUSTOM_RULES.md). Do not reimplement VAV-health math in Vibe19.
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph**
 3. **No client historian trees in git** — local: browse folder; Cloud/shared: upload zip only (see package spec). Demo zip `data/demo_package_v1.zip` is OK
 4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`

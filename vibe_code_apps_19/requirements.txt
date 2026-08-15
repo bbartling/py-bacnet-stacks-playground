@@ -11,7 +11,7 @@ python-docx>=1.1
 openpyxl>=3.1
 kaleido>=0.2.1
 matplotlib>=3.8
-# Pandas oracle + reporting. PyPI 4.4.0 includes vav_health_matrix_v1.
+# Pandas oracle + reporting. PyPI 4.4.1 dump_tables writes vav_health_matrix.csv.
 # GHCR :latest tracks develop after merge via .github/workflows/vibe19-ghcr.yml.
-open-fdd[reporting]==4.4.0
+open-fdd[reporting]==4.4.1
 pyarrow>=14.0

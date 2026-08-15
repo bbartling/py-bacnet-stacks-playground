@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-15 — PyPI OpenFDD 4.4.1 dump_tables + GHCR
+
+- Pin `open-fdd[reporting]==4.4.1`. Diagnostic/forensic WattLab dump calls `open_fdd.analytics.dump_tables` so `vav_health_matrix.csv` (plus motor/mech CSVs) land in the Engineering Bundle and MANIFEST.
+- Runtime floor stays `>=4.4.0,<5`. Do not reimplement VAV-health math in Vibe19.
+
+---
+
 ## 2026-08-14 — PyPI OpenFDD 4.4.0 + VAV health matrix
 
 - Pin `open-fdd[reporting]==4.4.0` (pyproject / requirements / constraints). Drop GitHub ZIP overlay in CI.

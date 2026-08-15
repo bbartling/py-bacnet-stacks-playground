@@ -1011,6 +1011,21 @@ _MANIFEST_HINTS: dict[str, dict[str, str]] = {
         "purpose": "Weekly motor run hours",
         "how_to_use": "Evidence for schedule-align ECMs",
     },
+    "motor_hours.csv": {
+        "kind": "runtime",
+        "purpose": "Motor run hours (OpenFDD dump_tables)",
+        "how_to_use": "Compare dump-vs-dump motor totals",
+    },
+    "mech_cooling_oat_bins.csv": {
+        "kind": "runtime",
+        "purpose": "Mechanical cooling hours by OAT bin",
+        "how_to_use": "Compare dump-vs-dump compressor OAT bins",
+    },
+    "vav_health_matrix.csv": {
+        "kind": "analytics",
+        "purpose": "Canonical VAV health matrix (OpenFDD dump_tables)",
+        "how_to_use": "Same CSV OpenFDD dump-vs-dump scripts compare; Overview table is presentation only",
+    },
     "economizer_weather.csv": {
         "kind": "runtime",
         "purpose": "Economizer opportunity / compliance",

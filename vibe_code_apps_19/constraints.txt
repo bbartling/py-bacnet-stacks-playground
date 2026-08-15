@@ -1,5 +1,5 @@
 # Reproducible pins for the OpenFDD consumer (CI: pip install -c constraints.txt)
-open-fdd==4.4.0
+open-fdd==4.4.1
 pandas>=2.0,<3
 pyarrow>=14.0
 pyyaml>=6.0
