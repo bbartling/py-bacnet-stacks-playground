@@ -11,6 +11,7 @@ from eplus_gym.objective import BAS_ZONE_COLS, DT_H, _facility_series
 from eplus_gym.rl import SCHOOL_START_STEP
 
 FAIL_REWARD = -1.0e6
+READINESS_FAIL_REWARD = FAIL_REWARD
 
 
 @dataclass
@@ -191,8 +192,8 @@ def operator_pay_v1(
     """Operator-shaped pay. ILLUSTRATIVE until tariff is VERIFIED_TARIFF.
 
     Demand uses a billing floor vs month-to-date peak (not peak*rate every day).
-    Readiness fail on a school day zeros raw pay (reward 0, not FAIL_REWARD).
-    Comfort/readiness apply only on school_day.
+    Historical contract: readiness fail zeros raw pay (reward 0).
+    New campaigns must use operator_pay_2x_v1 / operator_pay_3x_v1.
     """
     w = weights or RewardWeights()
     if money_mode not in {MONEY_ILLUSTRATIVE, MONEY_VERIFIED_TARIFF}:
@@ -292,6 +293,100 @@ def operator_paycheck(
     }
 
 
+def operator_pay_multiplier_v1(
+    df: pd.DataFrame | None,
+    *,
+    multiplier: float,
+    weights: RewardWeights | None = None,
+    school_start_step: int = SCHOOL_START_STEP,
+    failed: bool = False,
+    school_day: bool = True,
+    billing_floor_kw: float = 0.0,
+    mtd_peak_kw: float | None = None,
+    money_mode: str = MONEY_ILLUSTRATIVE,
+    baseline_kwh: float | None = None,
+    baseline_peak_kw: float | None = None,
+    baseline_energy_cost: float | None = None,
+    baseline_peak_cost: float | None = None,
+) -> RewardBreakdown:
+    """ILLUSTRATIVE 2x/3x operator pay. Readiness fail uses READINESS_FAIL_REWARD."""
+    name = f"operator_pay_{int(multiplier)}x_v1"
+    w = weights or RewardWeights()
+    floor = float(mtd_peak_kw if mtd_peak_kw is not None else billing_floor_kw)
+    if failed or df is None or len(df) == 0:
+        br = compute_daily_reward(None, weights=w, failed=True)
+        br.extras["reward_name"] = name
+        br.extras["money_mode"] = money_mode
+        return br
+    fac = _facility_series(df)
+    peak = float(fac.max())
+    kwh = float(fac.sum() * DT_H)
+    from eplus_gym.objective import incremental_demand
+
+    _new_p, _inc, peak_cost = incremental_demand(floor, peak, float(w.demand_rate_per_kw))
+    energy_cost = kwh * float(w.energy_rate_per_kwh)
+    cols = _zone_cols(df)
+    ready = True
+    pre8_viol = 0
+    occ_viol = 0
+    pre8_dh = 0.0
+    if school_day:
+        ready = _readiness_ok(df, cols, school_start_step=school_start_step)
+        legacy = compute_daily_reward(df, weights=w, school_start_step=school_start_step)
+        pre8_viol = legacy.pre8_violations
+        occ_viol = legacy.occ_violations
+        pre8_dh = legacy.pre8_degree_hours
+    cand_cost = float(energy_cost + peak_cost)
+    if baseline_energy_cost is not None and baseline_peak_cost is not None:
+        base_cost = float(baseline_energy_cost) + float(baseline_peak_cost)
+    elif baseline_kwh is not None:
+        b_peak = float(baseline_peak_kw or 0.0)
+        _n, _i, b_pc = incremental_demand(floor, b_peak, float(w.demand_rate_per_kw))
+        base_cost = float(baseline_kwh) * float(w.energy_rate_per_kwh) + b_pc
+    else:
+        base_cost = cand_cost
+    pay = operator_paycheck(
+        baseline_cost=base_cost,
+        candidate_cost=cand_cost,
+        readiness_ok=bool(ready) if school_day else True,
+        savings_multiplier=float(multiplier),
+    )
+    if school_day and not ready:
+        reward = float(READINESS_FAIL_REWARD)
+    else:
+        reward = float(pay["raw_pay_usd"]) - float(w.lambda_pre8) * float(pre8_viol)
+        reward -= float(w.lambda_occ) * float(occ_viol)
+    return RewardBreakdown(
+        reward=float(reward),
+        daily_kwh=kwh,
+        peak_kw=peak,
+        energy_cost=float(energy_cost),
+        peak_cost=float(peak_cost),
+        pre8_violations=int(pre8_viol),
+        pre8_degree_hours=float(pre8_dh),
+        occ_violations=int(occ_viol),
+        failed=False,
+        extras={
+            "reward_name": name,
+            "money_mode": money_mode,
+            "school_day": bool(school_day),
+            "readiness_ok": bool(ready) if school_day else True,
+            "billing_floor_kw": float(floor),
+            "display_paycheck_usd": pay["raw_pay_usd"],
+            "savings_multiplier": float(multiplier),
+            "claim": "screening_only",
+        },
+    )
+
+
+def operator_pay_2x_v1(df: pd.DataFrame | None, **kwargs: Any) -> RewardBreakdown:
+    return operator_pay_multiplier_v1(df, multiplier=2.0, **kwargs)
+
+
+def operator_pay_3x_v1(df: pd.DataFrame | None, **kwargs: Any) -> RewardBreakdown:
+    return operator_pay_multiplier_v1(df, multiplier=3.0, **kwargs)
+
+
 def score_day(
     df: pd.DataFrame | None,
     *,
@@ -299,8 +394,14 @@ def score_day(
     **kwargs: Any,
 ) -> RewardBreakdown:
     if reward_name in {"legacy_reward_v1", "legacy", ""}:
-        return compute_daily_reward(df, **{k: v for k, v in kwargs.items() if k in {"weights", "school_start_step", "failed"}})
+        return compute_daily_reward(
+            df, **{k: v for k, v in kwargs.items() if k in {"weights", "school_start_step", "failed"}}
+        )
     if reward_name == "operator_pay_v1":
         return operator_pay_v1(df, **kwargs)
+    if reward_name == "operator_pay_2x_v1":
+        return operator_pay_2x_v1(df, **kwargs)
+    if reward_name == "operator_pay_3x_v1":
+        return operator_pay_3x_v1(df, **kwargs)
     raise ValueError(f"unknown reward_name={reward_name}")
 

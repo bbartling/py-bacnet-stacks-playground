@@ -102,11 +102,14 @@ class SixZoneDailyController:
         if params is None:
             params = SixZoneDailyParams()
         elif isinstance(params, dict):
+            from dataclasses import fields as dc_fields
+
+            allowed = {f.name for f in dc_fields(SixZoneDailyParams)}
             zo = params.get("zone_offsets") or {}
             parsed = {
                 k: ZoneOffsets(**v) if isinstance(v, dict) else v for k, v in zo.items()
             }
-            kwargs = {k: v for k, v in params.items() if k != "zone_offsets"}
+            kwargs = {k: v for k, v in params.items() if k in allowed and k != "zone_offsets"}
             params = SixZoneDailyParams(**kwargs, zone_offsets=parsed)
         self.params = params
         self._series_f: Dict[str, List[float]] = {

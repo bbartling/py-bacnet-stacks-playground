@@ -17,6 +17,7 @@ from eplus_gym.rl import SCHOOL_START_STEP, SIMULATOR_REQUIRED
 from eplus_gym.rl.day_pool import calendar_day
 from eplus_gym.rl.live_day_worker import run_live_day_inprocess, run_live_day_subprocess
 from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
+from eplus_gym.rl.billing_state import BillingState
 from eplus_gym.rl.reward import FAIL_REWARD, RewardBreakdown, RewardWeights
 from eplus_gym.rl.spaces import (
     build_day_observation,
@@ -78,6 +79,11 @@ class DailySixZoneGymEnv(gym.Env):
         self._day_i = 0
         self._prior_peak = 0.0
         self._prior_kwh = 0.0
+        self._billing = BillingState(
+            floor_kw=float(self.cfg.get("billing_floor_kw") or 0.0),
+            ratchet_kw=float(self.cfg.get("ratchet_kw") or 0.0),
+            contract_kw=float(self.cfg.get("contract_demand_kw") or 0.0),
+        )
         self._last_day: Optional[str] = None
         self._rng = np.random.default_rng(int(self.cfg.get("seed", 0)))
         self._ep_counter = 0
@@ -180,7 +186,7 @@ class DailySixZoneGymEnv(gym.Env):
                 lookback_days=int(self.cfg.get("lookback_days", 1)),
                 reward_name=str(self.cfg.get("reward_name") or "legacy_reward_v1"),
                 reward_weights=self.reward_weights.__dict__,
-                mtd_peak_kw=float(self._prior_peak),
+                mtd_peak_kw=float(self._billing.start_of_day(cal)),
             )
             if self.isolate_eplus:
                 payload = run_live_day_subprocess(
@@ -228,6 +234,7 @@ class DailySixZoneGymEnv(gym.Env):
         if not br.failed:
             self._prior_peak = float(br.peak_kw)
             self._prior_kwh = float(br.daily_kwh)
+            self._billing.observe_peak(float(br.peak_kw))
 
         info = {
             "day": day_s,

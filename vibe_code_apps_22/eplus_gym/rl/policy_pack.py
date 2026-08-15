@@ -56,6 +56,8 @@ class DailyPolicyPack:
         algo = str(self.algo).upper()
         if self.sb3_zip_bytes and algo in {"PPO", "DQN"}:
             return self._sb3_predict(obs)
+        if algo in {"PPO", "DQN"}:
+            raise FileNotFoundError("missing saved SB3 zip; refusing heuristic substitution")
         return _heuristic_action(obs)
 
     def _sb3_predict(self, obs: np.ndarray) -> np.ndarray:

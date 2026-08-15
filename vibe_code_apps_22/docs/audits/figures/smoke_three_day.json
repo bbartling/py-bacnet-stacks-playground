@@ -1,0 +1,11 @@
+{
+  "days": ["2026-01-26", "2026-03-16", "2026-01-25"],
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "severe_count": 0,
+  "fatal_count": 0,
+  "warning_count_example": 22798,
+  "epw": "madison_amy_202508_202608.epw",
+  "lookback_days": 1,
+  "w2a": "NO-GO_SCREENING_ONLY"
+}

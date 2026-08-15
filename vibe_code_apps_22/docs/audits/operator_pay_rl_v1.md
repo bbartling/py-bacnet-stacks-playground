@@ -1,4 +1,4 @@
-"""operator_pay_v1 — screening reward, not a verified tariff.
+# operator_pay_v1 — screening reward, not a verified tariff
 
 ## Status
 GO/NO-GO: **screening only**. Do not claim operator savings.
@@ -28,9 +28,9 @@ heating schedules only unless proven otherwise).
 
 
 ## Eval vs train
-`model.learn()` jsonl is exploration. Reports may crown a winner only from
-held-out deterministic eval (`PPO_eval` / random / heuristic). Compare loads
-`ppo_final.zip` via `model.predict(deterministic=True)` when the zip exists.
+`model.learn()` jsonl is exploration. A winner may exist only from
+locked-test deterministic `PPO_eval` / `DQN_eval` / `BAS_incumbent_eval`.
+Random/heuristic/train jsonl must not set `winner_is_held_out_eval`.
 
 ## Smoke (after unit tests)
 Three EnergyPlus days: mild school, cold school, non-school × baseline +

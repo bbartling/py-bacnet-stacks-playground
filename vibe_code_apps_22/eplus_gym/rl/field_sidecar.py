@@ -67,8 +67,10 @@ def midnight_tick(
         "school_start_step": SCHOOL_START_STEP,
         "algo": pack.algo,
         "params": params.to_dict(),
-        "note": "Pretend OpenWeatherMap midnight hourly → daily SixZoneDailyParams. "
-        "Sibling docker may consume this JSON; never auto-write BACnet.",
+        "note": "Advisory only. Heating-setpoint schedule, not occupancy control. "
+        "Default hourly [-5C]*24 is a TEST FIXTURE, not OpenWeatherMap. Never auto-write BACnet.",
+        "observation_contract": "vibe22.obs.v1_16d_no_zone_temps",
+        "forecast_is_test_fixture": True,
     }
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)

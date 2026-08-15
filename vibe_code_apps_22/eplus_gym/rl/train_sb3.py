@@ -35,6 +35,7 @@ def train_sb3(
     occupied_heating_f: float = 70.0,
     unoccupied_heating_f: float = 65.0,
     day_specs: Sequence[Dict[str, Any]] | None = None,
+    reward_name: str = "legacy_reward_v1",
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -66,6 +67,7 @@ def train_sb3(
         "occupied_heating_f": float(occupied_heating_f),
         "unoccupied_heating_f": float(unoccupied_heating_f),
         "day_specs": list(day_specs or []),
+        "reward_name": str(reward_name),
     }
     (run_root / "config.json").write_text(
         json.dumps(

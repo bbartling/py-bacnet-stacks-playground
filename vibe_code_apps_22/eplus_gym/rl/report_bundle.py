@@ -303,18 +303,19 @@ def build_report(
     df.to_csv(csv_path, index=False)
     write_report_plots(df, plots_dir)
     stats = _summarize(df)
-    eval_keys = [k for k in stats if k in {"random_walk", "heuristic", "coordinate_descent", "PPO_eval", "DQN_eval"}]
-    winner = (
-        max(eval_keys, key=lambda k: float(stats[k].get("mean_reward", -1e18)))
-        if eval_keys
-        else None
-    )
+    eval_keys = [k for k in stats if k in {"PPO_eval", "DQN_eval", "BAS_incumbent_eval", "heuristic_eval"}]
+    locked = bool((day_pool or {}).get("split") == "LOCKED_TEST")
+    winner = None
+    winner_is_held_out = False
+    if locked and eval_keys:
+        winner = max(eval_keys, key=lambda k: float(stats[k].get("mean_reward", -1e18)))
+        winner_is_held_out = True
     comparison = {
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
         "policies": stats,
         "winner_mean_reward": winner,
-        "winner_is_held_out_eval": True,
+        "winner_is_held_out_eval": winner_is_held_out,
         "train_jsonl_is_not_eval": True,
         "n_rows": int(len(df)),
         "days": list(days),

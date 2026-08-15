@@ -33,9 +33,13 @@ def run_live_day_inprocess(
     """Execute one day; safe only in a process that has not imported torch."""
     import pandas as pd
 
+    from datetime import date, timedelta
+
     from eplus_gym.episode import SCREENING_CLAIM, run_controller_episode
     from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv
-    from eplus_gym.rl.day_pool import illustrative_school_day
+    from eplus_gym.eplus_err import assert_eplus_quality, parse_eplus_err
+    from eplus_gym.epw_stage import stage_year_aware_epw
+    from eplus_gym.rl.day_pool import illustrative_school_day, unique_dates_from_epw
     from eplus_gym.rl.reward import RewardWeights, score_day
     from eplus_gym.six_zone_daily_controller import SixZoneDailyController
     from eplus_gym.stage_idf import stage_idf_for_period
@@ -43,11 +47,23 @@ def run_live_day_inprocess(
     ep_dir = Path(ep_dir)
     ep_dir.mkdir(parents=True, exist_ok=True)
     ctrl = SixZoneDailyController(params)
+    target = date.fromisoformat(str(day)[:10])
+    lb = int(lookback_days)
+    begin = target
+    if lb > 0:
+        begin = target - timedelta(days=lb)
+        known = {d.isoformat() for d in unique_dates_from_epw(Path(epw))}
+        if begin.isoformat() not in known:
+            raise ValueError(
+                f"no contiguous prior day {begin.isoformat()} in EPW for target {target.isoformat()}; "
+                "refusing silent wrap"
+            )
+    staged_epw = stage_year_aware_epw(Path(epw), ep_dir / f"staged_{Path(epw).name}")["staged_epw"]
     staged = stage_idf_for_period(
         Path(champion_idf),
         ep_dir / f"staged_{Path(champion_idf).name}",
-        day,
-        day,
+        begin.isoformat(),
+        target.isoformat(),
         site_root=Path(site_root),
         six_zone_actuators=True,
     )
@@ -55,7 +71,7 @@ def run_live_day_inprocess(
     def factory():
         return LakesideW2AEnv(
             {
-                "epw": str(epw),
+                "epw": str(staged_epw),
                 "idf": str(staged),
                 "output": str(ep_dir / "eplus"),
                 "queue_timeout_s": float(queue_timeout_s),
@@ -68,9 +84,9 @@ def run_live_day_inprocess(
     result = run_controller_episode(
         factory,
         ctrl,
-        lookback_days=int(lookback_days),
-        scored_day=day,
-        max_steps=96,
+        lookback_days=lb,
+        scored_day=target.isoformat(),
+        max_steps=None,
     )
     df = pd.DataFrame(result["rows"])
     pq = ep_dir / "trajectory.parquet"
@@ -102,6 +118,15 @@ def run_live_day_inprocess(
         "simulator": "LIVE_ENERGYPLUS",
     }
     (ep_dir / "reward.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    err = ep_dir / "eplus" / "eplusout.err"
+    if not err.is_file():
+        found = list(ep_dir.rglob("eplusout.err"))
+        err = found[0] if found else err
+    gate = parse_eplus_err(err)
+    payload["eplus_quality"] = gate
+    payload["lookback_days"] = lb
+    payload["n_all_rows"] = int(len(result.get("all_rows") or []))
+    assert_eplus_quality(gate)
     return payload
 
 

@@ -26,13 +26,46 @@ def rleplus_roots() -> list[Path]:
 
 
 def find_rleplus_root() -> Path:
-    for root in rleplus_roots():
-        if (root / "rleplus" / "env" / "energyplus.py").is_file():
-            return root.resolve()
+    env = os.environ.get("RLEPLUS_ROOT", "").strip()
+    roots = [Path(env)] if env else rleplus_roots()
+    generic: list[Path] = []
+    any_root: list[Path] = []
+    for root in roots:
+        if not (root / "rleplus" / "env" / "energyplus.py").is_file():
+            continue
+        any_root.append(root.resolve())
+        if (root / "rleplus" / "env" / "day_run.py").is_file():
+            generic.append(root.resolve())
+    if generic:
+        return generic[0]
+    if any_root:
+        raise FileNotFoundError(
+            "rllib-energyplus found but missing feat/generic-runner helpers "
+            "(rleplus/env/day_run.py). Pin SHA 01c5dc7; do not use main 89a2426."
+        )
     raise FileNotFoundError(
         "rllib-energyplus not found. Clone https://github.com/airboxlab/rllib-energyplus "
         "to third_party/rllib-energyplus or set RLEPLUS_ROOT. Do not pip-install Ray/Pearl."
     )
+
+
+PINNED_GENERIC_RUNNER_SHA_PREFIX = "01c5dc7"
+
+
+def rleplus_git_sha(root: Path | None = None) -> str | None:
+    import subprocess
+
+    path = Path(root) if root else find_rleplus_root()
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        )
+        return out.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def ensure_rleplus() -> Path:
