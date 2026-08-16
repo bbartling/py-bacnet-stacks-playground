@@ -56,7 +56,7 @@ Monthly utility (n=10): NMBE ≈ **+0.98%**, CVRMSE ≈ **10.45%**. Jan 26 15-mi
 
 - `legacy_reward_v1`: `-(kWh*rate + peak*demand) - comfort`
 - `operator_pay_v1` (historical): incremental demand vs floor; readiness fail → reward **0**
-- `operator_pay_2x_v1` / `operator_pay_3x_v1`: same floor for pair; `display_paycheck = clip(100 + k*savings, 0, cap)`; training uses `READINESS_FAIL_REWARD` (`-1e6`) on school readiness fail
+- `operator_pay_2x_v1` / `operator_pay_3x_v1`: same floor for pair; `display_paycheck = clip(100 + k*savings, 0, cap)`. Crashed/empty EnergyPlus → `FAIL_REWARD` (`-1e6`). Valid episode that fails school readiness → display paycheck `$0` and training reward `-10` (`INFEASIBLE_TRAIN_REWARD`).
 
 ## 7. Dataset / splits
 
