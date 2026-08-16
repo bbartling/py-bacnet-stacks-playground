@@ -72,7 +72,8 @@ def build_zone_series_f(params: SixZoneDailyParams, action_key: str) -> List[flo
     lead += int(round(off.recovery_offset_min / 15.0))
     lead = max(0, lead)
     ramp = max(0, int(round(params.recovery_ramp_minutes / 15.0)))
-    recovery_begin = _clamp_step(start - lead)
+    ramp_start = start - ramp
+    recovery_begin = _clamp_step(ramp_start - lead)
     series: List[float] = []
     for t in range(96):
         if start <= t < end:
@@ -81,13 +82,12 @@ def build_zone_series_f(params: SixZoneDailyParams, action_key: str) -> List[flo
         if recovery_begin <= t < start:
             if ramp <= 0:
                 series.append(occ)
+            elif t < ramp_start:
+                series.append(unocc)
             else:
-                progressed = t - (start - ramp)
-                if progressed <= 0:
-                    series.append(unocc)
-                else:
-                    frac = min(1.0, progressed / float(ramp))
-                    series.append(unocc + frac * (occ - unocc))
+                progressed = t - ramp_start + 1
+                frac = min(1.0, progressed / float(ramp))
+                series.append(unocc + frac * (occ - unocc))
             continue
         series.append(unocc)
     return series

@@ -16,7 +16,7 @@ EnergyPlus screening experiment; illustrative tariff; not an operational recomme
 | Baseline | paired incumbent (same day + billing floor; no candidate-as-baseline) |
 | PPO / DQN | `UNTRAINED_POLICY_SMOKE` |
 | Random policy | independently sampled each day (not a random walk) |
-| Full campaign | **blocked** `NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE` |
+| Full campaign | **blocked** `NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE` ([ramp NO-GO](2026-08-16-vibe22-physics-ramp-nogo.md)) |
 | Deterministic validation | **none** |
 | Held-out evaluation | **none** |
 | A04 SHA-256 | `212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683` |

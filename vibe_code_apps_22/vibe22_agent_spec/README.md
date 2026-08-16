@@ -5,7 +5,8 @@
 | [RL_DAILY_DSM.md](RL_DAILY_DSM.md) | LIVE SB3 daily six-zone RL — SoT |
 | [CONTRIBUTING_RL.md](CONTRIBUTING_RL.md) | rleplus backend, A04, no Ray |
 | [EPLUS_GYM.md](EPLUS_GYM.md) | Gym adapter |
-| [AGENT_LOOP.md](AGENT_LOOP.md) | Campaign loop |
+| [AGENT_LOOP.md](AGENT_LOOP.md) | Campaign loop (ramp gate first) |
+| [../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md](../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md) | Long-train NO-GO |
 | ../plots/rl_report/README.md | Report pack |
 | ../skills/rl-daily-dsm/SKILL.md | Skill |
 

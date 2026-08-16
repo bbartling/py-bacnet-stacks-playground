@@ -40,7 +40,8 @@ def build_htg_sp_series_f(params: ParametricDailyParams) -> List[float]:
 
     lead_steps = max(0, int(round(params.recovery_start_minutes_before_occupancy / 15.0)))
     ramp_steps = max(0, int(round(params.recovery_ramp_minutes / 15.0)))
-    recovery_begin = _clamp_step(start - lead_steps)
+    ramp_start = start - ramp_steps
+    recovery_begin = _clamp_step(ramp_start - lead_steps)
 
     series: List[float] = []
     for t in range(96):
@@ -52,14 +53,12 @@ def build_htg_sp_series_f(params: ParametricDailyParams) -> List[float]:
             # Linear ramp unocc → occ over ramp_steps ending at occupancy start.
             if ramp_steps <= 0:
                 series.append(occ)
+            elif t < ramp_start:
+                series.append(unocc)
             else:
-                # Distance from recovery_begin toward start
-                progressed = t - (start - ramp_steps)
-                if progressed <= 0:
-                    series.append(unocc)
-                else:
-                    frac = min(1.0, progressed / float(ramp_steps))
-                    series.append(unocc + frac * (occ - unocc))
+                progressed = t - ramp_start + 1
+                frac = min(1.0, progressed / float(ramp_steps))
+                series.append(unocc + frac * (occ - unocc))
             continue
         series.append(unocc)
     return series
