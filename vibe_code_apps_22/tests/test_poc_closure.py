@@ -32,6 +32,7 @@ def test_ledger_from_p1_gates():
     assert led["historical_invalid_training_episodes"]["PPO"] == 488
     assert led["jan26_pair"]["not_rl_policy"] is True
     assert "not_pristine" in led["january_status"]
+    assert led["p1_gates_path"] == "docs/audits/figures/postfix/p1_gates.json"
 
 
 def test_baseline_cache_hit_and_invalidation(tmp_path: Path):
@@ -130,6 +131,10 @@ def test_campaign_plots_fail_closed(tmp_path: Path):
         plot_validation_return_vs_eplus_calls()
     with pytest.raises(NoValidEvalError):
         load_valid_eval(tmp_path / "missing.csv")
+    bare = tmp_path / "bare.csv"
+    bare.write_text("policy,day,peak_kw,daily_kwh,failed\nx,2026-01-26,1,1,false\n", encoding="utf-8")
+    with pytest.raises(NoValidEvalError, match="artifact_kind"):
+        load_valid_eval(bare)
 
 
 def test_ramp_gate_fails_fast_sim():
@@ -139,3 +144,17 @@ def test_ramp_gate_fails_fast_sim():
     out = evaluate_ramp_gate(simulated=sim, real_bas=real)
     assert out["verdict"] == VERDICT_FAIL
     assert out["passed"] is False
+
+
+def test_ramp_gate_rejects_non_15min_index():
+    idx = pd.date_range("2024-01-01", periods=4, freq="30min")
+    frame = pd.DataFrame({c: [70.0, 70.5, 71.0, 71.5] for c in BAS_ZONE_COLS}, index=idx)
+    with pytest.raises(ValueError, match="15-minute"):
+        evaluate_ramp_gate(simulated=frame, real_bas=frame)
+
+
+def test_eval_policy_scores_billing_floor_and_harvest_sibling():
+    src = (Path(__file__).resolve().parents[1] / "eplus_gym" / "rl" / "eval_policy.py").read_text(encoding="utf-8")
+    assert "mtd_peak_kw=floor" in src
+    assert 'eval_harvest' in src
+    assert 'harvest_dir = ep_dir / "harvest_lookback"' not in src

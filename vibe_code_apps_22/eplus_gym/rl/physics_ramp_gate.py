@@ -14,7 +14,21 @@ VERDICT_PASS = "GO_RAMP_PLAUSIBLE"
 ENGINEERING_MARGIN = 3.0
 
 
+def _require_contiguous_15min(frame: pd.DataFrame) -> None:
+    idx = frame.index
+    if not isinstance(idx, pd.DatetimeIndex):
+        raise ValueError("ramp gate requires a DatetimeIndex")
+    if not idx.is_unique or not bool(idx.is_monotonic_increasing):
+        raise ValueError("ramp gate timestamps must be unique and monotonic")
+    gaps = idx.to_series().diff().iloc[1:]
+    if gaps.empty:
+        return
+    if not (gaps == pd.Timedelta(minutes=15)).all():
+        raise ValueError("ramp gate requires contiguous 15-minute timestamps")
+
+
 def abs_15min_deltas(frame: pd.DataFrame, cols: Sequence[str] = BAS_ZONE_COLS) -> np.ndarray:
+    _require_contiguous_15min(frame)
     arr = frame[list(cols)].astype(float).diff().abs().to_numpy().reshape(-1)
     return arr[np.isfinite(arr)]
 

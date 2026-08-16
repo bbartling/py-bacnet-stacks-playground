@@ -37,6 +37,6 @@
       "reason": "last train reward.json is not deterministic evaluation"
     }
   ],
-  "p1_gates_path": "C:/Users/ben/Documents/py-bacnet-stacks-playground/.worktrees/vibe22-postfix-pilot-readiness/vibe_code_apps_22/docs/audits/figures/postfix/p1_gates.json",
-  "sha256": "a67c1b55cb0e1db9816376ecb681329aa5de4648f00bdc25eb47528da9e8f95b"
+  "p1_gates_path": "docs/audits/figures/postfix/p1_gates.json",
+  "sha256": "d997fd85aa2194ccc6e3bff9ce9a7a74f82abe19f73063a5329a576b0ccad4e3"
 }

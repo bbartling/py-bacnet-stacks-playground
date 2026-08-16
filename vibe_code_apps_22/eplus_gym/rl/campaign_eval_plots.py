@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-REQUIRED_EVAL_COLS = {"policy", "day", "peak_kw", "daily_kwh", "failed"}
+REQUIRED_EVAL_COLS = {"policy", "day", "peak_kw", "daily_kwh", "failed", "artifact_kind"}
 
 
 class NoValidEvalError(FileNotFoundError):

@@ -70,7 +70,7 @@ Expected full train fold ~136 days; pilot ~950 E+ calls; 3-seed 5-pass ~4100 cal
 
 ## 7. Tests
 
-`python -m pytest tests -q` → 57 passed, 1 deselected (`eplus` marker). P1 gates ran outside default pytest.
+`python -m pytest tests -q` on the POC-closure branch (2026-08-16 closeout nits) → **67 passed**, 1 deselected (`eplus` marker). The earlier **57 passed** figure was the pre-POC-closure suite; **65 passed** was this branch before the CodeRabbit nit tests. P1 gates ran outside default pytest.
 
 ## 8. Baselines
 
@@ -84,7 +84,7 @@ Expected full train fold ~136 days; pilot ~950 E+ calls; 3-seed 5-pass ~4100 cal
 
 ## 10. Pilot / full campaign
 
-**NOT RUN.** Locked January was not opened.
+**NOT RUN** as a long campaign. January is **non-pristine**: calibration and P1 used 2026-01-26, so January is not an untouched holdout. No new untouched final test window exists.
 
 ## 11. Paired uncertainty
 

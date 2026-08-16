@@ -31,7 +31,7 @@ def eval_days(
     billing = BillingState()
     for day in days:
         ep_dir = out_csv.parent / "eval_eps" / f"{policy_label}_{day}"
-        harvest_dir = ep_dir / "harvest_lookback"
+        harvest_dir = out_csv.parent / "eval_harvest" / f"{policy_label}_{day}"
         harvest = run_live_day_subprocess(
             site_root=site_root,
             epw=epw,
@@ -74,6 +74,7 @@ def eval_days(
             ep_dir=ep_dir,
             lookback_days=lookback_days,
             reward_name=reward_name,
+            mtd_peak_kw=floor,
         )
         payload["policy"] = policy_label
         payload["artifact_kind"] = "eval"

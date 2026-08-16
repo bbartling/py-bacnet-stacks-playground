@@ -94,7 +94,7 @@ def build_experiment_ledger(
                 "reason": "last train reward.json is not deterministic evaluation",
             },
         ],
-        "p1_gates_path": str(gates_path.as_posix()),
+        "p1_gates_path": gates_path.relative_to(app_root).as_posix(),
     }
     blob = json.dumps({k: body[k] for k in body if k != "sha256"}, sort_keys=True).encode("utf-8")
     body["sha256"] = hashlib.sha256(blob).hexdigest()

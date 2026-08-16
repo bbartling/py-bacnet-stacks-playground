@@ -53,7 +53,7 @@ On-disk schema `vibe22.baseline_cache.v1`, atomic writes, fail-closed provenance
 
 ## Observation / eval
 
-`vibe22.obs.v2` start temps come from last lookback row. Eval no longer uses dummy `dow=0`/`doy=1`/zero weather; sidecar JSON is unnormalized context. Scored parquet remains 96 rows; `trajectory_all.parquet` + `episode_manifest.json` record 192-row provenance.
+`vibe22.obs.v2` is the **intentional** 19-D policy contract on this branch (lookback start-zone temps plus billing context in the observation). It is **not** `vibe22.obs.v1_16d_no_zone_temps`. Eval no longer uses dummy `dow=0`/`doy=1`/zero weather; sidecar JSON is unnormalized context. Scored parquet remains 96 rows; `trajectory_all.parquet` + `episode_manifest.json` record 192-row provenance.
 
 ## Zone-ramp gate
 
@@ -82,7 +82,7 @@ Schematics also ship as SVG in the same folder.
 
 ## Commands / tests
 
-- `python -m pytest tests -q` → 65 passed, 1 deselected (`eplus` marker)
+- `python -m pytest tests -q` (2026-08-16 closeout nits; same selection as CI `vibe22-ci`) → 67 passed, 1 deselected (`eplus` marker). Pre-POC-closure was 57; this branch before nits was 65.
 - Figure command in [`../blog/2026-08-15-rl-poc/README.md`](../blog/2026-08-15-rl-poc/README.md)
 - This PR EnergyPlus calls: 3-day smoke (Mar 16 retried after a Windows heap `0xC0000374`), Jan 26 pair, one `operator_pay_2x_v1` candidate (plus nested incumbent cache fill) — **not** a campaign
 
