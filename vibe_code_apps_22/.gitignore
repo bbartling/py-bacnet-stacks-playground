@@ -45,5 +45,6 @@ config.py
 *.pkl
 *.parquet
 !docs/blog/2026-08-15-rl-poc/data/*.parquet
+!docs/audits/figures/operator_pay_smoke/*.parquet
 Thumbs.db
 Desktop.ini

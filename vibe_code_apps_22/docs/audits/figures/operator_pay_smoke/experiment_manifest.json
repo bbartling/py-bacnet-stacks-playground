@@ -1,0 +1,41 @@
+{
+  "schema": "vibe22.operator_pay_experiment.v1",
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "run_id": "oppay2x_smoke_20260816",
+  "reward_name": "operator_pay_2x_v1",
+  "mode": "smoke",
+  "label": "SMOKE_NOT_EVIDENCE",
+  "days": [
+    "2026-01-25",
+    "2026-01-26",
+    "2026-03-16"
+  ],
+  "seed": 0,
+  "arms": [
+    "incumbent",
+    "no_setback",
+    "random_policy",
+    "ppo",
+    "dqn"
+  ],
+  "a04_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "a04_sha256_pin": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+  "git_sha": "11cc1cdceaf44ba3304c4c255731d1efcc02e719",
+  "python": "3.14.2",
+  "simulator": "LIVE_ENERGYPLUS",
+  "obs_schema": "vibe22.obs.v2",
+  "action_schema": "vibe22.act.v1",
+  "ppo_action": "continuous_11d",
+  "dqn_action": "discrete_64",
+  "reward_constants": {
+    "infeasible_train_reward": -10.0,
+    "money_mode": "ILLUSTRATIVE",
+    "claim": "SCREENING_ONLY"
+  },
+  "ramp_gate_passed": false,
+  "ramp_gate_verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+  "advisory_only": true,
+  "bacnet_writes": false,
+  "created_utc": "2026-08-16T15:00:14.821271+00:00"
+}
