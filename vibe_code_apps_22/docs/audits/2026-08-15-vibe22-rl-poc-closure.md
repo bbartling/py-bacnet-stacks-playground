@@ -91,3 +91,7 @@ Campaign eval plots remain fail-closed until real `eval_episodes.csv` exists.
 ## BACnet
 
 Do not write BACnet. Do not auto-promote.
+
+## Merge (2026-08-16)
+
+Squash-merged as **PR #93** → `develop` SHA `1995b52f2eb0a0a9cc5602d95708d21dc441d7b1`. `vibe22-ci` on that push: success (`31948892233`). Feature branch deleted. **POC evidence closed; RL is not production DSM.** No vibe22 GHCR workflow exists.

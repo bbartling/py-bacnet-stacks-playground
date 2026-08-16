@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-16 — Playground closeout (verify-only)
+
+- No vibe19 code PR. Pin remains `open-fdd[reporting]==4.4.1`. Local `open_fdd.__version__` = `4.4.1`. `python -m pytest -q` → 625 passed, 15 deselected.
+- `dump_tables` still runs for diagnostic **and** forensic `export_agent_bundle`; oracle CSVs (`vav_health_matrix.csv`, `mech_cooling_oat_bins.csv`, `motor_hours.csv`, `motor_weekly.csv`) stay in dumps/MANIFEST.
+- GHCR `:latest` index digest `sha256:101126abbe4d0affe4ffac6a8cf03bd5a1f31fe8e7161e6eb354910f32760f07` (linux/amd64 + linux/arm64). Image revision **`4b710616`** (PR #92). Develop tip `#93` `1995b52f` did not change vibe19 — no rebuild.
+- bensbench: `docker pull ghcr.io/bbartling/vibe19:latest` (do not docker build on the Linux bench).
+
+---
+
 ## 2026-08-15 — PyPI OpenFDD 4.4.1 dump_tables + GHCR
 
 - Pin `open-fdd[reporting]==4.4.1`. Diagnostic/forensic WattLab dump calls `open_fdd.analytics.dump_tables` so `vav_health_matrix.csv` (plus motor/mech CSVs) land in the Engineering Bundle and MANIFEST.
