@@ -11,6 +11,7 @@ from eplus_gym.objective import BAS_ZONE_COLS, incremental_demand
 from eplus_gym.rl.experiment_ledger import A04_SHA256
 from eplus_gym.rl.operator_pay_experiment import (
     OperatorPayExperimentError,
+    assert_a04_sha,
     assert_reward_name,
     assert_run_id,
     filter_operator_pay_rows,
@@ -21,7 +22,6 @@ from eplus_gym.rl.operator_pay_experiment import (
     validate_scored_episode,
 )
 from eplus_gym.rl.reward import INFEASIBLE_TRAIN_REWARD, MONEY_ILLUSTRATIVE, operator_paycheck, score_day
-from eplus_gym.site_pins import sha256_file
 
 
 def _toy_df(*, peak=100.0, kwh_steps=96, school_ok=True):
@@ -140,21 +140,27 @@ def test_summarize_does_not_treat_year2xsyn_as_valid():
     assert summary["valid_operator_pay_episodes"] == 0
 
 
-def test_smoke_mocked_worker_writes_package(tmp_path: Path):
+def test_assert_a04_sha_rejects_mismatch(tmp_path: Path):
+    p = tmp_path / "not_a04.idf"
+    p.write_bytes(b"not-the-published-champion")
+    with pytest.raises(OperatorPayExperimentError, match="A04 sha"):
+        assert_a04_sha(p)
+
+
+def test_smoke_mocked_worker_writes_package(tmp_path: Path, monkeypatch):
     app = Path(__file__).resolve().parents[1]
     site = tmp_path / "site"
     models = site / "eplus" / "models"
     weather = site / "eplus" / "weather"
     models.mkdir(parents=True)
     weather.mkdir(parents=True)
-    pin = app / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
-    if pin.is_file():
-        data = pin.read_bytes()
-        (models / "lakeside_w2a_a04_dual_champion.idf").write_bytes(data)
-        assert sha256_file(models / "lakeside_w2a_a04_dual_champion.idf") == A04_SHA256
-    else:
-        pytest.skip("A04 idf not in repo")
+    # Repo IDF hash can differ from the published site pin (CRLF/LFS). Live CLI still pins SITE_ROOT.
+    (models / "lakeside_w2a_a04_dual_champion.idf").write_bytes(b"fixture")
     (weather / "amy.epw").write_text("EPW\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "eplus_gym.rl.operator_pay_experiment.assert_a04_sha",
+        lambda _idf: A04_SHA256,
+    )
 
     extras = {
         "reward_name": "operator_pay_2x_v1",
