@@ -1,0 +1,54 @@
+{
+  "valid_operator_pay_episodes": 15,
+  "failed_eplus_calls": 0,
+  "n_rows": 15,
+  "by_arm": {
+    "incumbent": {
+      "candidate_count": 3,
+      "failed_eplus_calls": 0,
+      "readiness_failures": 0,
+      "mean_illustrative_paycheck": 100.0,
+      "mean_kwh": 3827.9589284469134,
+      "mean_peak_kw": 212.01880027667025
+    },
+    "no_setback": {
+      "candidate_count": 3,
+      "failed_eplus_calls": 0,
+      "readiness_failures": 0,
+      "mean_illustrative_paycheck": 220.033485085279,
+      "mean_kwh": 4166.276202045696,
+      "mean_peak_kw": 217.56181624931324
+    },
+    "random_policy": {
+      "candidate_count": 3,
+      "failed_eplus_calls": 0,
+      "readiness_failures": 1,
+      "mean_illustrative_paycheck": 166.66666666666666,
+      "mean_kwh": 3792.861232444611,
+      "mean_peak_kw": 215.27338796306915
+    },
+    "ppo": {
+      "candidate_count": 3,
+      "failed_eplus_calls": 0,
+      "readiness_failures": 0,
+      "mean_illustrative_paycheck": 0.0,
+      "mean_kwh": 3643.843904961653,
+      "mean_peak_kw": 238.4564122994958
+    },
+    "dqn": {
+      "candidate_count": 3,
+      "failed_eplus_calls": 0,
+      "readiness_failures": 0,
+      "mean_illustrative_paycheck": 0.0,
+      "mean_kwh": 3457.7876369343617,
+      "mean_peak_kw": 236.36829877799426
+    }
+  },
+  "ppo_dqn_learned": false,
+  "deterministic_validation": false,
+  "held_out_evaluation": false,
+  "training_campaign": "not_run_ramp_gate_fail",
+  "label": "SMOKE_NOT_EVIDENCE",
+  "ramp_gate_allowed_training": false,
+  "operational_recommendation": "NO_GO_advisory_only"
+}

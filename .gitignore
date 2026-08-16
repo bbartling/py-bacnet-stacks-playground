@@ -322,5 +322,8 @@ vibe_code_apps_22/docs/audits/figures/postfix/pair_*/
 vibe_code_apps_22/docs/audits/figures/postfix/operator_pay_2x_one_step/
 !vibe_code_apps_22/docs/audits/figures/postfix/*.json
 !vibe_code_apps_22/docs/audits/figures/postfix/*.png
+!vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.json
+!vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.csv
+!vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.md
 
 

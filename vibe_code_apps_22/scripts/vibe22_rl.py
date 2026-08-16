@@ -17,7 +17,6 @@ from eplus_gym.rl.compare_baseline import (  # noqa: E402
     compare_policies,
     load_eval_params_from_run,
     load_params_from_recommendation,
-    load_rl_action_as_params,
 )
 from eplus_gym.rl.day_pool import (  # noqa: E402
     build_year_plus_heating2x_pool,
@@ -257,6 +256,31 @@ def cmd_eval(args) -> int:
     )
     print(json.dumps({"n": len(rows), "failed": sum(1 for r in rows if r.get("failed"))}, indent=2))
     return EXIT_OK
+
+
+def cmd_operator_pay_experiment(args) -> int:
+    from eplus_gym.rl.operator_pay_experiment import (
+        OperatorPayExperimentError,
+        run_operator_pay_experiment,
+    )
+
+    print(SCREENING_CLAIM)
+    try:
+        out = run_operator_pay_experiment(
+            app_root=_APP,
+            site_root=_site(args),
+            run_id=str(args.run_id),
+            reward_name=str(args.reward_name),
+            mode=str(args.mode),
+            simulator=str(args.simulator),
+            seed=int(args.seed),
+        )
+    except OperatorPayExperimentError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return EXIT_INTEGRITY
+    printable = {k: v for k, v in out.items() if k not in {"manifest"}}
+    print(json.dumps(printable, indent=2, default=str))
+    return int(out.get("exit_code") or EXIT_OK)
 
 
 def cmd_campaign(args) -> int:
@@ -542,6 +566,14 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--pack", default=None)
     ev.add_argument("--reward-name", required=True)
     ev.set_defaults(func=cmd_eval)
+
+    op = sub.add_parser("operator-pay-experiment", parents=[site_parent])
+    op.add_argument("--run-id", required=True)
+    op.add_argument("--reward-name", required=True, choices=["operator_pay_2x_v1", "operator_pay_3x_v1"])
+    op.add_argument("--mode", required=True, choices=["smoke", "full"])
+    op.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    op.add_argument("--seed", type=int, default=0)
+    op.set_defaults(func=cmd_operator_pay_experiment)
 
     args = p.parse_args(argv)
     try:
