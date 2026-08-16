@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071827"/><stop offset="1" stop-color="#16394a"/></linearGradient>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#64d5e5"/></marker>
+    <style>
+      .title{font:700 46px Inter,Segoe UI,Arial,sans-serif;fill:#fff}.sub{font:400 22px Inter,Segoe UI,Arial,sans-serif;fill:#bad7e4}
+      .h{font:700 27px Inter,Segoe UI,Arial,sans-serif;fill:#fff}.t{font:400 20px Inter,Segoe UI,Arial,sans-serif;fill:#d9e8ee}
+      .small{font:600 16px Inter,Segoe UI,Arial,sans-serif;fill:#9dcbd8}.card{fill:#163e55;stroke:#3e748b;stroke-width:2}
+      .blue{fill:#0d6375;stroke:#59cede;stroke-width:2}.gold{fill:#58421b;stroke:#e6b858;stroke-width:2}.bad{fill:#5b2328;stroke:#ff7b85;stroke-width:2}
+      .line{stroke:#64d5e5;stroke-width:5;fill:none;marker-end:url(#a2)}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg2)"/>
+  <text x="80" y="85" class="title">One daily episode: decide once, simulate, score</text>
+  <text x="80" y="125" class="sub">The present problem is contextual-bandit-like daily planning—not 15-minute closed-loop RL.</text>
+
+  <rect x="70" y="205" width="330" height="265" rx="26" class="card"/>
+  <text x="105" y="250" class="small">00:00 — OBSERVATION (19D)</text>
+  <text x="105" y="298" class="h">Tomorrow's context</text>
+  <text x="105" y="342" class="t">Calendar + forecast summary</text>
+  <text x="105" y="380" class="t">Billing state + school day</text>
+  <text x="105" y="418" class="t">Six zone starting temperatures</text>
+
+  <rect x="475" y="205" width="300" height="265" rx="26" class="blue"/>
+  <text x="510" y="250" class="small">ONE ACTION</text>
+  <text x="510" y="298" class="h">Daily HVAC plan</text>
+  <text x="510" y="342" class="t">Setpoints + zone offsets</text>
+  <text x="510" y="380" class="t">Occupancy window</text>
+  <text x="510" y="418" class="t">Recovery lead time</text>
+
+  <rect x="850" y="205" width="300" height="265" rx="26" class="card"/>
+  <text x="885" y="250" class="small">REAL ENERGYPLUS RUN</text>
+  <text x="885" y="298" class="h">48 simulated hours</text>
+  <text x="885" y="342" class="t">D−1 fixed lookback</text>
+  <text x="885" y="380" class="t">D target with candidate plan</text>
+  <text x="885" y="418" class="t">96 target rows retained</text>
+
+  <rect x="1225" y="205" width="305" height="265" rx="26" class="gold"/>
+  <text x="1260" y="250" class="small">END OF DAY</text>
+  <text x="1260" y="298" class="h">One scalar reward</text>
+  <text x="1260" y="342" class="t">Energy + incremental demand</text>
+  <text x="1260" y="380" class="t">Comfort + readiness</text>
+  <text x="1260" y="418" class="t">Provenance saved</text>
+
+  <path d="M400 337H465" class="line"/><path d="M775 337H840" class="line"/><path d="M1150 337H1215" class="line"/>
+
+  <rect x="170" y="570" width="1260" height="200" rx="28" class="card"/>
+  <text x="215" y="618" class="small">PLANNED OPERATOR-PAY EXPERIMENT — NOT USED IN A VALID POST-FIX CAMPAIGN</text>
+  <text x="800" y="675" class="h" text-anchor="middle">pay = clip($100 + 2 × (baseline cost − candidate cost), $0, $500)</text>
+  <text x="800" y="718" class="t" text-anchor="middle">Baseline and candidate must be paired on the same day and billing floor.</text>
+  <rect x="500" y="792" width="600" height="72" rx="18" class="bad"/>
+  <text x="800" y="837" class="h" text-anchor="middle">Not ready for school → display $0; train reward −10</text>
+</svg>

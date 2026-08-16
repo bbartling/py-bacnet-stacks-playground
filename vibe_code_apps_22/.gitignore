@@ -44,5 +44,6 @@ config.py
 *.pt
 *.pkl
 *.parquet
+!docs/blog/2026-08-15-rl-poc/data/*.parquet
 Thumbs.db
 Desktop.ini

@@ -1,0 +1,13 @@
+{
+  "failed": false,
+  "reward": -1.5,
+  "daily_kwh": 3736.726911841679,
+  "peak_kw": 257.7742611165084,
+  "baseline_kwh": 4257.258274758415,
+  "baseline_peak_kw": 246.5023852990757,
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "reward_name": "operator_pay_2x_v1",
+  "day": "2026-01-26",
+  "note": "One real candidate EnergyPlus day after paired incumbent cache; not a training result."
+}

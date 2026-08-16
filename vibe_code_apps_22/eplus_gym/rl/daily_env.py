@@ -5,7 +5,6 @@ pyenergyplus (Windows heap corruption on ``delete_state``).
 """
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -16,12 +15,11 @@ from eplus_gym.episode import SCREENING_CLAIM
 from eplus_gym.rl import SCHOOL_START_STEP, SIMULATOR_REQUIRED
 from eplus_gym.rl.day_pool import calendar_day
 from eplus_gym.rl.live_day_worker import run_live_day_inprocess, run_live_day_subprocess
-from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
+from eplus_gym.rl.obs_context import observation_and_context
 from eplus_gym.rl.billing_state import BillingState
 from eplus_gym.rl.reward import FAIL_REWARD, RewardBreakdown, RewardWeights
 from eplus_gym.rl.spaces import (
     N_OBS_V2,
-    build_day_observation,
     continuous_action_space,
     decode_continuous,
     decode_discrete,
@@ -132,27 +130,22 @@ class DailySixZoneGymEnv(gym.Env):
 
     def _obs_for_day(self, day_s: str) -> np.ndarray:
         cal = self._calendar(day_s)
-        d = date.fromisoformat(cal)
-        fc = forecast_from_epw_replay(self._epw_for(day_s), d)
-        mean_c, min_c, max_c, morn_c, h0, hm10 = fc.features()
         floor = float(self._billing.start_of_day(cal))
-        temps = self._start_temps.get(cal) or self._start_temps.get(day_s) or [70.0] * 6
-        return build_day_observation(
-            month=d.month,
-            dow=d.weekday(),
-            doy=int(d.strftime("%j")),
-            oat_mean_c=mean_c,
-            oat_min_c=min_c,
-            oat_max_c=max_c,
+        temps = self._start_temps.get(cal) or self._start_temps.get(day_s)
+        if temps is None:
+            raise ValueError(
+                f"missing start-of-day zone temps for {cal}; "
+                "refusing silent 70F default after a lookback-capable env"
+            )
+        obs, ctx = observation_and_context(
+            day=cal,
+            epw=self._epw_for(day_s),
             billing_floor_kw=floor,
-            mtd_peak_kw=floor,
-            morning_min_c=morn_c,
-            hours_below_0c=h0,
-            hours_below_m10c=hm10,
-            forecast_is_live=0.0,
-            illustrative_school_day=1.0 if d.weekday() < 5 else 0.0,
             zone_temps_f=temps,
+            mtd_peak_kw=floor,
         )
+        self._last_obs_ctx = ctx
+        return obs
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
@@ -161,6 +154,34 @@ class DailySixZoneGymEnv(gym.Env):
         opts = options or {}
         day_s = self._norm_id(str(opts.get("day") or self._pick_day()))
         self._last_day = day_s
+        cal = self._calendar(day_s)
+        if cal not in self._start_temps and day_s not in self._start_temps:
+            if int(self.cfg.get("lookback_days", 1)) <= 0:
+                self._start_temps[cal] = [70.0] * 6
+            else:
+                from eplus_gym.six_zone_daily_controller import incumbent_lookback_params
+
+                harvest_dir = self.output_root / f"harvest_{cal.replace(':', '_')}"
+                kwargs = dict(
+                    site_root=self.site_root,
+                    epw=self._epw_for(day_s),
+                    champion_idf=self.champion_idf,
+                    day=cal,
+                    params=incumbent_lookback_params().to_dict(),
+                    ep_dir=harvest_dir,
+                    lookback_days=int(self.cfg.get("lookback_days", 1)),
+                    reward_name="legacy_reward_v1",
+                    skip_paired_baseline=True,
+                    mtd_peak_kw=float(self._billing.start_of_day(cal)),
+                )
+                if self.isolate_eplus:
+                    payload = run_live_day_subprocess(**kwargs)
+                else:
+                    payload = run_live_day_inprocess(**kwargs)
+                temps = payload.get("start_zone_temps_f")
+                if not temps:
+                    raise ValueError(f"harvest lookback produced no start temps for {cal}")
+                self._start_temps[cal] = [float(x) for x in temps]
         info = {
             "scientific_claim": SCREENING_CLAIM,
             "simulator": SIMULATOR_REQUIRED,
@@ -247,6 +268,9 @@ class DailySixZoneGymEnv(gym.Env):
             self._prior_peak = float(br.peak_kw)
             self._prior_kwh = float(br.daily_kwh)
             self._billing.observe_peak(float(br.peak_kw))
+            temps = payload.get("start_zone_temps_f")
+            if temps:
+                self._start_temps[cal] = [float(x) for x in temps]
 
         info = {
             "day": day_s,

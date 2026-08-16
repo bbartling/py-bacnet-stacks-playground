@@ -1,0 +1,18 @@
+{
+  "schema": "vibe22.physics_ramp_gate.v1",
+  "arm": "incumbent_and_perturbed_jan26",
+  "engineering_margin": 3.0,
+  "threshold_rule": "bas_p99_9 * engineering_margin",
+  "threshold_f_per_15min": 2.650709999999979,
+  "incumbent_simulated_max_f_per_15min": 4.887013155370099,
+  "perturbed_simulated_max_f_per_15min": 9.324841935237117,
+  "bas_quantiles_f_per_15min": {
+    "median": 0.03666666666667595,
+    "p95": 0.22333333333331495,
+    "p99": 0.446153846153844,
+    "p99_9": 0.883569999999993,
+    "max": 2.2266666666666453
+  },
+  "passed": false,
+  "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE"
+}
