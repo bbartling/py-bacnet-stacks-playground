@@ -389,11 +389,14 @@ def write_package(
     pq = dest / "episode_results.parquet"
     csv_p = dest / "episode_results.csv"
     if len(df):
-        df.to_parquet(pq, index=False)
         df.to_csv(csv_p, index=False)
+        try:
+            df.to_parquet(pq, index=False)
+            paths["parquet"] = pq
+        except ImportError:
+            pass
     else:
         pd.DataFrame(columns=["run_id", "arm", "day", "failed"]).to_csv(csv_p, index=False)
-    paths["parquet"] = pq
     paths["csv"] = csv_p
     sum_p = dest / "summary.json"
     sum_p.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
