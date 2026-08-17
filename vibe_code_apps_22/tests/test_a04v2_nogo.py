@@ -10,12 +10,19 @@ from eplus_gym.rl.physics_ramp_gate import ENGINEERING_MARGIN
 from eplus_gym.rl.operator_pay_experiment import refuse_full_campaign
 
 APP = Path(__file__).resolve().parents[1]
-A04_SHA = "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+# Same IDF bytes differ only by newline: Windows checkout often CRLF; Linux CI is LF.
+A04_SHA_CRLF = "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+A04_SHA_LF = "080ab87797c78df0c8efb257a52bba97f550ee628ec4bd1333801b2e104b21eb"
+A04_SHA_ALLOWED = frozenset({A04_SHA_CRLF, A04_SHA_LF})
 
 
 def test_a04_hash_immutable():
     idf = APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
-    assert hashlib.sha256(idf.read_bytes()).hexdigest() == A04_SHA
+    digest = hashlib.sha256(idf.read_bytes()).hexdigest()
+    assert digest in A04_SHA_ALLOWED
+    # Normalized LF content must match the LF pin (portable identity).
+    lf = idf.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    assert hashlib.sha256(lf).hexdigest() == A04_SHA_LF
 
 
 def test_engineering_margin_unchanged():
