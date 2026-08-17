@@ -124,6 +124,8 @@ Vibe19 is a **generic** Streamlit consumer. Charts / FDD / RCx / motors / mixing
 
 **Never hard-code a site, vendor suffix table, city, or equipment id in `app/`.** No `if building == …`, no Metasys suffix table, no default Madison weather, no glycol special case. Vendor dictionaries and Open-Meteo lat/lon belong in the **offline preprocess repo** that builds `openfdd_package_v1`. Gold shape: `AHU_1`, `VAV_1`, `CHW_1`, `weather/`.
 
+Full agent prompt for UI/pandas/sidecar robustness: [`docs/CURSOR_PROMPT_UI_PANDAS_PACKAGE_CONTRACT.md`](docs/CURSOR_PROMPT_UI_PANDAS_PACKAGE_CONTRACT.md).
+
 `equipType` / `equipment_type` is canonical (`ahu` `vav` `chwPlant` `boiler` `heatPump` `weather`; `rtu`→AHU). Folder `JRH-RM717-VMA-…` is **UNKNOWN** if unstamped. Unit ventilators / FCUs with air-side points → **`ahu`**. Chillers → **`chwPlant`**.
 
 ### What the preprocess agent must put in the zip
@@ -189,3 +191,4 @@ python scripts/generate_rule_configs.py
 - [docs/STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md)
 - [vibe19_agent_spec/docs/OPERATIONAL_GATES.md](vibe19_agent_spec/docs/OPERATIONAL_GATES.md)
 - [docs/HAYSTACK_LIKE_MAPPING_GUIDE.md](docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)
+- [docs/CURSOR_PROMPT_UI_PANDAS_PACKAGE_CONTRACT.md](docs/CURSOR_PROMPT_UI_PANDAS_PACKAGE_CONTRACT.md) — Streamlit width + pandas ISO8601 + sidecar `equip` string + any-BAS authoring
