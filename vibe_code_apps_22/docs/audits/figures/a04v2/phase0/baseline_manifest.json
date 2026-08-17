@@ -10,7 +10,7 @@
     "role": "immutable_parent_comparison_baseline"
   },
   "epw": {
-    "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\weather\\madison_amy_202508_202608.epw",
+    "path": "<SITE_ROOT>\\eplus\\weather\\madison_amy_202508_202608.epw",
     "sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2"
   },
   "environment": {

@@ -11,23 +11,16 @@ from eplus_native.idf_inspect import NINE_ZONES
 from eplus_native.six_zone_htg_stage import ACTION_KEYS, dsm_htg_schedule_name
 from eplus_native.zone_agg import aggregate_zone_temps_row, load_agg_contract
 
+from ..a04_identity import A04_IDF_NAME, is_a04_idf_filename
 from ..env import EnergyPlusEnv
 from ..honesty import HONESTY_W2A
 
-A04_IDF_NAME = "lakeside_w2a_a04_dual_champion.idf"
 _ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_IDF = _ROOT / "models" / "eplus" / A04_IDF_NAME
 HONESTY = HONESTY_W2A
 ZONE_VAR = "Zone Mean Air Temperature"
 
-
-def is_a04_idf_filename(name: str) -> bool:
-    """Champion A04, staged A04 copies, or separately versioned A04-v2 children."""
-    n = Path(name).name
-    if n == A04_IDF_NAME or n.endswith(A04_IDF_NAME):
-        return True
-    base = n[7:] if n.startswith("staged_") else n
-    return base.startswith("lakeside_w2a_a04v2_") and base.endswith(".idf")
+__all__ = ["A04_IDF_NAME", "DEFAULT_IDF", "HONESTY", "ZONE_VAR", "is_a04_idf_filename"]
 
 OBS_META_KEYS = (
     "oat_c",

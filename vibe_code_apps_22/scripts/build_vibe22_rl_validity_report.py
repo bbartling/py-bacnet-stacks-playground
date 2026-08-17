@@ -145,7 +145,7 @@ Builder: `scripts/build_vibe22_rl_validity_report.py`
 | --- | --- | --- |
 | Lookback `max_steps=96` with `lookback_days=1` | empty scored rows | stage D-1..D, 192 steps, 96 scored |
 | Year-less DATA PERIOD | 1951×2 Severe | staged year-aware EPW |
-| Readiness fail reward 0 | better than valid negative cost | `operator_pay_2x/3x` uses `READINESS_FAIL_REWARD` |
+| Readiness fail reward 0 | better than valid negative cost | `operator_pay_2x/3x` uses `INFEASIBLE_TRAIN_REWARD` (`-10`) and `$0` display paycheck |
 | `mtd_peak` = yesterday | overwrite | `BillingState` running floor + month reset |
 | Held-out flag | hardcoded true | true only with LOCKED_TEST + `*_eval` |
 | Sidecar missing pack | silent heuristic | fail closed |

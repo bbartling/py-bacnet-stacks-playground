@@ -1,0 +1,26 @@
+{
+  "schema": "vibe22.a04v2.incumbent_control_contract.v1",
+  "split": "train_dev winter weekdays; Jan 25/26 and Mar 16 excluded",
+  "n_intervals": 6144,
+  "bas_occ_htg_sp_f_median": 68.0,
+  "bas_unocc_htg_sp_f_median": 64.0,
+  "bas_occupancy_start_hour_median": 7.0,
+  "gym_incumbent": {
+    "occupied_heating_f": 70.0,
+    "unoccupied_heating_f": 65.0,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "recovery_ramp_minutes": 60,
+    "note": "07:00 start (step 28), 60-min recovery 06:00-07:00, DualSP 70/65"
+  },
+  "a04_sch_htgsp": {
+    "setback_c": 7.78,
+    "setback_f": 46.004,
+    "occupied_c": 21.11,
+    "occupied_f": 69.998,
+    "until_occupied_local": "03:15",
+    "note": "03:15 is calendar 06:45 minus optimum_start_h=3.5, not BAS occupancy"
+  },
+  "candidate_peak_comparison_uses": "gym_incumbent",
+  "label": "smoke_calibration_not_heldout"
+}

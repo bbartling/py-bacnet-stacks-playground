@@ -1,0 +1,16 @@
+{
+  "schema": "vibe22.a04v2.trackB.plan.v1",
+  "failed": false,
+  "status": "started_not_completed",
+  "reason": "Stage B produced ramp-passing CapMult 12 children on multiple train_dev days, but no trial passed the preregistered W2A low-airflow bound of 0 (autosize/hp-scaled still ~10^2-10^3 recurring coil warnings per episode, down from ~15k on A04). No champion. Do not start long RL.",
+  "next_child": "separately versioned physical plant child (not A04 overwrite)",
+  "scope": [
+    "W2A EquationFit rated performance vs 67-HP inventory (capacity, airflow, COP, PLF)",
+    "loop pumps and fans",
+    "loop temperature",
+    "OA/DOAS",
+    "ground loop or explicitly documented approximation"
+  ],
+  "long_campaign_allowed": false,
+  "terminal_nogo_only_after_track_b_fails": true
+}

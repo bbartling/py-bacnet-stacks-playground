@@ -1,8 +1,9 @@
 """Phase 2: six-zone BAS temperature dataset + event ledger from real_baseline."""
 from __future__ import annotations
 
-import hashlib
+import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,7 +11,11 @@ import numpy as np
 import pandas as pd
 
 _APP = Path(__file__).resolve().parents[1]
-SITE = Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
+sys.path.insert(0, str(_APP))
+
+from eplus_gym.site_env import require_site_root
+from eplus_gym.site_pins import sha256_file
+
 ZONE_COLS = [
     "zone_temp_1F_A_f",
     "zone_temp_1F_B_f",
@@ -20,13 +25,23 @@ ZONE_COLS = [
     "zone_temp_2F_B_f",
 ]
 GATE_DATES = {"2026-01-25", "2026-01-26", "2026-03-16"}
-# Primary aggregation chosen BEFORE model trials
 PRIMARY_AGG = "mean_of_valid_sensors_preaggregated_in_real_baseline_v1"
 
 
+def contiguous_abs_delta(series: pd.Series, stamps: pd.Series) -> pd.Series:
+    """Keep |ΔT| only when the previous timestamp is exactly 15 minutes earlier."""
+    delta_t = pd.to_datetime(stamps).diff()
+    raw = series.astype(float).diff().abs()
+    return raw.where(delta_t == pd.Timedelta(minutes=15))
+
+
 def main() -> int:
-    bas_path = SITE / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
-    map_path = SITE / "clean_data" / "LAKESIDE_ES" / "thermal_zone_model.json"
+    p = argparse.ArgumentParser()
+    p.add_argument("--site-root", default=None)
+    args = p.parse_args()
+    site = require_site_root(args.site_root)
+    bas_path = site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
+    map_path = site / "clean_data" / "LAKESIDE_ES" / "thermal_zone_model.json"
     out = _APP / "docs" / "audits" / "figures" / "a04v2" / "phase2"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -34,12 +49,13 @@ def main() -> int:
     t = pd.to_datetime(df["timestamp_local"])
     work = df.copy()
     work["timestamp_local"] = t
+    work = work.sort_values("timestamp_local").reset_index(drop=True)
+    t = work["timestamp_local"]
     work["date"] = t.dt.date.astype(str)
     work["dow"] = t.dt.dayofweek
     for c in ZONE_COLS:
-        work[f"dT_{c}"] = work[c].astype(float).diff().abs()
+        work[f"dT_{c}"] = contiguous_abs_delta(work[c], t)
 
-    # Event flags (15-min)
     occupied = work["occupied"].astype(bool) if "occupied" in work.columns else pd.Series(False, index=work.index)
     occ_chg = occupied.astype(int).diff().fillna(0)
     work["event_morning_recovery"] = (occ_chg == 1) & (t.dt.hour.between(5, 9))
@@ -48,14 +64,15 @@ def main() -> int:
     work["mild"] = work["oat_f"].astype(float) > 45.0 if "oat_f" in work.columns else False
     work["weekend"] = work["dow"] >= 5
 
-    # Zone disagreement proxy: cross-zone std of temps at each interval
     zmat = work[ZONE_COLS].astype(float)
     work["zone_cross_std_f"] = zmat.std(axis=1)
     work["zone_cross_range_f"] = zmat.max(axis=1) - zmat.min(axis=1)
 
-    # Publish sample columns (not full parquet — large); write event ledger days
     day_stats = []
     for day, g in work.groupby("date"):
+        dcols = [f"dT_{c}" for c in ZONE_COLS]
+        flat = g[dcols].to_numpy().reshape(-1)
+        flat = flat[np.isfinite(flat)]
         day_stats.append(
             {
                 "date": day,
@@ -63,10 +80,8 @@ def main() -> int:
                 "oat_min_f": float(g["oat_f"].min()) if "oat_f" in g else None,
                 "oat_max_f": float(g["oat_f"].max()) if "oat_f" in g else None,
                 "facility_peak_kw": float(g["facility_kw"].max()) if "facility_kw" in g else None,
-                "max_abs_dT_f": float(g[[f"dT_{c}" for c in ZONE_COLS]].max().max()),
-                "p99_9_abs_dT_f": float(
-                    np.nanquantile(g[[f"dT_{c}" for c in ZONE_COLS]].to_numpy().reshape(-1), 0.999)
-                ),
+                "max_abs_dT_f": float(np.nanmax(flat)) if len(flat) else None,
+                "p99_9_abs_dT_f": float(np.nanquantile(flat, 0.999)) if len(flat) else None,
                 "n_morning_recovery": int(g["event_morning_recovery"].sum()),
                 "n_evening_setback": int(g["event_evening_setback"].sum()),
                 "mean_zone_cross_std_f": float(g["zone_cross_std_f"].mean()),
@@ -75,10 +90,8 @@ def main() -> int:
             }
         )
     days = pd.DataFrame(day_stats).sort_values("date")
-    # Chronological event splits for transient validation (exclude gate dates from held-out)
     eligible = days[~days["gate_or_smoke_date"]].copy()
     n = len(eligible)
-    # ~70/15/15 chronological on unique days
     i1 = int(0.70 * n)
     i2 = int(0.85 * n)
     eligible["fold"] = "train_dev"
@@ -86,17 +99,14 @@ def main() -> int:
     eligible.iloc[i2:, eligible.columns.get_loc("fold")] = "heldout_transient"
     days = days.merge(eligible[["date", "fold"]], on="date", how="left")
     days.loc[days["gate_or_smoke_date"], "fold"] = "gate_smoke_excluded"
-
     days.to_csv(out / "day_event_ledger.csv", index=False)
 
-    mapping = None
     if map_path.is_file():
-        mapping = json.loads(map_path.read_text(encoding="utf-8"))
         (out / "thermal_zone_model_provenance.json").write_text(
             json.dumps(
                 {
-                    "path": str(map_path),
-                    "sha256": hashlib.sha256(map_path.read_bytes()).hexdigest(),
+                    "path": "<SITE_ROOT>/clean_data/LAKESIDE_ES/thermal_zone_model.json",
+                    "sha256": sha256_file(map_path),
                     "note": "67 heat pumps → six BAS groups; preserve mapping",
                 },
                 indent=2,
@@ -108,14 +118,15 @@ def main() -> int:
     manifest = {
         "schema": "vibe22.a04v2.phase2_zone_dataset.v1",
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "source_parquet": str(bas_path),
-        "source_sha256": hashlib.sha256(bas_path.read_bytes()).hexdigest(),
+        "source_parquet": "<SITE_ROOT>/ml/artifacts/real_baseline_15min_v1.parquet",
+        "source_sha256": sha256_file(bas_path),
         "primary_aggregation_method": PRIMARY_AGG,
         "aggregation_justification": (
             "real_baseline_15min_v1 already publishes six BAS-aligned zone columns from the "
             "67-HP thermal_zone_model map. Per-interval sensor min/max/std within each group "
             "are not in this parquet; cross-zone std/range are published as disagreement proxies. "
-            "Do not hide disagreement — report zone_cross_std_f / zone_cross_range_f."
+            "Do not hide disagreement — report zone_cross_std_f / zone_cross_range_f. "
+            "dT_* retain only true 15-minute adjacent pairs after timestamp sort."
         ),
         "zone_cols": ZONE_COLS,
         "gate_smoke_dates_excluded_from_heldout": sorted(GATE_DATES),

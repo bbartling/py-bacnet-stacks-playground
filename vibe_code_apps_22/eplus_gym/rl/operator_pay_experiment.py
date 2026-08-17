@@ -516,7 +516,7 @@ def write_smoke_plots(
         plot_reward_anatomy(plots_dir),
         plot_action_space_schematic(plots_dir),
     ]
-    if rows is not None:
+    if rows is not None and len(rows) > 0:
         written.append(plot_arm_scorecard(plots_dir, rows))
         written.append(plot_paired_paycheck_by_day(plots_dir, rows))
     return written

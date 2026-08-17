@@ -11,17 +11,17 @@ description: >-
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
 **Do not** start a 20–30 hour PPO/DQN campaign while the model is not transient-validated.
-2026-08-16 A04-v2 Stage A: CapMult vs January peak is a Pareto **NO-GO**
-(`NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`). See
-`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`.
+A04-v2 Stage A produced **no champion** (`STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE`).
+Long RL remains blocked. See `docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md` (Stage A snapshot) and `docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`.
 A04 remains immutable. Do not raise `ENGINEERING_MARGIN`.
 
 Operator-pay smoke (`operator_pay_2x_v1`) is untrained policies on three engineering-gate days — **not** learning evidence, **no winner**. Random policy is i.i.d., not a random walk. January is not a pristine holdout.
 
 ```powershell
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --run-id oppay2x_smoke_20260816 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_rleplus --site-root $env:SITE_ROOT
 ```
+
+Long `campaign --n-days 100` is prohibited while the committed ramp artifact is `passed=false` and while A04-v2 model development is incomplete.
 
 `--pool year2xsyn` is historical TRAIN only (not eval). Still LIVE EnergyPlus. Not a second real winter.
 

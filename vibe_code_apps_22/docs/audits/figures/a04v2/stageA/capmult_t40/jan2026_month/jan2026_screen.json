@@ -21,7 +21,7 @@
       "recurring": {
         "w2a_low_airflow": 1
       },
-      "err_path": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\jan2026_month\\eplus\\episode-00000000-18484\\eplusout.err"
+      "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\jan2026_month\\eplus\\episode-00000000-18484\\eplusout.err"
     }
   },
   "utility_jan2026_kwh": 81491.0,

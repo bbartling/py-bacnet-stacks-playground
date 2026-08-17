@@ -1,24 +1,136 @@
 {
   "schema": "vibe22.a04v2.selection_verdict.v1",
-  "verdict": "NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED",
+  "verdict": "STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE",
   "champion": null,
   "long_campaign_allowed": false,
-  "peak_tolerance_frozen_before_selection": {
-    "anchor_kw": 284.82,
-    "tol_frac": 0.10,
-    "lo_kw": 256.338,
-    "hi_kw": 313.302,
-    "legacy_band_kw": [250.0, 290.0]
+  "public_line": "MODEL DEVELOPMENT CONTINUES \u2014 LONG RL BLOCKED",
+  "peak_contract": {
+    "schema": "vibe22.a04v2.peak_contract.v1",
+    "frozen_before_stage_b": true,
+    "utility_jan2026_billed_demand_kw": 284.82,
+    "utility_demand_interval_status": "unresolved",
+    "tol_frac": 0.1,
+    "billed_band_kw": [
+      256.338,
+      313.302
+    ],
+    "windows_min": [
+      5,
+      15,
+      30,
+      60
+    ],
+    "alignments": [
+      "end",
+      "start",
+      "center"
+    ],
+    "hard_gate_on_15min_vs_billed": false,
+    "legacy_250_290": {
+      "band_kw": [
+        250.0,
+        290.0
+      ],
+      "role": "a04_calibration_diagnostic_only",
+      "enforced_in_a04v2_selection": false
+    },
+    "same_function_for_bas_and_eplus": true,
+    "guideline14_hourly": "diagnostic_until_meter_boundary_resolved"
   },
   "ramp_threshold_unchanged": {
-    "engineering_margin": 3.0,
-    "threshold_f_per_15min": 2.650769999999918
+    "engineering_margin": 3.0
   },
-  "pareto": {
-    "capmult_min_for_ramp_all_arms": 28,
-    "capmult_max_for_peak_10pct": 20,
-    "conflict": true
+  "stage_a": {
+    "schema": "vibe22.a04v2.stageA_summary.v1",
+    "threshold_f_per_15min": 2.650769999999918,
+    "peak_band_kw": [
+      256.338,
+      313.302
+    ],
+    "trials": [
+      {
+        "run_id": "capmult_t10",
+        "ramp_passed": false,
+        "inc_max": 1.6747918619859519,
+        "low_max": 3.217626071358829,
+        "high_max": 2.826812080141522,
+        "inc_peak_kw": 275.11585648789656,
+        "peak_10pct_pass": true
+      },
+      {
+        "run_id": "capmult_t20",
+        "ramp_passed": false,
+        "inc_max": 1.5701811054339316,
+        "low_max": 3.195161326079699,
+        "high_max": 1.7208842308436232,
+        "inc_peak_kw": 305.83172123045347,
+        "peak_10pct_pass": true
+      },
+      {
+        "run_id": "capmult_t28",
+        "ramp_passed": true,
+        "inc_max": 1.3687932351288197,
+        "low_max": 2.5645006549453697,
+        "high_max": 1.6318146244363874,
+        "inc_peak_kw": 316.4577814462413,
+        "peak_10pct_pass": false
+      },
+      {
+        "run_id": "capmult_t30",
+        "ramp_passed": true,
+        "inc_max": 1.3914955925856276,
+        "low_max": 2.359244426687198,
+        "high_max": 1.735009995422459,
+        "inc_peak_kw": 323.55534777801466,
+        "peak_10pct_pass": false
+      },
+      {
+        "run_id": "capmult_t40",
+        "ramp_passed": true,
+        "inc_max": 1.3717878697572985,
+        "low_max": 1.7737701671472195,
+        "high_max": 1.458160082495226,
+        "inc_peak_kw": 356.8870482930029,
+        "peak_10pct_pass": false
+      },
+      {
+        "run_id": "imass_a1500",
+        "ramp_passed": false,
+        "inc_max": 4.584837107829571,
+        "low_max": 7.982625693429654,
+        "high_max": 3.979033907602556,
+        "inc_peak_kw": 248.6182314718793,
+        "peak_10pct_pass": false
+      },
+      {
+        "run_id": "imass_a3000",
+        "ramp_passed": false,
+        "inc_max": 4.5593331366696646,
+        "low_max": 7.7159676211139185,
+        "high_max": 3.971746023804286,
+        "inc_peak_kw": 255.24454324707148,
+        "peak_10pct_pass": false
+      },
+      {
+        "run_id": "imass_a500",
+        "ramp_passed": false,
+        "inc_max": 4.60530628133823,
+        "low_max": 8.141734625444876,
+        "high_max": 4.001192609746852,
+        "inc_peak_kw": 242.98262751728612,
+        "peak_10pct_pass": false
+      }
+    ]
   },
+  "stage_b_n_trials": 32,
+  "stage_b_n_ramp_passed": 13,
+  "stage_b_n_warning_passed": 0,
+  "stage_b_n_ramp_and_warning_passed": 0,
+  "track_b_attempted": true,
+  "track_b_failed_honestly": false,
   "a04_immutable_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
-  "audit": "docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md"
+  "pareto": {
+    "note": "Stage A CapMult vs 15-min peak is not a terminal hard conflict; demand interval unresolved; incumbent schedule mismatch remains.",
+    "stage_a_15min_conflict_was_premature": true
+  }
 }

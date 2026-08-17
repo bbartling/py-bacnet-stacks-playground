@@ -7,12 +7,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
+import sys
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_APP))
+
+from eplus_gym.a04_identity import (
+    A04_SHA_ALLOWED,
+    A04_SHA_CRLF,
+    CAPMULT_HI,
+    CAPMULT_LO,
+    assert_finite_in_range,
+)
+
 A04 = _APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
-A04_SHA = "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+A04_SHA = A04_SHA_CRLF
 
 ZONE_NAMES = [
     "1F_Library_IMC",
@@ -61,11 +71,14 @@ def main() -> int:
     p.add_argument("--temp-mult", type=float, required=True)
     p.add_argument("--run-id", type=str, required=True)
     args = p.parse_args()
+    temp_mult = assert_finite_in_range(args.temp_mult, lo=CAPMULT_LO, hi=CAPMULT_HI, name="temp-mult")
     raw = A04.read_bytes()
-    if sha256_bytes(raw) != A04_SHA:
+    digest = hashlib.sha256(raw).hexdigest()
+    lf = hashlib.sha256(raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")).hexdigest()
+    if digest not in A04_SHA_ALLOWED and lf not in A04_SHA_ALLOWED:
         raise SystemExit("refusing to patch: A04 hash mismatch")
     text = raw.decode("utf-8", errors="replace")
-    out_text = inject_capacitance(text, float(args.temp_mult))
+    out_text = inject_capacitance(text, temp_mult)
     out_dir = _APP / "models" / "eplus" / "a04v2_candidates" / args.run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     out_idf = out_dir / f"lakeside_w2a_a04v2_{args.run_id}.idf"
@@ -83,8 +96,8 @@ def main() -> int:
                 "name": "ZoneCapacitanceMultiplier:ResearchSpecial.Temperature_Capacity_Multiplier",
                 "baseline": 1.0,
                 "value": float(args.temp_mult),
-                "lo": 1.0,
-                "hi": 80.0,
+                "lo": CAPMULT_LO,
+                "hi": CAPMULT_HI,
                 "units": "dimensionless",
                 "affects": ["temperature_dynamics", "possibly_peak_timing"],
                 "justification": (

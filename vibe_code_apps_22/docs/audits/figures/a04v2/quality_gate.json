@@ -1,0 +1,7 @@
+{
+  "schema": "vibe22.a04v2.quality_gate.v1",
+  "max_w2a_low_airflow": 0,
+  "severe_count": 0,
+  "fatal_count": 0,
+  "note": "Preregistered Stage B bound. Count is EnergyPlus 'This error occurred N total times', not the single summary Warning line. A04 reproduction keeps max_w2a_low_airflow=None. Recurring coil warning remains fail; no allowlist without the plant inventory physical note."
+}

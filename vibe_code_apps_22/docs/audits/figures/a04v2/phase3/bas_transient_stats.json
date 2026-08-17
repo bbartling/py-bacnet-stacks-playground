@@ -1,0 +1,38 @@
+{
+  "schema": "vibe22.a04v2.bas_transient_stats.v1",
+  "split": "train_dev only; model_selection_val and heldout_transient preserved",
+  "all_train_dev": {
+    "n_intervals": 22363,
+    "abs_dT_p50": 0.04102564102562667,
+    "abs_dT_p99": 0.47000000000000597,
+    "abs_dT_p99_9": 0.9566666666666754,
+    "evening_cooldown_mean_abs_dT_f": 0.14271563526834607,
+    "morning_recovery_mean_abs_dT_f": 0.11996771234120635,
+    "time_to_68_min_mean": 0.2,
+    "n_evening_events": 166,
+    "n_morning_events": 166
+  },
+  "cold_days": {
+    "n_intervals": 1320,
+    "abs_dT_p50": 0.07000000000000739,
+    "abs_dT_p99": 0.8482333333333341,
+    "abs_dT_p99_9": 1.8595284615384617,
+    "evening_cooldown_mean_abs_dT_f": 0.14726418835793878,
+    "morning_recovery_mean_abs_dT_f": 0.0983820253820252,
+    "time_to_68_min_mean": 0.0,
+    "n_evening_events": 8,
+    "n_morning_events": 18
+  },
+  "mild_days": {
+    "n_intervals": 9685,
+    "abs_dT_p50": 0.030000000000001137,
+    "abs_dT_p99": 0.3199999999999932,
+    "abs_dT_p99_9": 0.7481133333333629,
+    "evening_cooldown_mean_abs_dT_f": 0.1137721124952307,
+    "morning_recovery_mean_abs_dT_f": 0.09133184825926774,
+    "time_to_68_min_mean": 0.0,
+    "n_evening_events": 93,
+    "n_morning_events": 62
+  },
+  "capmult_note": "Do not promote CapMult\u224828 unless related to measured effective capacitance. Stage B CapMult bound is [1, 20]."
+}

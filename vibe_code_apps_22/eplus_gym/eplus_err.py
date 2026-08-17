@@ -38,9 +38,16 @@ def parse_eplus_err(err_path: Path, end_path: Path | None = None) -> dict[str, A
     first_severe = next((ln.strip() for ln in text.splitlines() if _SEVERE_RE.search(ln)), None)
     first_fatal = next((ln.strip() for ln in text.splitlines() if _FATAL_RE.search(ln)), None)
     kinds: Counter[str] = Counter()
-    for ln in text.splitlines():
+    lines = text.splitlines()
+    for i, ln in enumerate(lines):
         if "mass flow rate is smaller than 25%" in ln.lower():
-            kinds["w2a_low_airflow"] += 1
+            n = 1
+            for nxt in lines[i + 1 : i + 6]:
+                m = re.search(r"This error occurred\s+(\d+)\s+total times", nxt, re.I)
+                if m:
+                    n = int(m.group(1))
+                    break
+            kinds["w2a_low_airflow"] += n
         if "GetActuatorHandle" in ln or "Actuator Handle" in ln:
             kinds["actuator_handle"] += 1
         if "DATA PERIOD" in ln and "year" in ln.lower():
@@ -60,18 +67,34 @@ def parse_eplus_err(err_path: Path, end_path: Path | None = None) -> dict[str, A
     }
 
 
-def assert_eplus_quality(gate: dict[str, Any], *, allow_severe: tuple[str, ...] = ()) -> None:
-    """Weather DATA PERIOD Severe is never allowlisted."""
+DEFAULT_MAX_W2A_LOW_AIRFLOW = None
+
+
+def assert_eplus_quality(
+    gate: dict[str, Any],
+    *,
+    allow_severe: tuple[str, ...] = (),
+    max_w2a_low_airflow: int | None = DEFAULT_MAX_W2A_LOW_AIRFLOW,
+) -> None:
+    """Weather DATA PERIOD Severe is never allowlisted.
+
+    ``max_w2a_low_airflow`` is None for historical A04 reproduction. Stage B
+    candidates must pass a frozen bound (typically 0 printed coil warnings).
+    """
     if gate.get("fatal_count", 0) != 0:
         raise ValueError(f"EnergyPlus Fatal: {gate.get('first_fatal')}")
     if not gate.get("completed_successfully"):
         raise ValueError("EnergyPlus did not complete successfully")
     severe = int(gate.get("severe_count") or 0)
-    if severe == 0:
-        return
-    first = str(gate.get("first_severe") or "")
-    if "DATA PERIOD" in first:
-        raise ValueError("EnergyPlus Severe DATA PERIOD year missing — stage a year-aware EPW")
-    if allow_severe and any(a in first for a in allow_severe):
-        return
-    raise ValueError(f"EnergyPlus Severe not allowlisted: {first}")
+    if severe != 0:
+        first = str(gate.get("first_severe") or "")
+        if "DATA PERIOD" in first:
+            raise ValueError("EnergyPlus Severe DATA PERIOD year missing — stage a year-aware EPW")
+        if not (allow_severe and any(a in first for a in allow_severe)):
+            raise ValueError(f"EnergyPlus Severe not allowlisted: {first}")
+    if max_w2a_low_airflow is not None:
+        n_air = int((gate.get("recurring") or {}).get("w2a_low_airflow") or 0)
+        if n_air > int(max_w2a_low_airflow):
+            raise ValueError(
+                f"EnergyPlus W2A low-airflow warnings={n_air} exceed max_w2a_low_airflow={max_w2a_low_airflow}"
+            )

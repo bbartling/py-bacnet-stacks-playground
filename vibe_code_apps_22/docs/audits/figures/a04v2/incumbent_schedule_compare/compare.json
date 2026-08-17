@@ -1,0 +1,109 @@
+{
+  "schema": "vibe22.a04v2.incumbent_schedule_compare.v1",
+  "day": "2026-01-26",
+  "label": "smoke_calibration_not_heldout",
+  "sch_htgsp": {
+    "n_rows": 192,
+    "native_max_kw": 288.16006614472155,
+    "windows": {
+      "schema": "vibe22.demand_windows.v1",
+      "native_minutes": 15,
+      "native_max_kw": 288.16006614472155,
+      "aligned_max_kw": {
+        "5": {
+          "end": 288.16006614472155,
+          "start": 288.16006614472155,
+          "center": 288.16006614472155
+        },
+        "15": {
+          "end": 288.16006614472155,
+          "start": 288.16006614472155,
+          "center": 288.16006614472155
+        },
+        "30": {
+          "end": 283.4562376708067,
+          "start": 287.39125138657374,
+          "center": 283.4562376708067
+        },
+        "60": {
+          "end": 274.6320077149074,
+          "start": 271.27547689002233,
+          "center": 274.6320077149074
+        }
+      },
+      "rolling_max_kw": {
+        "5": 288.16006614472155,
+        "15": 288.16006614472155,
+        "30": 287.39125138657374,
+        "60": 281.91695999654667
+      },
+      "utility_demand_interval_status": "unresolved",
+      "utility_jan2026_billed_demand_kw": 284.82,
+      "tol_frac": 0.1,
+      "billed_band_kw": [
+        256.338,
+        313.302
+      ],
+      "legacy_band_kw": [
+        250.0,
+        290.0
+      ],
+      "legacy_band_role": "a04_calibration_diagnostic_only",
+      "hard_gate": false,
+      "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved."
+    }
+  },
+  "gym_incumbent": {
+    "n_rows": 192,
+    "native_max_kw": 239.77311510504614,
+    "windows": {
+      "schema": "vibe22.demand_windows.v1",
+      "native_minutes": 15,
+      "native_max_kw": 239.77311510504614,
+      "aligned_max_kw": {
+        "5": {
+          "end": 239.77311510504614,
+          "start": 239.77311510504614,
+          "center": 239.77311510504614
+        },
+        "15": {
+          "end": 239.77311510504614,
+          "start": 239.77311510504614,
+          "center": 239.77311510504614
+        },
+        "30": {
+          "end": 225.79495007323857,
+          "start": 224.7191533139363,
+          "center": 225.79495007323857
+        },
+        "60": {
+          "end": 223.35313133891708,
+          "start": 221.10040049866834,
+          "center": 223.35313133891708
+        }
+      },
+      "rolling_max_kw": {
+        "5": 239.77311510504614,
+        "15": 239.77311510504614,
+        "30": 225.79495007323857,
+        "60": 223.35313133891708
+      },
+      "utility_demand_interval_status": "unresolved",
+      "utility_jan2026_billed_demand_kw": 284.82,
+      "tol_frac": 0.1,
+      "billed_band_kw": [
+        256.338,
+        313.302
+      ],
+      "legacy_band_kw": [
+        250.0,
+        290.0
+      ],
+      "legacy_band_role": "a04_calibration_diagnostic_only",
+      "hard_gate": false,
+      "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved."
+    }
+  },
+  "peak_delta_kw": -48.38695103967541,
+  "explanation": "SCH_HtgSP uses 46\u00b0F setback until 03:15 (optimum-start shifted 06:45) then 70\u00b0F. Gym DualSP uses 65\u00b0F overnight and 06:00-07:00 recovery to 70\u00b0F. Peaks are not interchangeable. Candidate peak comparisons use gym_incumbent only."
+}

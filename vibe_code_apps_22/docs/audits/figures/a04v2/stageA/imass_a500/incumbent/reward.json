@@ -1,0 +1,95 @@
+{
+  "reward": -4158.174980376619,
+  "daily_kwh": 4278.629730144392,
+  "peak_kw": 242.98262751728612,
+  "pre8_violations": 0,
+  "pre8_degree_hours": 0.0,
+  "occ_violations": 0,
+  "energy_cost": 513.435567617327,
+  "peak_cost": 3644.7394127592916,
+  "failed": false,
+  "extras": {
+    "school_start_step": 32,
+    "reward_name": "legacy_reward_v1"
+  },
+  "params": {
+    "occupied_heating_f": 70.0,
+    "unoccupied_heating_f": 65.0,
+    "recovery_start_minutes_before_occupancy": 0,
+    "recovery_ramp_minutes": 60,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "zone_offsets": {
+      "1F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_C": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_D": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      }
+    },
+    "occupied_setpoint_start_step": 28
+  },
+  "day": "2026-01-26",
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "trajectory": "docs\\audits\\figures\\a04v2\\stageA\\imass_a500\\incumbent\\trajectory.parquet",
+  "trajectory_all": "docs\\audits\\figures\\a04v2\\stageA\\imass_a500\\incumbent\\trajectory_all.parquet",
+  "start_zone_temps_f": [
+    65.00134021474994,
+    65.00133093569868,
+    65.00133105661091,
+    65.00126649518475,
+    65.00096888768635,
+    65.00111539712385
+  ],
+  "episode_manifest": {
+    "schema": "vibe22.episode_manifest.v1",
+    "n_rows_scored": 96,
+    "n_all_rows": 192,
+    "scored_is_not_full_simulation": true,
+    "trajectory_sha256": "f84218adccafbd3f06bd116920b485b262cafbc0ccf4b8a8e192b8f509484b24",
+    "trajectory_all_sha256": "778f1b20367f3007487a90071483d5d999b377e574f0917e0098583755e7bb53"
+  },
+  "baseline_kwh": null,
+  "baseline_peak_kw": null,
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "simulator": "LIVE_ENERGYPLUS",
+  "eplus_quality": {
+    "ok": true,
+    "completed_successfully": true,
+    "warning_count": 15136,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "first_severe": null,
+    "first_fatal": null,
+    "recurring": {
+      "w2a_low_airflow": 1
+    },
+    "err_path": "docs\\audits\\figures\\a04v2\\stageA\\imass_a500\\incumbent\\eplus\\episode-00000000-31276\\eplusout.err"
+  },
+  "lookback_days": 1
+}

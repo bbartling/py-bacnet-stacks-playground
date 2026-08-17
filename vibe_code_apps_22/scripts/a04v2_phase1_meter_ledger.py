@@ -1,26 +1,36 @@
 """Phase 1: utility vs BAS meter source ledger (no silent rescaling)."""
 from __future__ import annotations
 
-import hashlib
+import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
 _APP = Path(__file__).resolve().parents[1]
-SITE = Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
+sys.path.insert(0, str(_APP))
+
+from eplus_gym.site_env import require_site_root
+from eplus_gym.site_pins import sha256_file
 
 
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _src(rel: str, path: Path, **extra) -> dict:
+    rec = {"path": f"<SITE_ROOT>/{rel}", "sha256": sha256_file(path) if path.is_file() else None}
+    rec.update(extra)
+    return rec
 
 
 def main() -> int:
-    util_demand = SITE / "utilities" / "electricity_utility_demand.csv"
-    util_bills = SITE / "utilities" / "utility_bills_raw.csv"
-    interval = SITE / "utilities" / "demand_interval_kw.csv"
-    bas = SITE / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
+    p = argparse.ArgumentParser()
+    p.add_argument("--site-root", default=None)
+    args = p.parse_args()
+    site = require_site_root(args.site_root)
+    util_demand = site / "utilities" / "electricity_utility_demand.csv"
+    util_bills = site / "utilities" / "utility_bills_raw.csv"
+    interval = site / "utilities" / "demand_interval_kw.csv"
+    bas = site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
     out = _APP / "docs" / "audits" / "figures" / "a04v2" / "phase1"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -30,15 +40,14 @@ def main() -> int:
     iv["timestamp_utc"] = pd.to_datetime(iv["timestamp_utc"], utc=True)
     jan_iv = iv[(iv["timestamp_utc"] >= "2026-01-01") & (iv["timestamp_utc"] < "2026-02-01")]
     bas_df = pd.read_parquet(bas)
-    # interval vs BAS facility_kw correlation sample
     ledger = {
         "schema": "vibe22.a04v2.meter_source_ledger.v1",
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "sources": {
             "A_utility_provider": {
                 "files": [
-                    {"path": str(util_demand), "sha256": sha256_file(util_demand)},
-                    {"path": str(util_bills), "sha256": sha256_file(util_bills) if util_bills.is_file() else None},
+                    _src("utilities/electricity_utility_demand.csv", util_demand),
+                    _src("utilities/utility_bills_raw.csv", util_bills),
                 ],
                 "use_for": ["monthly_billed_energy_kwh", "monthly_billed_demand_kw", "tariff_context"],
                 "january_2026_billed_demand_kw": float(jan["billed_demand_kw"]),
@@ -47,15 +56,15 @@ def main() -> int:
             },
             "B_bas_bacnet_electrical_submeter": {
                 "files": [
-                    {
-                        "path": str(interval),
-                        "sha256": sha256_file(interval),
-                        "note": (
+                    _src(
+                        "utilities/demand_interval_kw.csv",
+                        interval,
+                        note=(
                             "Same series family as BAS/BACnet CS_ELEC_METER. "
                             "NOT an independent utility AMI source. Do not label as utility-provider interval data."
                         ),
-                    },
-                    {"path": str(bas), "sha256": sha256_file(bas)},
+                    ),
+                    _src("ml/artifacts/real_baseline_15min_v1.parquet", bas),
                 ],
                 "use_for": [
                     "5min_15min_30min_hourly_load_shape",
@@ -78,6 +87,7 @@ def main() -> int:
             "Meter boundary: does CS_ELEC_METER include loads absent from A04 IdealLoads/W2A plant?",
             "Timestamp convention of demand_interval_kw.csv (interval end vs start)",
             "DST handling between BAS local and UTC",
+            "Utility billed-demand averaging window (5/15/30/60 min) is unresolved; publish all windows",
             "Consistent bias between monthly integrated BAS kWh and utility billed kWh",
         ],
         "correction_policy": (
@@ -90,35 +100,45 @@ def main() -> int:
             "interval_rows": int(len(jan_iv)),
             "interpretation": (
                 "Interval max exceeds billed demand; billed demand uses a utility averaging window "
-                "(document before peak-tolerance freeze)."
+                "that is not documented in the site pack. Do not use raw 15-min EnergyPlus max as "
+                "an unqualified billed-demand gate."
             ),
         },
         "real_baseline_15min": {
             "n_rows": int(len(bas_df)),
-            "columns_present": sorted(set(bas_df.columns) & {
-                "facility_kw", "zone_temp_1F_A_f", "zone_temp_1F_B_f", "zone_temp_1F_C_f",
-                "zone_temp_1F_D_f", "zone_temp_2F_A_f", "zone_temp_2F_B_f", "oat_f",
-            }),
+            "columns_present": sorted(
+                set(bas_df.columns)
+                & {
+                    "facility_kw",
+                    "zone_temp_1F_A_f",
+                    "zone_temp_1F_B_f",
+                    "zone_temp_1F_C_f",
+                    "zone_temp_1F_D_f",
+                    "zone_temp_2F_A_f",
+                    "zone_temp_2F_B_f",
+                    "oat_f",
+                }
+            ),
         },
     }
-    # monthly BAS vs utility kWh if possible
     if "timestamp_local" in bas_df.columns and "facility_kw" in bas_df.columns:
         t = pd.to_datetime(bas_df["timestamp_local"])
         bas_df = bas_df.copy()
         bas_df["_month"] = t.dt.strftime("%Y-%m")
-        # 15-min kWh = kw * 0.25
         monthly = bas_df.groupby("_month")["facility_kw"].sum() * 0.25
         util_map = {str(r["month"]): float(r["kwh"]) for _, r in ud.iterrows()}
         cmp_rows = []
         for m, kwh in monthly.items():
             if m in util_map:
-                cmp_rows.append({
-                    "month": m,
-                    "bas_integrated_kwh": float(kwh),
-                    "utility_billed_kwh": util_map[m],
-                    "delta_kwh": float(kwh - util_map[m]),
-                    "pct_diff": float(100.0 * (kwh - util_map[m]) / util_map[m]) if util_map[m] else None,
-                })
+                cmp_rows.append(
+                    {
+                        "month": m,
+                        "bas_integrated_kwh": float(kwh),
+                        "utility_billed_kwh": util_map[m],
+                        "delta_kwh": float(kwh - util_map[m]),
+                        "pct_diff": float(100.0 * (kwh - util_map[m]) / util_map[m]) if util_map[m] else None,
+                    }
+                )
         ledger["monthly_bas_vs_utility_kwh"] = cmp_rows
         pd.DataFrame(cmp_rows).to_csv(out / "monthly_bas_vs_utility_kwh.csv", index=False)
 
@@ -130,7 +150,7 @@ def main() -> int:
         f"**{jan['billed_demand_kw']} kW**.\n\n"
         "**B — BAS/BACnet submeter:** `utilities/demand_interval_kw.csv` is the same series family as "
         "`CS_ELEC_METER`, **not** independent utility AMI. Use for load shape and timing only.\n\n"
-        "Do not rescale BAS to force validation.\n",
+        "Utility demand interval (5/15/30/60 min) is **unresolved**. Do not rescale BAS to force validation.\n",
         encoding="utf-8",
     )
     print(json.dumps({k: ledger[k] for k in ("schema", "january_2026_utility_vs_interval")}, indent=2))

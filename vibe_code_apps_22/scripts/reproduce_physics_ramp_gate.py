@@ -23,8 +23,10 @@ _APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_APP))
 
 from eplus_gym.objective import BAS_ZONE_COLS
+from eplus_gym.ramp_artifact import resolve_ramp_artifact_dest
 from eplus_gym.rl.live_day_worker import run_live_day_subprocess
 from eplus_gym.rl.physics_ramp_gate import ENGINEERING_MARGIN, evaluate_ramp_gate
+from eplus_gym.site_env import require_site_root
 from eplus_gym.six_zone_daily_controller import SixZoneDailyParams, incumbent_lookback_params
 
 SP_COLS = tuple("htg_sp_applied_" + c[len("zone_temp_") :] for c in BAS_ZONE_COLS)
@@ -183,9 +185,10 @@ def main() -> int:
     p.add_argument("--write-artifact", type=Path, default=None, help="Optional ramp_gate.json output path")
     p.add_argument("--force", action="store_true", help="Re-run EnergyPlus even if trajectories exist")
     args = p.parse_args()
-    site = args.site_root
-    if not site.is_dir():
-        print("SITE_ROOT required", file=sys.stderr)
+    try:
+        site = require_site_root(args.site_root)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
     epw = site / "eplus" / "weather" / "madison_amy_202508_202608.epw"
     idf = Path(args.idf) if args.idf else (_APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf")
@@ -217,8 +220,8 @@ def main() -> int:
         all_df = with_dt_index(pd.read_parquet(all_path), args.day)
         splice = None
         if len(all_df) == 192:
-            look = all_df[all_df["lookback"] == True] if "lookback" in all_df.columns else all_df.iloc[:96]
-            tgt = all_df[all_df["lookback"] == False] if "lookback" in all_df.columns else all_df.iloc[96:]
+            look = all_df[all_df["lookback"]] if "lookback" in all_df.columns else all_df.iloc[:96]
+            tgt = all_df[~all_df["lookback"]] if "lookback" in all_df.columns else all_df.iloc[96:]
             if len(look) and len(tgt):
                 last = look[list(BAS_ZONE_COLS)].astype(float).iloc[-1]
                 first = tgt[list(BAS_ZONE_COLS)].astype(float).iloc[0]
@@ -254,13 +257,13 @@ def main() -> int:
     }
     if not passed:
         artifact["verdict"] = "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE"
-    artifact["idf"] = str(idf)
-    dest = Path(args.write_artifact) if args.write_artifact else (
-        _APP / "docs" / "audits" / "figures" / "postfix" / "ramp_gate.json"
+    artifact["idf"] = Path(idf).name
+    dest = resolve_ramp_artifact_dest(
+        app_root=_APP,
+        out=args.out,
+        write_artifact=args.write_artifact,
+        idf=args.idf,
     )
-    # Never overwrite the committed A04 NO-GO artifact when testing candidates
-    if args.idf is not None and args.write_artifact is None:
-        dest = args.out / "ramp_gate.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     (args.out / "ramp_repro.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")

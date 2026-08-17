@@ -1,0 +1,95 @@
+{
+  "reward": -6776.642848154899,
+  "daily_kwh": 3435.0530084398333,
+  "peak_kw": 389.6370270202222,
+  "pre8_violations": 5,
+  "pre8_degree_hours": 39.97621636775724,
+  "occ_violations": 14,
+  "energy_cost": 412.20636101278,
+  "peak_cost": 5844.555405303333,
+  "failed": false,
+  "extras": {
+    "school_start_step": 32,
+    "reward_name": "legacy_reward_v1"
+  },
+  "params": {
+    "occupied_heating_f": 68.0,
+    "unoccupied_heating_f": 58.0,
+    "recovery_start_minutes_before_occupancy": 0,
+    "recovery_ramp_minutes": 60,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "zone_offsets": {
+      "1F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_C": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_D": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      }
+    },
+    "occupied_setpoint_start_step": 28
+  },
+  "day": "2026-01-26",
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "trajectory": "docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\low_unocc\\trajectory.parquet",
+  "trajectory_all": "docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\low_unocc\\trajectory_all.parquet",
+  "start_zone_temps_f": [
+    65.00006265058245,
+    65.00006439344847,
+    65.0000627903641,
+    65.00005831990734,
+    65.00004382013175,
+    65.00005059981217
+  ],
+  "episode_manifest": {
+    "schema": "vibe22.episode_manifest.v1",
+    "n_rows_scored": 96,
+    "n_all_rows": 192,
+    "scored_is_not_full_simulation": true,
+    "trajectory_sha256": "767e7c58485cbfe0ee95d308da96e4471ec0c9de58633e0396755d2a6ce5db16",
+    "trajectory_all_sha256": "1e819d812327e00ff58e6093b1f0702a3ac9473dc4d524a500e82d26c393d23f"
+  },
+  "baseline_kwh": null,
+  "baseline_peak_kw": null,
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "simulator": "LIVE_ENERGYPLUS",
+  "eplus_quality": {
+    "ok": true,
+    "completed_successfully": true,
+    "warning_count": 16294,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "first_severe": null,
+    "first_fatal": null,
+    "recurring": {
+      "w2a_low_airflow": 1
+    },
+    "err_path": "docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\low_unocc\\eplus\\episode-00000000-12648\\eplusout.err"
+  },
+  "lookback_days": 1
+}

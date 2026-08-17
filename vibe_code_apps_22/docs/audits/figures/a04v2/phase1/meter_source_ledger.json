@@ -5,11 +5,11 @@
     "A_utility_provider": {
       "files": [
         {
-          "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\utilities\\electricity_utility_demand.csv",
+          "path": "<SITE_ROOT>\\utilities\\electricity_utility_demand.csv",
           "sha256": "34d0acfbb4948ffb2fbe5dcf14b7b0a28e3f904889afcbb57953c0bb282b982b"
         },
         {
-          "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\utilities\\utility_bills_raw.csv",
+          "path": "<SITE_ROOT>\\utilities\\utility_bills_raw.csv",
           "sha256": "95c7856096f17fb654e0d900e50ceef9d2a806de0b38b7970a2be40b92b0b412"
         }
       ],
@@ -28,12 +28,12 @@
     "B_bas_bacnet_electrical_submeter": {
       "files": [
         {
-          "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\utilities\\demand_interval_kw.csv",
+          "path": "<SITE_ROOT>\\utilities\\demand_interval_kw.csv",
           "sha256": "1587de29c8e71a4ff0c912809ee484b9781117b9894ecb85ac8606abdc669c45",
           "note": "Same series family as BAS/BACnet CS_ELEC_METER. NOT an independent utility AMI source. Do not label as utility-provider interval data."
         },
         {
-          "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\ml\\artifacts\\real_baseline_15min_v1.parquet",
+          "path": "<SITE_ROOT>\\ml\\artifacts\\real_baseline_15min_v1.parquet",
           "sha256": "20d28ba2f89159e6bf2a850514ed15ee5d7a92b45602caea7a21a236a28c9b43"
         }
       ],

@@ -4,11 +4,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_APP))
+
+from eplus_gym.a04_identity import (
+    A04_SHA_ALLOWED,
+    A04_SHA_CRLF,
+    INTERNALMASS_HI,
+    INTERNALMASS_LO,
+    assert_finite_in_range,
+)
+
 A04 = _APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
-A04_SHA = "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+A04_SHA = A04_SHA_CRLF
 ZONES = [
     "1F_Library_IMC",
     "1F_Cafe_Kitchen",
@@ -60,12 +71,15 @@ def main() -> int:
     p.add_argument("--area-m2", type=float, required=True)
     p.add_argument("--run-id", required=True)
     args = p.parse_args()
+    area = assert_finite_in_range(args.area_m2, lo=INTERNALMASS_LO, hi=INTERNALMASS_HI, name="area-m2")
     raw = A04.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != A04_SHA:
+    digest = hashlib.sha256(raw).hexdigest()
+    lf = hashlib.sha256(raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")).hexdigest()
+    if digest not in A04_SHA_ALLOWED and lf not in A04_SHA_ALLOWED:
         raise SystemExit("A04 hash mismatch")
     out_dir = _APP / "models" / "eplus" / "a04v2_candidates" / args.run_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    text = inject(raw.decode("utf-8", errors="replace"), float(args.area_m2))
+    text = inject(raw.decode("utf-8", errors="replace"), area)
     out_idf = out_dir / f"lakeside_w2a_a04v2_{args.run_id}.idf"
     data = text.encode("utf-8")
     out_idf.write_bytes(data)
@@ -81,8 +95,8 @@ def main() -> int:
                 "name": "InternalMass.Surface_Area_m2_per_zone",
                 "baseline": 0.0,
                 "value": float(args.area_m2),
-                "lo": 0.0,
-                "hi": 5000.0,
+                "lo": INTERNALMASS_LO,
+                "hi": INTERNALMASS_HI,
                 "units": "m2",
                 "affects": ["temperature_dynamics", "possibly_peak"],
                 "justification": "Explicit furniture mass; CapMult-alone inflates Jan peak past ±10% band.",

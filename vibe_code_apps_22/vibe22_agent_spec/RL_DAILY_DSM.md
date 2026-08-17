@@ -4,7 +4,7 @@
 
 Not operational MPC. Not verified savings. Not BACnet.
 
-**Long campaign:** forbidden until a champion passes ramp **and** frozen January peak (±10% of 284.82 kW) **and** partial-period monthly GL14-style screen. 2026-08-16 CapMult Stage A is a Pareto NO-GO — [`../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
+**Long campaign:** forbidden until a newly versioned champion passes ramp, demand-window, load-profile, six-zone transient, EnergyPlus warning, and partial-period monthly screens. Stage A is **incomplete** (not a terminal model NO-GO). Snapshot: [`../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
 
 ## Locked MDP
 
@@ -35,8 +35,9 @@ python scripts/vibe22_rl.py train --algo PPO --days 2026-01-26 --timesteps 6 --s
 python scripts/vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py compare --run-id <id> --day 2026-01-26 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py pretrain --algo PPO --timesteps 20 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_winter --site-root $env:SITE_ROOT
 ```
+
+`campaign --n-days 100` remains prohibited until a newly generated champion ramp artifact has `passed=true`.
 
 Git-visible report: [`../plots/rl_report/`](../plots/rl_report/README.md) (`episodes.csv`, `comparison.json`, PNGs).
 

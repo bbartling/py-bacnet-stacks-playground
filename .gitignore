@@ -321,7 +321,20 @@ vibe_code_apps_22/docs/audits/figures/postfix/smoke/
 vibe_code_apps_22/docs/audits/figures/postfix/pair_*/
 vibe_code_apps_22/docs/audits/figures/postfix/operator_pay_2x_one_step/
 vibe_code_apps_22/docs/audits/figures/postfix/ramp_repro/**
+# Stage A/B bulky E+ trees; keep JSON/CSV/MD/PNG evidence
 vibe_code_apps_22/docs/audits/figures/a04v2/stageA/**
+!vibe_code_apps_22/docs/audits/figures/a04v2/stageA/**/
+vibe_code_apps_22/docs/audits/figures/a04v2/stageA/**/eplus/
+vibe_code_apps_22/docs/audits/figures/a04v2/stageA/**/eplus/**
+vibe_code_apps_22/docs/audits/figures/a04v2/stageB/**
+!vibe_code_apps_22/docs/audits/figures/a04v2/stageB/**/
+vibe_code_apps_22/docs/audits/figures/a04v2/stageB/**/eplus/
+vibe_code_apps_22/docs/audits/figures/a04v2/stageB/**/eplus/**
+vibe_code_apps_22/docs/audits/figures/a04v2/**/*.parquet
+vibe_code_apps_22/docs/audits/figures/a04v2/**/*.idf
+vibe_code_apps_22/docs/audits/figures/a04v2/**/*.epw
+vibe_code_apps_22/docs/audits/figures/a04v2/incumbent_schedule_compare/**/eplus/
+vibe_code_apps_22/docs/audits/figures/a04v2/incumbent_schedule_compare/**/eplus/**
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.json
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.csv
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.md

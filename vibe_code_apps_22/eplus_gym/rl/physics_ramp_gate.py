@@ -41,6 +41,8 @@ def abs_15min_deltas(
     idx = frame.index
     if not isinstance(idx, pd.DatetimeIndex):
         raise ValueError("ramp gate requires a DatetimeIndex")
+    if not idx.is_unique or not bool(idx.is_monotonic_increasing):
+        raise ValueError("ramp gate timestamps must be unique and monotonic")
     vals = frame[list(cols)].astype(float)
     chunks: list[np.ndarray] = []
     for i in range(1, len(idx)):

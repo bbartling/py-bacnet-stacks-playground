@@ -1,6 +1,6 @@
 # Agent loop — LIVE A04 daily RL
 
-0. **Ramp gate first.** `python scripts/reproduce_physics_ramp_gate.py` must exit 0 before any long PPO/DQN campaign. Today it exits 4 (`passed: false`). Stop.
+0. **Ramp gate first.** `python scripts/reproduce_physics_ramp_gate.py` must exit 0 before any long PPO/DQN campaign. Verified 2026-08-16: exit code 4 (`passed: false`) recorded in `docs/audits/figures/postfix/ramp_gate.json`. Stop.
 1. `SITE_ROOT` has `eplus/models/lakeside_w2a_a04_dual_champion.idf` + AMY EPW.
 2. `RLEPLUS_ROOT` or submodule `third_party/rllib-energyplus`.
 3. Smoke only while NO-GO: `python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1`

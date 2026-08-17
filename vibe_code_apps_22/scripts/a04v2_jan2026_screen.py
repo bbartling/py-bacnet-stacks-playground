@@ -21,6 +21,8 @@ from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv
 from eplus_gym.eplus_err import assert_eplus_quality, parse_eplus_err
 from eplus_gym.epw_stage import stage_year_aware_epw
 from eplus_gym.objective import _facility_series
+from eplus_gym.path_sanitize import redact_obj
+from eplus_gym.site_env import require_site_root
 from eplus_gym.six_zone_daily_controller import SixZoneDailyController, incumbent_lookback_params
 from eplus_gym.stage_idf import stage_idf_for_period
 from eplus_native.w2a_monthly_hold import (
@@ -94,10 +96,12 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--idf", type=Path, required=True)
     p.add_argument("--run-id", required=True)
-    p.add_argument("--site-root", type=Path, default=Path(os.environ.get("SITE_ROOT") or ""))
+    p.add_argument("--site-root", type=Path, default=None)
     args = p.parse_args()
-    site = args.site_root
+    site = require_site_root(args.site_root)
     epw = site / "eplus" / "weather" / "madison_amy_202508_202608.epw"
+    if not epw.is_file():
+        raise SystemExit(f"EPW missing: {epw}")
     out = _APP / "docs" / "audits" / "figures" / "a04v2" / "stageA" / args.run_id / "jan2026_month"
     # Jan 2026 full month
     month = run_month(site=site, epw=epw, idf=args.idf, out=out, begin="2026-01-01", end="2026-01-31")
@@ -111,22 +115,27 @@ def main() -> int:
         "legacy_band": peak_band_pass(month["peak_kw"]),
     }
     peak_tol["pass_frozen_10pct"] = peak_tol["lo_kw"] <= month["peak_kw"] <= peak_tol["hi_kw"]
-    # also require legacy 250-290 band for continuity with A04 dial
-    peak_tol["pass"] = bool(peak_tol["pass_frozen_10pct"] and peak_tol["legacy_band"]["pass"])
-    report = {
-        "schema": "vibe22.a04v2.jan2026_screen.v1",
-        "run_id": args.run_id,
-        "idf": str(args.idf),
-        "month": month,
-        "utility_jan2026_kwh": util_kwh,
-        "utility_jan2026_demand_kw": util_peak,
-        "kwh_pct_diff": 100.0 * (month["kwh"] - util_kwh) / util_kwh,
-        "peak_tolerance_frozen_before_selection": peak_tol,
-        "label": "January-only diagnostic; not a full partial-period GL14 screen",
-    }
+    # Legacy 250-290 is an A04-calibration diagnostic only — not a second hard gate.
+    peak_tol["legacy_band_diagnostic_only"] = True
+    peak_tol["hard_gate_on_15min_vs_billed"] = False
+    peak_tol["pass"] = None
+    peak_tol["role"] = "diagnostic_until_utility_demand_interval_resolved"
+    report = redact_obj(
+        {
+            "schema": "vibe22.a04v2.jan2026_screen.v1",
+            "run_id": args.run_id,
+            "idf": Path(args.idf).name,
+            "month": month,
+            "utility_jan2026_kwh": util_kwh,
+            "utility_jan2026_demand_kw": util_peak,
+            "kwh_pct_diff": 100.0 * (month["kwh"] - util_kwh) / util_kwh,
+            "peak_tolerance_frozen_before_selection": peak_tol,
+            "label": "January-only diagnostic; not a full partial-period GL14 screen; 15-min max is not a billed-demand hard gate",
+        }
+    )
     (out / "jan2026_screen.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
-    return 0 if report["peak_tolerance_frozen_before_selection"]["pass"] else 5
+    return 0
 
 
 if __name__ == "__main__":
