@@ -15,6 +15,7 @@ def energyplus_root_candidates() -> list[Path]:
     # Common install locations
     roots.extend(
         [
+            Path(r"C:\EnergyPlusV26-1-0"),
             Path(r"C:\EnergyPlusV24-2-0"),
             Path(r"C:\EnergyPlusV24-1-0"),
             Path(r"C:\EnergyPlusV23-2-0"),

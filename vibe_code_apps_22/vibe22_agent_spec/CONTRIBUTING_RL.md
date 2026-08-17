@@ -17,14 +17,19 @@ deterministic DualSP defaults (**never** `action_space.sample()`) and six-actuat
 | Lakeside Gym | `eplus_gym/env.py` |
 | Six DualSP send | `eplus_gym/runner.py` |
 | Building | **A04** `lakeside_w2a_a04_dual_champion.idf` only |
-| Day MDP | `eplus_gym/rl/daily_env.py` — one SB3 step = one LIVE A04 day |
+| Multi-day MDP | `eplus_gym/rl/multiday_env.py` + `EnergyPlusContinuityPlant` — one process per 3/5/7-day episode; lookback is `n*96 − 1` after `reset()` |
+| Reward | `reward_contract_v2` / `eplus_gym/rl/reward_v2.py` — utility / display paycheck / train. Do not reinterpret operator-pay v1. |
+| Recovery | `recovery_lead_minutes` **is** the linear ramp duration ending at DualSP start |
 | Ramp gate | `eplus_gym/rl/physics_ramp_gate.py` — BAS p99.9 × 3; **do not raise** to pass A04 |
-| Trainer | SB3 PPO/DQN — `--mode full` refused until `ramp_gate.json` `passed=true` |
+| Track B | LIVE two-pass executed; heating capacity is A04 user-specified 149430 W/zone; eio names are case-insensitive; **no champion** |
+| Trainer | SB3 PPO/DQN — `--mode full` refused until Track B champion gates pass |
 
-DSM DualSP recovery must apply `recovery_ramp_minutes` (window = occupancy start minus lead minus ramp). Evening setback remains a step; A04 zone air can follow ~5 °F in 15 min. That is a **model/physics** NO-GO for long RL, not a license to inflate the threshold.
+DSM DualSP recovery must not add a separate fixed 60-min ramp on top of lead (that made 60/120/180 identical). Evening setback remains a step; A04 zone air can follow ~5 °F in 15 min. That is a **model/physics** NO-GO for long RL, not a license to inflate the threshold.
+
+Campaign paths refuse `FakeContinuityPlant`. Integrity failures are truncated/invalid, not a learnable `-1e6`.
 
 ## Product
 
 1. Screening claim: ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY
 2. Subprocess isolation: `live_day_worker` (Windows torch + `delete_state`)
-3. CLI: `python scripts/vibe22_rl.py campaign --n-days 100 --run-id unique100_rleplus`
+3. Long campaign: **NO-GO** until a Track B champion exists. Do not start 5–10 sequence pilots without explicit human authorization.

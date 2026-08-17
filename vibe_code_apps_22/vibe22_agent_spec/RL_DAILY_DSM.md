@@ -4,73 +4,43 @@
 
 Not operational MPC. Not verified savings. Not BACnet.
 
-**Long campaign:** forbidden until a newly versioned champion passes ramp, demand-window, load-profile, six-zone transient, EnergyPlus warning, and partial-period monthly screens. Stage A is **incomplete** (not a terminal model NO-GO). Snapshot: [`../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
+**Status:** `MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED`
 
-## Locked MDP
+**Long campaign:** forbidden until a Track B champion passes ramp, demand-window, load-profile, six-zone transient, scored-runtime W2A, and partial-period monthly screens. Snapshot: [`../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md). Repair: [`../docs/audits/2026-08-17-vibe22-correctness-repair.md`](../docs/audits/2026-08-17-vibe22-correctness-repair.md).
+
+## Locked MDP (v2)
 
 | Item | Value |
 | --- | --- |
-| Episode | One weather day (96 × 15-min) |
-| Simulator | `LIVE_ENERGYPLUS` only |
-| Action | Daily setpoints + HVAC/occupancy timing → `SixZoneDailyParams` |
-| School start | 08:00 = step **32** |
-| Reward | `-(C_energy + C_peak) - λ_pre8 * V_pre8 - λ_occ * V_occ` |
-| Plots | matplotlib → `reports/eplus_gym/rl/<run_id>/` and [`../plots/rl_report/`](../plots/rl_report/README.md) |
-| IDF | `lakeside_w2a_a04_dual_champion.idf` fail-closed |
+| Episode | 3/5/7 weather days, **one EnergyPlus process** (`EnergyPlusContinuityPlant`) |
+| Simulator | `LIVE_ENERGYPLUS` only; campaign refuses `FakeContinuityPlant` |
+| Action | Daily DualSP plan → six 96-step heating schedules (`control_v2`) |
+| Recovery | `recovery_lead_minutes` is the linear ramp duration ending at start_step |
+| PPO | `occupied`, `setback_depth` (deadband 0.25°F → continuous), start, end, lead, 6 offsets |
+| DQN | Discrete(110); indices outside `[0, n)` rejected (no wrap); actions 0/1 = continuous 68/70 |
+| Readiness | Steps **30 and 31**, band **68–74°F**, **all six zones**, school days only |
+| Reward | `reward_contract_v2`: utility accounting + display paycheck + unbounded-by-paycheck train reward |
+| Integrity | crash / NaN / missing baseline / wrong timestep → invalid/truncated, not `-1e6` |
+| IDF | `lakeside_w2a_a04_dual_champion.idf` fail-closed until a Track B champion exists |
 | Gym | airboxlab/rllib-energyplus runner (submodule) |
 | Trainer | Stable-Baselines3 PPO + DQN (not Ray) |
-| Baselines | random walk, cold-morning heuristic |
-| Process model | Trainer = torch/SB3; each LIVE day = **subprocess** worker |
+| Track B | LIVE two-pass **executed** (W2A runtime 3780); **not** completed; **not** champion |
 
-## Install
-
-```powershell
-pip install -r requirements.txt -r requirements-rl.txt
-```
+Frozen reward constants: `energy_rate=0.12`, `demand_rate=15`, `cost_scale=100`, `λ_occ=0.05`, `λ_move=0.02`.
 
 ## CLI
 
 ```powershell
-python scripts/vibe22_rl.py train --algo PPO --days 2026-01-26 --timesteps 6 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py bakeoff --days 2026-01-26 --timesteps 8 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py compare --run-id <id> --day 2026-01-26 --site-root $env:SITE_ROOT
-python scripts/vibe22_rl.py pretrain --algo PPO --timesteps 20 --site-root $env:SITE_ROOT
+python scripts/a04_live_multiday_continuity.py --site-root $env:SITE_ROOT
+python scripts/a04v2_trackb_two_pass.py --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --site-root $env:SITE_ROOT
 ```
 
-`campaign --n-days 100` remains prohibited until a newly generated champion ramp artifact has `passed=true`.
+`campaign --n-days 100` remains prohibited. A04 3-day continuity gallery
+(`scripts/a04_live_multiday_continuity.py`) is screening only: one EnergyPlus
+process per arm; `reset()` consumes the first weather timestep so lookback is
+`n*96 − 1` further steps.
 
-Git-visible report: [`../plots/rl_report/`](../plots/rl_report/README.md) (`episodes.csv`, `comparison.json`, PNGs).
+Operator-pay v1 smoke artifacts are **not** reinterpreted by reward_v2.
 
-## Verdict (2026-08-14 unique100 @ sp_creekside)
-
-| Gate | Status |
-| --- | --- |
-| LIVE only | **PASS** (surrogate refused) |
-| Unit spaces/reward/isolate/report/day-pool | **PASS** (pytest) |
-| Six-zone actuation | READY (precondition) |
-| Unique heating days | **PASS** n=100, EPW available 372, shortfall 0 |
-| LIVE PPO (`unique100_winter`) | **PASS** mean_reward ≈ −2992, pre8=0 (n=104 log rows) |
-| LIVE DQN Discrete(64) | **PASS** mean_reward ≈ −3128, pre8≈0.99 (n=100) |
-| LIVE random_walk | **PASS** mean_reward ≈ −3223, pre8≈2.85 (n=100) |
-| LIVE heuristic | **PASS** mean_reward ≈ −3001, pre8≈0.78 (n=100) |
-| Surrogate / lookup RL | **NO-GO** |
-
-Winner by mean reward on this **LEGACY TRAIN** pool: **not a locked-test winner; do not promote.** DQN Discrete(64) is a coarse ablation, not comparable to PPO. Overlay is weather + policy; not verified savings. No TensorBoard.
-
-Smoke/report rewards are illustrative screening scores only — not verified savings.
-
-Office pretrain pickles `{SITE}/reports/eplus_gym/rl/field_shared/daily_policy.pkl`.
-Field sidecar (pretend BACnet docker) loads that pack + midnight 24h hourly
-forecast (EPW replay = pretend OpenWeatherMap) and writes advisory JSON only.
-
-Artifacts: `{SITE}/reports/eplus_gym/rl/<run_id>/` (models, episodes, plots, summaries).
-
-## Hygiene (rllib-energyplus shape)
-
-- Gym: `observation_space` / `action_space`, `reset` → `(obs, info)`, `step` → `(obs, reward, terminated, truncated, info)`
-- LIVE day via EnergyPlus Python API callbacks (`LakesideW2AEnv` + `run_controller_episode`)
-- Shipped trainer: SB3 (`eplus_gym/rl/train_sb3.py`). `eplus_gym/train_rllib.py` is a pointer stub only.
-- **Isolation:** `eplus_gym/rl/live_day_worker.py` — torch + `delete_state` heap-corrupts in-process on Windows (`0xC0000374`); RL defaults `isolate_eplus=True`.
-
-Build plan: [`RL_DAILY_SIX_ZONE_BUILD_PLAN.md`](RL_DAILY_SIX_ZONE_BUILD_PLAN.md).  
 Skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md).

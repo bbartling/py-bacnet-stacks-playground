@@ -31,6 +31,7 @@ def main() -> int:
     state = track_b_state_from_plan(plan)
     if failed and failed.get("failed") is True:
         state["track_b_failed_honestly"] = True
+        state["track_b_live_energyplus_executed"] = True
         state["track_b_executed"] = True
     body = compute_selection_verdict(
         stage_a_summary=stage_a,
@@ -38,6 +39,10 @@ def main() -> int:
         champion=champion,
         long_campaign_ramp_passed=False,
         track_b_planned=state["track_b_planned"],
+        track_b_plan_created=state["track_b_plan_created"],
+        track_b_builder_prototype_created=state["track_b_builder_prototype_created"],
+        track_b_structural_validation_passed=state["track_b_structural_validation_passed"],
+        track_b_live_energyplus_executed=state["track_b_live_energyplus_executed"],
         track_b_executed=state["track_b_executed"],
         track_b_completed=state["track_b_completed"],
         track_b_failed_honestly=state["track_b_failed_honestly"],

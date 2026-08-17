@@ -13,6 +13,7 @@ from eplus_gym.control_v2 import (
     ZoneOffsetsV2,
     continuous_params,
     school_windows,
+    validate_params,
 )
 from eplus_native.six_zone_htg_stage import ACTION_KEYS as _KEYS
 
@@ -20,11 +21,13 @@ assert ACTION_KEYS == _KEYS
 
 N_CONT_V2 = 5 + len(ACTION_KEYS)
 OCC_F_LO, OCC_F_HI = 68.0, 72.0
-UNOCC_F_LO, UNOCC_F_HI = 58.0, 72.0
+SETBACK_DEPTH_LO, SETBACK_DEPTH_HI = 0.0, 14.0
+SETBACK_DEADBAND_F = 0.25
 START_LO, START_HI = 20, 40
 END_LO, END_HI = 52, 96
 REC_LO, REC_HI = 0.0, 180.0
 SETBACK_LO, SETBACK_HI = -3.0, 1.0
+UNOCC_F_LO, UNOCC_F_HI = 58.0, 72.0
 
 DQN_V2_OCC = (68.0, 70.0)
 DQN_V2_UNOCC = (58.0, 62.0, 64.0)
@@ -40,12 +43,12 @@ def _clip(v: float, lo: float, hi: float) -> float:
 
 def continuous_action_space_v2() -> gym.spaces.Box:
     low = np.asarray(
-        [OCC_F_LO, UNOCC_F_LO, float(START_LO), float(END_LO), REC_LO]
+        [OCC_F_LO, SETBACK_DEPTH_LO, float(START_LO), float(END_LO), REC_LO]
         + [SETBACK_LO] * len(ACTION_KEYS),
         dtype=np.float32,
     )
     high = np.asarray(
-        [OCC_F_HI, UNOCC_F_HI, float(START_HI), float(END_HI), REC_HI]
+        [OCC_F_HI, SETBACK_DEPTH_HI, float(START_HI), float(END_HI), REC_HI]
         + [SETBACK_HI] * len(ACTION_KEYS),
         dtype=np.float32,
     )
@@ -67,7 +70,7 @@ def decode_continuous_v2(action: Sequence[float] | np.ndarray) -> SixZoneDailyPa
     if a.size != N_CONT_V2:
         raise ValueError(f"expected action len {N_CONT_V2}, got {a.size}")
     occ = _clip(float(a[0]), OCC_F_LO, OCC_F_HI)
-    unocc = _clip(float(a[1]), UNOCC_F_LO, UNOCC_F_HI)
+    depth = _clip(float(a[1]), SETBACK_DEPTH_LO, min(SETBACK_DEPTH_HI, occ - UNOCC_F_LO))
     start = int(round(_clip(float(a[2]), START_LO, START_HI)))
     end = int(round(_clip(float(a[3]), END_LO, END_HI)))
     rec = int(round(_clip(float(a[4]), REC_LO, REC_HI) / 15.0) * 15)
@@ -75,29 +78,41 @@ def decode_continuous_v2(action: Sequence[float] | np.ndarray) -> SixZoneDailyPa
         key: ZoneOffsetsV2(setback_offset_f=_clip(float(a[5 + i]), SETBACK_LO, SETBACK_HI))
         for i, key in enumerate(ACTION_KEYS)
     }
-    continuous = abs(occ - unocc) < 1e-6
-    if continuous:
+    if depth < SETBACK_DEADBAND_F:
+        depth = 0.0
+        continuous = True
+        unocc = occ
         start, end, rec = 0, END_OF_DAY_STEP, 0
-    elif end <= start:
-        raise ValueError("invalid start/end combination")
-    return SixZoneDailyParamsV2(
+        zo = {key: ZoneOffsetsV2(setback_offset_f=0.0) for key in ACTION_KEYS}
+    else:
+        continuous = False
+        unocc = occ - depth
+        if end <= start:
+            raise ValueError("invalid start/end combination")
+    params = SixZoneDailyParamsV2(
         occupied_heating_f=occ,
         unoccupied_heating_f=unocc,
         heating_setpoint_start_step=start,
         heating_setpoint_end_step=end,
         recovery_lead_minutes=rec,
-        recovery_ramp_minutes=60,
+        recovery_ramp_minutes=rec,
         continuous_conditioning=continuous,
         zone_offsets=zo,
     )
+    validate_params(params)
+    return params
 
 
 def encode_continuous_v2(params: SixZoneDailyParamsV2) -> np.ndarray:
+    if params.continuous_conditioning:
+        depth = 0.0
+    else:
+        depth = float(params.occupied_heating_f) - float(params.unoccupied_heating_f)
     zo = [float(params.zone_offsets[k].setback_offset_f) for k in ACTION_KEYS]
     return np.asarray(
         [
             params.occupied_heating_f,
-            params.unoccupied_heating_f,
+            depth,
             float(params.heating_setpoint_start_step),
             float(params.heating_setpoint_end_step),
             float(params.recovery_lead_minutes),
@@ -109,7 +124,9 @@ def encode_continuous_v2(params: SixZoneDailyParamsV2) -> np.ndarray:
 
 def decode_discrete_v2(index: int, *, day: str | None = None) -> SixZoneDailyParamsV2:
     n = discrete_n_v2()
-    idx = int(index) % n
+    idx = int(index)
+    if idx < 0 or idx >= n:
+        raise ValueError(f"DQN index {idx} outside [0, {n}); wrap is forbidden")
     if idx == 0:
         return continuous_params(68.0)
     if idx == 1:
@@ -139,12 +156,14 @@ def decode_discrete_v2(index: int, *, day: str | None = None) -> SixZoneDailyPar
         if win["school_occupied"] and win["school_occupied_end_step"] is not None:
             end = int(win["school_occupied_end_step"])
     zo = {k: ZoneOffsetsV2(setback_offset_f=float(off)) for k in ACTION_KEYS}
-    return SixZoneDailyParamsV2(
+    params = SixZoneDailyParamsV2(
         occupied_heating_f=float(occ),
         unoccupied_heating_f=float(unocc),
         heating_setpoint_start_step=int(start),
         heating_setpoint_end_step=int(end),
         recovery_lead_minutes=int(rec),
-        recovery_ramp_minutes=60,
+        recovery_ramp_minutes=int(rec),
         zone_offsets=zo,
     )
+    validate_params(params)
+    return params

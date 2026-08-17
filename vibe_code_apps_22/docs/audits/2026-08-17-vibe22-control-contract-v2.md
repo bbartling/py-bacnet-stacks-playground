@@ -44,7 +44,8 @@ plant object. Month-to-date billing floor carries forward.
 
 ## Track B / long RL
 
-Track B is still **planned, not executed**. Long RL remains **NO-GO**.
+Track B LIVE two-pass **executed** and is **not** a champion. Long RL remains **NO-GO**.
+See [`2026-08-17-vibe22-correctness-repair.md`](2026-08-17-vibe22-correctness-repair.md).
 
 ## Tests
 

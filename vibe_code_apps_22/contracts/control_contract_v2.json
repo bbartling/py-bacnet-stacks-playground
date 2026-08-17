@@ -24,8 +24,8 @@
   "agent_envelope": {
     "heating_setpoint_start_step": {"min": 20, "max": 40, "note": "05:00-10:00 DualSP occupied start; cannot move school occupancy"},
     "heating_setpoint_end_step": {"min": 52, "max": 96, "note": "96 means midnight/end of day and must not wrap to 0"},
-    "recovery_lead_minutes": {"min": 0, "max": 180},
-    "recovery_ramp_minutes": {"min": 0, "max": 60, "default": 60},
+    "recovery_lead_minutes": {"min": 0, "max": 180, "note": "linear ramp duration ending at heating_setpoint_start_step"},
+    "recovery_ramp_minutes": {"min": 0, "max": 180, "equals_lead": true, "note": "must equal recovery_lead_minutes; no extra fixed 60-min ramp"},
     "occupied_heating_setpoint_f": {"min": 68.0, "max": 72.0},
     "unoccupied_heating_setpoint_f": {"min": 58.0, "max": 72.0, "may_equal_occupied": true},
     "six_zone_setback_offsets_f": {"min": -3.0, "max": 1.0}

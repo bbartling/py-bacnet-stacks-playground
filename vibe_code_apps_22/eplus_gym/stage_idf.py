@@ -25,6 +25,7 @@ def stage_idf_for_period(
     site_root: Path | None = None,
     site_config: dict[str, Any] | None = None,
     six_zone_actuators: bool = False,
+    disable_sizing: bool = True,
 ) -> Path:
     src = Path(src)
     dest = Path(dest)
@@ -43,7 +44,8 @@ def stage_idf_for_period(
         end_year=e.year,
         name=f"DSM_{b.isoformat()}_{e.isoformat()}",
     )
-    text = disable_sizing_periods(text)
+    if disable_sizing:
+        text = disable_sizing_periods(text)
     text = ensure_zone_mean_air_temperature_outputs(text)
     if six_zone_actuators:
         text, _prov = stage_six_zone_heating_actuators(text)

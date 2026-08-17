@@ -12,6 +12,9 @@ python scripts/a04v2_build_capmult_candidate.py --temp-mult 28 --run-id capmult_
 
 # Stage B multivariable children
 python scripts/a04v2_build_stage_b_candidate.py --plant autosize_htg --capmult 12 --mass-m2 0 --run-id sb_autosizehtg_c12_m0_20260112
+
+# Track B banks (gitignored IDF; LIVE two-pass uses SITE_ROOT)
+python scripts/a04v2_trackb_two_pass.py --site-root $env:SITE_ROOT --run-id trackb_two_pass_base
 ```
 
 Raw EnergyPlus run packs belong in `SITE_ROOT` (or another artifact store), not

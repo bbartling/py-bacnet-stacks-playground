@@ -368,6 +368,7 @@ def test_tracked_docs_have_no_machine_local_paths():
         APP / "config.example.py",
         APP / "docs" / "audits" / "2026-08-16-vibe22-a04v2-transient-nogo.md",
         APP / "docs" / "audits" / "2026-08-17-vibe22-a04v2-model-development-continues.md",
+        APP / "docs" / "audits" / "2026-08-17-vibe22-correctness-repair.md",
         APP / "data" / "DATA.md",
     ]
     hits = []

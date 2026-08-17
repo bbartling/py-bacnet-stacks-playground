@@ -9,7 +9,9 @@ Do not overwrite `year2xsyn` site artifacts.
 
 **A04-v2 transient:** no champion. Status is
 `MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION` — long campaign still forbidden.
-See [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md)
+See [`docs/audits/2026-08-17-vibe22-correctness-repair.md`](docs/audits/2026-08-17-vibe22-correctness-repair.md)
+(reward v2 / Track B two-pass / A04 continuity),
+[`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md)
 (dated Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).
 
 Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) ·
@@ -18,6 +20,8 @@ Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) �
 
 ```powershell
 $env:SITE_ROOT="<SITE_ROOT>"
+python scripts/a04_live_multiday_continuity.py --site-root $env:SITE_ROOT
+python scripts/a04v2_trackb_two_pass.py --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --run-id oppay2x_smoke_20260816 --site-root $env:SITE_ROOT
 python scripts/reproduce_physics_ramp_gate.py
 ```

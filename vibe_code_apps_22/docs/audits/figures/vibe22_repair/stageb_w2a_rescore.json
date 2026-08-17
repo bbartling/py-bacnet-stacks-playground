@@ -1,0 +1,9 @@
+{
+  "schema": "vibe22.stageb.w2a_rescore.v1",
+  "n_err_files": 0,
+  "threshold_unchanged_scored_runtime_max": 0,
+  "promoted_model": null,
+  "note": "Old parser treated the first 'total times' integer as warmup. Rescore uses runtime = total - warmup - sizing. Missing .err files cannot be reconstructed; published Stage B recurring=1 values are warning-object counts, not phase totals.",
+  "rows": [],
+  "long_campaign_allowed": false
+}

@@ -1,27 +1,35 @@
 """Multi-day daily-decision env. One EnergyPlus process per episode; one action per day."""
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import gymnasium as gym
 import numpy as np
 
 from eplus_gym.control_v2 import (
+    ACTION_KEYS,
     SixZoneDailyParamsV2,
     build_six_schedules_f,
     chronological_days,
     school_windows,
 )
+from eplus_gym.objective import DT_H
 from eplus_gym.rl.billing_state import BillingState
 from eplus_gym.rl.obs_v3 import (
+    LABELED_PLACEHOLDER_FORECAST,
     N_OBS_V3,
     build_observation_v3,
     observation_space_v3,
-    params_to_prev_action,
 )
-from eplus_gym.rl.reward import FAIL_REWARD, INFEASIBLE_TRAIN_REWARD
+from eplus_gym.rl.reward_v2 import (
+    IntegrityFailure,
+    MissingBaselineError,
+    score_day_v2,
+)
 from eplus_gym.rl.spaces_v2 import (
     continuous_action_space_v2,
     decode_continuous_v2,
@@ -29,7 +37,6 @@ from eplus_gym.rl.spaces_v2 import (
     discrete_action_space_v2,
     encode_continuous_v2,
 )
-from eplus_gym.objective import DT_H
 
 DEMAND_RATE = 15.0
 ENERGY_RATE = 0.12
@@ -42,10 +49,48 @@ def incremental_monthly_demand_cost(
     candidate_day_peak_kw: float,
     baseline_day_peak_kw: float,
 ) -> float:
+    """Legacy helper kept for unit tests. New campaigns use reward_v2 dual-arm accounting."""
     return float(demand_rate) * (
         max(float(billing_floor_kw), float(candidate_day_peak_kw))
         - max(float(billing_floor_kw), float(baseline_day_peak_kw))
     )
+
+
+def baseline_cache_key_v2(
+    *,
+    model_id: str,
+    weather_id: str,
+    run_period: str,
+    initial_state_id: str,
+    schedule_id: str,
+) -> str:
+    payload = "|".join(
+        [str(model_id), str(weather_id), str(run_period), str(initial_state_id), str(schedule_id)]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def schedule_fingerprint(schedules: Mapping[str, Sequence[float]]) -> str:
+    body = {k: [round(float(x), 4) for x in schedules[k]] for k in ACTION_KEYS}
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def assert_live_campaign_plant(plant: Any) -> None:
+    if not bool(getattr(plant, "live_energyplus", False)):
+        raise ValueError("campaign paths refuse FakeContinuityPlant; EnergyPlusContinuityPlant required")
+
+
+def _f_to_series_from_schedule(schedules: Mapping[str, Sequence[float]], *, lag: float = 0.35) -> dict[str, list[float]]:
+    out: dict[str, list[float]] = {}
+    for key in ACTION_KEYS:
+        sp = [float(x) for x in schedules[key]]
+        temps = []
+        t = float(sp[0])
+        for s in sp:
+            t = (1.0 - lag) * t + lag * float(s)
+            temps.append(t)
+        out[key] = temps
+    return out
 
 
 @dataclass
@@ -68,30 +113,46 @@ class FakeContinuityPlant:
         self.n_process_starts += 1
         self.n_days = 0
 
+    def close(self) -> None:
+        return None
+
     def simulate_day(self, schedules: dict[str, list[float]], *, oat_c: Sequence[float]) -> dict[str, Any]:
         if self.n_process_starts < 1:
             raise RuntimeError("start_episode() first; refusing a per-day EnergyPlus restart")
         self.n_days += 1
-        self.last_schedules = {k: list(v) for k, v in schedules.items()}
-        first = next(iter(schedules.values()))
+        self.last_schedules = {k: list(schedules[k]) for k in ACTION_KEYS}
+        first = schedules[ACTION_KEYS[0]]
         continuous = max(first) - min(first) < 1e-6
-        mean_sp = float(np.mean(first))
         oat = [float(x) for x in oat_c]
-        # Carry overnight temps: setback cools the mass; continuous holds it.
-        if continuous:
-            self.zone_temps_f = [mean_sp] * 6
-            recovery_kw = 40.0
-        else:
-            night = min(first)
-            self.zone_temps_f = [0.7 * t + 0.3 * night for t in self.zone_temps_f]
-            recovery_kw = 40.0 + max(0.0, 70.0 - float(np.mean(self.zone_temps_f))) * 8.0
-            self.zone_temps_f = [0.4 * t + 0.6 * max(first) for t in self.zone_temps_f]
-        self.morning_peak_kw = recovery_kw + max(0.0, -min(oat)) * 1.5
-        self.daily_kwh = (mean_sp / 70.0) * (80.0 if continuous else 55.0)
+        zone_series: dict[str, list[float]] = {}
+        for i, key in enumerate(ACTION_KEYS):
+            sp = [float(x) for x in schedules[key]]
+            t = float(self.zone_temps_f[i])
+            temps = []
+            for s in sp:
+                t = 0.65 * t + 0.35 * float(s)
+                temps.append(t)
+            zone_series[key] = temps
+        self.zone_temps_f = [zone_series[k][-1] for k in ACTION_KEYS]
+        facility: list[float] = []
+        for t in range(96):
+            mean_sp = float(np.mean([schedules[k][t] for k in ACTION_KEYS]))
+            rec = 0.0 if continuous else max(0.0, 70.0 - mean_sp) * 1.2
+            oat_i = oat[min(len(oat) - 1, t // 4)] if oat else 0.0
+            kw = 35.0 + mean_sp * 0.4 + rec + max(0.0, -oat_i) * 0.8
+            if 24 <= t <= 36 and not continuous:
+                kw += 25.0
+            facility.append(float(kw))
+        self.morning_peak_kw = float(max(facility))
+        self.daily_kwh = float(sum(facility) * DT_H)
         return {
             "start_zone_temps_f": list(self.zone_temps_f),
+            "zone_temps_f": list(self.zone_temps_f),
+            "zone_temps_series_f": zone_series,
+            "facility_kw": facility,
             "peak_kw": float(self.morning_peak_kw),
             "daily_kwh": float(self.daily_kwh),
+            "n_intervals": 96,
             "n_process_starts": self.n_process_starts,
             "live_energyplus": self.live_energyplus,
         }
@@ -110,18 +171,26 @@ class MultiDayDailyEnv(gym.Env):
         self.start_day = str(cfg.get("start_day") or "2026-01-12")
         self.days = list(cfg.get("days") or chronological_days(self.start_day, self.n_days))
         self.algo_space = str(cfg.get("action_kind") or "continuous")
-        self.plant: FakeContinuityPlant = cfg.get("plant") or FakeContinuityPlant()
+        self.plant = cfg.get("plant") or FakeContinuityPlant()
+        if cfg.get("require_live_energyplus"):
+            assert_live_campaign_plant(self.plant)
         self.hourly_oat: dict[str, list[float]] = dict(cfg.get("hourly_oat") or {})
-        self._billing = BillingState(
+        self._placeholder_oat = cfg.get("labeled_placeholder_oat_c")
+        self._forecast_source = str(cfg.get("forecast_source") or "PERFECT_EPISODE_FORECAST")
+        self.paycheck_k = float(cfg.get("paycheck_k") or 2.0)
+        self._model_id = str(cfg.get("model_id") or "fake")
+        self._weather_id = str(cfg.get("weather_id") or "fake")
+        self._initial_state_id = str(cfg.get("initial_state_id") or "default")
+        self._baseline_cache: dict[str, dict[str, Any]] = dict(cfg.get("baseline_cache") or {})
+        self._baseline_payloads: dict[str, dict[str, Any]] = dict(cfg.get("baseline_payloads") or {})
+        self._require_baseline = bool(cfg.get("require_baseline", True))
+        init = dict(
             floor_kw=float(cfg.get("billing_floor_kw") or 0.0),
             ratchet_kw=float(cfg.get("ratchet_kw") or 0.0),
             contract_kw=float(cfg.get("contract_demand_kw") or 0.0),
         )
-        self._baseline_billing = BillingState(
-            floor_kw=float(cfg.get("billing_floor_kw") or 0.0),
-            ratchet_kw=float(cfg.get("ratchet_kw") or 0.0),
-            contract_kw=float(cfg.get("contract_demand_kw") or 0.0),
-        )
+        self._billing = BillingState(**init)
+        self._baseline_billing = BillingState(**init)
         self._day_i = 0
         self._prev_action = [0.0] * 11
         self._prev_peak = 0.0
@@ -134,23 +203,35 @@ class MultiDayDailyEnv(gym.Env):
             self.action_space = continuous_action_space_v2()
         self.observation_space = observation_space_v3()
 
-    def _oat(self, day: str) -> list[float]:
+    def _oat(self, day: str) -> tuple[list[float], str]:
         if day in self.hourly_oat:
             vals = [float(x) for x in self.hourly_oat[day]]
             if len(vals) != 24:
                 raise ValueError("hourly OAT must be 24 values")
-            return vals
-        # Deterministic placeholder when no EPW is supplied (unit tests).
-        return [-10.0] * 24
+            return vals, self._forecast_source
+        if self._placeholder_oat is not None:
+            vals = [float(x) for x in self._placeholder_oat]
+            if len(vals) == 1:
+                vals = vals * 24
+            if len(vals) != 24:
+                raise ValueError("labeled_placeholder_oat_c must be 24 values or a scalar")
+            return vals, LABELED_PLACEHOLDER_FORECAST
+        raise ValueError(
+            f"missing hourly OAT for {day}; refusing silent -10C forecast "
+            "(pass hourly_oat or labeled_placeholder_oat_c)"
+        )
 
     def _obs(self, day: str):
-        floor = self._billing.start_of_day(day)
+        oat, src = self._oat(day)
+        floor = self._billing.billing_floor_kw()
+        mtd = self._billing.mtd_peak_kw
         return build_observation_v3(
             day=day,
-            hourly_oat_c=self._oat(day),
+            hourly_oat_c=oat,
+            forecast_source=src,
             zone_temps_f=self.plant.zone_temps_f,
             billing_floor_kw=floor,
-            mtd_peak_kw=floor,
+            mtd_peak_kw=mtd,
             previous_day_peak_kw=self._prev_peak,
             previous_day_kwh=self._prev_kwh,
             previous_action=self._prev_action,
@@ -190,45 +271,72 @@ class MultiDayDailyEnv(gym.Env):
             return decode_discrete_v2(int(np.asarray(action).reshape(-1)[0]), day=day)
         return decode_continuous_v2(action)
 
+    def _lookup_baseline(self, day: str) -> dict[str, Any]:
+        if day in self._baseline_payloads:
+            return self._baseline_payloads[day]
+        run_period = f"{self.days[0]}:{self.days[-1]}"
+        key = baseline_cache_key_v2(
+            model_id=self._model_id,
+            weather_id=self._weather_id,
+            run_period=f"{run_period}:{day}",
+            initial_state_id=self._initial_state_id,
+            schedule_id="paired_baseline",
+        )
+        if key in self._baseline_cache:
+            return self._baseline_cache[key]
+        if not self._require_baseline:
+            raise MissingBaselineError(f"paired baseline missing for {day} (key={key})")
+        raise MissingBaselineError(f"paired baseline missing for {day} (key={key})")
+
     def step(self, action):
         if self._day_i >= len(self.days):
             raise RuntimeError("episode already done")
         day = self.days[self._day_i]
         params = self._decode(action)
         schedules = build_six_schedules_f(params)
-        payload = self.plant.simulate_day(schedules, oat_c=self._oat(day))
-        peak = float(payload["peak_kw"])
-        kwh = float(payload["daily_kwh"])
-        floor = self._billing.start_of_day(day)
-        base_floor = self._baseline_billing.start_of_day(day)
-        energy_cost = ENERGY_RATE * kwh
-        demand_cost = incremental_monthly_demand_cost(
-            demand_rate=DEMAND_RATE,
-            billing_floor_kw=floor,
-            candidate_day_peak_kw=peak,
-            baseline_day_peak_kw=float(self.cfg.get("baseline_day_peak_kw") or peak),
+        oat, _src = self._oat(day)
+        payload = self.plant.simulate_day(schedules, oat_c=oat)
+        if payload.get("failed") or payload.get("invalid"):
+            raise IntegrityFailure(str(payload.get("reason") or "energyplus_crash"))
+        facility = payload.get("facility_kw")
+        zone_series = payload.get("zone_temps_series_f")
+        if facility is None or zone_series is None:
+            raise IntegrityFailure("incomplete trajectory: missing facility_kw or zone_temps_series_f")
+        try:
+            baseline = self._lookup_baseline(day)
+        except MissingBaselineError:
+            raise
+        b_fac = baseline.get("facility_kw")
+        b_zones = baseline.get("zone_temps_series_f")
+        cand_old = self._billing.start_of_day(day)
+        base_old = self._baseline_billing.start_of_day(day)
+        scored = score_day_v2(
+            day=day,
+            candidate_facility_kw=facility,
+            candidate_zone_temps_f=zone_series,
+            baseline_facility_kw=b_fac,
+            baseline_zone_temps_f=b_zones,
+            candidate_schedules=schedules,
+            mtd_peak_kw=self._billing.mtd_peak_kw,
+            ratchet_kw=self._billing.ratchet_kw,
+            contract_kw=self._billing.contract_kw,
+            baseline_mtd_peak_kw=self._baseline_billing.mtd_peak_kw,
+            baseline_ratchet_kw=self._baseline_billing.ratchet_kw,
+            baseline_contract_kw=self._baseline_billing.contract_kw,
+            paycheck_k=self.paycheck_k,
         )
-        win = school_windows(day)
-        readiness_fail = False
-        if win["readiness_check_steps"]:
-            mean_t = float(np.mean(self.plant.zone_temps_f))
-            readiness_fail = mean_t < 67.5
-        if payload.get("failed"):
-            reward = FAIL_REWARD
-            display = float("nan")
-        elif readiness_fail:
-            reward = INFEASIBLE_TRAIN_REWARD
-            display = 0.0
-        else:
-            reward = -(energy_cost + demand_cost)
-            display = -(energy_cost + demand_cost)
+        peak = float(scored.candidate["day_peak_kw"])
+        kwh = float(scored.candidate["daily_kwh"])
         self._billing.observe_peak(peak)
-        self._baseline_billing.observe_peak(float(self.cfg.get("baseline_day_peak_kw") or peak))
+        self._baseline_billing.observe_peak(float(scored.baseline["day_peak_kw"]))
+        if hasattr(self.plant, "zone_temps_f") and payload.get("zone_temps_f"):
+            self.plant.zone_temps_f = list(payload["zone_temps_f"])
         self._prev_action = encode_continuous_v2(params).astype(float).tolist()
         self._prev_peak = peak
         self._prev_kwh = kwh
         self._prev_cc = 1.0 if params.continuous_conditioning else 0.0
-        self._episode_return += float(reward)
+        reward = float(scored.training_reward)
+        self._episode_return += reward
         self._day_i += 1
         terminated = self._day_i >= len(self.days)
         if terminated:
@@ -240,18 +348,31 @@ class MultiDayDailyEnv(gym.Env):
         info = {
             "day": day,
             "next_day": next_day,
-            "energy_cost": energy_cost,
-            "incremental_demand_cost": demand_cost,
-            "display_paycheck_usd": display,
+            "energy_cost": scored.candidate["energy_cost"],
+            "incremental_demand_cost": scored.candidate["demand_increment"],
+            "candidate_old_floor_kw": scored.candidate["old_floor_kw"],
+            "candidate_new_floor_kw": scored.candidate["new_floor_kw"],
+            "candidate_day_peak_kw": scored.candidate["day_peak_kw"],
+            "baseline_old_floor_kw": scored.baseline["old_floor_kw"],
+            "baseline_new_floor_kw": scored.baseline["new_floor_kw"],
+            "baseline_day_peak_kw": scored.baseline["day_peak_kw"],
+            "savings": scored.savings,
+            "display_paycheck_usd": scored.display_paycheck_usd,
+            "training_reward": scored.training_reward,
             "peak_kw": peak,
             "daily_kwh": kwh,
-            "readiness_fail": readiness_fail,
+            "readiness_fail": not bool(scored.readiness["readiness_ok"]),
+            "readiness": scored.readiness,
             "continuous_conditioning": params.continuous_conditioning,
             "n_process_starts": self.plant.n_process_starts,
             "n_days_simulated": self.plant.n_days,
             "episode_return": self._episode_return,
             "billing_floor_kw": self._billing.billing_floor_kw(),
+            "mtd_peak_kw": self._billing.mtd_peak_kw,
             "live_energyplus": self.plant.live_energyplus,
             "dt_h": DT_H,
+            "learnable": True,
+            "billing_floor_at_start_kw": cand_old,
+            "baseline_billing_floor_at_start_kw": base_old,
         }
-        return obs, float(reward), terminated, False, info
+        return obs, reward, terminated, False, info

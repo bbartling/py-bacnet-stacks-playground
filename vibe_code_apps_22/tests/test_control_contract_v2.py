@@ -15,6 +15,7 @@ from eplus_gym.control_v2 import (
     build_zone_series_f_v2,
     continuous_params,
     deep_setback_params,
+    first_change_step,
     observed_bas_incumbent_params,
     school_windows,
     shallow_setback_params,
@@ -24,6 +25,7 @@ from eplus_gym.rl.active_model import ActiveModelError, load_active_model, verif
 from eplus_gym.rl.obs_v3 import N_OBS_V3, PERFECT_EPISODE_FORECAST, build_observation_v3
 from eplus_gym.rl.operator_pay_experiment import refuse_full_campaign
 from eplus_gym.rl.spaces_v2 import (
+    SETBACK_DEADBAND_F,
     decode_continuous_v2,
     decode_discrete_v2,
     discrete_n_v2,
@@ -111,6 +113,38 @@ def test_setback_variants_and_recovery_bounds():
         )
 
 
+def test_recovery_lead_is_ramp_duration_four_distinct_schedules():
+    series = []
+    first = []
+    for lead in (0, 60, 120, 180):
+        p = SixZoneDailyParamsV2(
+            occupied_heating_f=70.0,
+            unoccupied_heating_f=64.0,
+            heating_setpoint_start_step=28,
+            heating_setpoint_end_step=68,
+            recovery_lead_minutes=lead,
+        )
+        s = build_zone_series_f_v2(p, "1F_A")
+        series.append(s)
+        first.append(first_change_step(s))
+    for a, b in zip(series, series[1:]):
+        assert a != b
+    assert first == [28, 24, 20, 16]
+    assert first[0] > first[1] > first[2] > first[3]
+
+
+def test_preheat_effective_sp_rejected():
+    p = SixZoneDailyParamsV2(
+        occupied_heating_f=70.0,
+        unoccupied_heating_f=69.5,
+        heating_setpoint_start_step=28,
+        heating_setpoint_end_step=68,
+        zone_offsets={"1F_A": ZoneOffsetsV2(setback_offset_f=1.0)},
+    )
+    with pytest.raises(ValueError, match="preheat"):
+        validate_params(p)
+
+
 def test_ppo_v2_round_trip_and_bounds():
     p = SixZoneDailyParamsV2(
         occupied_heating_f=70.0,
@@ -125,8 +159,16 @@ def test_ppo_v2_round_trip_and_bounds():
     assert decoded.continuous_conditioning is True
     np.testing.assert_allclose(encoded, again, atol=1e-5)
     space = __import__("eplus_gym.rl.spaces_v2", fromlist=["continuous_action_space_v2"]).continuous_action_space_v2()
-    assert float(space.high[1]) == pytest.approx(72.0)
+    assert float(space.high[1]) == pytest.approx(14.0)
     assert float(space.high[3]) == pytest.approx(96.0)
+
+    shallow = decode_continuous_v2([70.0, 0.10, 28.0, 68.0, 60.0] + [0.0] * 6)
+    assert shallow.continuous_conditioning is True
+    assert shallow.mode_label() == "CONTINUOUS_CONDITIONING_THERMOSTATIC"
+    deep = decode_continuous_v2([70.0, 6.0, 28.0, 68.0, 60.0] + [0.0] * 6)
+    assert deep.continuous_conditioning is False
+    assert deep.unoccupied_heating_f == pytest.approx(64.0)
+    assert SETBACK_DEADBAND_F == pytest.approx(0.25)
 
 
 def test_dqn_v2_has_explicit_continuous_actions():
@@ -138,6 +180,10 @@ def test_dqn_v2_has_explicit_continuous_actions():
     assert build_zone_series_f_v2(a1, "1F_A") == [70.0] * 96
     setback = decode_discrete_v2(2, day="2026-01-15")
     assert setback.heating_setpoint_end_step == 54
+    with pytest.raises(ValueError, match="outside"):
+        decode_discrete_v2(-1)
+    with pytest.raises(ValueError, match="outside"):
+        decode_discrete_v2(discrete_n_v2())
     from eplus_gym.rl.spaces import discrete_n
 
     assert discrete_n() == 64
@@ -158,10 +204,27 @@ def test_obs_v3_has_24_hourly_forecast_and_previous_action():
         continuous_conditioning_state=1.0,
     )
     assert vec.shape == (N_OBS_V3,)
+    assert N_OBS_V3 == 80
     assert ctx["hourly_oat_c"] == [float(x) for x in oat]
     assert ctx["forecast_source"] == PERFECT_EPISODE_FORECAST
     assert ctx["previous_action"] == prev
+    assert ctx["mtd_peak_kw"] == pytest.approx(210.0)
+    assert ctx["billing_floor_kw"] == pytest.approx(200.0)
+    assert ctx["mtd_peak_distinct_from_billing_floor"] is True
+    assert ctx["loop_entering_water_present"] is False
+    assert ctx["previous_action_normalized"][0] == pytest.approx(0.70)
     assert ctx["no_future_weather_beyond_declared_forecast"] is True
+    masked = build_observation_v3(
+        day="2026-01-12",
+        hourly_oat_c=oat,
+        zone_temps_f=[68.0] * 6,
+        billing_floor_kw=200.0,
+        mtd_peak_kw=210.0,
+        loop_entering_water_c=8.0,
+        loop_leaving_water_c=None,
+    )[1]
+    assert masked["loop_entering_water_present"] is True
+    assert masked["loop_leaving_water_present"] is False
     with pytest.raises(ValueError, match="24"):
         build_observation_v3(
             day="2026-01-12",
@@ -189,6 +252,7 @@ def test_contracts_exist_and_observed_incumbent_is_not_sch_htgsp():
         "ppo_action_contract_v2.json",
         "dqn_action_contract_v2.json",
         "active_rl_model_v1.json",
+        "reward_contract_v2.json",
         "observed_bas_incumbent_v2.json",
     ]
     for name in names:

@@ -12,15 +12,30 @@ from eplus_gym.rl.midnight_forecast import FORECAST_HOURS, forecast_from_epw_rep
 
 OBS_SCHEMA_V3 = "vibe22.obs.v3"
 PERFECT_EPISODE_FORECAST = "PERFECT_EPISODE_FORECAST"
+LABELED_PLACEHOLDER_FORECAST = "LABELED_PLACEHOLDER_FORECAST"
 N_PREV_ACTION = 11
-# 24 oat + 24 mask + 6 calendar + 6 zones + 4 billing + 11 prev action + 1 cc + 2 optional loop
-N_OBS_V3 = 24 + 24 + 6 + 6 + 4 + N_PREV_ACTION + 1 + 2
+# 24 oat + 24 mask + 6 calendar + 6 zones + 4 billing + 11 prev action + 1 cc + 2 loop + 2 masks
+N_OBS_V3 = 24 + 24 + 6 + 6 + 4 + N_PREV_ACTION + 1 + 2 + 2
 
 
 def observation_space_v3():
     import gymnasium as gym
 
     return gym.spaces.Box(low=-np.inf, high=np.inf, shape=(N_OBS_V3,), dtype=np.float32)
+
+
+def normalize_previous_action(previous_action: Sequence[float]) -> list[float]:
+    prev = [float(x) for x in previous_action]
+    if len(prev) != N_PREV_ACTION:
+        raise ValueError(f"previous_action must have {N_PREV_ACTION} values")
+    return [
+        prev[0] / 100.0,
+        prev[1] / 14.0,
+        prev[2] / 96.0,
+        prev[3] / 96.0,
+        prev[4] / 180.0,
+        *[(x + 3.0) / 4.0 for x in prev[5:11]],
+    ]
 
 
 def build_observation_v3(
@@ -55,8 +70,11 @@ def build_observation_v3(
         prev = [float(x) for x in previous_action]
         if len(prev) != N_PREV_ACTION:
             raise ValueError(f"previous_action must have {N_PREV_ACTION} values")
+    prev_norm = normalize_previous_action(prev)
     win = school_windows(day)
     d = date.fromisoformat(str(day)[:10])
+    ewt_present = 1.0 if loop_entering_water_c is not None else 0.0
+    lwt_present = 1.0 if loop_leaving_water_c is not None else 0.0
     vec = np.asarray(
         oat
         + mask
@@ -70,16 +88,18 @@ def build_observation_v3(
         ]
         + [t / 100.0 for t in temps]
         + [
-            float(billing_floor_kw) / 500.0,
             float(mtd_peak_kw) / 500.0,
+            float(billing_floor_kw) / 500.0,
             float(previous_day_peak_kw) / 500.0,
             float(previous_day_kwh) / 5000.0,
         ]
-        + prev
+        + prev_norm
         + [float(continuous_conditioning_state)]
         + [
             float(loop_entering_water_c) / 40.0 if loop_entering_water_c is not None else 0.0,
             float(loop_leaving_water_c) / 40.0 if loop_leaving_water_c is not None else 0.0,
+            ewt_present,
+            lwt_present,
         ],
         dtype=np.float32,
     )
@@ -94,10 +114,14 @@ def build_observation_v3(
         "zone_temps_f": temps,
         "billing_floor_kw": float(billing_floor_kw),
         "mtd_peak_kw": float(mtd_peak_kw),
+        "mtd_peak_distinct_from_billing_floor": True,
         "previous_day_peak_kw": float(previous_day_peak_kw),
         "previous_day_kwh": float(previous_day_kwh),
         "previous_action": prev,
+        "previous_action_normalized": prev_norm,
         "continuous_conditioning_state": float(continuous_conditioning_state),
+        "loop_entering_water_present": bool(ewt_present),
+        "loop_leaving_water_present": bool(lwt_present),
         "no_future_weather_beyond_declared_forecast": True,
     }
     return vec, ctx

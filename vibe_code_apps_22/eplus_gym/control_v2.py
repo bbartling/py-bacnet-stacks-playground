@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from eplus_native.six_zone_htg_stage import ACTION_KEYS
 
@@ -58,6 +58,10 @@ class SixZoneDailyParamsV2:
             self.heating_setpoint_start_step = 0
             self.heating_setpoint_end_step = END_OF_DAY_STEP
             self.recovery_lead_minutes = 0
+            self.recovery_ramp_minutes = 0
+        else:
+            # recovery_lead_minutes IS the linear ramp duration (no extra fixed 60-min ramp).
+            self.recovery_ramp_minutes = int(self.recovery_lead_minutes)
 
     def mode_label(self) -> str:
         if self.continuous_conditioning:
@@ -127,12 +131,35 @@ def validate_params(params: SixZoneDailyParamsV2, *, envelope: dict[str, Any] | 
         off = float(params.zone_offsets[key].setback_offset_f)
         if not (off_b["min"] <= off <= off_b["max"]):
             raise ValueError(f"offset {key}={off} outside envelope")
+        unocc_eff = unocc + off
+        if unocc_eff > occ + 1e-9:
+            raise ValueError(
+                f"effective unoccupied SP for {key}={unocc_eff} exceeds occupied {occ}; "
+                "preheat is not a named mode in this contract — reject"
+            )
+
+
+def first_change_step(series: Sequence[float]) -> int:
+    if not series:
+        return 0
+    base = float(series[0])
+    for i, v in enumerate(series):
+        if abs(float(v) - base) > 1e-9:
+            return i
+    return 0
 
 
 def build_zone_series_f_v2(params: SixZoneDailyParamsV2, action_key: str) -> list[float]:
     off = params.zone_offsets.get(action_key) or ZoneOffsetsV2()
     occ = float(params.occupied_heating_f) + 0.0
     unocc = float(params.unoccupied_heating_f) + float(off.setback_offset_f)
+    if unocc > occ + 1e-9:
+        raise ValueError(
+            f"effective unoccupied SP {unocc} exceeds occupied {occ}; preheat rejected"
+        )
+    env = load_json_contract("control_contract_v2.json")["agent_envelope"]
+    unocc_b = env["unoccupied_heating_setpoint_f"]
+    unocc = min(occ, max(float(unocc_b["min"]), unocc))
     if params.continuous_conditioning:
         return [float(params.occupied_heating_f)] * STEPS_PER_DAY
     start = int(params.heating_setpoint_start_step)
@@ -143,24 +170,17 @@ def build_zone_series_f_v2(params: SixZoneDailyParamsV2, action_key: str) -> lis
         raise ValueError("start/end out of range")
     if end <= start:
         raise ValueError("invalid start/end combination")
+    # recovery_lead_minutes is the linear ramp duration ending at start_step.
     lead = max(0, int(round(params.recovery_lead_minutes / 15.0)))
-    ramp = max(0, int(round(params.recovery_ramp_minutes / 15.0)))
     recovery_begin = max(0, start - lead)
     series: list[float] = []
     for t in range(STEPS_PER_DAY):
         if start <= t < end:
             series.append(occ)
             continue
-        if recovery_begin <= t < start:
-            if ramp <= 0:
-                series.append(occ)
-            else:
-                progressed = t - (start - ramp)
-                if progressed <= 0:
-                    series.append(unocc)
-                else:
-                    frac = min(1.0, progressed / float(ramp))
-                    series.append(unocc + frac * (occ - unocc))
+        if lead > 0 and recovery_begin <= t < start:
+            frac = (t - recovery_begin + 1) / float(lead)
+            series.append(unocc + min(1.0, frac) * (occ - unocc))
             continue
         series.append(unocc)
     return series
@@ -202,7 +222,7 @@ def deep_setback_params() -> SixZoneDailyParamsV2:
         heating_setpoint_start_step=28,
         heating_setpoint_end_step=68,
         recovery_lead_minutes=180,
-        recovery_ramp_minutes=60,
+        recovery_ramp_minutes=180,
     )
 
 
@@ -213,7 +233,7 @@ def shallow_setback_params() -> SixZoneDailyParamsV2:
         heating_setpoint_start_step=28,
         heating_setpoint_end_step=68,
         recovery_lead_minutes=30,
-        recovery_ramp_minutes=60,
+        recovery_ramp_minutes=30,
     )
 
 
@@ -233,7 +253,7 @@ def weather_rule_optimal_start_params(*, oat_min_c: float) -> SixZoneDailyParams
         heating_setpoint_start_step=28,
         heating_setpoint_end_step=68,
         recovery_lead_minutes=lead,
-        recovery_ramp_minutes=60,
+        recovery_ramp_minutes=lead,
     )
 
 

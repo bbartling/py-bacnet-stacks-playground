@@ -1,0 +1,92 @@
+{
+  "1F_Library_IMC": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 1.17816,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 23401.14328,
+    "cooling_airflow_m3s": 1.17816,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Cafe_Kitchen": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 1.85802,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 36966.9287,
+    "cooling_airflow_m3s": 1.85802,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Gym": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 2.6764,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 51783.06599,
+    "cooling_airflow_m3s": 2.6764,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Area_A": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 2.58582,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 52533.03015,
+    "cooling_airflow_m3s": 2.58582,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Area_B": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 1.84929,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 37404.25854,
+    "cooling_airflow_m3s": 1.84929,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Area_C": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 1.99976,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 40483.85405,
+    "cooling_airflow_m3s": 1.99976,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "1F_Area_D": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 1.85111,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 37391.37743,
+    "cooling_airflow_m3s": 1.85111,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "2F_Area_A": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 3.89176,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 79806.83346,
+    "cooling_airflow_m3s": 3.89176,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  },
+  "2F_Area_B": {
+    "heating_capacity_w": 149430.0,
+    "heating_airflow_m3s": 3.58659,
+    "heating_water_m3s": 0.00775772,
+    "cooling_capacity_w": 73430.55266,
+    "cooling_airflow_m3s": 3.58659,
+    "cooling_water_m3s": 0.00775772,
+    "heating_capacity_source": "user_specified",
+    "provenance": "live_energyplus_eio_component_sizing"
+  }
+}

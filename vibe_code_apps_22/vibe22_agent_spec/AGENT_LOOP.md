@@ -3,7 +3,8 @@
 0. **Ramp gate first.** `python scripts/reproduce_physics_ramp_gate.py` must exit 0 before any long PPO/DQN campaign. Verified 2026-08-16: exit code 4 (`passed: false`) recorded in `docs/audits/figures/postfix/ramp_gate.json`. Stop.
 1. `SITE_ROOT` has `eplus/models/lakeside_w2a_a04_dual_champion.idf` + AMY EPW.
 2. `RLEPLUS_ROOT` or submodule `third_party/rllib-energyplus`.
-3. Smoke only while NO-GO: `python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1`
-4. Inspect `plots/rl_report_operator_pay/` (smoke) or `plots/rl_report/` (legacy unique-100).
+3. Use `reward_contract_v2` + `EnergyPlusContinuityPlant` for multi-day work. Campaigns refuse `FakeContinuityPlant`. `reset()` consumes the first weather timestep.
+4. Track B two-pass (`scripts/a04v2_trackb_two_pass.py`) ran LIVE and is **not** a champion (scored-runtime W2A 3780).
+5. Smoke only while NO-GO. Do not start 5–10 sequence pilots or 20–30h campaigns without explicit later human authorization.
 
-No `vibe22.py`. No farm lookup. No Amphitheater. No `--mode full` until `ramp_gate.json` is newly `passed=true`.
+No `vibe22.py`. No farm lookup. No Amphitheater. No `--mode full` until a Track B champion exists.

@@ -1,22 +1,32 @@
 {
   "contract_version": "observation_contract_v3",
-  "n_features_core": 78,
+  "n_features_core": 80,
   "forecast": {
     "hourly_oat_c": 24,
     "forecast_valid_mask": 24,
     "source_flag": "PERFECT_EPISODE_FORECAST",
-    "note": "EPW truth labeled PERFECT_EPISODE_FORECAST; not a claim of real forecast error"
+    "note": "EPW truth labeled PERFECT_EPISODE_FORECAST; not a claim of real forecast error. Silent -10C placeholders are forbidden outside LABELED_PLACEHOLDER_FORECAST fixtures."
   },
   "calendar": ["month", "dow", "doy", "day_type", "thursday_early_dismissal", "school_occupied"],
   "state": [
     "six_zone_temps_f",
-    "month_to_date_peak_kw",
+    "mtd_peak_kw",
     "billing_floor_kw",
     "previous_day_peak_kw",
     "previous_day_kwh",
-    "previous_action",
+    "previous_action_normalized",
     "continuous_conditioning_state"
   ],
   "optional": ["loop_entering_water_c", "loop_leaving_water_c"],
+  "presence_masks": ["loop_entering_water_present", "loop_leaving_water_present"],
+  "previous_action_normalization": {
+    "occupied_heating_f": "/100",
+    "setback_depth_f": "/14",
+    "heating_setpoint_start_step": "/96",
+    "heating_setpoint_end_step": "/96",
+    "recovery_lead_minutes": "/180",
+    "offsets": "(x + 3) / 4"
+  },
+  "mtd_peak_distinct_from_billing_floor": true,
   "no_future_weather_beyond_declared_forecast": true
 }

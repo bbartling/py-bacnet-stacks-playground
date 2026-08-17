@@ -52,7 +52,7 @@ BAS train_dev winter weekdays: occupied SP median **68°F**, unoccupied **64°F*
 
 Autosize heating + CapMult 12 passed the three-arm ramp on several days (weekday, weekend, mild). HP-scaled 3-ton/HP at CapMult 12 also passed ramp on those days but still printed ~12k–16k W2A low-airflow warnings. Autosize reduced some episodes to ~10²–10³ warnings, not zero. Leaving 149430 W in place (`a04_capacity`) did **not** pass ramp at CapMult 12 + InternalMass 2000. No weighted-average champion.
 
-Because there is no warning-gate finalist, the expensive ten-period monthly GL14-style screen was **not** run. Track B is **planned, not executed** ([`figures/a04v2/trackB/plan.json`](figures/a04v2/trackB/plan.json)): `track_b_planned=true`, `track_b_executed=false`, `track_b_completed=false`, `track_b_failed_honestly=false`. A plan file is not an attempt. Track B has **not** failed honestly; status is not terminal `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`.
+Because there is no warning-gate finalist, the expensive ten-period monthly GL14-style screen was **not** run. Track B flags as of this Stage B write-up were planned-not-live; LIVE two-pass later ran without producing a champion — see [`2026-08-17-vibe22-correctness-repair.md`](2026-08-17-vibe22-correctness-repair.md). A plan file is not a terminal NO-GO.
 
 5-minute EnergyPlus demand from the native 15-minute trajectories is **unavailable** (not invented by resampling). 15/30/60-minute windows remain valid.
 

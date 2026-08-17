@@ -10,13 +10,16 @@ import pytest
 from eplus_gym.trackb_banks import (
     BAS_SIX_HP,
     PUBLIC_LABEL,
+    assert_reference_integrity,
     champion_gates_template,
     clone_heating_coil_banks,
+    expand_complete_banks,
     fractions_for,
     n_banks_for_hp_count,
     scored_runtime_w2a_pass,
     six_group_plan,
     split_autosized_total,
+    structural_fixture_totals,
 )
 from eplus_gym.eplus_err import parse_eplus_err
 
@@ -48,7 +51,7 @@ def test_allocation_sensitivities_sum_to_one():
         split_autosized_total(0.0, {"small": 1.0})
 
 
-def test_clone_equationfit_banks_are_autosized_not_one_giant_coil():
+def test_clone_equationfit_banks_use_explicit_split_not_independent_autosize():
     block = (
         "Coil:Heating:WaterToAirHeatPump:EquationFit,\n"
         "  1F_Area_A WAHP Heating Coil,            !- Name\n"
@@ -56,20 +59,27 @@ def test_clone_equationfit_banks_are_autosized_not_one_giant_coil():
         "  Autosize,                               !- Rated Air Flow Rate {m3/s}\n"
         "  149430;                                 !- Rated Heating Capacity {W}\n"
     )
-    clones = clone_heating_coil_banks(block, n_banks=3, zone="1F_Area_A")
+    clones = clone_heating_coil_banks(
+        block, n_banks=3, zone="1F_Area_A", heating_total_w=1000.0, air_total_m3s=2.0
+    )
     assert len(clones) == 3
     joined = "\n".join(clones)
     assert "149430" not in joined
-    assert joined.count("Autosize") >= 6
-    assert "1F_Area_A WAHP Heating Coil small" in joined
-    assert "1F_Area_A WAHP Heating Coil large" in joined
+    assert "Autosize" not in joined
+    assert "1F_Area_A WAHP small Heating Coil" in joined
+    assert "1F_Area_A WAHP large Heating Coil" in joined
+    assert "500" in joined  # 0.5 * 1000
+    split = split_autosized_total(1000.0, fractions_for(3))
+    assert split["medium"] == pytest.approx(500.0)
 
 
 def test_scored_runtime_w2a_gate_ignores_warmup_only_when_runtime_zero(tmp_path):
     err = tmp_path / "eplusout.err"
     err.write_text(
         "*************  ** Warning ** Actual air mass flow rate is smaller than 25% of water-to-air heat pump coil rated air flow rate.\n"
-        "*************  **   ~~~   **   During Warmup, This error occurred 12 total times;\n"
+        "*************  **   ~~~   **  This error occurred 12 total times;\n"
+        "*************  **   ~~~   **  during Warmup 12 times;\n"
+        "*************  **   ~~~   **  during Sizing 0 times.\n"
         "************* EnergyPlus Completed Successfully-- 1 Warning; 0 Severe Errors\n",
         encoding="utf-8",
     )
@@ -79,6 +89,63 @@ def test_scored_runtime_w2a_gate_ignores_warmup_only_when_runtime_zero(tmp_path)
     assert scored_runtime_w2a_pass(gate) is True
     gate["w2a_low_airflow_by_phase"]["scored_runtime"] = 1
     assert scored_runtime_w2a_pass(gate) is False
+
+
+def test_eio_parser_extracts_heating_capacity():
+    from eplus_gym.trackb_banks import parse_eio_component_sizing, sizing_totals_from_eio
+
+    eio = (
+        " Component Sizing Information, Coil:Heating:WaterToAirHeatPump:EquationFit, "
+        "1F_Library_IMC WAHP Heating Coil, Design Size Rated Heating Capacity [W], 1000.0\n"
+        " Component Sizing Information, Coil:Heating:WaterToAirHeatPump:EquationFit, "
+        "1F_Library_IMC WAHP Heating Coil, Design Size Rated Air Flow Rate [m3/s], 0.5\n"
+    )
+    with pytest.raises(ValueError, match="missing heating"):
+        sizing_totals_from_eio(eio)
+    parsed = parse_eio_component_sizing(eio)
+    assert parsed["1F_Library_IMC WAHP Heating Coil"]["heating_capacity_w"] == pytest.approx(1000.0)
+
+
+def _ep26_uppercase_eio() -> str:
+    """EnergyPlus 26.1 eio: UPPERCASE names + User-Specified heating capacity."""
+    from eplus_native.idf_inspect import NINE_ZONES
+
+    lines = [
+        "! <Component Sizing Information>, Component Type, Component Name, Input Field Description, Value"
+    ]
+    for i, z in enumerate(NINE_ZONES):
+        htg = f"{z.upper()} WAHP HEATING COIL"
+        clg = f"{z.upper()} WAHP COOLING COIL"
+        air = 1.0 + 0.1 * i
+        lines.append(
+            f" Component Sizing Information, COIL:HEATING:WATERTOAIRHEATPUMP:EQUATIONFIT, {htg}, "
+            f"Design Size Rated Air Flow Rate [m3/s], {air}"
+        )
+        lines.append(
+            f" Component Sizing Information, COIL:HEATING:WATERTOAIRHEATPUMP:EQUATIONFIT, {htg}, "
+            f"User-Specified Rated Heating Capacity [W], 149430.00000"
+        )
+        lines.append(
+            f" Component Sizing Information, COIL:COOLING:WATERTOAIRHEATPUMP:EQUATIONFIT, {clg}, "
+            f"Design Size Rated Total Cooling Capacity [W], 20000.0"
+        )
+        lines.append(
+            f" Component Sizing Information, COIL:COOLING:WATERTOAIRHEATPUMP:EQUATIONFIT, {clg}, "
+            f"Design Size Rated Air Flow Rate [m3/s], {air}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def test_eio_parser_matches_energyplus_26_uppercase_user_specified():
+    from eplus_gym.trackb_banks import sizing_totals_from_eio
+
+    totals = sizing_totals_from_eio(_ep26_uppercase_eio())
+    lib = totals["1F_Library_IMC"]
+    assert lib["heating_capacity_w"] == pytest.approx(149430.0)
+    assert lib["heating_airflow_m3s"] == pytest.approx(1.0)
+    assert lib["heating_capacity_source"] == "user_specified"
+    assert lib["provenance"] == "live_energyplus_eio_component_sizing"
+    assert totals["2F_Area_B"]["heating_airflow_m3s"] == pytest.approx(1.8)
 
 
 def test_champion_gates_are_not_a_pass():
@@ -99,14 +166,41 @@ def test_builder_refuses_a04_overwrite():
 def test_trackb_expand_from_parent_creates_multiple_coils():
     from a04v2_build_trackb_banks import expand_autosize_banks
     from eplus_gym.idf_objects import iter_objects
-    from eplus_gym.trackb_banks import HTG_TYPE, nine_zone_plan
+    from eplus_gym.trackb_banks import HTG_TYPE, ZONEHVAC_TYPE, nine_zone_plan
 
     src = (APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf").read_text(
         encoding="utf-8", errors="replace"
     )
     n0 = len(iter_objects(src, HTG_TYPE))
     assert n0 == 9
-    expanded = expand_autosize_banks(src, nine_zone_plan())
+    plan = nine_zone_plan()
+    expanded = expand_autosize_banks(src, plan)
     n1 = len(iter_objects(expanded, HTG_TYPE))
+    n_zh = len(iter_objects(expanded, ZONEHVAC_TYPE))
     assert n1 > 9
-    assert "149430" not in expanded or expanded.lower().count("autosize") >= n1
+    assert n_zh == n1
+    assert "149430" not in expanded
+    integrity = assert_reference_integrity(expanded, plan)
+    assert integrity["ok"] is True
+    assert PUBLIC_LABEL in json.dumps(plan)
+
+
+def test_trackb_expand_accepts_crlf_parent_bytes():
+    """build_trackb_plan decodes A04 bytes (CRLF). Finder normalizes to LF."""
+    from eplus_gym.idf_objects import iter_objects
+    from eplus_gym.trackb_banks import (
+        HTG_TYPE,
+        expand_complete_banks,
+        nine_zone_plan,
+        structural_fixture_totals,
+    )
+
+    raw = (APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf").read_bytes()
+    assert b"\r\n" in raw
+    src = raw.decode("utf-8", errors="replace")
+    plan = nine_zone_plan()
+    expanded = expand_complete_banks(src, plan, sizing_totals=structural_fixture_totals(src))
+    assert len(iter_objects(expanded, HTG_TYPE)) > 9
+    integrity = assert_reference_integrity(expanded, plan)
+    assert integrity["ok"] is True
+
