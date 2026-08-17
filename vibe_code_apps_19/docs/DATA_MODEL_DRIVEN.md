@@ -12,7 +12,9 @@ Resolver: `app.site_model.resolve_equipment_type` / `stamp_equipment_type`.
 | 2 | role_map / site / column_map `equipment_type` or `equipType` |
 | 3 | `equipment_type_from_id` (id substring) — **fallback only** |
 
-**Normalize:** `heatPump` / `HEAT_PUMP` → `HP`; `RTU` / rooftop → `AHU` (use DX points for mechanical cooling). Agents must stamp `equipType` in `column_map.json` so rules/analytics/RCx do not guess from folder names.
+**Normalize:** `heatPump` / `HEAT_PUMP` → `HP`; `RTU` / rooftop → `AHU` (use DX points for mechanical cooling). Unit ventilators / fan-coils with supply-fan + air temps should be typed **`ahu`** unless a dedicated cookbook type exists. Chiller plants → **`CHW_PLANT` / `chwPlant`**. Agents must stamp `equipType` in `column_map.json` so rules/analytics/RCx do not guess from folder names.
+
+Vibe19 **must not** special-case a vendor or campus in application code. Site point dictionaries and Open-Meteo coordinates live in the preprocess job that writes the zip.
 
 Cookbook kinds (`infer_equipment_kind`) and RCx membership use the resolved type — **no id-substring membership** in `collect_oat_scatter` / `collect_role_series`.
 
@@ -42,6 +44,10 @@ Cookbook kinds (`infer_equipment_kind`) and RCx membership use the resolved type
 | Heat pump / VRF | Compressor status only with proven cooling mode; VRF outdoor compressor status with cooling mode |
 
 **Does not count for OAT bins:** `chw-pump-status` / `chw-pump-cmd` / fan status alone, cooling demand alone, `cooling-valve` / `clg_valve_pct` / CHW AHU valve %. Pump roles remain for **motor weekly / plant circulation** analytics only (see table above). Optional inferred CHW leave-temp is labeled `inferred` and never applied to chilled-water AHU valves.
+
+## Mixing scatter
+
+AHU/RTU mixing charts need mapped `fan-status` (on) plus `outside-air-temp`, `return-air-temp`, and `mixed-air-temp`, with enough `|OAT−RAT|≥10°F` samples. Missing any role → skip the chart (warn in UI). Do not invent OA from a plant sensor inside `app/`.
 
 ## Topology
 

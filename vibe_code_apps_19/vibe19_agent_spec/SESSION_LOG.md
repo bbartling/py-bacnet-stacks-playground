@@ -8,6 +8,16 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-17 — Streamlit width=, UTC stamps, Haystack string `equip`
+
+- Streamlit floor `>=1.51`; widgets use `width="stretch"` / `width="content"` (no `use_container_width`).
+- `parse_utc_timestamp` accepts ISO-8601 `Z` and `+00:00` without pandas infer-format warnings.
+- Sidecar maps: string `"equip": "AHU_1"` is a device id, not a nested package map.
+- Agent docs: any-BAS package authoring in root `AGENTS.md`, Haystack guide, DATA_MODEL_DRIVEN, PACKAGE_SPEC.
+- Tests: `test_parse_utc_timestamp_accepts_z_and_offset_without_pandas_warning`, `test_string_equip_is_device_id_not_package_map`.
+
+---
+
 ## 2026-08-16 — Playground closeout (verify-only)
 
 - No vibe19 code PR. Pin remains `open-fdd[reporting]==4.4.1`. Local `open_fdd.__version__` = `4.4.1`. `python -m pytest -q` → 625 passed, 15 deselected.

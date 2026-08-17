@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.data_loader import detect_timestamp_column, normalize_timestamp, validate_dataframe
+from app.data_loader import detect_timestamp_column, normalize_timestamp, parse_utc_timestamp, validate_dataframe
 
 
 @dataclass
@@ -123,13 +123,13 @@ def normalize_long_source(
         raise ValueError("Long format requires timestamp, equipment, point, and value columns")
 
     work = df.copy()
-    work[ts] = pd.to_datetime(work[ts], utc=True, errors="coerce")
+    work[ts] = parse_utc_timestamp(work[ts])
     work = work.dropna(subset=[ts])
     out: dict[str, pd.DataFrame] = {}
     for eq_id, grp in work.groupby(eq_c):
         eq_id = str(eq_id)
         wide = grp.pivot_table(index=ts, columns=pt_c, values=val_c, aggfunc="first")
-        wide.index = pd.to_datetime(wide.index, utc=True)
+        wide.index = parse_utc_timestamp(wide.index)
         wide = wide.sort_index()
         wide.index.name = "timestamp"
         wide.attrs["equipment_id"] = eq_id

@@ -36,7 +36,7 @@ session. Production Rust Open-FDD is a **separate** repo.
 6. **Web OAT by default** — analytics / free-cool / OAT bins / physics rules prefer `wx_oa_t` via `oa_t_effective` (`app/weather_resolver.py`). OAT-METEO requires both BAS and web.
 7. **Haystack point names end-to-end** — `siteRef` / `equip` / `device` / `points` map directly to CSV columns; rules read the same names (`discharge-air-temp`, …). See `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`. Optional package-root `column_map.json` is auto-loaded.
 8. **Building id = folder name** — any site; BUILDING_100 is a demo label only.
-9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
+9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`. Package authoring for any BAS job lives in root [`../AGENTS.md`](../AGENTS.md) (“Package authoring”) plus [`../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md).
 10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).
 11. **Agent API (headless, not FastAPI)** — `app/agent_api.py` + `scripts/agent_afdd.py` for load/run/export without opening the browser. Same pandas cookbook; **no** FastAPI/Flask product UI.
 12. **Motor charts ≠ compressor proof** — motor/pump/DX status first for weekly motor charts. No pump in data model → **omit** that motor series (never invent motor hours from leave temp). Prefer mapped fan/pump roles over column-name invent. **CHW pump status/command alone does not prove compressor operation** for mech-cooling OAT bins (rule 13).

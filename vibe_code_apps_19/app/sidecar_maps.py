@@ -79,8 +79,8 @@ def _points_from_payload(raw: Any, equipment_id: str) -> tuple[dict[str, str], s
     if not isinstance(raw, dict):
         raise SidecarMapError(f"map for {equipment_id} must be a JSON object")
 
-    # Full package map
-    if any(k in raw for k in ("equip", "equipment", "devices")):
+    # Full package map: equip/equipment/devices must be objects, not a device-id string.
+    if any(isinstance(raw.get(k), (dict, list)) for k in ("equip", "equipment", "devices")):
         norm = normalize_column_map(raw)
         block = (norm.get("equipment") or {}).get(equipment_id) or {}
         if not block and len(norm.get("equipment") or {}) == 1:

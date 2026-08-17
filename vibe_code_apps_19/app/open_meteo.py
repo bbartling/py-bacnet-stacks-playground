@@ -12,6 +12,7 @@ from typing import Any
 
 import pandas as pd
 
+from app.data_loader import parse_utc_timestamp
 from app.weather_psychrometrics import enrich_weather_frame
 
 HISTORICAL_FORECAST_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
@@ -126,7 +127,7 @@ def fetch_open_meteo(
 
     raw = pd.DataFrame(
         {
-            "timestamp_utc": pd.to_datetime(block["time"], utc=True),
+            "timestamp_utc": parse_utc_timestamp(block["time"]),
             "dry_bulb_f": block.get("temperature_2m"),
             "relative_humidity_pct": block.get("relative_humidity_2m"),
             "dew_point_f": block.get("dew_point_2m"),
@@ -180,7 +181,7 @@ def align_to_index(weather: pd.DataFrame, grid: pd.DatetimeIndex) -> pd.DataFram
     src = weather.copy()
     if not isinstance(src.index, pd.DatetimeIndex):
         if "timestamp_utc" in src.columns:
-            src = src.set_index(pd.to_datetime(src["timestamp_utc"], utc=True))
+            src = src.set_index(parse_utc_timestamp(src["timestamp_utc"]))
             src = src.drop(columns=["timestamp_utc"], errors="ignore")
         else:
             raise ValueError("weather must have DatetimeIndex or timestamp_utc column")

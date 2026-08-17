@@ -14,7 +14,7 @@ from typing import Any, Literal
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from app.data_loader import _read_columns_map
+from app.data_loader import _read_columns_map, parse_utc_timestamp
 
 Severity = Literal["info", "warn", "error"]
 HealthGrade = Literal["ok", "degraded", "incomplete"]
@@ -76,7 +76,7 @@ def _parse_utc(value: Any) -> pd.Timestamp | None:
     if value is None or value == "":
         return None
     try:
-        ts = pd.to_datetime(value, utc=True)
+        ts = parse_utc_timestamp(value)
     except Exception:
         return None
     if pd.isna(ts):

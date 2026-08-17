@@ -925,7 +925,7 @@ def _render_sv_rate_config() -> None:
             edited = st.data_editor(
                 pd.DataFrame(rows),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 key=f"svrate_editor_{qty}",
                 disabled=["profile_id", "unit"],
             )
@@ -1004,7 +1004,7 @@ def _render_sv_rate_config() -> None:
                     )
         if peek:
             st.caption(f"Resolved profiles on **{selected}** (after next Run):")
-            st.dataframe(pd.DataFrame(peek), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(peek), hide_index=True, width="stretch")
 
 
 @st.fragment
