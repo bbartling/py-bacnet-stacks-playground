@@ -196,6 +196,9 @@ def test_trackb_expand_accepts_crlf_parent_bytes():
     )
 
     raw = (APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf").read_bytes()
+    # GitHub checkout may LF-normalize; the expander must still accept CRLF parent bytes.
+    if b"\r\n" not in raw:
+        raw = raw.replace(b"\n", b"\r\n")
     assert b"\r\n" in raw
     src = raw.decode("utf-8", errors="replace")
     plan = nine_zone_plan()
