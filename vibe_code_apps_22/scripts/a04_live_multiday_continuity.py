@@ -30,6 +30,7 @@ from eplus_gym.path_sanitize import redact_obj
 from eplus_gym.rl.continuity_plant import EnergyPlusContinuityPlant
 from eplus_gym.rl.multiday_env import assert_live_campaign_plant
 from eplus_gym.rl.midnight_forecast import hourly_drybulb_from_epw
+from eplus_gym.rl.gallery_mtd import rescore_utility_table_mtd
 from eplus_gym.rl.reward_v2 import score_day_v2
 from eplus_gym.site_env import require_site_root
 from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file
@@ -77,7 +78,16 @@ def run_arm(*, plant_kw: dict, arm_name: str, days: list[str], oat: dict[str, li
     for day in days:
         payload = plant.simulate_day(schedules, oat_c=oat[day])
         payloads[day] = payload
-        midnight.append({"day": day, "zone_temps_f": list(payload["zone_temps_f"]), "n_process_starts": payload["n_process_starts"]})
+        midnight.append(
+            {
+                "day": day,
+                "start_zone_temps_f": list(payload.get("start_zone_temps_f") or []),
+                "zone_temps_f": list(payload["zone_temps_f"]),
+                "n_process_starts": payload["n_process_starts"],
+                "first_runtime_timestamp": payload.get("first_runtime_timestamp"),
+                "last_runtime_timestamp": payload.get("last_runtime_timestamp"),
+            }
+        )
     quality = plant.finish_quality()
     arm_dir = site_out / arm_name
     arm_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +182,7 @@ def main() -> int:
                 "readiness_ok": scored.readiness["readiness_ok"],
             }
         table.append({"day": day, "arms": row_arms})
+    mtd = rescore_utility_table_mtd(table)
     starts = {n: arms[n]["n_process_starts"] for n in arms}
     midnight_ok = all(
         arms[n]["midnight"][i]["n_process_starts"] == 1 for n in arms for i in range(len(days))
@@ -191,6 +202,8 @@ def main() -> int:
         "n_process_starts_by_arm": starts,
         "midnight_thermal_continuity_one_process": midnight_ok,
         "utility_table": table,
+        "utility_table_mtd_illustrative": mtd,
+        "illustrative_not_billed": True,
         "w2a_runtime_gate": {n: {"count": arms[n]["scored_runtime_w2a"], "pass": arms[n]["scored_runtime_w2a_pass"]} for n in arms},
         "long_campaign_allowed": False,
         "champion": None,

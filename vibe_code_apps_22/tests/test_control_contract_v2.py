@@ -172,14 +172,19 @@ def test_ppo_v2_round_trip_and_bounds():
 
 
 def test_dqn_v2_has_explicit_continuous_actions():
-    assert discrete_n_v2() == 110
+    from eplus_gym.rl.spaces_v2 import DQN_V2_DECLARED_N, unique_discrete_table_v2
+
+    assert DQN_V2_DECLARED_N == 110
+    assert discrete_n_v2() == len(unique_discrete_table_v2())
+    assert discrete_n_v2() < DQN_V2_DECLARED_N
     a0 = decode_discrete_v2(0)
     a1 = decode_discrete_v2(1)
     assert a0.occupied_heating_f == 68.0 and a0.unoccupied_heating_f == 68.0
     assert a1.occupied_heating_f == 70.0 and a1.unoccupied_heating_f == 70.0
     assert build_zone_series_f_v2(a1, "1F_A") == [70.0] * 96
     setback = decode_discrete_v2(2, day="2026-01-15")
-    assert setback.heating_setpoint_end_step == 54
+    if not setback.continuous_conditioning:
+        assert setback.heating_setpoint_end_step == 54
     with pytest.raises(ValueError, match="outside"):
         decode_discrete_v2(-1)
     with pytest.raises(ValueError, match="outside"):

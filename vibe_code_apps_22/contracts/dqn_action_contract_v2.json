@@ -2,7 +2,9 @@
   "contract_version": "dqn_action_contract_v2",
   "v1_frozen_cardinality": 64,
   "v1_note": "Discrete(64) does not offer true 70F continuous or start/end control; do not reinterpret it",
-  "cardinality": 110,
+  "declared_cardinality": 110,
+  "cardinality": "unique_schedule_fingerprints",
+  "unique_table_note": "Discrete(N) is the unique post-clamp schedule count. Do not advertise 110 unless 110 unique fingerprints exist.",
   "decode": {
     "0": {
       "label": "CONTINUOUS_CONDITIONING_THERMOSTATIC_68",

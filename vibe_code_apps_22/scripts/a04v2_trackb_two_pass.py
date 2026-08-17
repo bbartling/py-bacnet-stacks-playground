@@ -17,11 +17,14 @@ from eplus_gym.energyplus_cli import run_energyplus_cli
 from eplus_gym.path_sanitize import redact_obj
 from eplus_gym.site_env import require_site_root
 from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file
+from eplus_gym.epw_stage import stage_year_aware_epw
+from eplus_gym.trackb_scored_run import validate_scored_trackb_run
 from eplus_gym.stage_idf import stage_idf_for_period
 from eplus_gym.trackb_banks import (
     PUBLIC_LABEL,
     assert_reference_integrity,
     nine_zone_plan,
+    rewrite_parent_coils_to_autosize,
     scored_runtime_w2a_pass,
     sizing_totals_from_eio,
 )
@@ -41,11 +44,21 @@ def main() -> int:
         raise SystemExit(f"expected A04, got {idf.name}")
     out = site / "reports" / "eplus_gym" / "trackb_two_pass" / args.run_id
     out.mkdir(parents=True, exist_ok=True)
-    pass1 = out / "pass1_equivalent_unit"
-    staged = stage_idf_for_period(
-        idf, pass1 / "staged_a04.idf", args.begin, args.end, six_zone_actuators=False, disable_sizing=False
+    staged_epw = Path(stage_year_aware_epw(epw, out / f"staged_{epw.name}")["staged_epw"])
+    a04_bytes = idf.read_bytes()
+    autosize_text, auto_meta = rewrite_parent_coils_to_autosize(
+        a04_bytes.decode("utf-8", errors="replace")
     )
-    r1 = run_energyplus_cli(idf=staged, epw=epw, output=pass1 / "eplus")
+    if idf.read_bytes() != a04_bytes:
+        raise SystemExit("refusing to continue: A04 mutated")
+    pass1 = out / "pass1_equivalent_unit"
+    pass1.mkdir(parents=True, exist_ok=True)
+    sizing_parent = pass1 / "sizing_parent_autosize.idf"
+    sizing_parent.write_text(autosize_text, encoding="utf-8")
+    staged = stage_idf_for_period(
+        sizing_parent, pass1 / "staged_a04.idf", args.begin, args.end, six_zone_actuators=False, disable_sizing=False
+    )
+    r1 = run_energyplus_cli(idf=staged, epw=staged_epw, output=pass1 / "eplus")
     eio = pass1 / "eplus" / "eplusout.eio"
     if not eio.is_file():
         hits = list((pass1 / "eplus").rglob("eplusout.eio"))
@@ -62,11 +75,18 @@ def main() -> int:
     child = _APP / "models" / "eplus" / "a04v2_candidates" / args.run_id / meta["idf"]
     pass2 = out / "pass2_banks_smoke"
     staged2 = stage_idf_for_period(child, pass2 / "staged_trackb.idf", args.begin, args.end, six_zone_actuators=True)
-    r2 = run_energyplus_cli(idf=staged2, epw=epw, output=pass2 / "eplus")
+    r2 = run_energyplus_cli(idf=staged2, epw=staged_epw, output=pass2 / "eplus")
     err_hits = list((pass2 / "eplus").rglob("eplusout.err"))
     gate = parse_eplus_err(err_hits[0]) if err_hits else {"completed_successfully": False}
     integrity = assert_reference_integrity(child.read_text(encoding="utf-8", errors="replace"), nine_zone_plan())
+    scored = validate_scored_trackb_run(
+        gate=gate,
+        returncode=int(r2["returncode"]),
+        rows=[],
+        expected_day=str(args.begin),
+    )
     pass2_completed = bool(gate.get("completed_successfully")) and r2["returncode"] in (0, 1)
+    w2a_ok = bool(scored_runtime_w2a_pass(gate)) and bool(scored["scored_runtime_proven"])
     heating_sources = sorted({str(v.get("heating_capacity_source") or "unknown") for v in totals.values()})
     report = {
         "schema": "vibe22.trackb.two_pass.v1",
@@ -77,7 +97,9 @@ def main() -> int:
         "pass1_returncode": r1["returncode"],
         "pass2_returncode": r2["returncode"],
         "eplus_quality": gate,
-        "scored_runtime_w2a_pass": scored_runtime_w2a_pass(gate),
+        "scored_runtime_w2a_pass": w2a_ok,
+        "scored_runperiod": scored,
+        "year_aware_epw_sha256": sha256_file(staged_epw),
         "reference_integrity": integrity,
         "track_b_live_energyplus_executed": pass2_completed,
         "track_b_completed": False,
@@ -86,10 +108,10 @@ def main() -> int:
         "sizing_provenance": "live_energyplus_eio_component_sizing",
         "heating_capacity_source": heating_sources,
         "heating_capacity_note": (
-            "A04 parent heating coils report User-Specified Rated Heating Capacity "
-            "(149430 W every zone). Airflow is Design Size. Banks split those eio totals; "
-            "this is not as-built tonnage."
+            "Pass 1 uses a sizing-only A04 child with Rated Heating Capacity/air/water "
+            "rewritten to Autosize. Immutable A04 (user-specified 149430 W/zone) is not overwritten."
         ),
+        "autosize_rewrite": auto_meta,
     }
     compact = redact_obj(report)
     (out / "two_pass_report.json").write_text(json.dumps(compact, indent=2) + "\n", encoding="utf-8")

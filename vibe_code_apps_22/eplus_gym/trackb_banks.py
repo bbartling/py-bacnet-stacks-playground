@@ -223,6 +223,39 @@ def structural_fixture_totals(src: str) -> dict[str, dict[str, Any]]:
     return totals
 
 
+def rewrite_parent_coils_to_autosize(src: str) -> tuple[str, dict[str, Any]]:
+    """Child-only rewrite. Never overwrite A04. User-specified 149430 W is not autosized."""
+    text = normalize_idf(src)
+    n = 0
+    for obj_type, fields in (
+        (HTG_TYPE, ("Rated Heating Capacity", "Rated Air Flow Rate", "Rated Water Flow Rate")),
+        (ZONEHVAC_TYPE, ("Supply Air Flow Rate During Heating Operation",)),
+    ):
+        for block in iter_objects(text, obj_type):
+            new = block
+            changed = False
+            for field in fields:
+                raw = field_by_comment(block, field)
+                if raw is None:
+                    continue
+                if str(raw).strip().lower() == "autosize":
+                    continue
+                try:
+                    new = replace_comment_field(new, field, "Autosize")
+                    changed = True
+                    n += 1
+                except ValueError:
+                    continue
+            if changed:
+                text = text.replace(block, new, 1)
+    return text, {
+        "n_fields_rewritten": n,
+        "not_a04_overwrite": True,
+        "user_specified_149430_not_treated_as_autosized": True,
+        "curve_provenance": CURVE_PROVENANCE,
+    }
+
+
 def default_sizing_totals_from_parent(src: str) -> dict[str, dict[str, Any]]:
     """Use parent numeric fields when present. Airflow Autosize is not a live total."""
     out: dict[str, dict[str, Any]] = {}

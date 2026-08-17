@@ -204,3 +204,19 @@ def test_trackb_expand_accepts_crlf_parent_bytes():
     integrity = assert_reference_integrity(expanded, plan)
     assert integrity["ok"] is True
 
+
+def test_rewrite_user_specified_heating_to_autosize_is_child_only():
+    from eplus_gym.idf_objects import field_by_comment, find_named_object
+    from eplus_gym.trackb_banks import HTG_TYPE, rewrite_parent_coils_to_autosize
+
+    a04 = APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
+    src = a04.read_text(encoding="utf-8", errors="replace")
+    before = a04.read_bytes()
+    child, meta = rewrite_parent_coils_to_autosize(src)
+    assert meta["not_a04_overwrite"] is True
+    assert meta["n_fields_rewritten"] > 0
+    assert a04.read_bytes() == before
+    coil = find_named_object(child, HTG_TYPE, "1F_Library_IMC WAHP Heating Coil")
+    assert coil is not None
+    assert str(field_by_comment(coil, "Rated Heating Capacity")).lower() == "autosize"
+

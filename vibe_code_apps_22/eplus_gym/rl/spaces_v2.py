@@ -35,6 +35,73 @@ DQN_V2_START = (24, 28, 32)
 DQN_V2_REC = (0, 60, 120)
 DQN_V2_OFFSET = (-2.0, 0.0)
 DQN_V2_N_CONTINUOUS = 2
+DQN_V2_DECLARED_N = DQN_V2_N_CONTINUOUS + (
+    len(DQN_V2_OCC) * len(DQN_V2_UNOCC) * len(DQN_V2_START) * len(DQN_V2_REC) * len(DQN_V2_OFFSET)
+)
+CANONICAL_DQN_DAY = "2026-01-12"
+
+_UNIQUE_TABLE: list[SixZoneDailyParamsV2] | None = None
+
+
+def _params_schedule_fingerprint(params: SixZoneDailyParamsV2, *, day: str) -> str:
+    import hashlib
+    import json
+
+    from eplus_gym.control_v2 import build_six_schedules_f
+
+    sched = build_six_schedules_f(params)
+    body = {k: [round(float(x), 4) for x in sched[k]] for k in ACTION_KEYS}
+    body["_day"] = str(day)[:10]
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _raw_discrete_params(day: str) -> list[SixZoneDailyParamsV2]:
+    out = [continuous_params(68.0), continuous_params(70.0)]
+    win = school_windows(day)
+    end = int(win["school_occupied_end_step"] or 68)
+    for occ in DQN_V2_OCC:
+        for unocc in DQN_V2_UNOCC:
+            for start in DQN_V2_START:
+                for rec in DQN_V2_REC:
+                    for off in DQN_V2_OFFSET:
+                        zo = {k: ZoneOffsetsV2(setback_offset_f=float(off)) for k in ACTION_KEYS}
+                        out.append(
+                            SixZoneDailyParamsV2(
+                                occupied_heating_f=float(occ),
+                                unoccupied_heating_f=float(unocc),
+                                heating_setpoint_start_step=int(start),
+                                heating_setpoint_end_step=int(end),
+                                recovery_lead_minutes=int(rec),
+                                recovery_ramp_minutes=int(rec),
+                                zone_offsets=zo,
+                            )
+                        )
+    return out
+
+
+def unique_discrete_table_v2(*, day: str = CANONICAL_DQN_DAY) -> list[SixZoneDailyParamsV2]:
+    global _UNIQUE_TABLE
+    if day == CANONICAL_DQN_DAY and _UNIQUE_TABLE is not None:
+        return list(_UNIQUE_TABLE)
+    seen: dict[str, SixZoneDailyParamsV2] = {}
+    ordered: list[SixZoneDailyParamsV2] = []
+    for params in _raw_discrete_params(day):
+        fp = _params_schedule_fingerprint(params, day=day)
+        if fp in seen:
+            continue
+        seen[fp] = params
+        ordered.append(params)
+    if day == CANONICAL_DQN_DAY:
+        _UNIQUE_TABLE = list(ordered)
+    return ordered
+
+
+def discrete_n_v2() -> int:
+    return len(unique_discrete_table_v2())
+
+
+def discrete_action_space_v2() -> gym.spaces.Discrete:
+    return gym.spaces.Discrete(discrete_n_v2())
 
 
 def _clip(v: float, lo: float, hi: float) -> float:
@@ -56,9 +123,7 @@ def continuous_action_space_v2() -> gym.spaces.Box:
 
 
 def discrete_n_v2() -> int:
-    return DQN_V2_N_CONTINUOUS + (
-        len(DQN_V2_OCC) * len(DQN_V2_UNOCC) * len(DQN_V2_START) * len(DQN_V2_REC) * len(DQN_V2_OFFSET)
-    )
+    return len(unique_discrete_table_v2())
 
 
 def discrete_action_space_v2() -> gym.spaces.Discrete:
@@ -123,47 +188,26 @@ def encode_continuous_v2(params: SixZoneDailyParamsV2) -> np.ndarray:
 
 
 def decode_discrete_v2(index: int, *, day: str | None = None) -> SixZoneDailyParamsV2:
-    n = discrete_n_v2()
+    table = unique_discrete_table_v2()
+    n = len(table)
     idx = int(index)
     if idx < 0 or idx >= n:
         raise ValueError(f"DQN index {idx} outside [0, {n}); wrap is forbidden")
-    if idx == 0:
-        return continuous_params(68.0)
-    if idx == 1:
-        return continuous_params(70.0)
-    idx -= DQN_V2_N_CONTINUOUS
-    n_off = len(DQN_V2_OFFSET)
-    n_rec = len(DQN_V2_REC)
-    n_start = len(DQN_V2_START)
-    n_unocc = len(DQN_V2_UNOCC)
-    off_i = idx % n_off
-    idx //= n_off
-    rec_i = idx % n_rec
-    idx //= n_rec
-    start_i = idx % n_start
-    idx //= n_start
-    unocc_i = idx % n_unocc
-    idx //= n_unocc
-    occ_i = idx % len(DQN_V2_OCC)
-    occ = DQN_V2_OCC[occ_i]
-    unocc = DQN_V2_UNOCC[unocc_i]
-    start = DQN_V2_START[start_i]
-    rec = DQN_V2_REC[rec_i]
-    off = DQN_V2_OFFSET[off_i]
-    end = 68
-    if day is not None:
+    src = table[idx]
+    end = int(src.heating_setpoint_end_step)
+    if day is not None and not src.continuous_conditioning:
         win = school_windows(day)
         if win["school_occupied"] and win["school_occupied_end_step"] is not None:
             end = int(win["school_occupied_end_step"])
-    zo = {k: ZoneOffsetsV2(setback_offset_f=float(off)) for k in ACTION_KEYS}
     params = SixZoneDailyParamsV2(
-        occupied_heating_f=float(occ),
-        unoccupied_heating_f=float(unocc),
-        heating_setpoint_start_step=int(start),
+        occupied_heating_f=float(src.occupied_heating_f),
+        unoccupied_heating_f=float(src.unoccupied_heating_f),
+        heating_setpoint_start_step=int(src.heating_setpoint_start_step),
         heating_setpoint_end_step=int(end),
-        recovery_lead_minutes=int(rec),
-        recovery_ramp_minutes=int(rec),
-        zone_offsets=zo,
+        recovery_lead_minutes=int(src.recovery_lead_minutes),
+        recovery_ramp_minutes=int(src.recovery_lead_minutes),
+        continuous_conditioning=bool(src.continuous_conditioning),
+        zone_offsets={k: ZoneOffsetsV2(setback_offset_f=float(src.zone_offsets[k].setback_offset_f)) for k in ACTION_KEYS},
     )
     validate_params(params)
     return params

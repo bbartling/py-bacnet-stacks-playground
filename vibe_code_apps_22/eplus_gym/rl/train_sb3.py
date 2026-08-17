@@ -1,4 +1,4 @@
-"""Stable-Baselines3 training / bakeoff for DailySixZoneGymEnv (LIVE only)."""
+"""Stable-Baselines3 training. Campaign factory is MultiDayDailyEnv (LIVE continuity)."""
 from __future__ import annotations
 
 import json
@@ -10,17 +10,44 @@ import numpy as np
 
 from eplus_gym.rl import SCREENING_CLAIM, SIMULATOR_REQUIRED
 from eplus_gym.rl.daily_env import DailySixZoneGymEnv
+from eplus_gym.rl.multiday_env import MultiDayDailyEnv
 from eplus_gym.rl.plots import plot_algo_bakeoff_bars, plot_learning_curve
 from eplus_gym.rl.policy_pack import pack_from_sb3_zip
 from eplus_gym.rl.split_manifest import assert_train_fold_only
+
+campaign_env_class = MultiDayDailyEnv
 
 
 def _new_run_id(prefix: str = "rl") -> str:
     return f"{prefix}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
 
 
-def make_env(cfg: Dict[str, Any]) -> DailySixZoneGymEnv:
+def make_legacy_daily_env(cfg: Dict[str, Any]) -> DailySixZoneGymEnv:
+    """Explicit diagnostic command only. Unreachable from campaign mode."""
     return DailySixZoneGymEnv(cfg)
+
+
+def make_env(cfg: Dict[str, Any]) -> MultiDayDailyEnv | DailySixZoneGymEnv:
+    cfg = dict(cfg or {})
+    if cfg.get("legacy_diagnostic"):
+        return make_legacy_daily_env(cfg)
+    cfg.setdefault("require_live_energyplus", True)
+    cfg.setdefault("reward_name", "reward_v2")
+    days = list(cfg.get("days") or [])
+    if days and not cfg.get("start_day"):
+        cfg["start_day"] = str(days[0])
+        cfg["n_days"] = len(days)
+    if cfg.get("plant") is None and cfg.get("require_live_energyplus"):
+        from eplus_gym.rl.continuity_plant import EnergyPlusContinuityPlant
+
+        cfg["plant"] = EnergyPlusContinuityPlant(
+            site_root=Path(cfg["site_root"]),
+            epw=Path(cfg["epw"]),
+            idf=Path(str(cfg.get("champion_idf") or cfg.get("idf"))),
+            output=Path(str(cfg.get("output_root") or ".")) / "continuity",
+            days=days or [str(cfg.get("start_day") or "2026-01-12")],
+        )
+    return MultiDayDailyEnv(cfg)
 
 
 def train_sb3(
@@ -36,7 +63,7 @@ def train_sb3(
     occupied_heating_f: float = 70.0,
     unoccupied_heating_f: float = 65.0,
     day_specs: Sequence[Dict[str, Any]] | None = None,
-    reward_name: str = "legacy_reward_v1",
+    reward_name: str = "reward_v2",
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO

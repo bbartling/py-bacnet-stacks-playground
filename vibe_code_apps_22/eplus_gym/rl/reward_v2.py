@@ -204,6 +204,45 @@ def occupied_zone_degree_hours(
     return float(dh)
 
 
+def occupied_zone_high_degree_hours(
+    zone_temps_f: Mapping[str, Sequence[float]] | Sequence[Sequence[float]],
+    *,
+    day: str,
+    occupied_max_f: float = READINESS_HI_F,
+) -> float:
+    win = school_windows(day)
+    if not win["school_occupied"]:
+        return 0.0
+    start = int(win["school_occupied_start_step"] or 0)
+    end = int(win["school_occupied_end_step"] or N_INTERVALS)
+    zones = _zone_matrix(zone_temps_f)
+    dh = 0.0
+    for t in range(start, min(end, zones.shape[1])):
+        for z_i in range(zones.shape[0]):
+            temp = float(zones[z_i, t])
+            if temp > float(occupied_max_f):
+                dh += (temp - float(occupied_max_f)) * DT_H
+    return float(dh)
+
+
+def between_day_action_movement(
+    previous_schedules: Mapping[str, Sequence[float]] | None,
+    candidate_schedules: Mapping[str, Sequence[float]] | None,
+) -> float:
+    if not previous_schedules or not candidate_schedules:
+        return 0.0
+    move = 0.0
+    n = 0
+    for key in ACTION_KEYS:
+        prev = previous_schedules.get(key) if isinstance(previous_schedules, Mapping) else None
+        cand = candidate_schedules.get(key) if isinstance(candidate_schedules, Mapping) else None
+        if not prev or not cand:
+            continue
+        move += abs(float(cand[0]) - float(prev[-1]))
+        n += 1
+    return float(move / n) if n else 0.0
+
+
 def action_movement(schedules: Mapping[str, Sequence[float]] | Sequence[Sequence[float]]) -> float:
     if isinstance(schedules, Mapping):
         series = [list(schedules[k]) for k in ACTION_KEYS]
@@ -287,6 +326,7 @@ def score_day_v2(
     baseline_facility_kw: Sequence[float] | None,
     baseline_zone_temps_f: Mapping[str, Sequence[float]] | Sequence[Sequence[float]] | None,
     candidate_schedules: Mapping[str, Sequence[float]] | None = None,
+    previous_schedules: Mapping[str, Sequence[float]] | None = None,
     mtd_peak_kw: float = 0.0,
     ratchet_kw: float = 0.0,
     contract_kw: float = 0.0,
@@ -324,13 +364,15 @@ def score_day_v2(
     savings = float(base["daily_cost"] - cand["daily_cost"])
     ready = readiness_all_six(zones, day=day)
     occ_dh = occupied_zone_degree_hours(zones, day=day)
-    move = action_movement(candidate_schedules) if candidate_schedules is not None else 0.0
+    occ_high_dh = occupied_zone_high_degree_hours(zones, day=day)
+    within = action_movement(candidate_schedules) if candidate_schedules is not None else 0.0
+    between = between_day_action_movement(previous_schedules, candidate_schedules)
     pay = display_paycheck(savings=savings, readiness_ok=bool(ready["readiness_ok"]), k=paycheck_k)
     train = train_reward(
         savings=savings,
         readiness_ok=bool(ready["readiness_ok"]),
         occupied_dh=occ_dh,
-        movement=move,
+        movement=within,
         degree_violation=float(ready["degree_violation"]),
     )
     return RewardV2Result(
@@ -343,7 +385,12 @@ def score_day_v2(
         extras={
             "reward_name": "reward_v2",
             "occupied_zone_DH": occ_dh,
-            "action_movement": move,
+            "occupied_low_DH": occ_dh,
+            "occupied_high_DH": occ_high_dh,
+            "action_movement": within,
+            "within_day_schedule_movement": within,
+            "between_day_action_movement": between,
+            "training_movement_term": "within_day_schedule_movement",
             "paycheck_k": float(paycheck_k),
             "never_paycheck_capped_train": True,
         },

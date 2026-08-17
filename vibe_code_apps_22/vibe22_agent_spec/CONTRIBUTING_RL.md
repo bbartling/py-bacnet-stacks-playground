@@ -17,11 +17,12 @@ deterministic DualSP defaults (**never** `action_space.sample()`) and six-actuat
 | Lakeside Gym | `eplus_gym/env.py` |
 | Six DualSP send | `eplus_gym/runner.py` |
 | Building | **A04** `lakeside_w2a_a04_dual_champion.idf` only |
-| Multi-day MDP | `eplus_gym/rl/multiday_env.py` + `EnergyPlusContinuityPlant` — one process per 3/5/7-day episode; lookback is `n*96 − 1` after `reset()` |
-| Reward | `reward_contract_v2` / `eplus_gym/rl/reward_v2.py` — utility / display paycheck / train. Do not reinterpret operator-pay v1. |
+| Multi-day MDP | `eplus_gym/rl/multiday_env.py` + `EnergyPlusContinuityPlant` — campaign factory `train_sb3.make_env` returns `MultiDayDailyEnv`; lookback after `reset()` uses indices 1..95 |
+| Reward | `reward_contract_v2` / `eplus_gym/rl/reward_v2.py` — utility / display paycheck / train. Occupied low/high DH split. Within-day movement is the training term. Do not reinterpret operator-pay v1. |
 | Recovery | `recovery_lead_minutes` **is** the linear ramp duration ending at DualSP start |
 | Ramp gate | `eplus_gym/rl/physics_ramp_gate.py` — BAS p99.9 × 3; **do not raise** to pass A04 |
-| Track B | LIVE two-pass executed; heating capacity is A04 user-specified 149430 W/zone; eio names are case-insensitive; **no champion** |
+| DQN v2 | Unique post-clamp table (`Discrete(74)`); declared grid 110 is not advertised as the action space |
+| Track B | LIVE two-pass executed previously; heating capacity on A04 is user-specified 149430 W/zone; pass-1 now writes a sizing-only autosize **child**; eio names are case-insensitive; **no champion** |
 | Trainer | SB3 PPO/DQN — `--mode full` refused until Track B champion gates pass |
 
 DSM DualSP recovery must not add a separate fixed 60-min ramp on top of lead (that made 60/120/180 identical). Evening setback remains a step; A04 zone air can follow ~5 °F in 15 min. That is a **model/physics** NO-GO for long RL, not a license to inflate the threshold.

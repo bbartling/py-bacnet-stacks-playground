@@ -30,6 +30,26 @@ def weather_steps_after_reset(*, lookback_days: int) -> int:
     return n * STEPS_PER_DAY - 1
 
 
+def lookback_local_indices(*, lookback_days: int) -> list[int]:
+    """Schedule indices after reset() consumed slot 0.
+
+    Remaining lookback for one day is 1..95, not a second copy of 0 that drops 95.
+    """
+    n = weather_steps_after_reset(lookback_days=lookback_days)
+    return [(t + 1) % STEPS_PER_DAY for t in range(n)]
+
+
+def _row_timestamp(row: dict[str, Any], *, fallback: str) -> str:
+    for key in ("timestamp", "time", "sim_time", "current_time"):
+        if row.get(key) not in (None, ""):
+            return str(row[key])
+    day = row.get("day")
+    step = row.get("local_step")
+    if day is not None and step is not None:
+        return f"{day}+step{int(step)}"
+    return str(fallback)
+
+
 def _six_temps(od: dict[str, Any]) -> list[float]:
     missing = [c for c in BAS_ZONE_COLS if c not in od or od[c] != od[c]]
     if missing:
@@ -78,7 +98,9 @@ class EnergyPlusContinuityPlant:
         self.n_days = 0
         self._env: Any = None
         self._day_i = 0
+        self._prev_final_temps: list[float] | None = None
         self.last_eplus_quality: dict[str, Any] | None = None
+        self.TEMP_CONTINUITY_TOL_F = 0.05
 
     def close(self) -> None:
         if self._env is not None:
@@ -122,6 +144,7 @@ class EnergyPlusContinuityPlant:
         self.n_process_starts += 1
         self.n_days = 0
         self._day_i = 0
+        self._prev_final_temps = None
         od = dict(info.get("obs_dict") or {})
         if od:
             try:
@@ -131,10 +154,9 @@ class EnergyPlusContinuityPlant:
         self._consume_lookback()
 
     def _consume_lookback(self) -> None:
-        n = weather_steps_after_reset(lookback_days=self.lookback_days)
+        indices = lookback_local_indices(lookback_days=self.lookback_days)
         last_od: dict[str, Any] = {}
-        for t in range(n):
-            local = t % 96
+        for local in indices:
             action = [f_to_c(self.lookback_schedules[k][local]) for k in ACTION_KEYS]
             _v, _r, term, trunc, info = self._env.step(action)
             if term or trunc:
@@ -150,6 +172,13 @@ class EnergyPlusContinuityPlant:
         if self._day_i >= len(self.days):
             raise IntegrityFailure("no remaining scored days in this EnergyPlus process")
         day = self.days[self._day_i]
+        start_temps = list(self.zone_temps_f)
+        if self._prev_final_temps is not None:
+            deltas = [abs(a - b) for a, b in zip(start_temps, self._prev_final_temps)]
+            if any(d > self.TEMP_CONTINUITY_TOL_F for d in deltas):
+                raise IntegrityFailure(
+                    f"day {day} start temps {start_temps} != previous final {self._prev_final_temps}"
+                )
         rows: list[dict[str, Any]] = []
         for t in range(96):
             action = [f_to_c(schedules[k][t]) for k in ACTION_KEYS]
@@ -171,12 +200,17 @@ class EnergyPlusContinuityPlant:
         if any(v != v for v in facility):
             raise IntegrityFailure("NaN facility_kw in scored trajectory")
         zone_series = _zone_series_dict(rows)
-        self.zone_temps_f = [zone_series[k][-1] for k in ACTION_KEYS]
+        final_temps = [zone_series[k][-1] for k in ACTION_KEYS]
+        self.zone_temps_f = list(final_temps)
+        self._prev_final_temps = list(final_temps)
         self.n_days += 1
         self._day_i += 1
+        first_ts = _row_timestamp(rows[0], fallback=f"{day}+step0")
+        last_ts = _row_timestamp(rows[-1], fallback=f"{day}+step95")
         return {
-            "start_zone_temps_f": list(self.zone_temps_f),
-            "zone_temps_f": list(self.zone_temps_f),
+            "start_zone_temps_f": list(start_temps),
+            "zone_temps_f": list(final_temps),
+            "final_zone_temps_f": list(final_temps),
             "zone_temps_series_f": zone_series,
             "facility_kw": facility,
             "peak_kw": float(max(facility)),
@@ -186,6 +220,8 @@ class EnergyPlusContinuityPlant:
             "live_energyplus": True,
             "calendar_ok": True,
             "day": day,
+            "first_runtime_timestamp": first_ts,
+            "last_runtime_timestamp": last_ts,
             "rows": rows,
         }
 

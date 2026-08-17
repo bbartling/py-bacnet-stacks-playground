@@ -109,7 +109,10 @@ def full_mode_allowed(ramp: Mapping[str, Any]) -> bool:
 def refuse_full_campaign(app_root: Path) -> dict[str, Any]:
     from eplus_gym.rl.active_model import ActiveModelError, verify_active_model
 
-    ramp = load_ramp_gate(app_root)
+    try:
+        ramp = load_ramp_gate(app_root)
+    except Exception as exc:  # noqa: BLE001
+        ramp = {"passed": False, "verdict": VERDICT_FAIL, "error": str(exc)}
     try:
         manifest = verify_active_model(app_root)
     except ActiveModelError as exc:
@@ -122,13 +125,13 @@ def refuse_full_campaign(app_root: Path) -> dict[str, Any]:
             "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
             "reason": f"{exc}{extra}",
         }
-    if not full_mode_allowed(ramp) and not manifest.get("transient_validation_artifact"):
+    if not full_mode_allowed(ramp):
         return {
             "allowed": False,
             "ramp": ramp,
             "manifest": manifest,
             "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
-            "reason": "physics-ramp gate is not PASS; long campaign refused",
+            "reason": "physics-ramp gate is not PASS; nonempty artifact path is not evidence",
         }
     return {"allowed": True, "ramp": ramp, "manifest": manifest}
 

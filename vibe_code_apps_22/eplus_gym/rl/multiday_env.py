@@ -75,6 +75,75 @@ def schedule_fingerprint(schedules: Mapping[str, Sequence[float]]) -> str:
     return hashlib.sha256(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def trajectory_hash(payload: Mapping[str, Any]) -> str:
+    body = {
+        "facility_kw": [round(float(x), 6) for x in payload.get("facility_kw") or []],
+        "n_intervals": int(payload.get("n_intervals") or 0),
+    }
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def validate_baseline_payload(
+    payload: Mapping[str, Any],
+    *,
+    live_energyplus: bool,
+    expected_day: str,
+    expected_idf_sha256: str | None = None,
+    expected_epw_sha256: str | None = None,
+    expected_energyplus_version: str | None = None,
+    expected_lookback_fp: str | None = None,
+    expected_baseline_fp: str | None = None,
+) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise MissingBaselineError("baseline payload is not a mapping")
+    if payload.get("TEST_DOUBLE"):
+        if live_energyplus:
+            raise MissingBaselineError("TEST DOUBLE cannot satisfy a live EnergyPlus baseline")
+        fac = payload.get("facility_kw")
+        zones = payload.get("zone_temps_series_f")
+        if fac is None or zones is None:
+            raise MissingBaselineError("TEST DOUBLE missing trajectory")
+        n = int(payload.get("n_intervals") or len(fac))
+        if n != 96:
+            raise MissingBaselineError("TEST DOUBLE expected 96 intervals")
+        return dict(payload)
+    required = (
+        "idf_sha256",
+        "epw_sha256",
+        "energyplus_version",
+        "run_period",
+        "lookback_schedule_fingerprint",
+        "baseline_schedule_fingerprint",
+        "initial_state_id",
+        "trajectory_hash",
+        "n_intervals",
+        "facility_kw",
+        "zone_temps_series_f",
+    )
+    missing = [k for k in required if payload.get(k) in (None, "")]
+    if missing:
+        raise MissingBaselineError(f"baseline provenance missing: {missing}")
+    if str(payload.get("baseline_schedule_fingerprint")) == "paired_baseline":
+        raise MissingBaselineError("schedule_fingerprint must not be the literal paired_baseline")
+    if int(payload.get("n_intervals") or 0) != 96:
+        raise MissingBaselineError("expected 96 intervals")
+    if expected_idf_sha256 and str(payload["idf_sha256"]) != str(expected_idf_sha256):
+        raise MissingBaselineError("baseline IDF SHA-256 mismatch")
+    if expected_epw_sha256 and str(payload["epw_sha256"]) != str(expected_epw_sha256):
+        raise MissingBaselineError("baseline staged EPW SHA-256 mismatch")
+    if expected_energyplus_version and str(payload["energyplus_version"]) != str(expected_energyplus_version):
+        raise MissingBaselineError("EnergyPlus version mismatch")
+    if expected_lookback_fp and str(payload["lookback_schedule_fingerprint"]) != str(expected_lookback_fp):
+        raise MissingBaselineError("lookback schedule fingerprint mismatch")
+    if expected_baseline_fp and str(payload["baseline_schedule_fingerprint"]) != str(expected_baseline_fp):
+        raise MissingBaselineError("baseline schedule fingerprint mismatch")
+    if expected_day and payload.get("day") not in (None, expected_day) and expected_day not in str(
+        payload.get("run_period") or ""
+    ):
+        raise MissingBaselineError(f"run period does not include {expected_day}")
+    return dict(payload)
+
+
 def assert_live_campaign_plant(plant: Any) -> None:
     if not bool(getattr(plant, "live_energyplus", False)):
         raise ValueError("campaign paths refuse FakeContinuityPlant; EnergyPlusContinuityPlant required")
@@ -95,10 +164,9 @@ def _f_to_series_from_schedule(schedules: Mapping[str, Sequence[float]], *, lag:
 
 @dataclass
 class FakeContinuityPlant:
-    """Carries thermal and billing-relevant state across days without restarting.
+    """TEST DOUBLE for MultiDayDailyEnv bookkeeping.
 
-    This is a test double for MultiDayDailyEnv bookkeeping. It is not EnergyPlus
-    and must not be used as a surrogate trajectory in scored campaigns.
+    Not EnergyPlus. Must not unlock a model gate. Must not be used as physics evidence.
     """
 
     zone_temps_f: list[float] = field(default_factory=lambda: [64.0] * 6)
@@ -108,10 +176,13 @@ class FakeContinuityPlant:
     morning_peak_kw: float = 0.0
     daily_kwh: float = 0.0
     live_energyplus: bool = False
+    TEST_DOUBLE: bool = True
+    _prev_final_temps: list[float] | None = None
 
     def start_episode(self) -> None:
         self.n_process_starts += 1
         self.n_days = 0
+        self._prev_final_temps = None
 
     def close(self) -> None:
         return None
@@ -119,6 +190,7 @@ class FakeContinuityPlant:
     def simulate_day(self, schedules: dict[str, list[float]], *, oat_c: Sequence[float]) -> dict[str, Any]:
         if self.n_process_starts < 1:
             raise RuntimeError("start_episode() first; refusing a per-day EnergyPlus restart")
+        start_temps = list(self.zone_temps_f)
         self.n_days += 1
         self.last_schedules = {k: list(schedules[k]) for k in ACTION_KEYS}
         first = schedules[ACTION_KEYS[0]]
@@ -133,7 +205,9 @@ class FakeContinuityPlant:
                 t = 0.65 * t + 0.35 * float(s)
                 temps.append(t)
             zone_series[key] = temps
-        self.zone_temps_f = [zone_series[k][-1] for k in ACTION_KEYS]
+        final_temps = [zone_series[k][-1] for k in ACTION_KEYS]
+        self.zone_temps_f = list(final_temps)
+        self._prev_final_temps = list(final_temps)
         facility: list[float] = []
         for t in range(96):
             mean_sp = float(np.mean([schedules[k][t] for k in ACTION_KEYS]))
@@ -146,8 +220,10 @@ class FakeContinuityPlant:
         self.morning_peak_kw = float(max(facility))
         self.daily_kwh = float(sum(facility) * DT_H)
         return {
-            "start_zone_temps_f": list(self.zone_temps_f),
-            "zone_temps_f": list(self.zone_temps_f),
+            "TEST_DOUBLE": True,
+            "start_zone_temps_f": list(start_temps),
+            "zone_temps_f": list(final_temps),
+            "final_zone_temps_f": list(final_temps),
             "zone_temps_series_f": zone_series,
             "facility_kw": facility,
             "peak_kw": float(self.morning_peak_kw),
@@ -155,6 +231,8 @@ class FakeContinuityPlant:
             "n_intervals": 96,
             "n_process_starts": self.n_process_starts,
             "live_energyplus": self.live_energyplus,
+            "first_runtime_timestamp": "TEST_DOUBLE+step0",
+            "last_runtime_timestamp": "TEST_DOUBLE+step95",
         }
 
 
@@ -272,20 +350,38 @@ class MultiDayDailyEnv(gym.Env):
         return decode_continuous_v2(action)
 
     def _lookup_baseline(self, day: str) -> dict[str, Any]:
+        live = bool(getattr(self.plant, "live_energyplus", False))
         if day in self._baseline_payloads:
-            return self._baseline_payloads[day]
+            return validate_baseline_payload(
+                self._baseline_payloads[day],
+                live_energyplus=live,
+                expected_day=day,
+                expected_idf_sha256=str(self.cfg.get("idf_sha256") or "") or None,
+                expected_epw_sha256=str(self.cfg.get("epw_sha256") or "") or None,
+                expected_energyplus_version=str(self.cfg.get("energyplus_version") or "") or None,
+                expected_lookback_fp=str(self.cfg.get("lookback_schedule_fingerprint") or "") or None,
+                expected_baseline_fp=str(self.cfg.get("baseline_schedule_fingerprint") or "") or None,
+            )
+        sched_fp = str(self.cfg.get("baseline_schedule_fingerprint") or "")
+        if sched_fp in {"", "paired_baseline"}:
+            raise MissingBaselineError(
+                f"paired baseline missing for {day}; refusing literal schedule_id=paired_baseline"
+            )
         run_period = f"{self.days[0]}:{self.days[-1]}"
         key = baseline_cache_key_v2(
             model_id=self._model_id,
             weather_id=self._weather_id,
             run_period=f"{run_period}:{day}",
             initial_state_id=self._initial_state_id,
-            schedule_id="paired_baseline",
+            schedule_id=sched_fp,
         )
         if key in self._baseline_cache:
-            return self._baseline_cache[key]
-        if not self._require_baseline:
-            raise MissingBaselineError(f"paired baseline missing for {day} (key={key})")
+            return validate_baseline_payload(
+                self._baseline_cache[key],
+                live_energyplus=live,
+                expected_day=day,
+                expected_baseline_fp=sched_fp,
+            )
         raise MissingBaselineError(f"paired baseline missing for {day} (key={key})")
 
     def step(self, action):

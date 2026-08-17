@@ -75,7 +75,7 @@ def cmd_train(args) -> int:
         seed=int(args.seed),
         occupied_heating_f=70.0,
         unoccupied_heating_f=65.0,
-        reward_name=str(getattr(args, "reward_name", "legacy_reward_v1")),
+        reward_name=str(getattr(args, "reward_name", "reward_v2")),
     )
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
@@ -407,6 +407,26 @@ def cmd_campaign(args) -> int:
     return EXIT_OK
 
 
+def cmd_legacy_daily_env(args) -> int:
+    """Explicit diagnostic: DailySixZoneGymEnv. Unreachable from campaign."""
+    from eplus_gym.rl.daily_env import DailySixZoneGymEnv
+    from eplus_gym.rl.train_sb3 import campaign_env_class
+
+    print(
+        json.dumps(
+            {
+                "command": "legacy-daily-env",
+                "legacy_diagnostic": True,
+                "env": DailySixZoneGymEnv.__name__,
+                "campaign_env": campaign_env_class.__name__,
+                "unreachable_from_campaign": True,
+                "did_not_train": True,
+            }
+        )
+    )
+    return EXIT_OK
+
+
 def cmd_report(args) -> int:
     print(SCREENING_CLAIM)
     site = _site(args)
@@ -568,8 +588,12 @@ def main(argv: list[str] | None = None) -> int:
         default="unique_heating",
         help="unique_heating = n unique EPW days; year2xsyn = full AMY + synthetic 2x heating",
     )
-    camp.add_argument("--reward-name", required=True)
+    camp.add_argument("--reward-name", default="reward_v2")
     camp.set_defaults(func=cmd_campaign)
+
+    legacy = sub.add_parser("legacy-daily-env", parents=[site_parent])
+    legacy.add_argument("--confirm-legacy-diagnostic", action="store_true", required=True)
+    legacy.set_defaults(func=cmd_legacy_daily_env)
 
     ev = sub.add_parser("eval", parents=[site_parent])
     ev.add_argument("--run-id", required=True)

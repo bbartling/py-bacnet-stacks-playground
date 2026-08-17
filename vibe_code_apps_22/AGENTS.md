@@ -9,7 +9,9 @@ Do not overwrite `year2xsyn` site artifacts.
 
 **A04-v2 transient:** no champion. Status is
 `MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION` — long campaign still forbidden.
-See [`docs/audits/2026-08-17-vibe22-correctness-repair.md`](docs/audits/2026-08-17-vibe22-correctness-repair.md)
+See [`docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md`](docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md)
+(P0 accounting/continuity/DQN unique table / campaign factory; Track B still not a champion),
+[`docs/audits/2026-08-17-vibe22-correctness-repair.md`](docs/audits/2026-08-17-vibe22-correctness-repair.md)
 (reward v2 / Track B two-pass / A04 continuity),
 [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md)
 (dated Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).

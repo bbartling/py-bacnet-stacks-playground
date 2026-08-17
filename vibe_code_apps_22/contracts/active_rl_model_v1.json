@@ -8,7 +8,7 @@
   "control_contract_version": "control_contract_v2",
   "observation_contract_version": "observation_contract_v3",
   "action_contract_version": "ppo_action_contract_v2",
-  "reward_contract_version": "operator_pay_illustrative_v1",
+  "reward_contract_version": "reward_v2",
   "monthly_validation_artifact": null,
   "transient_validation_artifact": "docs/audits/figures/postfix/ramp_gate.json",
   "warning_gate_artifact": null,

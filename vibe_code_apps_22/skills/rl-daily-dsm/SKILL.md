@@ -31,11 +31,15 @@ Pass2 scored-runtime W2A is **3780** — not a champion. A04 heating capacity in
 the eio is **User-Specified 149430 W/zone**; airflow is Design Size. EnergyPlus
 26.1 eio names are uppercase.
 
-`EnergyPlusContinuityPlant.reset()` consumes the first weather timestep;
-lookback is `lookback_days * 96 - 1` further steps so scored days stay on the
-civil date. A04 3-day continuity gallery: `n_process_starts==1` per arm.
+`EnergyPlusContinuityPlant.reset()` consumes schedule index 0; remaining lookback
+uses indices 1..95 (not a second copy of 0 that drops 95). A04 3-day continuity
+gallery: `n_process_starts==1` per arm.
 
-See `docs/audits/2026-08-17-vibe22-correctness-repair.md`.
+Future `vibe22_rl.py campaign` constructs `MultiDayDailyEnv`, not
+`DailySixZoneGymEnv` (legacy diagnostic subcommand only). DQN v2 advertises
+unique post-clamp schedules (74), not Discrete(110).
+
+See `docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md`.
 A04 remains immutable. Do not raise `ENGINEERING_MARGIN`.
 
 ```powershell

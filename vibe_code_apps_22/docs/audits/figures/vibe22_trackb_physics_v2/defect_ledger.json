@@ -1,0 +1,79 @@
+{
+  "schema": "vibe22.trackb.physics_validity_v2.defect_ledger.v1",
+  "frozen_at_utc": "2026-08-17T19:45:00+00:00",
+  "frozen_before_product_code": true,
+  "starting_branch": "feat/vibe22-correctness-repair",
+  "starting_sha": "54e92f9e333cd0236034b487ca1d044131a6b085",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "pins": {
+    "a04_idf": "lakeside_w2a_a04_dual_champion.idf",
+    "a04_sha256_crlf": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "trackb_child_sha256": "d7b1ce51c37f46acfa12da8fea2493a091ceb9d94e874a960ef912d57a922dc7",
+    "epw_sha256_continuity_gallery": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+    "epw_sha256_a04v2_phase0": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+    "energyplus_version": "26.1.0",
+    "ramp_threshold_f_per_15min": 2.651,
+    "engineering_margin": 3.0,
+    "w2a_scored_runtime_bound": 0
+  },
+  "reproduced_from_committed_artifacts": {
+    "gallery_day2_day3_demand_as_first_of_month": true,
+    "start_zone_temps_equal_final": true,
+    "trackb_data_period_severe": true,
+    "trackb_w2a_scored_runtime": 3780,
+    "dqn_declared_n": 110,
+    "train_sb3_constructs": "DailySixZoneGymEnv"
+  },
+  "defects": [
+    {
+      "id": "DEF-UTIL-MTD",
+      "status": "fixed_in_code",
+      "summary": "A04 3-day gallery scores each day with mtd_peak_kw=0 so day-2/3 demand is billed as a first-of-month peak."
+    },
+    {
+      "id": "DEF-CONT-STARTTEMP",
+      "status": "fixed_in_code",
+      "summary": "EnergyPlusContinuityPlant start_zone_temps_f is copied from the last scored interval, not the first."
+    },
+    {
+      "id": "DEF-LOOKBACK-OBO",
+      "status": "fixed_in_code",
+      "summary": "Lookback after reset() repeats schedule index 0 and omits index 95."
+    },
+    {
+      "id": "DEF-BASELINE-PROV",
+      "status": "fixed_in_code",
+      "summary": "Raw baseline_payloads bypass provenance; cache key uses schedule_id=paired_baseline."
+    },
+    {
+      "id": "DEF-GATE-NONEMPTY",
+      "status": "fixed_in_code",
+      "summary": "Campaign gate treats nonempty artifact paths as evidence; reward_contract_version is not reward_v2."
+    },
+    {
+      "id": "DEF-DQN-DUP",
+      "status": "fixed_in_code",
+      "summary": "Discrete(110) collapses under unoccupied clamp; unique schedule count is 74."
+    },
+    {
+      "id": "DEF-REWARD-SPLIT",
+      "status": "fixed_in_code",
+      "summary": "Training reward does not split occupied low/high DH or within-day vs between-day movement."
+    },
+    {
+      "id": "DEF-TRACKB-EPW",
+      "status": "code_ready_not_reexecuted",
+      "summary": "Track B two-pass uses the raw site EPW; DATA PERIOD year Severes; W2A 3780 labeled scored-runtime without a proven scored runperiod contract."
+    },
+    {
+      "id": "DEF-TRACKB-149430",
+      "status": "code_ready_not_reexecuted",
+      "summary": "Track B splits A04 user-specified 149430 W/zone as if it were autosized."
+    },
+    {
+      "id": "DEF-CAMPAIGN-GYM",
+      "status": "fixed_in_code",
+      "summary": "train_sb3.make_env still constructs DailySixZoneGymEnv for the future campaign path."
+    }
+  ]
+}
