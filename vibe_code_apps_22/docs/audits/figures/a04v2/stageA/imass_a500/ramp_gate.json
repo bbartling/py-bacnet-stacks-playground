@@ -1,0 +1,62 @@
+{
+  "schema": "vibe22.physics_ramp_gate.v1",
+  "arm": "incumbent_low_high_jan26",
+  "engineering_margin": 3.0,
+  "threshold_rule": "bas_p99_9 * engineering_margin",
+  "threshold_f_per_15min": 2.650769999999918,
+  "incumbent_simulated_max_f_per_15min": 4.60530628133823,
+  "perturbed_simulated_max_f_per_15min": 8.141734625444876,
+  "high_occ_simulated_max_f_per_15min": 4.001192609746852,
+  "bas_quantiles_f_per_15min": {
+    "median": 0.03666666666667595,
+    "p95": 0.22333333333331495,
+    "p99": 0.44615384615384485,
+    "p99_9": 0.8835899999999727,
+    "max": 2.2266666666666453
+  },
+  "passed": false,
+  "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+  "per_arm": {
+    "incumbent": {
+      "passed": false,
+      "max": 4.60530628133823,
+      "splice": {
+        "zone_temp_1F_A_f": 1.2768824007025614e-06,
+        "zone_temp_1F_B_f": 2.036568119478943e-06,
+        "zone_temp_1F_C_f": 1.8882389554164547e-06,
+        "zone_temp_1F_D_f": 1.5526213701377856e-06,
+        "zone_temp_2F_A_f": 2.077357407870295e-06,
+        "zone_temp_2F_B_f": 1.1978659841815897e-06
+      },
+      "n_breaches": 6
+    },
+    "low_unocc": {
+      "passed": false,
+      "max": 8.141734625444876,
+      "splice": {
+        "zone_temp_1F_A_f": 1.2675689333718765e-06,
+        "zone_temp_1F_B_f": 2.0313687372208733e-06,
+        "zone_temp_1F_C_f": 1.8827558534439959e-06,
+        "zone_temp_1F_D_f": 1.5475156942557078e-06,
+        "zone_temp_2F_A_f": 2.1007319617183384e-06,
+        "zone_temp_2F_B_f": 1.217779868056823e-06
+      },
+      "n_breaches": 14
+    },
+    "high_occ": {
+      "passed": false,
+      "max": 4.001192609746852,
+      "splice": {
+        "zone_temp_1F_A_f": 1.2815123255904837e-06,
+        "zone_temp_1F_B_f": 2.0391064197156084e-06,
+        "zone_temp_1F_C_f": 1.8909378383114017e-06,
+        "zone_temp_1F_D_f": 1.5551778886901957e-06,
+        "zone_temp_2F_A_f": 2.065478582835567e-06,
+        "zone_temp_2F_B_f": 1.187758982723608e-06
+      },
+      "n_breaches": 16
+    }
+  },
+  "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+  "idf": "models\\eplus\\a04v2_candidates\\imass_a500\\lakeside_w2a_a04v2_imass_a500.idf"
+}

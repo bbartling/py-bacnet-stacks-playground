@@ -10,10 +10,11 @@ description: >-
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**Do not** start a 20–30 hour PPO/DQN campaign while
-`docs/audits/figures/postfix/ramp_gate.json` has `passed: false`.
-Reproduce: `python scripts/reproduce_physics_ramp_gate.py` (exit 4 = still NO-GO).
-Do not raise `ENGINEERING_MARGIN`. Do not retune A04 solely to pass the ramp gate.
+**Do not** start a 20–30 hour PPO/DQN campaign while the model is not transient-validated.
+2026-08-16 A04-v2 Stage A: CapMult vs January peak is a Pareto **NO-GO**
+(`NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`). See
+`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`.
+A04 remains immutable. Do not raise `ENGINEERING_MARGIN`.
 
 Operator-pay smoke (`operator_pay_2x_v1`) is untrained policies on three engineering-gate days — **not** learning evidence, **no winner**. Random policy is i.i.d., not a random walk. January is not a pristine holdout.
 

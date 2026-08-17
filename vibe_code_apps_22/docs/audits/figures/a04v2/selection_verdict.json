@@ -1,0 +1,24 @@
+{
+  "schema": "vibe22.a04v2.selection_verdict.v1",
+  "verdict": "NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED",
+  "champion": null,
+  "long_campaign_allowed": false,
+  "peak_tolerance_frozen_before_selection": {
+    "anchor_kw": 284.82,
+    "tol_frac": 0.10,
+    "lo_kw": 256.338,
+    "hi_kw": 313.302,
+    "legacy_band_kw": [250.0, 290.0]
+  },
+  "ramp_threshold_unchanged": {
+    "engineering_margin": 3.0,
+    "threshold_f_per_15min": 2.650769999999918
+  },
+  "pareto": {
+    "capmult_min_for_ramp_all_arms": 28,
+    "capmult_max_for_peak_10pct": 20,
+    "conflict": true
+  },
+  "a04_immutable_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "audit": "docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md"
+}

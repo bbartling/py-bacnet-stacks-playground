@@ -7,11 +7,10 @@ Do not overwrite `year2xsyn` site artifacts.
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**Long campaign:** **FORBIDDEN** while
-[`docs/audits/figures/postfix/ramp_gate.json`](docs/audits/figures/postfix/ramp_gate.json)
-has `passed: false` (`NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE`).
-Do not raise the BAS p99.9 × 3 threshold. Do not retune A04 just to pass the gate.
-See [`docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md).
+**A04-v2 transient (2026-08-16):** Stage A CapMult vs peak is a **Pareto NO-GO** —
+`NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`. Long campaign still forbidden.
+See [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
+
 
 Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) ·
 [`vibe22_agent_spec/CONTRIBUTING_RL.md`](vibe22_agent_spec/CONTRIBUTING_RL.md) ·

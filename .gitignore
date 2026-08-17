@@ -321,6 +321,11 @@ vibe_code_apps_22/docs/audits/figures/postfix/smoke/
 vibe_code_apps_22/docs/audits/figures/postfix/pair_*/
 vibe_code_apps_22/docs/audits/figures/postfix/operator_pay_2x_one_step/
 vibe_code_apps_22/docs/audits/figures/postfix/ramp_repro/**
+vibe_code_apps_22/docs/audits/figures/a04v2/stageA/**
+!vibe_code_apps_22/docs/audits/figures/a04v2/**/*.json
+!vibe_code_apps_22/docs/audits/figures/a04v2/**/*.csv
+!vibe_code_apps_22/docs/audits/figures/a04v2/**/*.md
+!vibe_code_apps_22/docs/audits/figures/a04v2/**/*.png
 !vibe_code_apps_22/docs/audits/figures/postfix/*.json
 !vibe_code_apps_22/docs/audits/figures/postfix/*.png
 !vibe_code_apps_22/docs/audits/figures/postfix/ramp_repro/*.json
@@ -329,5 +334,9 @@ vibe_code_apps_22/docs/audits/figures/postfix/ramp_repro/**
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.json
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.csv
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.md
+
+# A04-v2 candidate IDFs + parameter manifests (keep; ignore E+ run trees under models)
+!vibe_code_apps_22/models/eplus/a04v2_candidates/**/parameters.json
+!vibe_code_apps_22/models/eplus/a04v2_candidates/**/*.idf
 
 

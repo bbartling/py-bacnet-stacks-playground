@@ -22,9 +22,12 @@ ZONE_VAR = "Zone Mean Air Temperature"
 
 
 def is_a04_idf_filename(name: str) -> bool:
-    """Champion or staged copy (``staged_<A04 name>``)."""
+    """Champion A04, staged A04 copies, or separately versioned A04-v2 children."""
     n = Path(name).name
-    return n == A04_IDF_NAME or n.endswith(A04_IDF_NAME)
+    if n == A04_IDF_NAME or n.endswith(A04_IDF_NAME):
+        return True
+    base = n[7:] if n.startswith("staged_") else n
+    return base.startswith("lakeside_w2a_a04v2_") and base.endswith(".idf")
 
 OBS_META_KEYS = (
     "oat_c",
@@ -101,8 +104,8 @@ class LakesideW2AEnv(EnergyPlusEnv):
         p = Path(idf)
         if not is_a04_idf_filename(p.name):
             raise FileNotFoundError(
-                f"fail-closed: Lakeside A04 dual champion required "
-                f"({A04_IDF_NAME}), got {p.name}"
+                f"fail-closed: Lakeside A04 / A04-v2 required "
+                f"({A04_IDF_NAME} or lakeside_w2a_a04v2_*.idf), got {p.name}"
             )
         if not p.is_file():
             raise FileNotFoundError(p)

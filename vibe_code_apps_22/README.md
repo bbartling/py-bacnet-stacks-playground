@@ -5,7 +5,9 @@ Not Amphitheater. Not Ray. Not A05. Champion: `lakeside_w2a_a04_dual_champion.id
 
 Gym/runner is **rllib-shaped and local** (`eplus_gym`). Pin generic helpers to rllib-energyplus `feat/generic-runner` @ `01c5dc7`. Not a thin wrapper yet.
 
-**Physics-ramp gate (2026-08-16 LIVE reproduce):** **FAIL** — incumbent max ≈ 4.62 °F/15 min vs BAS-informed threshold ≈ 2.65. Long PPO/DQN campaign **not run**. Audit: [`docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md).
+**Physics-ramp / A04-v2 (2026-08-16):** CapMult≥28 passes ramp but fails frozen Jan peak ±10% of 284.82 kW; InternalMass alone does not fix DualSP tracking. Verdict: `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`. Audit: [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
+
+**Physics-ramp gate (A04 parent):** still FAIL on evening DualSP — [`docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md).
 
 ## Where results live
 

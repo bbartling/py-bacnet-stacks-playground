@@ -131,10 +131,20 @@ def bas_frame(path: Path) -> pd.DataFrame:
     return sub
 
 
-def run_arm(site: Path, epw: Path, idf: Path, out: Path, day: str, params: SixZoneDailyParams, name: str) -> pd.DataFrame:
+def run_arm(
+    site: Path,
+    epw: Path,
+    idf: Path,
+    out: Path,
+    day: str,
+    params: SixZoneDailyParams,
+    name: str,
+    *,
+    force: bool = False,
+) -> pd.DataFrame:
     ep_dir = out / name
     pq = ep_dir / "trajectory.parquet"
-    if pq.is_file() and (ep_dir / "trajectory_all.parquet").is_file():
+    if (not force) and pq.is_file() and (ep_dir / "trajectory_all.parquet").is_file():
         scored = pd.read_parquet(pq)
         scored.attrs["all_path"] = str(ep_dir / "trajectory_all.parquet")
         return scored
@@ -169,13 +179,16 @@ def main() -> int:
     p.add_argument("--site-root", type=Path, default=Path(os.environ.get("SITE_ROOT") or ""))
     p.add_argument("--day", default="2026-01-26")
     p.add_argument("--out", type=Path, default=_APP / "docs" / "audits" / "figures" / "postfix" / "ramp_repro")
+    p.add_argument("--idf", type=Path, default=None, help="Candidate IDF (default: pinned A04)")
+    p.add_argument("--write-artifact", type=Path, default=None, help="Optional ramp_gate.json output path")
+    p.add_argument("--force", action="store_true", help="Re-run EnergyPlus even if trajectories exist")
     args = p.parse_args()
     site = args.site_root
     if not site.is_dir():
         print("SITE_ROOT required", file=sys.stderr)
         return 2
     epw = site / "eplus" / "weather" / "madison_amy_202508_202608.epw"
-    idf = _APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
+    idf = Path(args.idf) if args.idf else (_APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf")
     bas_path = site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -188,7 +201,7 @@ def main() -> int:
     }
     reports: dict[str, Any] = {}
     for name, params in arms.items():
-        scored = run_arm(site, epw, idf, args.out, args.day, params, name)
+        scored = run_arm(site, epw, idf, args.out, args.day, params, name, force=bool(args.force))
         sim = with_dt_index(scored, args.day)
         # Align BAS to 15-min for threshold only (full history)
         gate = evaluate_ramp_gate(simulated=sim[list(BAS_ZONE_COLS)], real_bas=real_idx[list(BAS_ZONE_COLS)])
@@ -241,7 +254,14 @@ def main() -> int:
     }
     if not passed:
         artifact["verdict"] = "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE"
-    dest = _APP / "docs" / "audits" / "figures" / "postfix" / "ramp_gate.json"
+    artifact["idf"] = str(idf)
+    dest = Path(args.write_artifact) if args.write_artifact else (
+        _APP / "docs" / "audits" / "figures" / "postfix" / "ramp_gate.json"
+    )
+    # Never overwrite the committed A04 NO-GO artifact when testing candidates
+    if args.idf is not None and args.write_artifact is None:
+        dest = args.out / "ramp_gate.json"
+    dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     (args.out / "ramp_repro.json").write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(artifact, indent=2))

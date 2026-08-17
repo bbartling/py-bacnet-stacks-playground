@@ -4,7 +4,7 @@
 
 Not operational MPC. Not verified savings. Not BACnet.
 
-**Long campaign:** forbidden while the physics-ramp gate is `passed: false`. Evening DualSP setback on A04 still exceeds BAS p99.9 × 3 (~2.65 °F/15 min). See [`../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md). Random policy is i.i.d. daily sample, not a random walk. Operator-pay smoke is untrained; **no winner**.
+**Long campaign:** forbidden until a champion passes ramp **and** frozen January peak (±10% of 284.82 kW) **and** partial-period monthly GL14-style screen. 2026-08-16 CapMult Stage A is a Pareto NO-GO — [`../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](../docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
 
 ## Locked MDP
 
