@@ -1,0 +1,20 @@
+{
+  "schema": "vibe22.trackb.archetype.v1",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "as_built": false,
+  "assumes_identical_3ton_units": false,
+  "control_groups": 6,
+  "equipment": "multiple EquationFit W2A banks per group; autosize group total then split by documented fractions",
+  "hp_inventory_role": "counts, group membership, fan-start diversity and staging evidence — not nameplate proof",
+  "allocation_sensitivities": ["low", "base", "high"],
+  "curve_provenance": {
+    "heating_equationfit": "inherited_from_a04_parent_unverified_catalog",
+    "source": "parent A04 EquationFit coefficients until manufacturer submittals exist",
+    "not_as_built": true
+  },
+  "ground_loop": "approximation_or_measured_loop_T_boundary; boiler/tower must not be presented as confirmed geothermal",
+  "w2a_gate": {
+    "scored_runtime_max_low_airflow": 0,
+    "distinguish": ["warmup", "sizing", "scored_runtime"]
+  }
+}

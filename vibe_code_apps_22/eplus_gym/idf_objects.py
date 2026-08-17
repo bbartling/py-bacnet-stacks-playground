@@ -64,9 +64,15 @@ def replace_comment_field(block: str, comment: str, value: str) -> str:
         if label != needle:
             continue
         pad = left[len(left.rstrip()) :]
-        comma = "," if "," in left else ""
+        stripped = left.strip()
+        terminator = ""
+        if stripped.endswith(";"):
+            terminator = ";"
+            stripped = stripped[:-1].rstrip()
+        elif stripped.endswith(","):
+            terminator = ","
         indent = left[: len(left) - len(left.lstrip())]
-        lines[i] = f"{indent}{value}{comma}{pad}{sep}{right}"
+        lines[i] = f"{indent}{value}{terminator}{pad}{sep}{right}"
         found = True
         break
     if not found:

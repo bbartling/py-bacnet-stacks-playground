@@ -133,7 +133,7 @@
   "stage_b_n_ramp_and_warning_passed": 0,
   "stage_b_n_ramp_pass_warning_fail": 13,
   "track_b_planned": true,
-  "track_b_executed": false,
+  "track_b_executed": true,
   "track_b_completed": false,
   "track_b_failed_honestly": false,
   "a04_immutable_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
