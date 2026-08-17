@@ -1,0 +1,18 @@
+{
+  "schema": "vibe22.active_rl_model.v1",
+  "model_id": null,
+  "idf_path": null,
+  "idf_sha256": null,
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "energyplus_version": "26.1.0",
+  "control_contract_version": "control_contract_v2",
+  "observation_contract_version": "observation_contract_v3",
+  "action_contract_version": "ppo_action_contract_v2",
+  "reward_contract_version": "operator_pay_illustrative_v1",
+  "monthly_validation_artifact": null,
+  "transient_validation_artifact": "docs/audits/figures/postfix/ramp_gate.json",
+  "warning_gate_artifact": null,
+  "heldout_status": "locked_unseen",
+  "long_campaign_allowed": false,
+  "reason": "No Track B champion. A04 postfix ramp_gate.json remains passed=false. Fail closed."
+}

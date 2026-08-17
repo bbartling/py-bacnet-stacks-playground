@@ -1,0 +1,36 @@
+{
+  "contract_version": "dqn_action_contract_v2",
+  "v1_frozen_cardinality": 64,
+  "v1_note": "Discrete(64) does not offer true 70F continuous or start/end control; do not reinterpret it",
+  "cardinality": 110,
+  "decode": {
+    "0": {
+      "label": "CONTINUOUS_CONDITIONING_THERMOSTATIC_68",
+      "occupied_heating_f": 68.0,
+      "unoccupied_heating_f": 68.0,
+      "heating_setpoint_start_step": 0,
+      "heating_setpoint_end_step": 96,
+      "recovery_lead_minutes": 0,
+      "continuous_conditioning": true
+    },
+    "1": {
+      "label": "CONTINUOUS_CONDITIONING_THERMOSTATIC_70",
+      "occupied_heating_f": 70.0,
+      "unoccupied_heating_f": 70.0,
+      "heating_setpoint_start_step": 0,
+      "heating_setpoint_end_step": 96,
+      "recovery_lead_minutes": 0,
+      "continuous_conditioning": true
+    },
+    "setback_grid_index_base": 2,
+    "setback_grid": {
+      "occupied_heating_f": [68.0, 70.0],
+      "unoccupied_heating_f": [58.0, 62.0, 64.0],
+      "heating_setpoint_start_step": [24, 28, 32],
+      "recovery_lead_minutes": [0, 60, 120],
+      "shared_setback_offset_f": [-2.0, 0.0],
+      "heating_setpoint_end_step": "calendar",
+      "product": 108
+    }
+  }
+}

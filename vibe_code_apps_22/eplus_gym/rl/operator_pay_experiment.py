@@ -107,15 +107,30 @@ def full_mode_allowed(ramp: Mapping[str, Any]) -> bool:
 
 
 def refuse_full_campaign(app_root: Path) -> dict[str, Any]:
+    from eplus_gym.rl.active_model import ActiveModelError, verify_active_model
+
     ramp = load_ramp_gate(app_root)
-    if full_mode_allowed(ramp):
-        return {"allowed": True, "ramp": ramp}
-    return {
-        "allowed": False,
-        "ramp": ramp,
-        "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
-        "reason": "physics-ramp gate is not PASS; long campaign refused",
-    }
+    try:
+        manifest = verify_active_model(app_root)
+    except ActiveModelError as exc:
+        extra = ""
+        if not full_mode_allowed(ramp):
+            extra = "; A04 postfix physics-ramp gate is also not PASS"
+        return {
+            "allowed": False,
+            "ramp": ramp,
+            "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
+            "reason": f"{exc}{extra}",
+        }
+    if not full_mode_allowed(ramp) and not manifest.get("transient_validation_artifact"):
+        return {
+            "allowed": False,
+            "ramp": ramp,
+            "manifest": manifest,
+            "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
+            "reason": "physics-ramp gate is not PASS; long campaign refused",
+        }
+    return {"allowed": True, "ramp": ramp, "manifest": manifest}
 
 
 def no_setback_params() -> SixZoneDailyParams:

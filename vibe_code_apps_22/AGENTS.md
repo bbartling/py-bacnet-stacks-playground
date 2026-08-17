@@ -22,7 +22,9 @@ python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name o
 python scripts/reproduce_physics_ramp_gate.py
 ```
 
-`--mode full` must exit 4 until a **newly generated** ramp artifact has `passed=true`.
+`--mode full` must exit 4 until a **newly generated** ramp artifact has `passed=true`
+*and* `contracts/active_rl_model_v1.json` has `long_campaign_allowed=true` with
+verified hashes. Control/action/observation v2: [`docs/audits/2026-08-17-vibe22-control-contract-v2.md`](docs/audits/2026-08-17-vibe22-control-contract-v2.md).
 
 Non-RL DSM/GL14/Streamlit: [`archive/2026-08-14_pre_rl_only/`](archive/2026-08-14_pre_rl_only/).
 Do not restore `archive/2026-08-10_pre_eplus_gym`.

@@ -38,16 +38,34 @@ def parse_eplus_err(err_path: Path, end_path: Path | None = None) -> dict[str, A
     first_severe = next((ln.strip() for ln in text.splitlines() if _SEVERE_RE.search(ln)), None)
     first_fatal = next((ln.strip() for ln in text.splitlines() if _FATAL_RE.search(ln)), None)
     kinds: Counter[str] = Counter()
+    phase_air = {"warmup": 0, "sizing": 0, "scored_runtime": 0}
+    coil_hits: list[dict[str, Any]] = []
     lines = text.splitlines()
     for i, ln in enumerate(lines):
         if "mass flow rate is smaller than 25%" in ln.lower():
             n = 1
+            ctx = "\n".join(lines[i : i + 6])
             for nxt in lines[i + 1 : i + 6]:
                 m = re.search(r"This error occurred\s+(\d+)\s+total times", nxt, re.I)
                 if m:
                     n = int(m.group(1))
                     break
             kinds["w2a_low_airflow"] += n
+            blob = ctx.lower()
+            if "during warmup" in blob or "warmup" in ln.lower():
+                phase = "warmup"
+            elif "during sizing" in blob or "sizing period" in blob:
+                phase = "sizing"
+            else:
+                phase = "scored_runtime"
+            phase_air[phase] += n
+            coil = None
+            for nxt in lines[i : i + 8]:
+                mcoil = re.search(r"Coil:Heating:WaterToAirHeatPump:EquationFit[=:]?\s*([^\s,;]+)", nxt)
+                if mcoil:
+                    coil = mcoil.group(1)
+                    break
+            coil_hits.append({"phase": phase, "n": n, "coil": coil, "line": ln.strip()[:240]})
         if "GetActuatorHandle" in ln or "Actuator Handle" in ln:
             kinds["actuator_handle"] += 1
         if "DATA PERIOD" in ln and "year" in ln.lower():
@@ -63,6 +81,8 @@ def parse_eplus_err(err_path: Path, end_path: Path | None = None) -> dict[str, A
         "first_severe": first_severe,
         "first_fatal": first_fatal,
         "recurring": dict(kinds),
+        "w2a_low_airflow_by_phase": phase_air,
+        "w2a_low_airflow_events": coil_hits,
         "err_path": str(err_path) if err_path.is_file() else None,
     }
 
