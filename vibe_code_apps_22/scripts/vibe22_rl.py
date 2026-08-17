@@ -26,6 +26,7 @@ from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
 from eplus_gym.rl.split_manifest import persist_train_fold  # noqa: E402
+from eplus_gym.rl.operator_pay_experiment import refuse_full_campaign  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
 from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
 
@@ -288,6 +289,17 @@ def cmd_campaign(args) -> int:
     print(SCREENING_CLAIM)
     if args.simulator != SIMULATOR_REQUIRED:
         print("REFUSED: only LIVE_ENERGYPLUS", file=sys.stderr)
+        return EXIT_INTEGRITY
+    decision = refuse_full_campaign(_APP)
+    if not decision["allowed"]:
+        stub = {
+            "command": "campaign",
+            "allowed": False,
+            "verdict": decision.get("verdict"),
+            "reason": decision.get("reason") or "physics-ramp gate is not PASS; long campaign refused",
+            "n_days": int(getattr(args, "n_days", 0) or 0),
+        }
+        print(json.dumps(stub, indent=2, default=str))
         return EXIT_INTEGRITY
     site = _site(args)
     idf, epw = _paths(site)

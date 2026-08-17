@@ -24,7 +24,8 @@ Suggested Drive pack folders: `models/`, `farm/`, `site_snapshot/` (IDF+EPW hash
 ## Site workspace (`LAKESIDE_SITE_ROOT`)
 
 ```powershell
-$env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:LAKESIDE_SITE_ROOT="<SITE_ROOT>"
+$env:SITE_ROOT="<SITE_ROOT>"
 ```
 
 | Path under site | Role |

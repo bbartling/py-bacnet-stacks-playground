@@ -7,18 +7,17 @@ Do not overwrite `year2xsyn` site artifacts.
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**A04-v2 transient:** Stage A produced **no champion**. Status is
-`STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE` — long campaign still forbidden.
+**A04-v2 transient:** no champion. Status is
+`MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION` — long campaign still forbidden.
 See [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md)
-(Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).
-
+(dated Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).
 
 Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) ·
 [`vibe22_agent_spec/CONTRIBUTING_RL.md`](vibe22_agent_spec/CONTRIBUTING_RL.md) ·
 [`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md)
 
 ```powershell
-$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:SITE_ROOT="<SITE_ROOT>"
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --run-id oppay2x_smoke_20260816 --site-root $env:SITE_ROOT
 python scripts/reproduce_physics_ramp_gate.py
 ```

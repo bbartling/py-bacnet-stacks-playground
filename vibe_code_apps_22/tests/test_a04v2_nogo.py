@@ -15,7 +15,14 @@ sys.path.insert(0, str(APP / "scripts"))
 from a04v2_phase0_freeze import Phase0Error, freeze_baseline
 from a04v2_phase2_zone_dataset import contiguous_abs_delta
 from eplus_gym.a04_identity import A04_SHA_ALLOWED, A04_SHA_LF, CAPMULT_HI, assert_finite_in_range, is_a04_idf_filename
-from eplus_gym.a04v2_selection import VERDICT_INCOMPLETE, VERDICT_NOGO, compute_selection_verdict
+from eplus_gym.a04v2_selection import (
+    STATUS_RAMP_PASS_WARNING_FAIL,
+    VERDICT_INCOMPLETE,
+    VERDICT_NOGO,
+    classify_stage_b_status,
+    compute_selection_verdict,
+    track_b_state_from_plan,
+)
 from eplus_gym.demand_windows import demand_window_report, freeze_peak_contract
 from eplus_gym.eplus_err import assert_eplus_quality
 from eplus_gym.envs.lakeside_w2a import is_a04_idf_filename as env_is_a04
@@ -168,6 +175,30 @@ def test_demand_windows_same_for_bas_and_eplus():
     assert freeze_peak_contract()["legacy_250_290"]["enforced_in_a04v2_selection"] is False
 
 
+def test_sub_native_demand_windows_unavailable_or_rejected():
+    from eplus_gym.demand_windows import resample_mean, rolling_mean
+
+    idx = pd.date_range("2026-01-26", periods=8, freq="15min")
+    s = pd.Series([100, 200, 300, 280, 260, 240, 220, 200], index=idx, dtype=float)
+    rep = demand_window_report(s, native_minutes=15)
+    assert 5 in rep["unavailable_windows_min"]
+    assert rep["aligned_max_kw"]["5"]["end"] is None
+    assert rep["aligned_max_kw"]["5"]["start"] is None
+    assert rep["rolling_max_kw"]["5"] is None
+    assert rep["aligned_max_kw"]["15"]["end"] == pytest.approx(300.0)
+    assert rep["aligned_max_kw"]["30"]["end"] is not None
+    assert rep["aligned_max_kw"]["60"]["end"] is not None
+    with pytest.raises(ValueError, match="sub-native"):
+        resample_mean(s, 5, native_minutes=15)
+    with pytest.raises(ValueError, match="sub-native"):
+        rolling_mean(s, 5, native_minutes=15)
+    fine = pd.date_range("2026-01-26", periods=12, freq="5min")
+    fine_s = pd.Series(range(12), index=fine, dtype=float)
+    ok = demand_window_report(fine_s, native_minutes=5)
+    assert ok["unavailable_windows_min"] == []
+    assert ok["aligned_max_kw"]["5"]["end"] is not None
+
+
 def test_selection_verdict_is_computed_not_hand_copied():
     body = compute_selection_verdict(
         stage_a_summary={"trials": 8},
@@ -177,7 +208,47 @@ def test_selection_verdict_is_computed_not_hand_copied():
     assert body["verdict"] == VERDICT_INCOMPLETE
     assert body["long_campaign_allowed"] is False
     assert body["champion"] is None
+    assert body["track_b_planned"] is False
+    assert body["track_b_executed"] is False
+    assert body["track_b_completed"] is False
+    assert body["track_b_failed_honestly"] is False
     assert body["ramp_threshold_unchanged"]["engineering_margin"] == 3.0
+
+
+def test_track_b_plan_file_is_not_executed():
+    state = track_b_state_from_plan(
+        {
+            "track_b_planned": True,
+            "track_b_executed": False,
+            "track_b_completed": False,
+            "track_b_failed_honestly": False,
+        }
+    )
+    assert state["track_b_planned"] is True
+    assert state["track_b_executed"] is False
+    body = compute_selection_verdict(
+        stage_a_summary={"trials": 8},
+        peak_contract=freeze_peak_contract(),
+        champion=None,
+        track_b_planned=True,
+        track_b_executed=False,
+        track_b_completed=False,
+        track_b_failed_honestly=False,
+        stage_b_trials=[{"ramp": {"passed": True}, "warning_gate": {"passed": False}}],
+    )
+    assert body["verdict"] == VERDICT_INCOMPLETE
+    assert body["track_b_planned"] is True
+    assert body["track_b_executed"] is False
+
+
+def test_stage_b_status_labels_are_explicit():
+    assert (
+        classify_stage_b_status(eplus_ok=True, ramp_passed=True, warning_passed=False)
+        == STATUS_RAMP_PASS_WARNING_FAIL
+    )
+    assert classify_stage_b_status(eplus_ok=True, ramp_passed=False, warning_passed=False) == "RAMP_FAIL"
+    assert classify_stage_b_status(eplus_ok=False, ramp_passed=False, warning_passed=False) == "EPLUS_FAIL"
+    assert classify_stage_b_status(eplus_ok=True, ramp_passed=True, warning_passed=True) == "DUAL_GATE_PASS"
 
 
 def test_w2a_inventory_nine_units_and_hp_conflict():
@@ -261,34 +332,24 @@ def test_track_b_failed_honestly_is_terminal_nogo():
         stage_a_summary={"trials": 8},
         peak_contract=freeze_peak_contract(),
         champion=None,
-        track_b_attempted=True,
-        track_b_failed_honestly=True,
-        stage_b_trials=[{"ramp": {"passed": False}, "warning_gate": {"passed": False}}],
-    )
-    assert body["verdict"] == "NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED"
-    assert body["long_campaign_allowed"] is False
-    body = compute_selection_verdict(
-        stage_a_summary={"trials": 8},
-        peak_contract=freeze_peak_contract(),
-        champion=None,
-        track_b_attempted=True,
-        track_b_failed_honestly=False,
-        stage_b_trials=[{"ramp": {"passed": False}, "warning_gate": {"passed": False}}],
-    )
-    assert body["verdict"] == VERDICT_INCOMPLETE
-    assert body["long_campaign_allowed"] is False
-
-
-def test_track_b_failed_honestly_is_terminal_nogo():
-    body = compute_selection_verdict(
-        stage_a_summary={"trials": 8},
-        peak_contract=freeze_peak_contract(),
-        champion=None,
-        track_b_attempted=True,
+        track_b_planned=True,
+        track_b_executed=True,
+        track_b_completed=False,
         track_b_failed_honestly=True,
         stage_b_trials=[{"ramp": {"passed": False}, "warning_gate": {"passed": False}}],
     )
     assert body["verdict"] == VERDICT_NOGO
+    assert body["long_campaign_allowed"] is False
+    body = compute_selection_verdict(
+        stage_a_summary={"trials": 8},
+        peak_contract=freeze_peak_contract(),
+        champion=None,
+        track_b_planned=True,
+        track_b_executed=False,
+        track_b_failed_honestly=False,
+        stage_b_trials=[{"ramp": {"passed": False}, "warning_gate": {"passed": False}}],
+    )
+    assert body["verdict"] == VERDICT_INCOMPLETE
     assert body["long_campaign_allowed"] is False
 
 
@@ -298,4 +359,41 @@ def test_path_sanitize_strips_user_home():
     cleaned = redact_obj({"idf": r"C:\Users\ben\Documents\py-bacnet-stacks-playground\foo.idf"})
     assert "Users\\ben" not in cleaned["idf"]
     assert "<USER_HOME>" in cleaned["idf"]
+
+
+def test_tracked_docs_have_no_machine_local_paths():
+    banned = ("C:\\Users\\ben", "C:/Users/ben")
+    roots = [
+        APP / "AGENTS.md",
+        APP / "config.example.py",
+        APP / "docs" / "audits" / "2026-08-16-vibe22-a04v2-transient-nogo.md",
+        APP / "docs" / "audits" / "2026-08-17-vibe22-a04v2-model-development-continues.md",
+        APP / "data" / "DATA.md",
+    ]
+    hits = []
+    for path in roots:
+        text = path.read_text(encoding="utf-8")
+        for ban in banned:
+            if ban in text:
+                hits.append(f"{path.name}:{ban}")
+    assert hits == [], hits
+
+
+def test_stage_b_child_regenerates_from_parent_and_manifest(tmp_path, monkeypatch):
+    from a04v2_build_stage_b_candidate import build_child
+
+    dest = APP / "models" / "eplus" / "a04v2_candidates" / "regen_smoke_closeout"
+    try:
+        monkeypatch.chdir(APP)
+        meta = build_child(plant="autosize_htg", capmult=1.0, mass_m2=0.0, run_id="regen_smoke_closeout")
+        idf = dest / meta["idf"]
+        assert idf.is_file()
+        text = idf.read_text(encoding="utf-8", errors="replace")
+        assert "Autosize" in text
+        assert meta["parent_model"] == "lakeside_w2a_a04_dual_champion.idf"
+    finally:
+        if dest.is_dir():
+            for p in dest.iterdir():
+                p.unlink()
+            dest.rmdir()
 

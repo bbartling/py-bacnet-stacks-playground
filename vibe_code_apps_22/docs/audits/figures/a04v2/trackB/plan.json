@@ -1,9 +1,14 @@
 {
-  "schema": "vibe22.a04v2.trackB.plan.v1",
+  "schema": "vibe22.a04v2.trackB.plan.v2",
+  "track_b_planned": true,
+  "track_b_executed": false,
+  "track_b_completed": false,
+  "track_b_failed_honestly": false,
   "failed": false,
-  "status": "started_not_completed",
-  "reason": "Stage B produced ramp-passing CapMult 12 children on multiple train_dev days, but no trial passed the preregistered W2A low-airflow bound of 0 (autosize/hp-scaled still ~10^2-10^3 recurring coil warnings per episode, down from ~15k on A04). No champion. Do not start long RL.",
-  "next_child": "separately versioned physical plant child (not A04 overwrite)",
+  "status": "planned_not_executed",
+  "reason": "Stage B produced ramp-passing CapMult 12 children on multiple train_dev days, but no trial passed the preregistered W2A low-airflow bound of 0 (autosize/hp-scaled still ~10^2-10^3 recurring coil warnings per episode, down from ~15k on A04). No champion. A plan file is not Track B executed. Do not start long RL.",
+  "next_child": "separately versioned physical plant child (not A04 overwrite): six BAS/RL groups with multiple EquationFit banks; autosize-then-split; not as-built",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
   "scope": [
     "W2A EquationFit rated performance vs 67-HP inventory (capacity, airflow, COP, PLF)",
     "loop pumps and fans",

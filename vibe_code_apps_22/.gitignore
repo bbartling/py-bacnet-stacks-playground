@@ -37,6 +37,9 @@ config.py
 .mypy_cache/
 .ruff_cache/
 
+# Generated A04-v2 candidate IDFs (rebuild from parent A04 + parameters.json)
+models/eplus/a04v2_candidates/**/*.idf
+
 # Local notebook / OS noise
 *.onnx
 *.onnx.data

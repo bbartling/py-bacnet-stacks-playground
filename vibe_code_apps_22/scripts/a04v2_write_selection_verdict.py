@@ -8,7 +8,7 @@ from pathlib import Path
 _APP = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_APP))
 
-from eplus_gym.a04v2_selection import compute_selection_verdict
+from eplus_gym.a04v2_selection import compute_selection_verdict, track_b_state_from_plan
 from eplus_gym.demand_windows import freeze_peak_contract
 
 
@@ -26,15 +26,21 @@ def main() -> int:
     trials = ledger.get("trials") or []
     champ_path = root / "champion.json"
     champion = load_json(champ_path)
-    track_b_failed = load_json(root / "trackB" / "failed.json")
-    track_b_plan = (root / "trackB" / "plan.json").is_file()
+    failed = load_json(root / "trackB" / "failed.json")
+    plan = load_json(root / "trackB" / "plan.json") or {}
+    state = track_b_state_from_plan(plan)
+    if failed and failed.get("failed") is True:
+        state["track_b_failed_honestly"] = True
+        state["track_b_executed"] = True
     body = compute_selection_verdict(
         stage_a_summary=stage_a,
         peak_contract=peak,
         champion=champion,
         long_campaign_ramp_passed=False,
-        track_b_attempted=bool(track_b_plan or track_b_failed),
-        track_b_failed_honestly=bool(track_b_failed and track_b_failed.get("failed") is True),
+        track_b_planned=state["track_b_planned"],
+        track_b_executed=state["track_b_executed"],
+        track_b_completed=state["track_b_completed"],
+        track_b_failed_honestly=state["track_b_failed_honestly"],
         stage_b_trials=trials,
     )
     dest = root / "selection_verdict.json"

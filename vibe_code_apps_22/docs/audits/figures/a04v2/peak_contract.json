@@ -28,6 +28,9 @@
     "role": "a04_calibration_diagnostic_only",
     "enforced_in_a04v2_selection": false
   },
-  "same_function_for_bas_and_eplus": true,
-  "guideline14_hourly": "diagnostic_until_meter_boundary_resolved"
+    "same_function_for_bas_and_eplus": true,
+    "native_energyplus_minutes": 15,
+    "sub_native_windows_min": [5],
+    "sub_native_policy": "unavailable_not_invented",
+    "guideline14_hourly": "diagnostic_until_meter_boundary_resolved"
 }

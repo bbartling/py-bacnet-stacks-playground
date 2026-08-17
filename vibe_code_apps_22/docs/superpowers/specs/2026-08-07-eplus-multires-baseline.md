@@ -2,7 +2,7 @@
 
 **Branch:** `feat/vibe22-multioutput-tutorial-notebooks` (PR #76)  
 **Ledger commit (plan start):** `104cad6`  
-**Site:** `LAKESIDE_SITE_ROOT` = `C:\Users\ben\OneDrive\Desktop\testing\sp_creekside`  
+**Site:** `LAKESIDE_SITE_ROOT` = `<SITE_ROOT>`  
 **Captured:** 2026-08-07
 
 ## Staged twin (single champion)

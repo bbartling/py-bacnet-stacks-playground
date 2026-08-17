@@ -11,7 +11,7 @@ description: >-
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
 **Do not** start a 20–30 hour PPO/DQN campaign while the model is not transient-validated.
-A04-v2 Stage A produced **no champion** (`STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE`).
+A04-v2 produced **no champion** (`MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION`).
 Long RL remains blocked. See `docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md` (Stage A snapshot) and `docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`.
 A04 remains immutable. Do not raise `ENGINEERING_MARGIN`.
 

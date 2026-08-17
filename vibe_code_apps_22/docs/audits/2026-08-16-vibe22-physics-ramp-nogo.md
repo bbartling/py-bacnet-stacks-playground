@@ -50,7 +50,7 @@ Plots/CSV: [`figures/postfix/ramp_repro/`](figures/postfix/ramp_repro/) (`incumb
 ## Reproduction
 
 ```powershell
-$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:SITE_ROOT="<SITE_ROOT>"
 cd vibe_code_apps_22
 python scripts/reproduce_physics_ramp_gate.py
 python -m pytest tests -q

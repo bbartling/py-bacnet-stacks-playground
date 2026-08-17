@@ -21,7 +21,7 @@ Builder: `scripts/build_vibe22_rl_validity_report.py`
 | Playground branch | `fix/vibe22-rl-scientific-validity` |
 | Champion IDF | `models/eplus/lakeside_w2a_a04_dual_champion.idf` |
 | Champion SHA256 | `212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683` |
-| rllib root | `C:\Users\ben\Documents\rllib-energyplus\.worktrees\feat-generic-runner` |
+| rllib root | `<RLLIB_ENERGYPLUS_ROOT>` (pin `feat/generic-runner` @ `01c5dc7`) |
 | rllib SHA | `01c5dc7cf55c1c9e33e995f2340b0859563bb045` |
 | year2xsyn site winner field | `None` (TRAIN exploration; repo snapshot `winner=null`) |
 | EnergyPlus (year2xsyn logs) | 26.1.0 |

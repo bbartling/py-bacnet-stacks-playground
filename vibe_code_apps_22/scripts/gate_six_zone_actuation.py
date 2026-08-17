@@ -15,6 +15,7 @@ if str(_APP) not in sys.path:
 
 from eplus_gym.episode import SCREENING_CLAIM, run_controller_episode  # noqa: E402
 from eplus_gym.envs.lakeside_w2a import LakesideW2AEnv  # noqa: E402
+from eplus_gym.site_env import require_site_root  # noqa: E402
 from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
 from eplus_gym.six_zone_daily_controller import ACTION_KEYS  # noqa: E402
 from eplus_gym.stage_idf import stage_idf_for_period  # noqa: E402
@@ -30,7 +31,7 @@ class ConstSixAction:
 
 def main() -> int:
     print(SCREENING_CLAIM)
-    site = Path(os.environ.get("SITE_ROOT") or r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
+    site = require_site_root(os.environ.get("SITE_ROOT"))
     day = "2026-01-26"
     try:
         idf, epw = resolve_a04_and_epw(site)

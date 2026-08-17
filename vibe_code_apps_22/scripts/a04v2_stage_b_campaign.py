@@ -13,6 +13,7 @@ sys.path.insert(0, str(_APP))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from a04v2_build_stage_b_candidate import build_child
+from eplus_gym.a04v2_selection import TERMINAL_STAGE_B, classify_stage_b_status
 from eplus_gym.demand_windows import demand_window_report
 from eplus_gym.eplus_err import parse_eplus_err
 from eplus_gym.objective import _facility_series
@@ -62,7 +63,7 @@ def main() -> int:
         "schema": "vibe22.a04v2.stageB_ledger.v1",
         "trials": [],
     }
-    done = {t["run_id"] for t in ledger["trials"] if t.get("status") in {"success", "eplus_failed", "ramp_failed"}}
+    done = {t["run_id"] for t in ledger["trials"] if t.get("status") in TERMINAL_STAGE_B}
     for rec in ledger["trials"]:
         if rec.get("warning_gate"):
             continue
@@ -141,10 +142,6 @@ def main() -> int:
             err = next(dest.rglob("eplusout.err"), None)
             if err:
                 rec["eplus_quality"] = parse_eplus_err(err)
-            rec["status"] = "success" if proc.returncode == 0 else "ramp_failed"
-            if proc.returncode not in (0, 4):
-                rec["status"] = "eplus_failed"
-                rec["stderr_tail"] = (proc.stderr or "")[-2000:]
             quality = rec.get("eplus_quality") or {}
             n_air = int((quality.get("recurring") or {}).get("w2a_low_airflow") or 0)
             rec["warning_gate"] = {
@@ -153,10 +150,19 @@ def main() -> int:
                 "passed": n_air <= 0 and int(quality.get("severe_count") or 0) == 0
                 and int(quality.get("fatal_count") or 0) == 0,
             }
+            eplus_ok = proc.returncode in (0, 4) and bool(quality.get("completed_successfully", proc.returncode in (0, 4)))
+            if proc.returncode not in (0, 4):
+                rec["stderr_tail"] = (proc.stderr or "")[-2000:]
+                eplus_ok = False
+            rec["status"] = classify_stage_b_status(
+                eplus_ok=eplus_ok,
+                ramp_passed=(rec.get("ramp") or {}).get("passed"),
+                warning_passed=(rec.get("warning_gate") or {}).get("passed"),
+            )
         except KeyboardInterrupt:
             raise
         except (Exception, SystemExit) as exc:  # noqa: BLE001 — ledger must retain failures
-            rec["status"] = "eplus_failed"
+            rec["status"] = "EPLUS_FAIL"
             rec["error"] = str(exc)
         rec["finished_utc"] = datetime.now(timezone.utc).isoformat()
         ledger["trials"].append(rec)

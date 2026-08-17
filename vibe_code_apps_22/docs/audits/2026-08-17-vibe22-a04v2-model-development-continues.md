@@ -2,7 +2,7 @@
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**Status:** `STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE`
+**Status:** `MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION`
 
 **Public line:** MODEL DEVELOPMENT CONTINUES — LONG RL BLOCKED
 
@@ -44,7 +44,7 @@ BAS train_dev winter weekdays: occupied SP median **68°F**, unoccupied **64°F*
 
 | Gate | Result |
 | --- | --- |
-| Trials | 32 (13 ramp `passed=true`, 19 ramp failed, 0 EnergyPlus crash) |
+| Trials | 32 (13 `RAMP_PASS_WARNING_FAIL`, 19 `RAMP_FAIL`, 0 `EPLUS_FAIL`, 0 `DUAL_GATE_PASS`) |
 | Ramp threshold | unchanged 2.651 °F / 15 min, `ENGINEERING_MARGIN=3.0` |
 | Warning gate (`w2a_low_airflow` total times ≤ 0) | **0 passed** |
 | Dual ramp+warning finalists | **0** |
@@ -52,7 +52,9 @@ BAS train_dev winter weekdays: occupied SP median **68°F**, unoccupied **64°F*
 
 Autosize heating + CapMult 12 passed the three-arm ramp on several days (weekday, weekend, mild). HP-scaled 3-ton/HP at CapMult 12 also passed ramp on those days but still printed ~12k–16k W2A low-airflow warnings. Autosize reduced some episodes to ~10²–10³ warnings, not zero. Leaving 149430 W in place (`a04_capacity`) did **not** pass ramp at CapMult 12 + InternalMass 2000. No weighted-average champion.
 
-Because there is no warning-gate finalist, the expensive ten-period monthly GL14-style screen was **not** run. Track B is started as a plan only ([`figures/a04v2/trackB/plan.json`](figures/a04v2/trackB/plan.json)): separately versioned physical plant child (W2A performance, loop pumps/fans, loop temperature, OA/DOAS, ground loop or documented approximation). Track B has **not** failed honestly; status is not terminal `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`.
+Because there is no warning-gate finalist, the expensive ten-period monthly GL14-style screen was **not** run. Track B is **planned, not executed** ([`figures/a04v2/trackB/plan.json`](figures/a04v2/trackB/plan.json)): `track_b_planned=true`, `track_b_executed=false`, `track_b_completed=false`, `track_b_failed_honestly=false`. A plan file is not an attempt. Track B has **not** failed honestly; status is not terminal `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`.
+
+5-minute EnergyPlus demand from the native 15-minute trajectories is **unavailable** (not invented by resampling). 15/30/60-minute windows remain valid.
 
 ## Reproduce
 

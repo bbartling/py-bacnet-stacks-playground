@@ -21,6 +21,11 @@
       "start",
       "center"
     ],
+    "native_energyplus_minutes": 15,
+    "sub_native_windows_min": [
+      5
+    ],
+    "sub_native_policy": "unavailable_not_invented",
     "hard_gate_on_15min_vs_billed": false,
     "legacy_250_290": {
       "band_kw": [
@@ -39,9 +44,9 @@
       "native_max_kw": 275.11585648789656,
       "aligned_max_kw": {
         "5": {
-          "end": 275.11585648789656,
-          "start": 275.11585648789656,
-          "center": 275.11585648789656
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 275.11585648789656,
@@ -60,20 +65,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 275.11585648789656,
+        "5": null,
         "15": 275.11585648789656,
         "30": 263.874498732401,
         "60": 259.0891557143127
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "capmult_t20",
       "native_max_kw": 305.83172123045347,
       "aligned_max_kw": {
         "5": {
-          "end": 305.83172123045347,
-          "start": 305.83172123045347,
-          "center": 305.83172123045347
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 305.83172123045347,
@@ -92,20 +101,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 305.83172123045347,
+        "5": null,
         "15": 305.83172123045347,
         "30": 301.4659350594013,
         "60": 293.47441763165006
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "capmult_t28",
       "native_max_kw": 316.4577814462413,
       "aligned_max_kw": {
         "5": {
-          "end": 316.4577814462413,
-          "start": 316.4577814462413,
-          "center": 316.4577814462413
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 316.4577814462413,
@@ -124,20 +137,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 316.4577814462413,
+        "5": null,
         "15": 316.4577814462413,
         "30": 313.5913656517706,
         "60": 310.59780681121515
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "capmult_t30",
       "native_max_kw": 323.55534777801466,
       "aligned_max_kw": {
         "5": {
-          "end": 323.55534777801466,
-          "start": 323.55534777801466,
-          "center": 323.55534777801466
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 323.55534777801466,
@@ -156,20 +173,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 323.55534777801466,
+        "5": null,
         "15": 323.55534777801466,
         "30": 318.9535413409312,
         "60": 315.5389007451247
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "capmult_t40",
       "native_max_kw": 356.8870482930029,
       "aligned_max_kw": {
         "5": {
-          "end": 356.8870482930029,
-          "start": 356.8870482930029,
-          "center": 356.8870482930029
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 356.8870482930029,
@@ -188,20 +209,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 356.8870482930029,
+        "5": null,
         "15": 356.8870482930029,
         "30": 355.45157158533425,
         "60": 343.6842507412908
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "imass_a1500",
       "native_max_kw": 248.6182314718793,
       "aligned_max_kw": {
         "5": {
-          "end": 248.6182314718793,
-          "start": 248.6182314718793,
-          "center": 248.6182314718793
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 248.6182314718793,
@@ -220,20 +245,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 248.6182314718793,
+        "5": null,
         "15": 248.6182314718793,
         "30": 241.10914805835404,
         "60": 237.96414899400196
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "imass_a3000",
       "native_max_kw": 255.24454324707148,
       "aligned_max_kw": {
         "5": {
-          "end": 255.24454324707148,
-          "start": 255.24454324707148,
-          "center": 255.24454324707148
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 255.24454324707148,
@@ -252,20 +281,24 @@
         }
       },
       "rolling_max_kw": {
-        "5": 255.24454324707148,
+        "5": null,
         "15": 255.24454324707148,
         "30": 254.99482302336378,
         "60": 250.70798589470272
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     },
     {
       "run_id": "imass_a500",
       "native_max_kw": 242.98262751728612,
       "aligned_max_kw": {
         "5": {
-          "end": 242.98262751728612,
-          "start": 242.98262751728612,
-          "center": 242.98262751728612
+          "end": null,
+          "start": null,
+          "center": null
         },
         "15": {
           "end": 242.98262751728612,
@@ -284,11 +317,15 @@
         }
       },
       "rolling_max_kw": {
-        "5": 242.98262751728612,
+        "5": null,
         "15": 242.98262751728612,
         "30": 230.69584609367115,
         "60": 228.468346233498
-      }
+      },
+      "unavailable_windows_min": [
+        5
+      ],
+      "sub_native_policy": "unavailable_not_invented"
     }
   ]
 }

@@ -124,6 +124,26 @@ def test_full_campaign_refuses_when_ramp_failed(tmp_path: Path):
     assert out["ppo_dqn_learned"] is False
 
 
+def test_vibe22_rl_campaign_refuses_when_ramp_failed(monkeypatch):
+    import argparse
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import vibe22_rl
+
+    monkeypatch.setattr(
+        vibe22_rl,
+        "refuse_full_campaign",
+        lambda _app: {
+            "allowed": False,
+            "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+            "reason": "isolated test: physics-ramp gate is not PASS",
+        },
+    )
+    args = argparse.Namespace(simulator="LIVE_ENERGYPLUS", n_days=100)
+    assert vibe22_rl.cmd_campaign(args) == 4
+
+
 def test_summarize_does_not_treat_year2xsyn_as_valid():
     rows = filter_operator_pay_rows(
         [

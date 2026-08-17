@@ -20,7 +20,7 @@ Five valid post-fix EnergyPlus gate calls prove the daily six-zone simulator res
 ```powershell
 python vibe_code_apps_22/docs/blog/2026-08-15-rl-poc/build_source_backed_figures.py `
   --vibe22-root vibe_code_apps_22 `
-  --site-root "C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+  --site-root "<SITE_ROOT>"
 ```
 
 `--vibe22-root` and `--site-root` are required. Generated JSON/PNG payloads do not embed those paths. Pair CSVs/parquets in `data/` are scored 96-row files only (not full E+ trees).

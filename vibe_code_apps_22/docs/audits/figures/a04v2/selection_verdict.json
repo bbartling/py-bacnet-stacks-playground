@@ -1,6 +1,6 @@
 {
-  "schema": "vibe22.a04v2.selection_verdict.v1",
-  "verdict": "STAGE_A_NO_CHAMPION_MODEL_DEVELOPMENT_INCOMPLETE",
+  "schema": "vibe22.a04v2.selection_verdict.v2",
+  "verdict": "MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION",
   "champion": null,
   "long_campaign_allowed": false,
   "public_line": "MODEL DEVELOPMENT CONTINUES \u2014 LONG RL BLOCKED",
@@ -35,6 +35,11 @@
       "enforced_in_a04v2_selection": false
     },
     "same_function_for_bas_and_eplus": true,
+    "native_energyplus_minutes": 15,
+    "sub_native_windows_min": [
+      5
+    ],
+    "sub_native_policy": "unavailable_not_invented",
     "guideline14_hourly": "diagnostic_until_meter_boundary_resolved"
   },
   "ramp_threshold_unchanged": {
@@ -126,7 +131,10 @@
   "stage_b_n_ramp_passed": 13,
   "stage_b_n_warning_passed": 0,
   "stage_b_n_ramp_and_warning_passed": 0,
-  "track_b_attempted": true,
+  "stage_b_n_ramp_pass_warning_fail": 13,
+  "track_b_planned": true,
+  "track_b_executed": false,
+  "track_b_completed": false,
   "track_b_failed_honestly": false,
   "a04_immutable_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
   "pareto": {

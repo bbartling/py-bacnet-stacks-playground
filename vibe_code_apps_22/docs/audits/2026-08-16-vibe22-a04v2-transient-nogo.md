@@ -1,10 +1,23 @@
-# A04-v2 transient model development — MODEL NO-GO (2026-08-16)
+# A04-v2 Stage A snapshot (2026-08-16) — not the current terminal verdict
 
 **Claim:** ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY.
 
-**Terminal outcome:** `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`
+**This file is a dated Stage A snapshot.** It is **not** the current scientific
+status of A04-v2.
 
-Long PPO/DQN training was **not started**. A04 was **not** overwritten. The BAS-informed ramp threshold (`ENGINEERING_MARGIN=3.0`) was **not** weakened.
+**Current status (see 2026-08-17 continuation audit):**
+`MODEL DEVELOPMENT CONTINUES — LONG RL BLOCKED`
+
+`verdict` = `MODEL_DEVELOPMENT_INCOMPLETE_NO_CHAMPION`. Stage B has already run
+(32 packages × 3 arms = 96 EnergyPlus simulations). Track B is **planned, not
+executed**. Long PPO/DQN training was **not started**. A04 was **not**
+overwritten. The BAS-informed ramp threshold (`ENGINEERING_MARGIN=3.0`) was
+**not** weakened.
+
+The 2026-08-16 “terminal MODEL NO-GO” and “hard Stage A Pareto conflict”
+conclusions are **withdrawn**. Stage A CapMult vs a 15-minute EnergyPlus peak
+is not a billed-demand gate while the utility averaging interval remains
+unresolved.
 
 ## Base SHA / stack
 
@@ -68,7 +81,7 @@ January is **not** pristine.
 
 Frozen peak screen (before selection): **±10% of 284.82 kW** → **[256.3, 313.3] kW**, plus legacy 250–290 band.
 
-**Pareto conflict:** CapMult ≥ ~28 is required for all three ramp arms; CapMult ≥ 28 pushes Jan26 incumbent peak **above** the frozen ±10% band. CapMult=40 also blows January monthly kWh (~+27% vs utility 81491).
+**Stage A observation (not a terminal Pareto):** CapMult ≥ ~28 is required for all three ramp arms on this geometry; CapMult ≥ 28 also pushes the Jan26 incumbent **15-minute** peak above the frozen ±10% billed band. That 15-minute max is **not** a billed-demand gate. 5-minute EnergyPlus demand from a 15-minute native trajectory is **unavailable**. CapMult=40 also blows January monthly kWh (~+27% vs utility 81491).
 
 ### InternalMass furniture (no CapMult)
 
@@ -80,22 +93,22 @@ Frozen peak screen (before selection): **±10% of 284.82 kW** → **[256.3, 313.
 
 InternalMass barely moves evening DualSP tracking; peaks stay near A04.
 
-## Why no champion
+## Why Stage A produced no champion
 
-A champion must pass **all** required gates (ramp + peak + partial-period monthly GL14-style). No Stage A candidate does.
+A champion must pass **all** required gates (ramp + scored-runtime W2A warning + partial-period monthly GL14-style, labeled accurately). No Stage A candidate does.
 
 Capacitance multipliers that fix transients inflate IdealLoads/W2A recovery power. Furniture mass alone does not fix DualSP air-node tracking on this geometry.
 
-A full **Track B** geothermal W2A rebuild (part-load, loop, fans, DOAS) remains future work — not silently labeled A04.
+A full **Track B** capacity-class W2A archetype (multiple EquationFit banks per six BAS groups) is later work — not silently labeled A04, and a plan file is not Track B executed.
 
 ## Long campaign
 
-**Not allowed.** Committed [`figures/postfix/ramp_gate.json`](figures/postfix/ramp_gate.json) remains A04 `passed=false`. Candidate `ramp_gate.json` files under `figures/a04v2/stageA/` that show `passed=true` are CapMult trials that **fail the peak screen** and must not unlock training.
+**Not allowed.** Committed [`figures/postfix/ramp_gate.json`](figures/postfix/ramp_gate.json) remains A04 `passed=false`. Candidate `ramp_gate.json` files under `figures/a04v2/stageA/` that show `passed=true` are CapMult trials that **must not unlock training**.
 
 ## Reproduction
 
 ```powershell
-$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:SITE_ROOT="<SITE_ROOT>"
 cd vibe_code_apps_22
 python scripts/a04v2_phase0_freeze.py
 python scripts/a04v2_phase1_meter_ledger.py
@@ -105,6 +118,6 @@ python scripts/reproduce_physics_ramp_gate.py --idf models/eplus/a04v2_candidate
 python -m pytest tests -q
 ```
 
-## Operational recommendation
+## Operational recommendation (snapshot)
 
-**NO-GO** for long RL and BACnet. Next scientific step: Track B plant/geometry with mass that does not destroy the January demand anchor — or accept A04 as monthly-only and keep DSM RL blocked.
+Stage A is incomplete, not a terminal plant NO-GO. Next scientific step remains a separately versioned Track B child. Keep DSM RL blocked until a hash-verified champion exists. No BACnet commands.
