@@ -34,6 +34,33 @@ def _write_bundle(root: Path, sub: str, cols: list[str], n: int = 5) -> None:
     (d / "history_wide.csv").write_text("\n".join(rows), encoding="utf-8")
 
 
+def test_parse_utc_timestamp_accepts_z_and_offset_without_pandas_warning():
+    import warnings
+
+    from app.data_loader import parse_utc_timestamp
+
+    mixed = pd.Series(
+        [
+            "2026-05-21T20:20:00Z",
+            "2026-05-21T20:20:00+00:00",
+        ]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        parsed = parse_utc_timestamp(mixed)
+    assert len(parsed) == 2
+    assert parsed.dt.tz is not None
+    assert parsed.iloc[0] == parsed.iloc[1]
+
+
+def test_parse_utc_timestamp_list_of_hourly_stamps():
+    from app.data_loader import parse_utc_timestamp
+
+    parsed = parse_utc_timestamp(["2024-06-01T00:00", "2024-06-01T01:00", "2024-06-01T02:00"])
+    assert len(parsed) == 3
+    assert parsed.notna().all()
+
+
 def test_detect_timestamp_column():
     df = pd.DataFrame({"timestamp_utc": ["2024-01-01"], "x": [1]})
     assert detect_timestamp_column(df) == "timestamp_utc"

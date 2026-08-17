@@ -72,7 +72,7 @@ Weather `history_wide.csv` does **not** require a map.
 ## CSV rules
 
 - UTF-8 CSV
-- Required timestamp column: **`timestamp_utc`** (ISO-8601, timezone-aware preferred; parsed as UTC)
+- Required timestamp column: **`timestamp_utc`** (ISO-8601 UTC; **`Z` and `+00:00` both valid**; parsed as UTC)
 - Wide format: one column per point
 - Prefer ≤ 100 columns per file for Cloud demos
 

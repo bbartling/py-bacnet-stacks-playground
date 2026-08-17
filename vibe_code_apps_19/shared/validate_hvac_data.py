@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.data_loader import parse_utc_timestamp
 from shared.data_config import DataConfig, get_config
 
 
@@ -20,9 +21,9 @@ def _rows_range(path: Path) -> dict:
         full = pd.read_csv(path)
         if "timestamp_utc" not in full.columns:
             return {"exists": True, "rows": len(full), "error": "no timestamp_utc"}
-        ts = pd.to_datetime(full["timestamp_utc"], utc=True)
+        ts = parse_utc_timestamp(full["timestamp_utc"])
     else:
-        ts = pd.to_datetime(pd.read_csv(path, usecols=["timestamp_utc"])["timestamp_utc"], utc=True)
+        ts = parse_utc_timestamp(pd.read_csv(path, usecols=["timestamp_utc"])["timestamp_utc"])
     return {
         "exists": True,
         "rows": len(ts),

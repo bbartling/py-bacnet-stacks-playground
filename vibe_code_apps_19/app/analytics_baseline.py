@@ -18,6 +18,7 @@ from typing import Any
 import pandas as pd
 
 from app.agent_api import AgentDataset, run_analytics, run_rcx_coverage, run_rules
+from app.data_loader import parse_utc_timestamp
 from app.metering import build_meter_monthly_table
 from app.occupancy import OccupancySchedule
 from app.rcx_plots import (
@@ -69,7 +70,7 @@ def canonicalize_frame(df: pd.DataFrame, *, float_decimals: int = FLOAT_DECIMALS
         if pd.api.types.is_bool_dtype(out[c]):
             out[c] = out[c].map(lambda v: "" if pd.isna(v) else ("True" if bool(v) else "False"))
         elif pd.api.types.is_datetime64_any_dtype(out[c]):
-            out[c] = pd.to_datetime(out[c], utc=True, errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            out[c] = parse_utc_timestamp(out[c]).dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             out[c] = out[c].fillna(NAN_SENTINEL)
         elif pd.api.types.is_numeric_dtype(out[c]):
             num = pd.to_numeric(out[c], errors="coerce")

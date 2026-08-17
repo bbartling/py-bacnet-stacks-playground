@@ -91,6 +91,6 @@ def render_vav_health_overview() -> None:
     for label, heading in _GROUP_ORDER:
         part = matrix.loc[matrix["score_label"] == label]
         with st.expander(f"{heading} ({len(part)})", expanded=label in {"3/3", "?/3"}):
-            st.dataframe(_display_table(part), use_container_width=True, hide_index=True)
+            st.dataframe(_display_table(part), width="stretch", hide_index=True)
 
     st.caption(provenance_caption(cfg))

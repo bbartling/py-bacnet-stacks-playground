@@ -20,7 +20,7 @@ def report_download_button(
     *,
     primary: bool = False,
     help: str | None = None,
-    use_container_width: bool = True,
+    width: str = "stretch",
 ) -> bool:
     """Render a download button for a file under ``assets/reports``. Returns True if shown."""
     path = report_path(filename)
@@ -35,7 +35,7 @@ def report_download_button(
         key=key,
         type="primary" if primary else "secondary",
         help=help or f"Serves `{filename}` from assets/reports.",
-        use_container_width=use_container_width,
+        width=width,
     )
     return True
 

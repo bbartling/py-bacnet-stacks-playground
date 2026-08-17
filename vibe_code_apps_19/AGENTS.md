@@ -31,7 +31,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** consuming the **pinned
 3. **No client historian trees in git** — local: browse folder; Cloud/shared: upload zip only (see package spec). Demo zip `data/demo_package_v1.zip` is OK
 4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`
 5. **Web OAT by default** for analytics / free-cool / physics rules needing OAT (`oa_t_effective`); OAT-METEO compares BAS vs web **only when both exist**
-6. **`python -m pytest -q`** before done (Windows locked temp: `scripts/run_tests_local.ps1`)
+6. **`python -m pytest -q`** before done (Windows locked temp: `scripts/run_tests_local.ps1`). Streamlit floor is **`>=1.51`** (`width="stretch"` / `width="content"`; do not use deprecated `use_container_width`).
 7. **Keep `vibe19_agent_spec/` in sync** after UI/plot/rule changes (`SESSION_LOG.md`, skills, checkpoints). After Docker/GHCR ships: keep root **`README.md` Docker/GHCR** + **`docs/DOCKER.md`** documenting **pull-latest** (`:latest` / easy-button `scripts/docker_update_vibe19.(sh|ps1)`). Spec: [`vibe19_agent_spec/AGENTS.md`](vibe19_agent_spec/AGENTS.md) rules **25** and **30** (always publish **QEMU multi-arch** `linux/amd64` + `linux/arm64`; verify the manifest; use `workflow_dispatch` **`no_cache=true`** if tags point at missing blobs).
 8. **Bad uploads must not crash the app** — raise/catch `PackageError`, show sidebar error, wipe temp dir; never leave uncaught exceptions on zip load
 9. **Agent API is importable Python only** — `app/agent_api.py` (+ optional CLI). No HTTP API / background server.
@@ -103,7 +103,7 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 
 ### Timestamp / CSV requirements (package + contract)
 
-- Column **`timestamp_utc`** required in package CSVs (ISO-8601; UTC preferred)
+- Column **`timestamp_utc`** required in package CSVs (ISO-8601 UTC; **`Z` and `+00:00` both valid** — `app.data_loader.parse_utc_timestamp` must parse both without pandas infer-format warnings)
 - Wide CSV: one column per point; UTF-8
 - Optional `columns.csv` for role hints; optional `weather/history_wide.csv` (never treated as equipment)
 - Optional `session_config.json` restores units / role_map / thresholds into **session only**
@@ -117,6 +117,31 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
   - Local agents: sidebar **Package zip path** → **Load zip from path**; also **Fault settings JSON path** / **Session config JSON path**
   - Self-host Docker / GHCR: [`docs/DOCKER.md`](docs/DOCKER.md) + root **[`README.md`](README.md) Docker/GHCR** — tip `ghcr.io/bbartling/vibe19:latest`; easy button `scripts/docker_update_vibe19.(sh|ps1)` (pull + recreate). Community Cloud does **not** use the Dockerfile
   - Fork / customize (DB ingest, branding, custom faults): [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
+
+## Package authoring (ANY BAS job — not a single campus)
+
+Vibe19 is a **generic** Streamlit consumer. Charts / FDD / RCx / motors / mixing / OAT-METEO read **Haystack roles** from the zip. They do **not** know Metasys, ALC, Niagara, or a school name. If a plot is empty, the **package map** is incomplete — not “the app is broken.” Empty motors / mixing / VAV / compressor bins are expected when roles are absent. The agent’s job is to map or synthesize columns **in the zip**.
+
+**Never hard-code a site, vendor suffix table, city, or equipment id in `app/`.** No `if building == …`, no Metasys suffix table, no default Madison weather, no glycol special case. Vendor dictionaries and Open-Meteo lat/lon belong in the **offline preprocess repo** that builds `openfdd_package_v1`. Gold shape: `AHU_1`, `VAV_1`, `CHW_1`, `weather/`.
+
+`equipType` / `equipment_type` is canonical (`ahu` `vav` `chwPlant` `boiler` `heatPump` `weather`; `rtu`→AHU). Folder `JRH-RM717-VMA-…` is **UNKNOWN** if unstamped. Unit ventilators / FCUs with air-side points → **`ahu`**. Chillers → **`chwPlant`**.
+
+### What the preprocess agent must put in the zip
+
+| Need | Haystack role(s) | If the BAS has no binary point |
+| --- | --- | --- |
+| Motors (fan/pump/tower) | `fan-status` / `chw-pump-status` / `hw-pump-status` | Map VFD % as `fan-cmd` (or pump cmd). **Synthesize** 0/1 `fan_s` (speed ≥ ~5%) in the wide CSV and map `fan-status` → that column. Never invent hours from leave temp. Document the threshold in the **site preprocess repo**, not Vibe19. |
+| Compressor / mech-cooling OAT bins | `chiller-status` or `compressor-status` (cmd / amps / power also OK) | Synthesize status from % cooling output if needed. **Never** map CHW pump or AHU `cooling-valve` as compressor proof. Map CHW temps to `chilled-water-supply-temp` / `chilled-water-return-temp`. |
+| Mixing scatter | `fan-status` (on) + `outside-air-temp` + `return-air-temp` + `mixed-air-temp` plus enough `|OAT−RAT|≥10°F` samples | Copy **site-global** BAS OA (often one plant sensor) onto every AHU as `outside-air-temp`. Missing any role → skip, don’t crash. |
+| VAV / zone | `zone-air-temp`, `zone-airflow`, `damper`, `reheat-valve` | `zone-airflow` = **actual CFM**, never the airflow setpoint. Stamp `equipType: vav`. |
+| BAS vs web OAT overlay | `outside-air-temp` **and** `{building}/weather/history_wide.csv` → `web-outside-air-temp` | Fetch Open-Meteo at **this job’s** lat/lon; interpolate onto the HVAC UTC grid. `prefer_web_oat: true` for analysis. Weather folder is **not** equipment. |
+| Equipment typing | `equipType` + `equipment_type` | `rtu`→AHU; unit vent / FCU with fans → `ahu`; chiller plant → `chwPlant`. Id-substring fallback is last resort. |
+
+Setpoints (`*-sp`, airflow SP) must never steal process-variable roles.
+
+Sibling JSON: `points` / `column_roles` keys = Haystack names; values = **exact CSV headers**. A string `"equip": "AHU_1"` is a device id, not a nested package `equipment` object (loader accepts both shapes).
+
+Pandas-happy zip: `timestamp_utc` ISO-8601 UTC (`Z` or `+00:00`); UTF-8 wide CSV; forward-slash zip paths (Python `zipfile`, never `Compress-Archive`); `weather/` nested under the building folder; stay under `OPENFDD_MAX_EQUIPMENT` (default 100) or split packages.
 
 ### Shitty / hostile CSV handling (implemented)
 

@@ -12,6 +12,34 @@ import pandas as pd
 TS_CANDIDATES = ("timestamp_utc", "timestamp", "time", "datetime", "date_time")
 
 
+def parse_utc_timestamp(values: Any) -> Any:
+    """Parse ISO-8601 UTC stamps. ``Z`` and ``+00:00`` are both valid."""
+    if isinstance(values, pd.DatetimeIndex):
+        if values.tz is None:
+            return values.tz_localize("UTC")
+        return values.tz_convert("UTC")
+    if isinstance(values, pd.Series):
+        series = values
+        return_series = True
+    elif isinstance(values, (list, tuple, pd.Index)) or getattr(values, "ndim", 0) == 1:
+        series = pd.Series(values)
+        return_series = True
+    else:
+        series = pd.Series([values])
+        return_series = False
+    if pd.api.types.is_datetime64_any_dtype(series):
+        parsed = pd.to_datetime(series, utc=True, errors="coerce")
+        return parsed if return_series else parsed.iloc[0]
+    parsed = pd.to_datetime(series, utc=True, errors="coerce", format="ISO8601")
+    failed = series.notna() & parsed.isna()
+    if bool(failed.any()):
+        mixed = pd.to_datetime(series, utc=True, errors="coerce", format="mixed")
+        parsed = parsed.where(~failed, mixed)
+    if return_series:
+        return parsed
+    return parsed.iloc[0]
+
+
 def detect_timestamp_column(df: pd.DataFrame) -> str | None:
     for c in TS_CANDIDATES:
         if c in df.columns:
@@ -27,7 +55,7 @@ def normalize_timestamp(df: pd.DataFrame, col: str | None = None) -> pd.DataFram
     ts_col = col or detect_timestamp_column(out)
     if ts_col is None:
         return out
-    out[ts_col] = pd.to_datetime(out[ts_col], utc=True, errors="coerce")
+    out[ts_col] = parse_utc_timestamp(out[ts_col])
     out = out.dropna(subset=[ts_col])
     out = out.sort_values(ts_col).set_index(ts_col)
     out.index.name = "timestamp"

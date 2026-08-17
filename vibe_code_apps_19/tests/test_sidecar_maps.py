@@ -11,6 +11,7 @@ import pytest
 
 from app.package_io import PackageError, load_package_from_dir, load_package_zip, wipe_workdir
 from app.sidecar_maps import (
+    _points_from_payload,
     resolve_sidecar_map_path,
     sidecar_candidates,
 )
@@ -138,6 +139,23 @@ def test_nested_zip_expanded_and_requires_sidecar():
         assert result.column_map is not None
     finally:
         wipe_workdir(result.workdir)
+
+
+def test_string_equip_is_device_id_not_package_map():
+    raw = {
+        "equipType": "ahu",
+        "equipment_type": "AHU",
+        "device": "AHU_1",
+        "equip": "AHU_1",
+        "points": {
+            "fan-status": "fan_s",
+            "discharge-air-temp": "sat_f",
+        },
+    }
+    roles, etype = _points_from_payload(raw, "AHU_1")
+    assert roles["fan-status"] == "fan_s"
+    assert roles["discharge-air-temp"] == "sat_f"
+    assert etype in {"AHU", "ahu"}
 
 
 def test_sidecar_candidates_order():

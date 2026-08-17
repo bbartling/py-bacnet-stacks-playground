@@ -29,7 +29,7 @@ from app.column_map_json import (
     build_column_map_from_equipment_frames,
     column_map_to_role_map,
 )
-from app.data_loader import discover_equipment
+from app.data_loader import discover_equipment, parse_utc_timestamp
 from app.package_io import PackageManifest, SessionConfig, load_package_from_dir
 from app.site_model import equipment_type_from_id
 
@@ -231,9 +231,9 @@ def nest_weather_aligned(src_weather: Path, bldg: Path) -> dict:
         aligned = wx.copy()
         mode = "exact_match"
     else:
-        ref = pd.to_datetime(ref_ts, utc=True)
+        ref = parse_utc_timestamp(ref_ts)
         w = wx.copy()
-        w["timestamp_utc"] = pd.to_datetime(w["timestamp_utc"], utc=True)
+        w["timestamp_utc"] = parse_utc_timestamp(w["timestamp_utc"])
         w = w.drop_duplicates("timestamp_utc").set_index("timestamp_utc").sort_index()
         value_cols = [c for c in w.columns]
         for c in value_cols:
@@ -256,7 +256,7 @@ def nest_weather_aligned(src_weather: Path, bldg: Path) -> dict:
     if src_cols.is_file():
         shutil.copy2(src_cols, dest / "columns.csv")
 
-    ts = pd.to_datetime(aligned["timestamp_utc"], utc=True)
+    ts = parse_utc_timestamp(aligned["timestamp_utc"])
     report = {
         "mode": mode,
         "rows": len(aligned),

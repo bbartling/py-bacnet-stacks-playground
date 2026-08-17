@@ -18,7 +18,7 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
-from app.data_loader import discover_equipment, load_equipment_csv, validate_dataframe
+from app.data_loader import discover_equipment, load_equipment_csv, parse_utc_timestamp, validate_dataframe
 
 SCHEMA_VERSION = "openfdd_package_v1"
 SESSION_SCHEMA = "openfdd_session_v1"
@@ -875,7 +875,7 @@ def _validate_equipment_csv(path: Path) -> list[str]:
     # Sample first rows for parseability
     try:
         sample = pd.read_csv(path, nrows=5, usecols=["timestamp_utc"])
-        ts = pd.to_datetime(sample["timestamp_utc"], utc=True, errors="coerce")
+        ts = parse_utc_timestamp(sample["timestamp_utc"])
         if ts.isna().all():
             issues.append(f"{path.parent.name}: timestamp_utc did not parse as datetime")
     except Exception as exc:
