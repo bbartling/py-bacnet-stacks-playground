@@ -40,32 +40,22 @@ def test_streamlit_browser_caps_match_uploader_path(tadco_zip: Path):
 
 
 @pytest.mark.optional_zip
-def test_streamlit_bootstrap_loads_building_100_zip(
+def test_streamlit_upload_loads_building_100_zip(
     tadco_zip: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """Cloud-style auto-load (same package bytes a human uploads)."""
+    """Cloud-style widget upload (same package bytes a human uploads)."""
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
+    from tests.apptest_zip import load_zip_via_uploader
 
-    boot = {
-        "schema_version": "openfdd_bootstrap_v1",
-        "package_path": str(tadco_zip.resolve()),
-        "auto_run_rules": False,
-        "session_config": {
-            "schema_version": "openfdd_session_v1",
-            "unit_system": "imperial",
-            "prefer_web_oat": True,
-        },
-    }
-    boot_path = tmp_path / "streamlit_bootstrap.json"
-    boot_path.write_text(json.dumps(boot), encoding="utf-8")
-    monkeypatch.setenv("VIBE19_BOOTSTRAP", str(boot_path))
-    monkeypatch.setenv("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
     monkeypatch.setenv("APP_MODE", "cloud")
+    monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=300)
     at.run()
     assert not at.exception, f"AppTest exceptions: {list(at.exception)}"
+    load_zip_via_uploader(at, tadco_zip)
+    assert not at.exception, f"after upload: {list(at.exception)}"
 
     def _ss(key, default=None):
         try:
@@ -75,7 +65,7 @@ def test_streamlit_bootstrap_loads_building_100_zip(
 
     frames = _ss("equipment_frames") or {}
     assert len(frames) >= 40, (
-        f"bootstrap failed; frames={len(frames)} status={_ss('bootstrap_status')!r} "
+        f"upload failed; frames={len(frames)} "
         f"errors={[getattr(e, 'value', e) for e in at.sidebar.error]}"
     )
     assert (_ss("package_report") or {}).get("has_weather") or _ss("weather_frame") is not None
@@ -94,7 +84,6 @@ def test_streamlit_local_path_load_building_100(
     monkeypatch.setenv("APP_MODE", "local")
     monkeypatch.setenv("HVAC_DATA_ROOT", str(data))
     monkeypatch.delenv("VIBE19_DOCKER", raising=False)
-    monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
     monkeypatch.setattr("app.config.running_in_docker", lambda: False)
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=300)

@@ -663,3 +663,24 @@ def build_llm_prompt_for_frames(
         lines.append("")
     lines.append("Return the JSON object now.")
     return "\n".join(lines)
+
+def ensure_column_map(
+    frames: dict[str, Any],
+    *,
+    existing_map: dict[str, Any] | None,
+    building_id: str = "",
+) -> tuple[dict[str, Any] | None, bool, list[str]]:
+    """Return (column_map, built_new, warnings). Builds from CSVs if missing."""
+    warnings: list[str] = []
+    if existing_map and (existing_map.get("equipment") or existing_map.get("points")):
+        return existing_map, False, warnings
+    try:
+        cmap = build_column_map_from_equipment_frames(
+            frames, building_id=building_id or "UNKNOWN"
+        )
+        warnings.append("Auto-built column_map from loaded CSV headers / columns.csv")
+        return cmap, True, warnings
+    except Exception as exc:
+        warnings.append(f"column_map auto-build skipped: {exc}")
+        return existing_map, False, warnings
+

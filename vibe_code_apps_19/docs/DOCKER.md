@@ -46,7 +46,7 @@ Or by hand — prefer **`:latest`** (same tip as `:develop` while default branch
 | `-d` | Detached — process stays up after the shell closes |
 | `--restart unless-stopped` | Restart on crash or host/Docker reboot until you `docker stop` |
 | `-p HOST:8501` | Map a free host port to Streamlit inside the container |
-| `-v $HOME/wattlab_workspace:/data` | Shared agent workspace (AFDD / dumps / vibe20) |
+| `-v $HOME/wattlab_workspace:/data` | Optional host mount for package zips / dumps |
 | `--name vibe19` | Stable name for stop / start / logs |
 | Do **not** pass `--rm` | `--rm` deletes the container on stop (fine for one-shot tests only) |
 
@@ -134,7 +134,7 @@ docker image inspect ghcr.io/bbartling/vibe19:develop --format '{{.Architecture}
 
 ### Publishing good containers (agents)
 
-**Non-negotiable for model/agent sessions** (see `vibe19_agent_spec/AGENTS.md` rule **30**):
+**Non-negotiable for GHCR publishes**:
 
 1. Publish only through `.github/workflows/vibe19-ghcr.yml`.
 2. That workflow **must** keep:
@@ -177,57 +177,6 @@ docker run --rm -p 8501:8501 --name vibe19 vibe19:develop
 ```
 
 If pull fails with 403: GitHub → Packages → `vibe19` → Package settings → visibility **Public** (or `docker login ghcr.io` with a PAT that has `read:packages`).
-
-## Agent bootstrap + Docker (critical)
-
-`scripts/agent_afdd.py` writes **host-native paths** into `streamlit_bootstrap.json` / `.last_agent_session.json` (e.g. `C:\Users\…\BUILDING_100.zip`). A **container cannot resolve Windows host paths**. The image default is `APP_MODE=cloud`, so a leftover `.last_agent_session.json` in the image is **not** auto-loaded; pass `VIBE19_BOOTSTRAP` for an explicit operator bootstrap.
-
-For GHCR / Docker:
-
-1. Put the package zip + a bootstrap JSON on a host folder you will bind-mount.
-2. Rewrite `package_path` (and any `fault_settings_path` / `column_map_path`) to **container-visible** paths such as `/data/package.zip`.
-3. Pass `VIBE19_BOOTSTRAP=/data/….json` and mount that folder.
-
-### Windows PowerShell example
-
-```powershell
-# Host folder with the zip + bootstrap (edit paths)
-$dir = "C:\Users\ben\data\vibe19_docker"
-New-Item -ItemType Directory -Force -Path $dir | Out-Null
-Copy-Item "C:\path\to\BUILDING_100_full_openfdd_package_v1.zip" "$dir\package.zip"
-
-@'
-{
-  "schema_version": "openfdd_bootstrap_v1",
-  "package_path": "/data/package.zip",
-  "auto_run_rules": true,
-  "notes": "Container-visible paths only — not Windows drive letters"
-}
-'@ | Set-Content -Encoding utf8 "$dir\VIBE19_BUILDING_100_BOOTSTRAP.json"
-
-# If 8501 is busy, use 8502:8501 and browse localhost:8502
-docker pull ghcr.io/bbartling/vibe19:develop
-docker run --rm -p 8502:8501 `
-  -v "${dir}:/data:ro" `
-  -e VIBE19_BOOTSTRAP=/data/VIBE19_BUILDING_100_BOOTSTRAP.json `
-  --name vibe19-b100 `
-  ghcr.io/bbartling/vibe19:develop
-```
-
-Open **http://localhost:8502**. Expect package load + optional auto-run of all 50 rules per equipment. Sidebar may show **data-contract warnings** (quality window / columns.csv extras / topology gaps) — those are intentional, not crashes.
-
-Skip slow auto-run while debugging UI:
-
-```powershell
-docker run --rm -p 8502:8501 -v "${dir}:/data:ro" `
-  -e VIBE19_BOOTSTRAP=/data/VIBE19_BUILDING_100_BOOTSTRAP.json `
-  -e VIBE19_BOOTSTRAP_SKIP_RULES=1 `
-  ghcr.io/bbartling/vibe19:develop
-```
-
-### Headless agent on the host, Streamlit in Docker
-
-Run `agent_afdd.py` on Windows to produce `fault_settings.json` / `session_config.json`, copy those into `/data`, and reference them from bootstrap with `/data/...` paths. Do **not** leave `C:\...` paths in the JSON the container reads.
 
 ## Folder mode (optional, local APP_MODE only)
 

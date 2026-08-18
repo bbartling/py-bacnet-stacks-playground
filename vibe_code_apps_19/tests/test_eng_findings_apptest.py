@@ -64,24 +64,16 @@ def test_run_rules_eng_findings_panel_no_streamlit_errors(
     from streamlit.testing.v1 import AppTest
 
     zpath = tmp_path / "ui_pkg.zip"
-    _pkg_zip(zpath)  # no sidecar — exercises BUG-014 fallback
-    boot = {
-        "schema_version": "openfdd_bootstrap_v1",
-        "package_path": str(zpath.resolve()),
-        "auto_run_rules": True,
-        "session_config": {
-            "schema_version": "openfdd_session_v1",
-            "unit_system": "imperial",
-            "prefer_web_oat": False,
-        },
-    }
-    boot_path = tmp_path / "boot.json"
-    boot_path.write_text(json.dumps(boot), encoding="utf-8")
-    monkeypatch.setenv("VIBE19_BOOTSTRAP_JSON", str(boot_path))
+    _pkg_zip(zpath, with_sidecar=True)
+    monkeypatch.setenv("APP_MODE", "cloud")
+    monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
     monkeypatch.chdir(ROOT)
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=120)
     at.run()
+    from tests.apptest_zip import load_zip_via_uploader
+
+    load_zip_via_uploader(at, zpath)
     assert not at.exception, f"Streamlit exception on load: {at.exception}"
 
     # Switch to Run Rules if section radio exists

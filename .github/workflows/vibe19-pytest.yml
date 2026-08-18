@@ -47,5 +47,13 @@ jobs:
             tests/test_analytics_shim_parity.py \
             tests/test_calibration_readiness.py \
             tests/test_cookbook_rules.py \
-            tests/test_agent_api.py \
+            tests/test_fdd_runtime.py \
             tests/test_building100_baseline.py
+      - name: Package security and session isolation
+        run: |
+          python -m pytest -q -m "not optional_zip" \
+            tests/test_package_security.py \
+            tests/test_package_io.py \
+            tests/test_session_workspace.py \
+            tests/test_multi_zip.py \
+            tests/test_sidecar_maps.py

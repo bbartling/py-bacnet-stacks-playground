@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.agent_api import make_session_config
+from app.fdd_runtime import make_session_config
 from app.package_io import SCHEMA_VERSION, load_package_from_dir
 from app.rcx_plots import rcx_preset_coverage
 from app.role_map_gap import build_role_map_gap_report

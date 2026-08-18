@@ -111,25 +111,14 @@ def test_turnkey_apptest_all_sections(tmp_path: Path, monkeypatch: pytest.Monkey
 
     zpath = tmp_path / "turnkey.zip"
     _tiny_zip(zpath)
-    boot = {
-        "schema_version": "openfdd_bootstrap_v1",
-        "package_path": str(zpath.resolve()),
-        "auto_run_rules": False,
-        "session_config": {
-            "schema_version": "openfdd_session_v1",
-            "unit_system": "imperial",
-            "prefer_web_oat": True,
-        },
-    }
-    boot_path = tmp_path / "streamlit_bootstrap.json"
-    boot_path.write_text(json.dumps(boot), encoding="utf-8")
-    monkeypatch.setenv("VIBE19_BOOTSTRAP", str(boot_path))
-    monkeypatch.setenv("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
     monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
     monkeypatch.setenv("APP_MODE", "cloud")
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=180)
     at.run()
+    from tests.apptest_zip import load_zip_via_uploader
+
+    load_zip_via_uploader(at, zpath)
     assert not at.exception, f"Initial render exceptions: {list(at.exception)}"
     slider_labels = {
         str(getattr(widget, "label", "") or "")
@@ -225,25 +214,13 @@ def _bootstrap_app(
 ):
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
+    from tests.apptest_zip import load_zip_via_uploader
 
-    boot = {
-        "schema_version": "openfdd_bootstrap_v1",
-        "package_path": str(zpath.resolve()),
-        "auto_run_rules": False,
-        "session_config": {
-            "schema_version": "openfdd_session_v1",
-            "unit_system": "imperial",
-            "prefer_web_oat": True,
-        },
-    }
-    boot_path = tmp_path / "streamlit_bootstrap.json"
-    boot_path.write_text(json.dumps(boot), encoding="utf-8")
-    monkeypatch.setenv("VIBE19_BOOTSTRAP", str(boot_path))
-    monkeypatch.setenv("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
     monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
     monkeypatch.setenv("APP_MODE", "cloud")
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=180)
     at.run()
+    load_zip_via_uploader(at, zpath)
     return at
 
 
@@ -439,11 +416,8 @@ def test_turnkey_live_html_smoke():
     pytest.importorskip("streamlit")
     port = _free_port()
     env = os.environ.copy()
-    env.setdefault("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
     env.setdefault("VIBE19_BROWSER_AUTOLOAD", "0")
     env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
-    # Avoid picking up a developer bootstrap that auto-runs a huge package
-    env.pop("VIBE19_BOOTSTRAP", None)
 
     cmd = [
         env.get("VIBE19_WATTLAB_PYTHON") or sys.executable,

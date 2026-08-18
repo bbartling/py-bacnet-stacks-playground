@@ -4,34 +4,27 @@ Educational **Streamlit + pandas** lab for the [Open-FDD Pandas Cookbook](https:
 
 **This is not the Rust Open-FDD engine.** Production stack: [Open-FDD](https://github.com/bbartling/open-fdd).
 
-**Quick links:** agent brief [`AGENTS.md`](AGENTS.md) · **zip layout** [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) (`openfdd_package_v1`) · fork guide [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
+**Quick links:** contributor notes [`AGENTS.md`](AGENTS.md) · **zip layout** [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) (`openfdd_package_v1`) · preprocess [`docs/DATA_PREPROCESSING.md`](docs/DATA_PREPROCESSING.md)
 
-## Prep a building zip (send this to your agent)
+## Prep a building zip
 
-Human has a cleaned `BUILDING_*` + `weather/` tree and needs an uploadable `openfdd_package_v1` zip (manifest, **per-CSV Haystack maps**, `session_config.json`, weather nested inside the building).
+From a cleaned `BUILDING_*` + `weather/` tree:
 
-**Point the agent here (copy/paste):**
-
-```text
-vibe_code_apps_19/docs/BUILD_OPENFDD_PACKAGE.md
+```powershell
+python scripts/vibe19_prepare_package.py --src path\to\BUILDING_100 --generate-maps --out building.zip
 ```
 
-That doc is the step-by-step agent prompt. Spec + caps: [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md). Multi-part uploads when the zip is too big for the browser: [`vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md).
-
-Suggested human→agent message:
-
-> Read `vibe_code_apps_19/docs/BUILD_OPENFDD_PACKAGE.md` and `docs/PACKAGE_SPEC.md`. Build openfdd JSON maps + session_config for my building folder at `<PATH>`, nest weather inside it, validate with `load_package_from_dir`, then tell me how to zip and upload.
+Spec + caps: [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md). Multi-part uploads when the zip is too big for the browser: [`docs/DATA_PREPROCESSING.md`](docs/DATA_PREPROCESSING.md). Optional `--mapping-prompt` prints helper text; it never calls an LLM.
 
 ## Highlights
 
-- Full **59 cookbook rules** + optional `CUSTOM-*` agent rules
-- **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
+- Full **59 cookbook rules** + optional `CUSTOM-*` rules
+- **Zip package** ingest (`openfdd_package_v1`) into a per-browser session workspace
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (**compressor devices only** — not CHW pump-alone or AHU chilled-water valves), device-hours + any-active aggregates, RCx plots
-- **OpenFDD Engineering Bundle** (Export tab) — one standard handoff zip (`openfdd_engineering_bundle_v1`, legacy `wattlab_dump_v3`): shared `telemetry/`, quality flags, sparse fault intervals, FDD findings, analytics, `model_seed.json`, `calibration_readiness.json`, and `MANIFEST.json`
-- Headless agent API + CLI; session download/restore for Cloud-friendly handoff
-- **Docker / GHCR** image for self-host demos (**Vibe 19 only** — this work does not publish Vibe 20)
-- **Shared agent workspace with vibe20:** dump zips into a host volume both containers mount; agents use `docker exec` (no git clone). See vibe20 [`AGENT_DOCKER_WORKSPACE.md`](../vibe_code_apps_20/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md)
+- **OpenFDD Engineering Bundle** (Export tab) — one standard handoff zip (`openfdd_engineering_bundle_v1`, legacy `wattlab_dump_v3`)
+- Session download/restore (`session_config.json`) for Cloud-friendly persistence
+- **Docker / GHCR** image for self-host demos (`ghcr.io/bbartling/vibe19:latest`)
 
 ## Quick start (local)
 
@@ -41,7 +34,7 @@ python -m pip install -e ".[dev]"
 streamlit run streamlit_app.py
 ```
 
-Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit **500 MB**).
+Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit **150 MB** compressed).
 
 ## Docker / GHCR
 
@@ -119,17 +112,19 @@ More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/w
 
 | Path | Limit |
 | --- | --- |
-| Browser upload | **500 MB** (`.streamlit/config.toml`) |
-| Agent / CLI / path load | **2048 MB** default (`OPENFDD_MAX_*` env override) |
+| Browser upload | **150 MB** compressed (`.streamlit/config.toml`) |
+| Browser expanded | **500 MB** |
+| Single file | **80 MB** |
+| CLI / path load | **2048 MB** default (`OPENFDD_MAX_*` env override) |
 
-Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses the upload widget).
+Large BUILDING packages: use **Load zip from path** or `scripts/vibe19_prepare_package.py` (bypasses the upload widget).
 
 ## OpenFDD Engineering Bundle
 
 The **Export** tab builds one zip for FDD analysis and EnergyPlus handoff. Schema is
 **`openfdd_engineering_bundle_v1`** (`legacy_schema_version`: `wattlab_dump_v3`).
 See [`docs/ENGINEERING_BUNDLE.md`](docs/ENGINEERING_BUNDLE.md). Diagnostic/forensic
-per-rule timeseries stay on `scripts/agent_afdd.py --export-profile`.
+per-rule timeseries stay on `export_engineering_bundle(..., profile="diagnostic")`.
 
 **Mechanical cooling in the dump:** rows carry `series_kind` (`individual_device`, `aggregate_device_hours`, `aggregate_active_hours`) and normalized coverage (`eligibility_state`, including `eligible_no_runtime`). Compressor/chiller status, verified command, or **unit-aware** analog power/current above validated thresholds prove runtime — **not** CHW pump status alone, and **not** chilled-water AHU valves. Heat-pump/VRF compressor evidence additionally requires proven cooling mode. Building characteristics (`building_type`, `floor_area_ft2`, utility bills) stay `user_required` in `model_seed.json` for the vibe20 human+agent. Sensor stats include expanded percentiles/coverage; inferred parameters carry provenance/confidence.
 
@@ -168,10 +163,9 @@ Host-venv runs are still fine — `pytest` there comes from
 
 | Doc | Topic |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | Agent hard rules |
-| [`docs/BUILD_OPENFDD_PACKAGE.md`](docs/BUILD_OPENFDD_PACKAGE.md) | **Agent prompt:** BUILDING → uploadable zip |
+| [`AGENTS.md`](AGENTS.md) | Contributor hard rules |
+| [`docs/DATA_PREPROCESSING.md`](docs/DATA_PREPROCESSING.md) | Flatten / map / multi-part zip |
 | [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) | Zip package layout |
 | [`docs/DATA_MODEL_DRIVEN.md`](docs/DATA_MODEL_DRIVEN.md) | Roles → rules / charts |
 | [`docs/DOCKER.md`](docs/DOCKER.md) | Docker + GHCR |
 | [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md) | Community Cloud |
-| [`vibe19_agent_spec/`](vibe19_agent_spec/) | Skills, customize, session log |

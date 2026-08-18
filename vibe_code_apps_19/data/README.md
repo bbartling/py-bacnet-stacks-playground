@@ -6,8 +6,8 @@ Do **not** copy full site CSV exports into this repo (often hundreds of MB to mu
 
 | Mode | What to use |
 | --- | --- |
-| Demo / Cloud / Docker | `openfdd_package_v1` **zip** (browser upload ≤ 500 MB) |
-| Agent / large sites | Path load or `agent_afdd.py` (package safety default **2048 MB**) |
+| Demo / Cloud / Docker | `openfdd_package_v1` **zip** (browser upload ≤ 150 MB) |
+| Large sites | Path load or `scripts/vibe19_prepare_package.py` (package safety default **2048 MB**) |
 | Native local folder | Historian tree on disk (not committed) |
 
 Configure a machine-local root if needed:

@@ -66,7 +66,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # AppTests run ``python -m pytest`` inside the GHCR image.
 RUN pip install --no-cache-dir "pytest>=8"
 
-# Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
+# Includes .streamlit/config.toml (maxUploadSize=150) — do not lower OPENFDD_MAX_* here.
 COPY . .
 
 EXPOSE 8501

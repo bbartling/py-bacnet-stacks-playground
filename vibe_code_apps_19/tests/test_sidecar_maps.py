@@ -119,7 +119,7 @@ def test_accepts_stem_column_map_json_name(tmp_path: Path):
     assert "AHU_1" in result.frames
 
 
-def test_nested_zip_expanded_and_requires_sidecar():
+def test_nested_zip_rejected():
     inner = _zip(
         {
             "history_wide.csv": _hist(),
@@ -132,13 +132,8 @@ def test_nested_zip_expanded_and_requires_sidecar():
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("manifest.json", _manifest())
         zf.writestr("AHU_NEST.zip", inner)
-    result = load_package_zip(buf.getvalue())
-    try:
-        # Nested zip expands to AHU_NEST/…
-        assert "AHU_NEST" in result.frames
-        assert result.column_map is not None
-    finally:
-        wipe_workdir(result.workdir)
+    with pytest.raises(PackageError, match="Nested zip"):
+        load_package_zip(buf.getvalue())
 
 
 def test_string_equip_is_device_id_not_package_map():

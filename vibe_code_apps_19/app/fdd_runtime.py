@@ -1,8 +1,4 @@
-"""Importable Agent API for AFDD / RCx — no HTTP server, Streamlit-free.
-
-Agents load packages/folders, run the 50-rule cookbook, analytics, and RCx
-coverage, then export a machine-readable bundle.
-"""
+"""Streamlit-free FDD load / run / export for OpenFDD packages."""
 
 from __future__ import annotations
 
@@ -56,7 +52,7 @@ require_supported_open_fdd()
 
 
 @dataclass
-class AgentDataset:
+class BuildingDataset:
     """Loaded building data ready for rules / analytics / RCx."""
 
     building_id: str
@@ -81,7 +77,7 @@ class AgentDataset:
 
 
 @dataclass
-class AgentRun:
+class FddRun:
     """Results from ``run_rules`` (and optional analytics / RCx attachments)."""
 
     results: list[RuleResult] = field(default_factory=list)
@@ -153,7 +149,7 @@ def _load_weather_near(building_root: Path) -> pd.DataFrame | None:
     return None
 
 
-def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
+def _dataset_from_package(result, *, source_path: str) -> BuildingDataset:
     role_map: dict[str, dict[str, str]] = {}
     params: dict[str, dict[str, Any]] = {}
     unit_system = "imperial"
@@ -192,7 +188,7 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
         )
     _attach_role_map(frames, role_map)
 
-    return AgentDataset(
+    return BuildingDataset(
         building_id=result.manifest.building_id,
         frames=frames,
         weather=result.weather,
@@ -211,7 +207,7 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
     )
 
 
-def load_package_path(path: str | Path) -> AgentDataset:
+def load_package_path(path: str | Path) -> BuildingDataset:
     """Load an ``openfdd_package_v1`` zip or an already-extracted package directory."""
     p = Path(path).expanduser().resolve()
     if not p.exists():
@@ -233,7 +229,7 @@ def load_package_path(path: str | Path) -> AgentDataset:
     raise ValueError(f"Unsupported package path: {p}")
 
 
-def load_building_folder(path: str | Path) -> AgentDataset:
+def load_building_folder(path: str | Path) -> BuildingDataset:
     """Load a historian building folder (equipment subdirs + optional weather)."""
     p = Path(path).expanduser().resolve()
     if not p.is_dir():
@@ -289,7 +285,7 @@ def load_building_folder(path: str | Path) -> AgentDataset:
         "start": str(span["start"]) if span.get("start") is not None else None,
         "end": str(span["end"]) if span.get("end") is not None else None,
     }
-    return AgentDataset(
+    return BuildingDataset(
         building_id=p.name,
         frames=frames,
         weather=weather,
@@ -325,13 +321,13 @@ def _quality_gated_frames(frames: dict[str, pd.DataFrame]) -> dict[str, pd.DataF
 
 
 def run_rules(
-    dataset: AgentDataset,
+    dataset: BuildingDataset,
     params: dict[str, dict[str, Any]] | None = None,
     equipment_ids: list[str] | set[str] | None = None,
     rule_ids: list[str] | set[str] | None = None,
     *,
     require_operational_gates: bool = True,
-) -> AgentRun:
+) -> FddRun:
     """Run all 50 canonical rules (optionally filtered) — never silently omit."""
     merged_params = {**dataset.params, **(params or {})}
     _attach_role_map(dataset.frames, dataset.role_map)
@@ -389,7 +385,7 @@ def run_rules(
         faults = summary[summary["status"] == "FAULT"].copy()
         if not faults.empty and "fault_hours" in faults.columns:
             top = faults.sort_values("fault_hours", ascending=False).head(25)
-    return AgentRun(
+    return FddRun(
         results=results,
         summary=summary,
         status_counts=counts,
@@ -409,7 +405,7 @@ def run_rules(
 
 
 def run_analytics(
-    dataset: AgentDataset,
+    dataset: BuildingDataset,
     params: dict[str, Any] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Motor hours, weekly motors, mech-cooling OAT bins, model-seed signatures."""
@@ -474,26 +470,25 @@ def run_analytics(
     }
 
 
-def run_rcx_coverage(dataset: AgentDataset) -> pd.DataFrame:
+def run_rcx_coverage(dataset: BuildingDataset) -> pd.DataFrame:
     """RCx preset coverage diagnostics."""
     from app.rcx_plots import rcx_preset_coverage
 
     return rcx_preset_coverage(dataset.frames, dataset.role_map, weather=dataset.weather)
 
 
-def export_agent_bundle(
-    dataset: AgentDataset,
-    run: AgentRun | None,
+def export_engineering_bundle(
+    dataset: BuildingDataset,
+    run: FddRun | None,
     out_dir: str | Path,
     *,
     include_gap_report: bool = True,
     include_tuning_report: bool = True,
-    baseline_run: AgentRun | None = None,
+    baseline_run: FddRun | None = None,
     utility_bills: list[dict[str, Any]] | None = None,
     city: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
-    include_bootstrap: bool = True,
     profile: str = "summary",
     selected_evidence: set[tuple[str, str]] | None = None,
     occupancy_schedule: dict[str, Any] | None = None,
@@ -521,7 +516,7 @@ def export_agent_bundle(
         "compression": 0.0,
     }
 
-    run = run or AgentRun(params=dataset.params)
+    run = run or FddRun(params=dataset.params)
     # Rule execution is typically done before export; credit any recorded timing.
     if isinstance(run.meta, dict) and run.meta.get("rule_execution_seconds") is not None:
         try:
@@ -534,7 +529,7 @@ def export_agent_bundle(
     if not analytics:
         analytics = run_analytics(dataset)
         run.analytics = analytics
-    # Ensure model-seed analytics even for older AgentRun objects
+    # Ensure model-seed analytics even for older FddRun objects
     if "schedule_inference" not in analytics or "operating_signatures" not in analytics:
         sched_table, sched_payload = infer_schedules(dataset.frames, dataset.role_map)
         signatures = operating_signatures(
@@ -713,7 +708,7 @@ def export_agent_bundle(
             df.to_csv(path, index=False)
             written[key] = path
 
-    # Coverage may be missing on older AgentRun.analytics dicts — derive it here
+    # Coverage may be missing on older FddRun.analytics dicts — derive it here
     if "mech_cooling_coverage" not in analytics:
         cov = mech_cooling_coverage(
             dataset.frames,
@@ -1069,36 +1064,6 @@ def export_agent_bundle(
         man_payload["package_file_count"] = package_file_count
         man_path.write_text(json.dumps(man_payload, indent=2, default=str), encoding="utf-8")
 
-    # Streamlit bridge: write bootstrap so the next app start auto-loads this run
-    if not include_bootstrap:
-        return written
-    try:
-        from app.bootstrap import build_bootstrap_payload, write_bootstrap
-
-        pkg = dataset.source_path if str(dataset.source_path).lower().endswith(".zip") else None
-        folder = None if pkg else (dataset.source_path or None)
-        # Prefer original zip if source_path is an extract dir but package was zip — use source_path as-is
-        src = Path(dataset.source_path) if dataset.source_path else None
-        if src and src.is_file() and src.suffix.lower() == ".zip":
-            pkg, folder = str(src), None
-        elif src and src.is_dir():
-            pkg, folder = None, str(src)
-
-        boot = build_bootstrap_payload(
-            package_path=pkg,
-            building_folder=folder,
-            session_config=session,
-            fault_settings_path=fs,
-            column_map_path=written.get("column_map"),
-            out_dir=out,
-            auto_run_rules=True,
-            notes=f"building_id={dataset.building_id}",
-        )
-        for bp in write_bootstrap(boot, path=out / "streamlit_bootstrap.json", also_default=True):
-            written[f"bootstrap:{bp.name}"] = bp
-    except Exception:
-        pass  # bootstrap is best-effort; never fail the export
-
     return written
 
 
@@ -1107,7 +1072,7 @@ def export_agent_bundle(
 # ---------------------------------------------------------------------------
 
 
-def list_candidate_faults(run: AgentRun, *, building: str = "") -> list:
+def list_candidate_faults(run: FddRun, *, building: str = "") -> list:
     """FAULT rows as CandidateDetection list for Engineering Findings."""
     from app.reporting.candidates import candidates_from_rule_results
 

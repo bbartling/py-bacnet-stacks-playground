@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from app.agent_api import load_package_path
+from app.fdd_runtime import load_package_path
 from app.analytics_baseline import (
     GOLDEN_TABLE_NAMES,
     UPDATE_ENV,

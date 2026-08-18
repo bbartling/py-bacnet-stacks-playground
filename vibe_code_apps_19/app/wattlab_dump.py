@@ -57,7 +57,7 @@ EXPORT_METRICS_SCOPE: dict[str, str] = {
 EXPORT_STAGE_SCOPE: dict[str, str] = {
     "rule_execution": (
         "Wall time of run_rules() via time.perf_counter, stored on "
-        "AgentRun.meta.rule_execution_seconds and propagated into stage_seconds."
+        "FddRun.meta.rule_execution_seconds and propagated into stage_seconds."
     ),
     "analytics": "Compute-only analytics / coverage / gap / tuning preparation before writing files.",
     "serialization": "Writing payload files including final run_report.json (excludes MANIFEST).",

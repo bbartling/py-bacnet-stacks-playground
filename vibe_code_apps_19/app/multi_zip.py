@@ -1,8 +1,9 @@
 """Assemble multiple browser-upload zip parts into one openfdd_package_v1 session.
 
-Humans (and Cloud) are limited by Streamlit ``maxUploadSize`` per file (~500 MB).
-A full job may be up to ``DEFAULT_PACKAGE_MB`` (2 GB) uncompressed once merged.
-Agents preprocess CSVs into several part zips; this module merges them safely.
+Humans (and Cloud) are limited by Streamlit ``maxUploadSize`` per file
+(``BROWSER_UPLOAD_MB``). A full job may be up to ``DEFAULT_PACKAGE_MB`` (2 GB)
+uncompressed once merged. Sibling part zips are merged; nested zips inside a
+part are rejected.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import BinaryIO
 
 from app.package_io import (
     TEMP_PREFIX,
+    ExtractionBudget,
     PackageCaps,
     PackageError,
     PackageLoadResult,
@@ -26,10 +28,12 @@ from app.package_io import (
     _inspect_zip,
     _is_zip_dir,
     _safe_member_path,
+    _stream_copy,
     _zip_has_backslash_paths,
     absorb_sibling_weather,
     effective_package_caps,
     load_package_from_dir,
+    reject_nested_zips,
     resolved_extract_target,
     wipe_workdir,
 )
@@ -43,7 +47,14 @@ class ZipPart:
     data: bytes
 
 
-def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_name: str) -> list[str]:
+def _extract_part_into(
+    workdir: Path,
+    data: bytes,
+    *,
+    caps: PackageCaps,
+    part_name: str,
+    budget: ExtractionBudget,
+) -> list[str]:
     """Extract one zip into workdir. Returns warnings (e.g. overwrites)."""
     warnings: list[str] = []
     if len(data) > caps.max_zip_bytes:
@@ -67,11 +78,7 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
                     )
                 _ensure_parent_dir(target, info.filename)
                 with zf.open(info, "r") as src, target.open("wb") as out:
-                    while True:
-                        chunk = src.read(1024 * 256)
-                        if not chunk:
-                            break
-                        out.write(chunk)
+                    _stream_copy(src, out, budget, filename=f"{part_name}:{info.filename}")
     except PackageError:
         raise
     except zipfile.BadZipFile as exc:
@@ -135,7 +142,7 @@ def merge_zip_parts_to_dir(
     per_part = per_part_caps or caps
     ordered, warnings = _normalize_parts(parts)
     total = sum(len(p.data) for p in ordered)
-    # Soft check: compressed sum should not wildly exceed agent cap
+    # Soft check: compressed sum should not wildly exceed assembled cap
     if total > caps.max_uncompressed_bytes:
         raise PackageError(
             f"Combined zip parts are {total / (1024 * 1024):.0f} MB compressed — "
@@ -143,14 +150,19 @@ def merge_zip_parts_to_dir(
         )
     workdir = Path(dest) if dest else Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
     workdir.mkdir(parents=True, exist_ok=True)
+    budget = ExtractionBudget.from_caps(caps)
     try:
         for part in ordered:
             warnings.extend(
-                _extract_part_into(workdir, part.data, caps=per_part, part_name=part.name)
+                _extract_part_into(
+                    workdir,
+                    part.data,
+                    caps=per_part,
+                    part_name=part.name,
+                    budget=budget,
+                )
             )
-        from app.package_io import expand_nested_zips
-
-        warnings.extend(expand_nested_zips(workdir, caps=caps))
+        reject_nested_zips(workdir)
         # Optional job manifest validation
         job_path = workdir / "job_manifest.json"
         if job_path.is_file():
@@ -184,7 +196,7 @@ def load_package_from_zip_parts(
     per_part_caps: PackageCaps | None = None,
     dest: Path | None = None,
 ) -> PackageLoadResult:
-    """Merge zip parts then ``load_package_from_dir`` (full agent-size cap on result)."""
+    """Merge zip parts then ``load_package_from_dir`` (full CLI-size cap on result)."""
     merge_caps = merge_caps or effective_package_caps()
     per_part_caps = per_part_caps or effective_package_caps(for_browser_upload=True)
     workdir, merge_warnings = merge_zip_parts_to_dir(
