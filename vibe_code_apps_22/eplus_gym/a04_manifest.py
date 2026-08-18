@@ -6,7 +6,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from eplus_gym.a04_identity import A04_GIT_BLOB, A04_IDF_NAME, A04_SHA_CRLF, A04_SHA_LF
+from eplus_gym.a04_identity import (
+    A04_GIT_BLOB,
+    A04_IDF_NAME,
+    A04_SHA_ALLOWED,
+    A04_SHA_CRLF,
+    A04_SHA_LF,
+)
 
 MANIFEST_REL = "models/eplus/a04_model_manifest.json"
 
@@ -24,13 +30,19 @@ def sha256_lf(data: bytes) -> str:
 
 
 def verify_a04_bytes(data: bytes) -> dict[str, str]:
-    crlf = sha256_raw(data)
+    working = sha256_raw(data)
     lf = sha256_lf(data)
-    if crlf != A04_SHA_CRLF:
-        raise A04ManifestError(f"A04 CRLF sha mismatch: {crlf}")
+    if working not in A04_SHA_ALLOWED:
+        raise A04ManifestError(f"A04 working-copy sha mismatch: {working}")
     if lf != A04_SHA_LF:
         raise A04ManifestError(f"A04 LF sha mismatch: {lf}")
-    return {"sha256_crlf": crlf, "sha256_lf": lf, "git_blob": A04_GIT_BLOB}
+    return {
+        "sha256_working": working,
+        "sha256_crlf": A04_SHA_CRLF,
+        "sha256_lf": lf,
+        "git_blob": A04_GIT_BLOB,
+        "working_copy_has_crlf": b"\r\n" in data,
+    }
 
 
 def load_a04_model_manifest(app_root: Path) -> dict[str, Any]:

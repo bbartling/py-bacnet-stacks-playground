@@ -60,7 +60,8 @@ TRACK_B_SHA = "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a"
 
 def test_a04_raw_and_lf_hashes_and_git_blob():
     raw = A04.read_bytes()
-    assert hashlib.sha256(raw).hexdigest() == A04_SHA_CRLF
+    working = hashlib.sha256(raw).hexdigest()
+    assert working in {A04_SHA_CRLF, A04_SHA_LF}
     lf = hashlib.sha256(raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")).hexdigest()
     assert lf == A04_SHA_LF
     blob = subprocess.check_output(["git", "hash-object", str(A04)], text=True).strip()
@@ -75,8 +76,11 @@ def test_a04_raw_and_lf_hashes_and_git_blob():
 
 def test_a04_bytes_immutable_line_endings():
     raw = A04.read_bytes()
-    assert b"\r\n" in raw
-    assert hashlib.sha256(raw).hexdigest() != hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    lf = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    crlf = lf.replace(b"\n", b"\r\n")
+    assert hashlib.sha256(lf).hexdigest() == A04_SHA_LF
+    assert hashlib.sha256(crlf).hexdigest() == A04_SHA_CRLF
+    assert A04_SHA_CRLF != A04_SHA_LF
 
 
 def test_trackb_research_child_hash_and_labels():

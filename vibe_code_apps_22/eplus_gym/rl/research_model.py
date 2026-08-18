@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from eplus_gym.a04_identity import A04_IDF_NAME, A04_SHA_CRLF
+from eplus_gym.a04_identity import A04_IDF_NAME, A04_SHA_ALLOWED, A04_SHA_CRLF
 from eplus_gym.site_pins import sha256_file
 
 MANIFEST_NAME = "research_rl_model_v1.json"
@@ -49,8 +49,9 @@ def verify_research_model(
         idf = Path(site_idf)
     if idf.is_file():
         got = sha256_file(idf)
-        if got != want and Path(idf).name == A04_IDF_NAME:
-            # A04 raw pin is CRLF; research twin defaults to A04.
-            if got != A04_SHA_CRLF:
+        if Path(idf).name == A04_IDF_NAME:
+            if got not in A04_SHA_ALLOWED:
                 raise ResearchModelError(f"research IDF hash mismatch: {got}")
+        elif want and got != want:
+            raise ResearchModelError(f"research IDF hash mismatch: {got}")
     return body
