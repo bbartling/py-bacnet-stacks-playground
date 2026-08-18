@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-08-18 — Per-session Streamlit isolation (Cloud / GHCR)
+
+- Uploads extract to `{temp}/vibe19/{session_id}/` (`app/session_workspace.py`). Clear session wipes only that UUID dir.
+- Cloud (`cfg.is_cloud`) never reads/writes `.last_browser_session.json`. Agent `.last_agent_session.json` skipped unless `VIBE19_BOOTSTRAP` is set.
+- Tests: `tests/test_session_workspace.py`, `tests/test_cloud_session_isolation_apptest.py`.
+- Docs: `docs/STREAMLIT_CLOUD.md`, `docs/DOCKER.md`, `docs/DASHBOARD_CONTRACT.md`.
+
+---
+
 ## 2026-08-17 — Streamlit width=, UTC stamps, Haystack string `equip`
 
 - Streamlit floor `>=1.51`; widgets use `width="stretch"` / `width="content"` (no `use_container_width`).

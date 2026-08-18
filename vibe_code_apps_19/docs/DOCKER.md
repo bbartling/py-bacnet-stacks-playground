@@ -9,7 +9,7 @@
 | Process inside the container | **Streamlit** listening on **internal port 8501** |
 | Browser URL | Host port you publish, e.g. `-p 8501:8501` → http://localhost:8501 or `-p 8502:8501` → http://localhost:8502 |
 | Default image mode | `APP_MODE=cloud` + `VIBE19_DOCKER=1` → **zip-only** UI (no Folder path) |
-| Data retention | Zip extract under OS temp (`vibe19_*`); Clear session / wipe — not kept in the image |
+| Data retention | Per-browser workspace `{temp}/vibe19/{session_id}/`; Clear session wipes only that session. No process-wide last-upload pointer (`APP_MODE=cloud`). |
 
 **Port conflicts:** if something else already owns `:8501`, map a free host port (`-p 8502:8501` → http://localhost:8502).
 
@@ -180,7 +180,7 @@ If pull fails with 403: GitHub → Packages → `vibe19` → Package settings �
 
 ## Agent bootstrap + Docker (critical)
 
-`scripts/agent_afdd.py` writes **host-native paths** into `streamlit_bootstrap.json` / `.last_agent_session.json` (e.g. `C:\Users\…\BUILDING_100.zip`). A **container cannot resolve Windows host paths**.
+`scripts/agent_afdd.py` writes **host-native paths** into `streamlit_bootstrap.json` / `.last_agent_session.json` (e.g. `C:\Users\…\BUILDING_100.zip`). A **container cannot resolve Windows host paths**. The image default is `APP_MODE=cloud`, so a leftover `.last_agent_session.json` in the image is **not** auto-loaded; pass `VIBE19_BOOTSTRAP` for an explicit operator bootstrap.
 
 For GHCR / Docker:
 

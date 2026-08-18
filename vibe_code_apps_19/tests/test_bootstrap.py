@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.bootstrap import (
     BOOTSTRAP_SCHEMA,
+    agent_bootstrap_allowed,
     build_bootstrap_payload,
     default_bootstrap_path,
     read_bootstrap,
@@ -57,3 +58,11 @@ def test_resolve_env_bootstrap(tmp_path: Path, monkeypatch):
     loaded = read_bootstrap()
     assert loaded is not None
     assert loaded["auto_run_rules"] is False
+
+
+def test_agent_bootstrap_allowed_cloud_vs_local(monkeypatch):
+    monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
+    assert agent_bootstrap_allowed(is_cloud=False) is True
+    assert agent_bootstrap_allowed(is_cloud=True) is False
+    monkeypatch.setenv("VIBE19_BOOTSTRAP", "/tmp/explicit.json")
+    assert agent_bootstrap_allowed(is_cloud=True) is True

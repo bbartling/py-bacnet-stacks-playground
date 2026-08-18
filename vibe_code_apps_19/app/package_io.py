@@ -9,7 +9,6 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +18,7 @@ import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
 from app.data_loader import discover_equipment, load_equipment_csv, parse_utc_timestamp, validate_dataframe
+from app.session_workspace import path_is_inside, sweep_stale_workspaces, wipe_workspace
 
 SCHEMA_VERSION = "openfdd_package_v1"
 SESSION_SCHEMA = "openfdd_session_v1"
@@ -221,30 +221,30 @@ class PackageLoadResult:
     column_map_issues: list[str] = field(default_factory=list)
 
 
-def sweep_old_temp_dirs(*, max_age_sec: float = TEMP_MAX_AGE_SEC) -> int:
-    """Best-effort cleanup of stale vibe19_* temp dirs (Cloud has no reliable session end)."""
-    removed = 0
-    root = Path(tempfile.gettempdir())
-    now = time.time()
-    for p in root.glob(f"{TEMP_PREFIX}*"):
-        if not p.is_dir():
-            continue
-        try:
-            age = now - p.stat().st_mtime
-            if age > max_age_sec:
-                shutil.rmtree(p, ignore_errors=True)
-                removed += 1
-        except OSError:
-            continue
-    return removed
+def sweep_old_temp_dirs(
+    *,
+    max_age_sec: float = TEMP_MAX_AGE_SEC,
+    protect: Path | str | None = None,
+) -> int:
+    """Best-effort cleanup of stale session / vibe19_* temps.
+
+    Never deletes ``{temp}/vibe19`` itself or ``protect`` (the caller's
+    active workspace).
+    """
+    return sweep_stale_workspaces(protect=protect, max_age_sec=max_age_sec)
 
 
 def wipe_workdir(path: Path | str | None) -> None:
-    if not path:
-        return
-    p = Path(path)
-    if p.is_dir() and p.name.startswith(TEMP_PREFIX):
-        shutil.rmtree(p, ignore_errors=True)
+    """Delete a session package dir or legacy ``vibe19_*`` temp. Never the parent."""
+    wipe_workspace(path)
+
+
+def resolved_extract_target(workdir: Path, rel: Path, *, entry_name: str) -> Path:
+    """Join ``rel`` under ``workdir`` and reject zip-slip after resolve."""
+    target = workdir / rel
+    if not path_is_inside(workdir, target):
+        raise PackageError(f"Extract path escaped workspace: {entry_name}")
+    return target
 
 
 def _safe_member_path(name: str) -> Path:
@@ -397,7 +397,7 @@ def expand_nested_zips(
                         member = _safe_member_path(info.filename)
                         if not member.parts:
                             continue
-                        target = dest / member
+                        target = resolved_extract_target(dest, member, entry_name=info.filename)
                         _ensure_parent_dir(target, info.filename)
                         with zf.open(info, "r") as src, target.open("wb") as out:
                             while True:
@@ -446,7 +446,7 @@ def extract_package_zip(
                 rel = _safe_member_path(info.filename)
                 if not rel.parts:
                     continue
-                target = workdir / rel
+                target = resolved_extract_target(workdir, rel, entry_name=info.filename)
                 _ensure_parent_dir(target, info.filename)
                 # Stream copy with hard cap
                 with zf.open(info, "r") as src, target.open("wb") as out:
@@ -884,15 +884,22 @@ def _validate_equipment_csv(path: Path) -> list[str]:
 
 
 
-def load_package_zip(data: bytes, *, caps: PackageCaps | None = None) -> PackageLoadResult:
+def load_package_zip(
+    data: bytes,
+    *,
+    caps: PackageCaps | None = None,
+    dest: Path | None = None,
+    protect: Path | str | None = None,
+) -> PackageLoadResult:
     """Extract + validate + load. Caller owns wipe via result.workdir.
 
     Pass ``caps=effective_package_caps(for_browser_upload=True)`` for Streamlit
     uploader bytes (500 MB). Agent/CLI/path use default 2048 MB caps.
+    Pass ``dest`` (session package dir) so Cloud extracts stay isolated.
     """
-    sweep_old_temp_dirs()
+    sweep_old_temp_dirs(protect=protect or dest)
     caps = caps or effective_package_caps()
-    workdir = extract_package_zip(data, caps=caps)
+    workdir = extract_package_zip(data, dest=dest, caps=caps)
     try:
         building_root = resolve_building_root(workdir)
         result = load_package_from_dir(building_root, workdir=workdir, caps=caps)

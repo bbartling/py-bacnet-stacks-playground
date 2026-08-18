@@ -1,4 +1,10 @@
-"""Streamlit cache helpers."""
+"""Streamlit cache helpers.
+
+Global ``@st.cache_data`` is only for immutable / content- or path-keyed loaders
+(rule YAML, inventory, local historian folders, identical upload bytes).
+Uploaded zip frames, mappings, and rule results live in ``st.session_state``
+and per-session workspaces — never in a process-wide last-upload pointer.
+"""
 
 from __future__ import annotations
 

@@ -30,6 +30,7 @@ from app.package_io import (
     absorb_sibling_weather,
     effective_package_caps,
     load_package_from_dir,
+    resolved_extract_target,
     wipe_workdir,
 )
 
@@ -59,7 +60,7 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
                 rel = _safe_member_path(info.filename)
                 if not rel.parts:
                     continue
-                target = workdir / rel
+                target = resolved_extract_target(workdir, rel, entry_name=info.filename)
                 if target.is_file():
                     warnings.append(
                         f"{part_name}: overwriting existing path `{rel.as_posix()}`"
@@ -127,6 +128,7 @@ def merge_zip_parts_to_dir(
     *,
     caps: PackageCaps | None = None,
     per_part_caps: PackageCaps | None = None,
+    dest: Path | None = None,
 ) -> tuple[Path, list[str]]:
     """Extract all parts into a fresh temp dir. Returns (workdir, warnings)."""
     caps = caps or effective_package_caps()
@@ -139,7 +141,8 @@ def merge_zip_parts_to_dir(
             f"Combined zip parts are {total / (1024 * 1024):.0f} MB compressed — "
             f"exceeds {caps.max_uncompressed_mb} MB safety limit"
         )
-    workdir = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
+    workdir = Path(dest) if dest else Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
+    workdir.mkdir(parents=True, exist_ok=True)
     try:
         for part in ordered:
             warnings.extend(
@@ -179,12 +182,13 @@ def load_package_from_zip_parts(
     *,
     merge_caps: PackageCaps | None = None,
     per_part_caps: PackageCaps | None = None,
+    dest: Path | None = None,
 ) -> PackageLoadResult:
     """Merge zip parts then ``load_package_from_dir`` (full agent-size cap on result)."""
     merge_caps = merge_caps or effective_package_caps()
     per_part_caps = per_part_caps or effective_package_caps(for_browser_upload=True)
     workdir, merge_warnings = merge_zip_parts_to_dir(
-        parts, caps=merge_caps, per_part_caps=per_part_caps
+        parts, caps=merge_caps, per_part_caps=per_part_caps, dest=dest
     )
     try:
         from app.package_io import resolve_building_root

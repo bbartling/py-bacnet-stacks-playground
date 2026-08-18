@@ -29,6 +29,17 @@ def default_bootstrap_path() -> Path:
     return app_root() / DEFAULT_BOOTSTRAP_NAME
 
 
+def agent_bootstrap_allowed(*, is_cloud: bool) -> bool:
+    """Cloud browsers skip ``.last_agent_session.json`` unless explicitly requested.
+
+    Local agents keep the default file. Hosted/GHCR sessions only ingest bootstrap
+    when ``VIBE19_BOOTSTRAP`` points at an operator-supplied file.
+    """
+    if not is_cloud:
+        return True
+    return bool((os.environ.get("VIBE19_BOOTSTRAP") or "").strip())
+
+
 def resolve_bootstrap_path() -> Path | None:
     """Return bootstrap file to apply, or None if missing."""
     env = (os.environ.get("VIBE19_BOOTSTRAP") or "").strip()

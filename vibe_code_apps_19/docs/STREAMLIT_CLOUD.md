@@ -24,7 +24,26 @@ One sidebar picker:
 - **Session restore (Cloud-safe)** — download / upload `session_config.json` (+ optional `fault_settings.json`)
 - **AI agent / package help** expander — agent steps + limits
 
-Disk saves (`configs/`) become **downloads** on shared/Cloud hosts. Zip extract stays in OS temp (`vibe19_*`).
+Disk saves (`configs/`) become **downloads** on shared/Cloud hosts.
+
+## Multi-user session isolation
+
+Each Streamlit browser session gets its own UUID workspace:
+
+```text
+{temp}/vibe19/{session_id}/package/   extracted zip
+{temp}/vibe19/{session_id}/exports/   Engineering Findings DOCX/XLSX
+```
+
+- Dataset frames, mappings, rule results, and notes live in **`st.session_state`** only.
+- **Clear session** deletes **this** session's directory. It does not touch another visitor.
+- Stale-temp sweep skips the current session and never deletes the shared `{temp}/vibe19` parent.
+- Cloud / GHCR (`cfg.is_cloud`, including `APP_MODE=cloud`) **does not** read or write `.last_browser_session.json`. A refresh or a second visitor cannot restore someone else's last upload.
+- Local single-user mode may still restore the last zip after refresh via that pointer until **Clear session**.
+- Agent `.last_agent_session.json` auto-load is **local**. On Cloud/GHCR it runs only when `VIBE19_BOOTSTRAP` is set explicitly.
+- Disconnect / new Streamlit session: uploaded data is gone. Re-upload the zip (and optional `session_config.json`).
+- Streamlit floor: **`>=1.51`**. Isolation does **not** require `st.cache_data(scope="session")` (Streamlit 1.53+).
+- This is isolation between browsers on one process — **not** a cryptographic security boundary for highly sensitive BAS data.
 
 ## Session round-trip (Cloud-friendly)
 

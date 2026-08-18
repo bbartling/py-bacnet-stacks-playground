@@ -63,7 +63,7 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 
 ### Sidebar
 
-- Building folder / **Zip package** uploader + **Load zip(s)** / **Clear session** (Clear also deletes `.last_browser_session.json`)
+- Building folder / **Zip package** uploader + **Load zip(s)** / **Clear session** (wipes **this** session workspace only)
 - **Units** imperial / metric (display + CHW leave / zone comfort sliders; rules stay °F)
 - **Prefer web OAT** (default on)
 - **Use mapped mechanical-cooling status proof** (default checked; disables CHW leave slider while checked)
@@ -77,7 +77,7 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 - **Reports:** Generic RCx static download + **Generate Engineering Findings Report** (button only; HITL include/note) — [`skills/vibe19-engineering-report/SKILL.md`](../vibe19-engineering-report/SKILL.md)
 - **BAS vs web OAT** overlay (±`oat_err`) + deviation histogram
 - **Data inspection — raw CSV**: equipment (or weather) dropdown → stacked Plotly lines for all plottable columns (`equipment_inspection_chart`)
-- Zip data **survives browser refresh** until Clear session (`app/browser_session.py`)
+- Zip data is **per Streamlit session** (`app/session_workspace.py`). Local refresh restore is optional; Cloud/GHCR never uses `.last_browser_session.json`.
 
 ### FDD Plots vs RCx Plots
 

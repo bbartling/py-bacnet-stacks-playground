@@ -218,9 +218,12 @@ def render_engineering_findings_panel(
                     scope=scope,
                     write_inventory=bool(write_inventory),
                 )
+                from app.session_workspace import ensure_session_id, exports_dir
+
+                sid = ensure_session_id(st.session_state)
                 buf_dir = Path(
                     st.session_state.get("_eng_findings_tmpdir")
-                    or "/tmp/vibe19_eng_findings"
+                    or str(exports_dir(sid))
                 )
                 buf_dir.mkdir(parents=True, exist_ok=True)
                 st.session_state["_eng_findings_tmpdir"] = str(buf_dir)
