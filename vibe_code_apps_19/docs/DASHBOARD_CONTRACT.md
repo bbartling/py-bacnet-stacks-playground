@@ -1,6 +1,6 @@
 # Dashboard contract (do not vibe-code away)
 
-**Audience:** Cursor / Codex / any agent editing `vibe_code_apps_19`.
+**Audience:** contributors editing `vibe_code_apps_19`.
 
 This Streamlit app is an **RCx + FDD review dashboard**, not a disposable demo. Features listed here are **product requirements**. Removing or silently renaming them without an explicit human decision + this doc update is a regression.
 
@@ -92,7 +92,6 @@ Also keep `render_rcx_plots_tab`, `collect_oat_scatter`, `collect_role_series`, 
 - **Cloud / GHCR** (`cfg.is_cloud`): no process-wide `.last_browser_session.json`. Refresh does not restore another user's package. Re-upload after disconnect.
 - **Local single-user**: optional pointer `.last_browser_session.json` (`app/browser_session.py`) can reload the last zip after refresh until **Clear session**.
 - Env: `VIBE19_BROWSER_AUTOLOAD=0` disables local restore (AppTest/CI); `VIBE19_BROWSER_SESSION_PATH` overrides the pointer path.
-- Agent bootstrap (`.last_agent_session.json`) is **local**. Cloud/GHCR applies it only when `VIBE19_BOOTSTRAP` is set.
 
 ---
 

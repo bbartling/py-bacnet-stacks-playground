@@ -21,7 +21,7 @@ from profile_wattlab_export import (  # noqa: E402
     resolve_suppressed_combinations,
 )
 
-from app.agent_api import export_agent_bundle
+from app.fdd_runtime import export_engineering_bundle
 from app.rules.runner import RULES
 from app.wattlab_dump import NEVER_TIMESERIES_STATUSES
 
@@ -46,8 +46,8 @@ def test_summary_file_count_below_cartesian_product(tmp_path: Path):
     cartesian = len(RULES) * n_equip
     assert cartesian > 100
 
-    written = export_agent_bundle(
-        dataset, run, tmp_path, include_bootstrap=False, profile="summary"
+    written = export_engineering_bundle(
+        dataset, run, tmp_path, profile="summary"
     )
     file_count = sum(1 for p in tmp_path.rglob("*") if p.is_file())
     assert file_count < cartesian
@@ -87,7 +87,7 @@ def test_skip_statuses_emit_no_timeseries_under_any_profile(tmp_path: Path):
     dataset, run = build_profile_fixture()
     for profile in ("summary", "diagnostic", "forensic"):
         out = tmp_path / profile
-        export_agent_bundle(dataset, run, out, include_bootstrap=False, profile=profile)
+        export_engineering_bundle(dataset, run, out, profile=profile)
         ts_dir = out / "fdd_timeseries"
         if not ts_dir.is_dir():
             continue
@@ -166,7 +166,7 @@ def test_export_wall_clock_is_environment_tolerant(tmp_path: Path, monkeypatch):
 
     dataset, run = build_profile_fixture()
     t0 = time.perf_counter()
-    export_agent_bundle(dataset, run, tmp_path, include_bootstrap=False, profile="summary")
+    export_engineering_bundle(dataset, run, tmp_path, profile="summary")
     elapsed = time.perf_counter() - t0
     raw = os.environ.get("VIBE19_ASSERT_EXPORT_MAX_S", "").strip()
     if raw:
@@ -175,7 +175,7 @@ def test_export_wall_clock_is_environment_tolerant(tmp_path: Path, monkeypatch):
 
 def test_summary_retains_sensor_setpoint_model_seed_artifacts(tmp_path: Path):
     dataset, run = build_profile_fixture()
-    export_agent_bundle(dataset, run, tmp_path, include_bootstrap=False, profile="summary")
+    export_engineering_bundle(dataset, run, tmp_path, profile="summary")
     assert (tmp_path / "sensor_stats_all.csv").is_file()
     stats = pd.read_csv(tmp_path / "sensor_stats_all.csv")
     assert {"n", "mean", "p50", "valid_count", "p01", "p99", "duration_hours"} <= set(stats.columns)

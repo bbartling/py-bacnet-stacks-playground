@@ -1,10 +1,10 @@
 # OpenFDD Engineering Bundle (`openfdd_engineering_bundle_v1`)
 
 The Streamlit Export tab writes **one** standard bundle (today’s summary profile).
-Diagnostic/forensic per-rule timeseries remain on the CLI:
+Diagnostic/forensic per-rule timeseries remain on the FDD runtime:
 
 ```bash
-python scripts/agent_afdd.py --package BUILDING.zip --out /tmp/bundle --export-profile diagnostic
+python -c "from app.fdd_runtime import load_package_path, run_rules, export_engineering_bundle; ds=load_package_path('BUILDING.zip'); run=run_rules(ds); export_engineering_bundle(ds, run, '/tmp/bundle', profile='diagnostic')"
 ```
 
 ## Schema

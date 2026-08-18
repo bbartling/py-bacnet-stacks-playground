@@ -1,4 +1,4 @@
-"""Multi-zip merge + agent prerun helpers."""
+"""Multi-zip merge + column-map helpers."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def test_merge_two_parts_loads_both_equipment():
 def test_ensure_column_map_builds_when_missing():
     import pandas as pd
 
-    from app.agent_prerun import ensure_column_map
+    from app.column_map_json import ensure_column_map
 
     idx = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
     df = pd.DataFrame({"discharge-air-temp": [55.0, 56.0, 57.0], "fan-status": [1, 1, 1]}, index=idx)

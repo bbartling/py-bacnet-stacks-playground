@@ -53,6 +53,14 @@ def _ahu_pkg(path: Path) -> None:
         )
         zf.writestr("session_config.json", json.dumps(session))
         zf.writestr("AHU_1/history_wide.csv", hist)
+        zf.writestr(
+            "AHU_1/column_map.json",
+            json.dumps({"equipType": "ahu", "points": {
+                "fan-status": "fan_status", "outside-air-temp": "oa_t",
+                "return-air-temp": "ra_t", "mixed-air-temp": "ma_t",
+                "discharge-air-temp": "sa_t", "outside-air-damper": "oad",
+            }}),
+        )
 
 
 def test_overview_economizer_diag_no_streamlit_errors(
@@ -63,23 +71,15 @@ def test_overview_economizer_diag_no_streamlit_errors(
 
     zpath = tmp_path / "econ_pkg.zip"
     _ahu_pkg(zpath)
-    boot = {
-        "schema_version": "openfdd_bootstrap_v1",
-        "package_path": str(zpath.resolve()),
-        "auto_run_rules": False,
-        "session_config": {
-            "schema_version": "openfdd_session_v1",
-            "unit_system": "imperial",
-            "prefer_web_oat": False,
-        },
-    }
-    boot_path = tmp_path / "boot.json"
-    boot_path.write_text(json.dumps(boot), encoding="utf-8")
-    monkeypatch.setenv("VIBE19_BOOTSTRAP_JSON", str(boot_path))
+    monkeypatch.setenv("APP_MODE", "cloud")
+    monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
     monkeypatch.chdir(ROOT)
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=120)
     at.run()
+    from tests.apptest_zip import load_zip_via_uploader
+
+    load_zip_via_uploader(at, zpath)
     assert not at.exception, f"Streamlit exception on load: {at.exception}"
 
     # Stay on / select Overview

@@ -168,7 +168,7 @@ def test_units_map_feeds_plotly_axis_labels():
 
 def test_session_config_payload_includes_unit_system_toggle_values():
     """openfdd_session_v1 must carry unit_system so Cloud restore keeps the toggle."""
-    from app.agent_api import make_session_config
+    from app.fdd_runtime import make_session_config
 
     for system in ("imperial", "metric"):
         payload = make_session_config({}, {}, unit_system=system, prefer_web_oat=True)

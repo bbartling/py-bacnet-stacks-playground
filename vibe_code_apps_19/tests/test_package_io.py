@@ -175,6 +175,7 @@ def test_effective_caps_local_defaults(monkeypatch):
     assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
     assert caps.max_entries == DEFAULT_MAX_ENTRIES
     assert caps.max_equipment == DEFAULT_MAX_EQUIPMENT
+    assert caps.max_single_file_mb == 80
 
 
 def test_effective_caps_cloud_same_default(monkeypatch):
@@ -192,6 +193,7 @@ def test_effective_caps_cloud_same_default(monkeypatch):
     assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
     assert caps.max_entries == DEFAULT_MAX_ENTRIES
     assert caps.max_equipment == DEFAULT_MAX_EQUIPMENT
+    assert caps.max_single_file_mb == 80
 
 
 def test_load_package_report_includes_size_mb():

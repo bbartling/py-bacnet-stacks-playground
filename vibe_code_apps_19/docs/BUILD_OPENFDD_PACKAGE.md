@@ -84,7 +84,7 @@ BUILDING_100_openfdd.zip
 
    Stamp real `equipType` / `equipment_type` (`ahu`, `vav`, `chwPlant`, `boiler`, …). See [`HAYSTACK_LIKE_MAPPING_GUIDE.md`](HAYSTACK_LIKE_MAPPING_GUIDE.md) and [`COLUMN_MAP_JSON.md`](COLUMN_MAP_JSON.md).
 
-4. **Write `session_config.json`** (`openfdd_session_v1`) with `unit_system`, `prefer_web_oat: true`, and a `role_map` derived from those maps (`app.agent_api.make_session_config` / `column_map_to_role_map`).
+4. **Write `session_config.json`** (`openfdd_session_v1`) with `unit_system`, `prefer_web_oat: true`, and a `role_map` derived from those maps (`app.fdd_runtime.make_session_config` / `column_map_to_role_map`).
 
 5. **Copy** sibling `weather/` → `BUILDING_*/weather/` (app loads `building_root/weather/history_wide.csv` only).
 
@@ -95,7 +95,7 @@ cd vibe_code_apps_19
 python -c "from pathlib import Path; from app.package_io import load_package_from_dir; r=load_package_from_dir(Path(r'PATH\TO\BUILDING_100')); print(len(r.frames), r.weather is not None, r.session_config is not None)"
 ```
 
-7. **Zip** the building folder (keep under **500 MB** for browser upload; **≤2000 zip entries** default). Larger jobs: split parts per [`../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md).
+7. **Zip** the building folder (keep under **150 MB** for browser upload; **≤2000 zip entries** default). Larger jobs: split parts per [`DATA_PREPROCESSING.md`](DATA_PREPROCESSING.md). Prefer `scripts/vibe19_prepare_package.py`.
 
 **Do not use PowerShell `Compress-Archive` for Streamlit/Docker/Linux uploads.** It writes backslash paths; on Linux, Python treats `BUILDING_100\VAV\` as a *file* named `VAV`, then nested `VAV/VAVFC_100/...` fails with `[Errno 20] Not a directory`. Use Python `zipfile` with `.as_posix()` arcnames (forward slashes only):
 
@@ -147,5 +147,5 @@ Prefer reusing `app.column_map_json.build_column_map_from_equipment_frames` over
 | [`COLUMN_MAP_JSON.md`](COLUMN_MAP_JSON.md) | Map schema + LLM prompt hooks |
 | [`HAYSTACK_LIKE_MAPPING_GUIDE.md`](HAYSTACK_LIKE_MAPPING_GUIDE.md) | Point name table |
 | [`STREAMLIT_CLOUD.md`](STREAMLIT_CLOUD.md) | Upload + session restore |
-| [`../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md) | Multi-part zips when >500 MB |
+| [`DATA_PREPROCESSING.md`](DATA_PREPROCESSING.md) | Multi-part zips when >150 MB |
 | [`../AGENTS.md`](../AGENTS.md) | Session brief / hard rules |

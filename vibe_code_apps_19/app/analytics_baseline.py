@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.agent_api import AgentDataset, run_analytics, run_rcx_coverage, run_rules
+from app.fdd_runtime import BuildingDataset, run_analytics, run_rcx_coverage, run_rules
 from app.data_loader import parse_utc_timestamp
 from app.metering import build_meter_monthly_table
 from app.occupancy import OccupancySchedule
@@ -158,7 +158,7 @@ def _digest_scatter(preset_id: str, long_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_rcx_preset_digests(
-    dataset: AgentDataset,
+    dataset: BuildingDataset,
     *,
     schedule: OccupancySchedule | None = None,
     zone_lo_f: float = 70.0,
@@ -317,7 +317,7 @@ def rule_results_to_digest(results: list[Any]) -> pd.DataFrame:
 
 
 def compute_analytics_bundle(
-    dataset: AgentDataset,
+    dataset: BuildingDataset,
     *,
     schedule: OccupancySchedule | None = None,
     zone_lo_f: float = 70.0,

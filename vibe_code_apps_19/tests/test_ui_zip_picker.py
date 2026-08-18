@@ -70,7 +70,6 @@ def _cloud_app(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setenv("APP_MODE", "cloud")
     monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
-    monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=300)
     at.run()
     assert not at.exception, f"startup: {list(at.exception)}"

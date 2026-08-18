@@ -119,10 +119,6 @@ except OpenFddVersionError as exc:
     st.error(str(exc))
     st.stop()
 
-_AGENTS_MD_URL = (
-    "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
-    "vibe_code_apps_19/AGENTS.md"
-)
 _OPENFDD_DOCS_URL = "https://bbartling.github.io/open-fdd/"
 _OPENFDD_REPO_URL = "https://github.com/bbartling/open-fdd"
 _HERO_IMG = APP_ROOT / "assets" / "image_new_chiller.png"
@@ -150,7 +146,7 @@ def _render_app_hero() -> None:
         """.strip()
     )
     st.markdown(
-        f"[AGENTS.md]({_AGENTS_MD_URL}) · "
+        f"[Package spec](docs/PACKAGE_SPEC.md) · "
         f"[Open-FDD docs]({_OPENFDD_DOCS_URL}) · "
         f"[Open-FDD repo]({_OPENFDD_REPO_URL})"
     )
@@ -165,7 +161,6 @@ def _empty_state_directions() -> None:
         "Each equipment CSV needs a sibling Haystack map JSON. Then **Run Rules** → **FDD Plots** / **RCx**."
     )
     st.markdown(
-        f"Agent brief: [AGENTS.md]({_AGENTS_MD_URL}) · "
         f"Package contract: `docs/PACKAGE_SPEC.md` · "
         f"[Open-FDD docs]({_OPENFDD_DOCS_URL})"
     )
@@ -220,8 +215,7 @@ def _init_state() -> None:
         "zip_uploader_key": 0,
         "fault_settings_source": "defaults",
         "session_config_source": "",
-        "bootstrap_applied": False,
-        "bootstrap_status": "",
+        "restore_status": "",
         "mapping_rev": "",
         "rules_mapping_rev": "",
         "mapping_stale": False,
@@ -250,132 +244,6 @@ def _session_protect_path() -> Path:
     from app.session_workspace import session_root
 
     return session_root(_ensure_browser_session())
-
-
-def _apply_agent_bootstrap_once() -> None:
-    """Load ``VIBE19_BOOTSTRAP`` / ``.last_agent_session.json`` into this browser session once."""
-    if st.session_state.get("bootstrap_applied"):
-        return
-    if st.session_state.get("equipment_frames"):
-        # User already has data — don't clobber
-        st.session_state.bootstrap_applied = True
-        return
-    cfg = AppConfig.load()
-    from app.bootstrap import agent_bootstrap_allowed
-
-    if not agent_bootstrap_allowed(is_cloud=cfg.is_cloud):
-        st.session_state.bootstrap_applied = True
-        return
-    try:
-        from app.bootstrap import read_bootstrap
-        from app.package_io import PackageError, SessionConfig, apply_session_config, load_package_zip
-    except Exception as exc:  # pragma: no cover
-        st.session_state.bootstrap_status = f"bootstrap import failed: {exc}"
-        st.session_state.bootstrap_applied = True
-        return
-
-    try:
-        boot = read_bootstrap()
-    except Exception as exc:
-        st.session_state.bootstrap_status = f"bootstrap read failed: {exc}"
-        st.session_state.bootstrap_applied = True
-        return
-    if not boot:
-        st.session_state.bootstrap_applied = True
-        return
-
-    pkg = boot.get("package_path")
-    folder = boot.get("building_folder")
-    try:
-        if pkg and Path(str(pkg)).is_file():
-            result = load_package_zip(
-                Path(str(pkg)).read_bytes(),
-                dest=_session_package_dir(),
-                protect=_session_protect_path(),
-            )
-            # Keep a stable source label for the UI
-            result.report["bootstrap_package"] = str(pkg)
-            _commit_package_result(result)
-            st.session_state.data_source = f"bootstrap:{Path(str(pkg)).name}"
-        elif folder and Path(str(folder)).is_dir():
-            from app.cache import cached_building_folder, cached_weather
-
-            chosen = Path(str(folder))
-            frames = cached_building_folder(str(chosen.resolve()))
-            weather = None
-            try:
-                weather = cached_weather(str(chosen.parent), "weather")
-            except Exception:
-                weather = None
-            _commit_frames(
-                frames,
-                site_id=st.session_state.site_id or DEFAULT_SITE_ID,
-                building_id=chosen.name,
-                source=f"bootstrap:{chosen.name}",
-                weather=weather,
-            )
-            st.session_state.building_folder = str(chosen)
-            st.session_state.data_input_mode = "Folder"
-        else:
-            # Missing host paths (typical Docker) — stay on Zip; do not prefill dead Folder paths
-            st.session_state.building_folder = ""
-            if st.session_state.get("data_input_mode") == "Folder":
-                st.session_state.data_input_mode = "Zip package"
-            st.session_state.bootstrap_status = (
-                "Bootstrap path not on this host — upload a zip package (or mount data + APP_MODE=local)."
-            )
-            st.session_state.bootstrap_applied = True
-            return
-
-        # Overlay dialed-in session / fault settings from agent export
-        sess = boot.get("session_config") or {}
-        fs_path = boot.get("fault_settings_path")
-        if fs_path and Path(str(fs_path)).is_file():
-            raw = json.loads(Path(str(fs_path)).read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                params = dict(st.session_state.get("params") or {})
-                for rid, p in raw.items():
-                    if isinstance(p, dict):
-                        params[str(rid)] = {**params.get(str(rid), {}), **p}
-                st.session_state.params = params
-                st.session_state.fault_settings_source = f"bootstrap:{Path(str(fs_path)).name}"
-                sess = {**sess, "params": params}
-        if sess:
-            cfg_obj = SessionConfig.model_validate(
-                {**sess, "schema_version": sess.get("schema_version") or "openfdd_session_v1"}
-            )
-            frames = st.session_state.get("equipment_frames") or {}
-            for w in apply_session_config(cfg_obj, equipment_ids=set(frames)):
-                st.warning(w)
-            st.session_state.session_config_source = "bootstrap"
-
-        cm_path = boot.get("column_map_path")
-        if cm_path and Path(str(cm_path)).is_file():
-            data = load_column_map_json(str(cm_path))
-            _apply_column_map_json(data)
-            st.session_state.column_map_path = str(cm_path)
-
-        if boot.get("auto_run_rules") and st.session_state.get("equipment_frames"):
-            import os as _os
-
-            if (_os.environ.get("VIBE19_BOOTSTRAP_SKIP_RULES") or "").strip() in {"1", "true", "yes"}:
-                st.session_state.bootstrap_status = (
-                    "Loaded bootstrap (data + settings); rules skipped (VIBE19_BOOTSTRAP_SKIP_RULES)"
-                )
-            else:
-                frames = st.session_state.equipment_frames
-                st.session_state.batch_results = _run_rule_list(sorted(frames), RULES, frames)
-                st.session_state.bootstrap_status = (
-                    f"Loaded bootstrap + ran {len(st.session_state.batch_results)} rule evaluations"
-                )
-        else:
-            st.session_state.bootstrap_status = "Loaded bootstrap (data + settings); run rules when ready"
-    except PackageError as exc:
-        st.session_state.bootstrap_status = f"bootstrap package error: {exc}"
-    except Exception as exc:
-        st.session_state.bootstrap_status = f"bootstrap failed: {exc}"
-    finally:
-        st.session_state.bootstrap_applied = True
 
 
 def _clear_uploaded_session() -> None:
@@ -419,8 +287,8 @@ def _apply_browser_autoload_once() -> None:
         from app.config import AppConfig
         from app.package_io import PackageError, load_package_from_dir
     except Exception as exc:  # pragma: no cover
-        st.session_state.bootstrap_status = (
-            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload import failed: {exc}"
+        st.session_state.restore_status = (
+            (st.session_state.get("restore_status") or "") + f" · browser autoload import failed: {exc}"
         ).strip(" ·")
         return
 
@@ -442,8 +310,8 @@ def _apply_browser_autoload_once() -> None:
         # Preserve original source label when available
         if pointer.get("source"):
             st.session_state.data_source = str(pointer["source"])
-        st.session_state.bootstrap_status = (
-            (st.session_state.get("bootstrap_status") or "")
+        st.session_state.restore_status = (
+            (st.session_state.get("restore_status") or "")
             + f" · Restored last upload (`{pointer.get('building_id') or building_root.name}`) — "
             "survives refresh until **Clear session**"
         ).strip(" ·")
@@ -452,18 +320,18 @@ def _apply_browser_autoload_once() -> None:
         from app.config import AppConfig
 
         clear_browser_session_pointer(is_cloud=AppConfig.load().is_cloud)
-        st.session_state.bootstrap_status = (
-            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload failed: {exc}"
+        st.session_state.restore_status = (
+            (st.session_state.get("restore_status") or "") + f" · browser autoload failed: {exc}"
         ).strip(" ·")
     except Exception as exc:
-        st.session_state.bootstrap_status = (
-            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload error: {exc}"
+        st.session_state.restore_status = (
+            (st.session_state.get("restore_status") or "") + f" · browser autoload error: {exc}"
         ).strip(" ·")
 
 
 def _session_config_payload() -> dict:
     """Build ``openfdd_session_v1`` from current session_state (Cloud-safe export)."""
-    from app.agent_api import make_session_config
+    from app.fdd_runtime import make_session_config
 
     return make_session_config(
         st.session_state.get("role_map") or {},
@@ -479,7 +347,7 @@ def _session_config_payload() -> dict:
 
 
 def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
-    """Run a complete cookbook + agent-bundle export and zip it (in memory).
+    """Run a complete cookbook + engineering-bundle export and zip it (in memory).
 
     Always re-runs the full active cookbook across all mapped equipment so the
     dump never reuses a partial session `batch_results` set. The fresh complete
@@ -489,10 +357,10 @@ def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
     import tempfile
     import zipfile
 
-    from app.agent_api import AgentDataset, export_agent_bundle, run_rules
+    from app.fdd_runtime import BuildingDataset, export_engineering_bundle, run_rules
 
     building_id = st.session_state.get("building_id") or "BUILDING"
-    dataset = AgentDataset(
+    dataset = BuildingDataset(
         building_id=building_id,
         frames=st.session_state.get("equipment_frames") or {},
         weather=st.session_state.get("weather"),
@@ -513,11 +381,10 @@ def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
     st.session_state["batch_results"] = run.results
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
-        export_agent_bundle(
+        export_engineering_bundle(
             dataset,
             run,
             td,
-            include_bootstrap=False,
             profile=profile,
         )
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -1796,7 +1663,7 @@ def _load_data(cfg: AppConfig) -> None:
         )
 
         browser_caps = effective_package_caps(for_browser_upload=True)
-        agent_caps = effective_package_caps()
+        path_caps = effective_package_caps()
         zip_files = st.sidebar.file_uploader(
             "Building package zip(s)",
             type=["zip"],
@@ -1804,12 +1671,12 @@ def _load_data(cfg: AppConfig) -> None:
             key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
             help=(
                 f"Upload one building openfdd zip, or several part-zips "
-                f"(each ≤{BROWSER_UPLOAD_MB} MB; assembled ≤{agent_caps.max_zip_mb} MB). "
+                f"(each ≤{BROWSER_UPLOAD_MB} MB; assembled ≤{path_caps.max_zip_mb} MB). "
                 f"Optional extra weather.zip is merged/ignored safely. "
                 f"Limits also count zip items (each file/folder inside the archive), "
-                f"not just megabytes — max {agent_caps.max_entries} items / "
-                f"{agent_caps.max_equipment} equipment folders. "
-                f"See vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md"
+                f"not just megabytes — max {path_caps.max_entries} items / "
+                f"{path_caps.max_equipment} equipment folders. "
+                f"See docs/DATA_PREPROCESSING.md"
             ),
         )
         n_parts = len(zip_files or [])
@@ -1820,7 +1687,7 @@ def _load_data(cfg: AppConfig) -> None:
         )
         st.sidebar.caption(
             f"**{n_parts}** file(s) · **{parts_mb} MB** selected · "
-            f"per-file ≤**{BROWSER_UPLOAD_MB} MB** · assembled job ≤**{agent_caps.max_zip_mb} MB**"
+            f"per-file ≤**{BROWSER_UPLOAD_MB} MB** · assembled job ≤**{path_caps.max_zip_mb} MB**"
         )
         c1, c2 = st.sidebar.columns(2)
         load_clicked = c1.button(
@@ -1851,7 +1718,7 @@ def _load_data(cfg: AppConfig) -> None:
 
                     result = load_package_from_zip_parts(
                         parts_from_uploads(list(zip_files)),
-                        merge_caps=agent_caps,
+                        merge_caps=path_caps,
                         per_part_caps=browser_caps,
                         dest=dest,
                     )
@@ -1947,10 +1814,10 @@ def _load_data(cfg: AppConfig) -> None:
                     except Exception as exc:
                         st.sidebar.error(f"Session config load failed: {exc}")
 
-        st.sidebar.caption(dataset_size_caption(None, caps=agent_caps))
+        st.sidebar.caption(dataset_size_caption(None, caps=path_caps))
         report = st.session_state.get("package_report")
         if report:
-            st.sidebar.caption(dataset_size_caption(report, caps=agent_caps))
+            st.sidebar.caption(dataset_size_caption(report, caps=path_caps))
             _render_package_health_sidebar(
                 report,
                 st.session_state.get("package_warnings") or [],
@@ -1975,13 +1842,13 @@ def _load_data(cfg: AppConfig) -> None:
 
     frames_ready = bool(st.session_state.get("equipment_frames"))
     if frames_ready:
-        st.sidebar.markdown("**Agent prerun**")
+        st.sidebar.markdown("**Map + run all faults**")
         st.sidebar.caption(
             "After zip(s) load: auto-build column map if needed, then run all rules "
-            "so Plots/RCx are ready for human review."
+            "so Plots/RCx are ready for review."
         )
-        if st.sidebar.button("Map + prerun all faults", type="primary", key="agent_prerun_btn"):
-            from app.agent_prerun import ensure_column_map
+        if st.sidebar.button("Map + run all faults", type="primary", key="map_run_all_faults_btn"):
+            from app.column_map_json import ensure_column_map
 
             frames = st.session_state.equipment_frames
             cmap, built, warns = ensure_column_map(
@@ -2001,7 +1868,7 @@ def _load_data(cfg: AppConfig) -> None:
             err = sum(1 for r in st.session_state.batch_results if r.status == "ERROR")
             fault = sum(1 for r in st.session_state.batch_results if r.status == "FAULT")
             st.session_state.prerun_status = (
-                f"Prerun {n} evals · {fault} FAULT · {err} ERROR"
+                f"Ran {n} evals · {fault} FAULT · {err} ERROR"
             )
             if err:
                 st.sidebar.error(st.session_state.prerun_status)
@@ -2011,24 +1878,20 @@ def _load_data(cfg: AppConfig) -> None:
         if st.session_state.get("prerun_status"):
             st.sidebar.caption(st.session_state.prerun_status)
 
-    with st.sidebar.expander("AI agent / package help", expanded=False):
+    with st.sidebar.expander("Package help", expanded=False):
         from app.package_io import BROWSER_UPLOAD_MB, DEFAULT_PACKAGE_MB
-        from app.package_io import effective_package_caps as _caps_fn
 
-        _c = _caps_fn()
         st.markdown(
             f"""
-**Human + agent flow (large jobs)**
-1. Agent preprocesses CSVs → one or many `openfdd_package_v1` **part zips**
-   (each ≤ **{BROWSER_UPLOAD_MB} MB** for the browser). Spec:
-   `vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`
-2. Human uploads **all part zips** here → **Load zip(s)** (merged ≤ **{DEFAULT_PACKAGE_MB} MB**).
-3. Click **Map + prerun all faults** (or agent CLI) so rules/errors are checked.
-4. Human reviews **Plots / RCx**; download session config to restore later.
+**Large jobs**
+1. Preprocess CSVs with `scripts/vibe19_prepare_package.py` into one or many
+   `openfdd_package_v1` **part zips** (each ≤ **{BROWSER_UPLOAD_MB} MB** in the browser).
+   Spec: `docs/DATA_PREPROCESSING.md`
+2. Upload **all part zips** here → **Load zip(s)** (merged ≤ **{DEFAULT_PACKAGE_MB} MB**).
+3. Click **Map + run all faults** so rules/errors are checked.
+4. Review **Plots / RCx**; download session config to restore later.
 
 **Single zip** still works. Path/CLI bypasses the upload widget for full-size packages.
-
-Agent brief: {_AGENTS_MD_URL}
             """.strip()
         )
         demo = APP_ROOT / "data" / "demo_package_v1.zip"
@@ -2040,7 +1903,7 @@ Agent brief: {_AGENTS_MD_URL}
                 file_name="demo_package_v1.zip",
                 mime="application/zip",
                 key="dl_demo_package",
-                help="Synthetic non-sensitive package for Cloud / agent dry-runs.",
+                help="Synthetic non-sensitive package for Cloud dry-runs.",
             )
 
     st.sidebar.markdown("---")
@@ -2331,13 +2194,12 @@ def main() -> None:
     cfg = AppConfig.load()
     _ensure_browser_session()
     defaults_cfg = cached_rule_defaults(str(cfg.rule_defaults_path))
-    _apply_agent_bootstrap_once()
     _apply_browser_autoload_once()
     _load_data(cfg)
     _sidebar_sliders(defaults_cfg)
 
-    if st.session_state.get("bootstrap_status"):
-        st.sidebar.caption(f"Agent bootstrap: {st.session_state.bootstrap_status}")
+    if st.session_state.get("restore_status"):
+        st.sidebar.caption(st.session_state.restore_status)
 
     frames = st.session_state.equipment_frames
     if frames and st.session_state.get("upload_workdir"):

@@ -22,7 +22,7 @@ from profile_wattlab_export import (  # noqa: E402
     measure_export,
 )
 
-from app.agent_api import export_agent_bundle
+from app.fdd_runtime import export_engineering_bundle
 from app.rules.base import RuleResult
 from app.wattlab_dump import write_fdd_evidence, write_shared_telemetry
 
@@ -369,8 +369,8 @@ _DIAGNOSTIC_ORACLE_CSVS = {
 
 def test_diagnostic_dump_tables_oracle_csvs(tmp_path: Path):
     dataset, run = build_profile_fixture()
-    export_agent_bundle(
-        dataset, run, tmp_path, include_bootstrap=False, profile="diagnostic"
+    export_engineering_bundle(
+        dataset, run, tmp_path, profile="diagnostic"
     )
     names = {p.name for p in tmp_path.rglob("*") if p.is_file()}
     assert _DIAGNOSTIC_ORACLE_CSVS <= names

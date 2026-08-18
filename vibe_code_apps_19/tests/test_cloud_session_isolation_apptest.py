@@ -1,4 +1,4 @@
-"""Cloud mode must not restore another user's last upload or agent bootstrap file."""
+"""Cloud mode must not restore another user's last upload."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ def test_cloud_apptest_ignores_leftover_browser_pointer(
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setenv("APP_MODE", "cloud")
-    monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
     monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "1")
     ptr = tmp_path / ".last_browser_session.json"
     fake_wd = tmp_path / "stolen_wd"
@@ -61,26 +60,12 @@ def test_cloud_apptest_ignores_leftover_browser_pointer(
     assert _ss("building_id") in ("", None)
 
 
-def test_cloud_apptest_ignores_default_agent_bootstrap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cloud_apptest_starts_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setenv("APP_MODE", "cloud")
-    monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
-    leftover = tmp_path / ".last_agent_session.json"
-    leftover.write_text(
-        json.dumps(
-            {
-                "schema_version": "openfdd_bootstrap_v1",
-                "package_path": str(tmp_path / "missing.zip"),
-                "auto_run_rules": True,
-            }
-        ),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr("app.bootstrap.app_root", lambda: tmp_path)
+    monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "1")
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=120)
     at.run()
     assert not at.exception, f"AppTest exceptions: {list(at.exception)}"
@@ -91,7 +76,5 @@ def test_cloud_apptest_ignores_default_agent_bootstrap(
         except Exception:
             return default
 
-    frames = _ss("equipment_frames") or {}
-    assert frames == {}
-    status = str(_ss("bootstrap_status") or "")
-    assert "Loaded bootstrap" not in status
+    assert (_ss("equipment_frames") or {}) == {}
+    assert not _ss("restore_status")

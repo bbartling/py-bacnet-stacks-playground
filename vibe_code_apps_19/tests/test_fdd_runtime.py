@@ -1,18 +1,16 @@
-"""Agent API + CLI smoke tests on a tiny synthetic package."""
+"""FDD runtime load / run / export tests on a tiny synthetic package."""
 
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 import zipfile
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from app.agent_api import (
-    export_agent_bundle,
+from app.fdd_runtime import (
+    export_engineering_bundle,
     load_package_path,
     make_session_config,
     run_analytics,
@@ -115,7 +113,7 @@ def _write_tiny_package(root: Path) -> Path:
     return root
 
 
-def test_agent_api_load_run_export(tmp_path: Path):
+def test_fdd_runtime_load_run_export(tmp_path: Path):
     pkg = _write_tiny_package(tmp_path / "pkg")
     ds = load_package_path(pkg)
     assert ds.building_id == "TINY_B1"
@@ -142,7 +140,7 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert "preset_id" in rcx.columns
 
     out = tmp_path / "out"
-    written = export_agent_bundle(ds, run, out)
+    written = export_engineering_bundle(ds, run, out)
     assert (out / "run_report.json").is_file()
     assert (out / "fdd_summary.csv").is_file()
     assert (out / "fault_settings.json").is_file()
@@ -211,7 +209,7 @@ def test_agent_api_load_run_export(tmp_path: Path):
         assert "summary_lines" in health
 
 
-def test_agent_api_load_zip(tmp_path: Path):
+def test_fdd_runtime_load_zip(tmp_path: Path):
     pkg = _write_tiny_package(tmp_path / "pkg")
     zpath = tmp_path / "tiny.zip"
     with zipfile.ZipFile(zpath, "w") as zf:
@@ -252,33 +250,3 @@ def test_make_session_config_plant_toggles_roundtrip():
     assert sc.include_ahu_chw_valve is False
     assert sc.params["SCHED-1"]["confirm_min"] == 10.0
     assert sc.role_map["AHU_1"]["fan-status"] == "fan-status"
-
-
-def test_cli_smoke(tmp_path: Path):
-    pkg = _write_tiny_package(tmp_path / "pkg")
-    out = tmp_path / "cli_out"
-    script = Path(__file__).resolve().parents[1] / "scripts" / "agent_afdd.py"
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(script),
-            "--package",
-            str(pkg),
-            "--out",
-            str(out),
-            "--run-all",
-            "--export-profile",
-            "summary",
-        ],
-        cwd=str(script.parents[1]),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert (out / "run_report.json").is_file()
-    assert (out / "fdd_summary.csv").is_file()
-    assert (out / "motor_hours.csv").is_file()
-    manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest.get("export_profile") == "summary"
-    assert (out / "telemetry" / "AHU_1.csv").is_file()

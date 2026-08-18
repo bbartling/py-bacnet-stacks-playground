@@ -1,7 +1,7 @@
-# Browser upload widget only (YouTube / Streamlit UI). Agent/CLI/path use
+# Browser upload widget only (YouTube / Streamlit UI). CLI/path use
 # package_io DEFAULT_PACKAGE_MB=2048 — not limited by this widget.
 [server]
-maxUploadSize = 500
+maxUploadSize = 150
 
 [browser]
 gatherUsageStats = false

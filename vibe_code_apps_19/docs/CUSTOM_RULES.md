@@ -1,15 +1,15 @@
-# Custom FDD rules (agent boilerplate)
+# Custom FDD rules
 
 **Where to look**
 
 | Path | Role |
 | --- | --- |
 | [`app/rules/custom_boilerplate.py`](../../app/rules/custom_boilerplate.py) | Templates + helpers + worked examples (SAT high, rolling z-score “ML”) |
-| [`app/rules/custom_rules.py`](../../app/rules/custom_rules.py) | **Agent edit surface** — append finished rules to `CUSTOM_RULES` |
+| [`app/rules/custom_rules.py`](../../app/rules/custom_rules.py) | **Edit surface** — append finished rules to `CUSTOM_RULES` |
 | [`app/rules/custom_registry.py`](../../app/rules/custom_registry.py) | Merges custom into active catalog |
 | Canonical 50 | [`app/rules/cookbook_catalog.py`](../../app/rules/cookbook_catalog.py) — do not silently omit |
 
-## Agent workflow
+## Contributor workflow
 
 1. Read `custom_boilerplate.py` docstring + examples.
 2. Copy an example into `custom_rules.py` (or call `make_custom_rule(...)`).
@@ -18,7 +18,7 @@
 5. Include `CONFIRM_PARAM()` (0–60 min, default 5).
 6. Optional: gate in `operational_gate.py` under the same id.
 7. Test: `pytest tests/test_custom_rules.py -q`
-8. Load package / run via Streamlit or `scripts/agent_afdd.py`.
+8. Load package / run via Streamlit or `app/fdd_runtime.py`.
 
 Enable boilerplate examples without editing `custom_rules.py`:
 

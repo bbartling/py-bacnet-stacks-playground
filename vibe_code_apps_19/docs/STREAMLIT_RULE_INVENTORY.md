@@ -45,10 +45,10 @@ predate the final two extended-family rules.
 
 ## Plots / RCx / DOCX
 
-- **Per-rule plot catalog (all 50)** — family, Haystack tags, plot series, sliders, analytics hints: [`vibe19_agent_spec/docs/RULE_PLOT_CATALOG.md`](../vibe19_agent_spec/docs/RULE_PLOT_CATALOG.md) (regenerate: `python scripts/generate_rule_plot_catalog.py`).
-- **FDD Plots** — per-device **rule validation cards**, plot focus for one Plotly chart, one-click FDD DOCX. Spec: [`vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md`](../vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md).
-- **RCx Plots** — family → preset overlays, outliers, HW/CHW/CW scatters. Spec: [`vibe19_agent_spec/docs/RCX_PLOTS.md`](../vibe19_agent_spec/docs/RCX_PLOTS.md).
-- Dashboard freeze: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](../vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md).
+- **Per-rule plot catalog (all 50)** — family, Haystack tags, plot series, sliders, analytics hints: [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) (regenerate: `python scripts/generate_rule_plot_catalog.py`).
+- **FDD Plots** — per-device **rule validation cards**, plot focus for one Plotly chart, one-click FDD DOCX.
+- **RCx Plots** — family → preset overlays, outliers, HW/CHW/CW scatters. Spec: [`RCX_PLOTS.md`](RCX_PLOTS.md).
+- Dashboard freeze: [`DASHBOARD_CONTRACT.md`](DASHBOARD_CONTRACT.md).
 
 Regenerate inventory YAML:
 

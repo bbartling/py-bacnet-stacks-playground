@@ -69,10 +69,10 @@ def cloud_app(monkeypatch=None):
 
     if monkeypatch is not None:
         monkeypatch.setenv("APP_MODE", "cloud")
-        monkeypatch.delenv("VIBE19_BOOTSTRAP", raising=False)
+        monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
     else:
         os.environ["APP_MODE"] = "cloud"
-        os.environ.pop("VIBE19_BOOTSTRAP", None)
+        os.environ.setdefault("VIBE19_BROWSER_AUTOLOAD", "0")
 
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=300)
     at.run()

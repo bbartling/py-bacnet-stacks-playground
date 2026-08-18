@@ -30,18 +30,23 @@ TEMP_PREFIX = "vibe19_"
 TEMP_MAX_AGE_SEC = 6 * 3600
 
 # Env overrides: OPENFDD_MAX_ZIP_MB, OPENFDD_MAX_UNCOMPRESSED_MB,
-# OPENFDD_MAX_ENTRIES, OPENFDD_MAX_EQUIPMENT.
+# OPENFDD_MAX_ENTRIES, OPENFDD_MAX_EQUIPMENT, OPENFDD_MAX_SINGLE_FILE_MB.
 #
 # Two-tier limits:
-# - Browser Streamlit upload: BROWSER_UPLOAD_MB (500) via .streamlit/config.toml
-#   maxUploadSize + optional tighter package_io check on uploaded bytes.
-# - Agent / CLI / zip-from-path / folder: DEFAULT_PACKAGE_MB (2048) safety cap.
-DEFAULT_PACKAGE_MB = 2048  # agent / path / CLI safety (still bounded)
-BROWSER_UPLOAD_MB = 500  # Streamlit file_uploader / YouTube demos
+# - Browser Streamlit upload: BROWSER_UPLOAD_MB compressed via .streamlit/config.toml
+#   maxUploadSize; expanded cap is BROWSER_UNCOMPRESSED_MB.
+# - CLI / zip-from-path / folder: DEFAULT_PACKAGE_MB (2048) safety cap.
+DEFAULT_PACKAGE_MB = 2048  # path / CLI safety (still bounded)
+BROWSER_UPLOAD_MB = 150  # Streamlit file_uploader compressed cap
+BROWSER_UNCOMPRESSED_MB = 500  # expanded browser ingest cap
+DEFAULT_SINGLE_FILE_MB = 80  # any one extracted member
 # Real buildings: ~50 equip × (csv + columns + map) + weather + dirs ≈ 250–400 entries.
 DEFAULT_MAX_ENTRIES = 2000
 DEFAULT_MAX_EQUIPMENT = 100
 MAX_COMPRESSION_RATIO = 100.0
+REJECTED_UPLOAD_SUFFIXES = frozenset(
+    {".html", ".htm", ".js", ".mjs", ".py", ".exe", ".bat", ".cmd", ".ps1", ".sh", ".dll", ".so"}
+)
 
 
 class PackageError(ValueError):
@@ -54,6 +59,7 @@ class PackageCaps:
     max_uncompressed_bytes: int
     max_entries: int
     max_equipment: int
+    max_single_file_bytes: int
 
     @property
     def max_zip_mb(self) -> int:
@@ -62,6 +68,39 @@ class PackageCaps:
     @property
     def max_uncompressed_mb(self) -> int:
         return self.max_uncompressed_bytes // (1024 * 1024)
+
+    @property
+    def max_single_file_mb(self) -> int:
+        return self.max_single_file_bytes // (1024 * 1024)
+
+
+@dataclass
+class ExtractionBudget:
+    """Cumulative bytes actually written during extract (not ZipInfo.file_size)."""
+
+    max_uncompressed_bytes: int
+    max_single_file_bytes: int
+    written_bytes: int = 0
+
+    @classmethod
+    def from_caps(cls, caps: PackageCaps) -> ExtractionBudget:
+        return cls(
+            max_uncompressed_bytes=caps.max_uncompressed_bytes,
+            max_single_file_bytes=caps.max_single_file_bytes,
+        )
+
+    def consume(self, n: int, *, filename: str, file_written: int) -> None:
+        self.written_bytes += n
+        if file_written > self.max_single_file_bytes:
+            raise PackageError(
+                f"Extracted file `{filename}` exceeds the "
+                f"{self.max_single_file_bytes // (1024 * 1024)} MB single-file limit"
+            )
+        if self.written_bytes > self.max_uncompressed_bytes:
+            raise PackageError(
+                "Uncompressed size limit exceeded during extract "
+                f"({self.max_uncompressed_bytes // (1024 * 1024)} MB)"
+            )
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -126,19 +165,25 @@ def dataset_size_caption(report: dict[str, Any] | None, *, caps: PackageCaps | N
 def effective_package_caps(*, for_browser_upload: bool = False) -> PackageCaps:
     """Resolve zip/equipment caps from env.
 
-    Default **2048 MB** for agent/CLI/path loads. Pass ``for_browser_upload=True``
-    when ingesting Streamlit ``st.file_uploader`` bytes so validation aligns with
-    ``maxUploadSize`` / ``BROWSER_UPLOAD_MB`` (500). Env overrides always win.
+    Default **2048 MB** for CLI/path loads. Pass ``for_browser_upload=True``
+    when ingesting Streamlit ``st.file_uploader`` bytes so compressed size aligns
+    with ``maxUploadSize`` / ``BROWSER_UPLOAD_MB`` (150) and expanded size with
+    ``BROWSER_UNCOMPRESSED_MB`` (500). Env overrides always win.
     """
-    default_mb = BROWSER_UPLOAD_MB if for_browser_upload else DEFAULT_PACKAGE_MB
+    default_zip_mb = BROWSER_UPLOAD_MB if for_browser_upload else DEFAULT_PACKAGE_MB
+    default_unc_mb = BROWSER_UNCOMPRESSED_MB if for_browser_upload else DEFAULT_PACKAGE_MB
     return PackageCaps(
-        max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", default_mb) * 1024 * 1024,
-        max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", default_mb)
+        max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", default_zip_mb) * 1024 * 1024,
+        max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", default_unc_mb)
         * 1024
         * 1024,
-        # 200 was too tight for real buildings (~50 equip × history+columns+map+dirs).
         max_entries=_env_positive_int("OPENFDD_MAX_ENTRIES", DEFAULT_MAX_ENTRIES),
         max_equipment=_env_positive_int("OPENFDD_MAX_EQUIPMENT", DEFAULT_MAX_EQUIPMENT),
+        max_single_file_bytes=_env_positive_int(
+            "OPENFDD_MAX_SINGLE_FILE_MB", DEFAULT_SINGLE_FILE_MB
+        )
+        * 1024
+        * 1024,
     )
 
 
@@ -310,6 +355,33 @@ def _ensure_parent_dir(target: Path, entry_name: str) -> None:
         )
 
 
+def _member_suffix(name: str) -> str:
+    return Path(str(name).replace("\\", "/")).suffix.lower()
+
+
+def reject_member_name(name: str) -> None:
+    """Fail closed on nested zips and executable/script content."""
+    suffix = _member_suffix(name)
+    if suffix == ".zip":
+        raise PackageError(
+            f"Nested zip members are not allowed: {name}. "
+            "Flatten packages with scripts/vibe19_prepare_package.py before upload."
+        )
+    if suffix in REJECTED_UPLOAD_SUFFIXES:
+        raise PackageError(f"Disallowed file type in package: {name}")
+
+
+def _stream_copy(src, dest, budget: ExtractionBudget, *, filename: str) -> None:
+    file_written = 0
+    while True:
+        chunk = src.read(1024 * 256)
+        if not chunk:
+            break
+        file_written += len(chunk)
+        dest.write(chunk)
+        budget.consume(len(chunk), filename=filename, file_written=file_written)
+
+
 def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
     caps = caps or effective_package_caps()
     infos = zf.infolist()
@@ -324,7 +396,7 @@ def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
             f"An 'item' (zip entry) is each file or folder listed inside the zip "
             f"- not megabytes. This zip has about {n_files} file(s) and {n_dirs} folder marker(s). "
             f"Trim unused files (e.g. quality.json, fdd_*.csv, backups), or split into "
-            f"smaller part-zips (see vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md), "
+            f"smaller part-zips (see docs/DATA_PREPROCESSING.md), "
             f"or raise OPENFDD_MAX_ENTRIES on the host."
         )
     total = 0
@@ -337,7 +409,13 @@ def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
             raise PackageError(f"Symlink entries are not allowed: {info.filename}")
         if info.file_size < 0 or info.compress_size < 0:
             raise PackageError("Invalid zip entry sizes")
-        # Compression bomb heuristic
+        reject_member_name(info.filename)
+        if int(info.file_size) > caps.max_single_file_bytes:
+            raise PackageError(
+                f"Zip entry `{info.filename}` exceeds the "
+                f"{caps.max_single_file_mb} MB single-file limit"
+            )
+        # Compression bomb heuristic (declared sizes; streamed writes are also capped)
         if info.compress_size > 0 and info.file_size / max(info.compress_size, 1) > MAX_COMPRESSION_RATIO:
             raise PackageError(f"Suspicious compression ratio: {info.filename}")
         total += int(info.file_size)
@@ -357,76 +435,24 @@ def stat_is_symlink(info: zipfile.ZipInfo) -> bool:
     return ((info.external_attr >> 16) & 0o170000) == 0o120000
 
 
-def expand_nested_zips(
-    workdir: Path,
-    *,
-    caps: PackageCaps | None = None,
-    max_depth: int = 4,
-) -> list[str]:
-    """Extract nested ``*.zip`` archives found under workdir (in place).
-
-    Each nested zip is unpacked into a sibling folder named after the zip stem,
-    then the zip file is removed. Weather / equipment trees may arrive nested.
-    """
-    caps = caps or effective_package_caps()
-    notes: list[str] = []
-    for _depth in range(max_depth):
-        nested = sorted(p for p in workdir.rglob("*.zip") if p.is_file())
-        if not nested:
-            return notes
-        for zpath in nested:
-            try:
-                rel = zpath.relative_to(workdir)
-            except ValueError:
-                rel = zpath
-            dest = zpath.parent / zpath.stem
-            dest.mkdir(parents=True, exist_ok=True)
-            try:
-                data = zpath.read_bytes()
-                if len(data) > caps.max_zip_bytes:
-                    raise PackageError(
-                        f"Nested zip `{rel.as_posix()}` exceeds {caps.max_zip_mb} MB limit"
-                    )
-                from io import BytesIO
-
-                with zipfile.ZipFile(BytesIO(data), "r") as zf:
-                    _inspect_zip(zf, caps)
-                    for info in zf.infolist():
-                        if _is_zip_dir(info):
-                            continue
-                        member = _safe_member_path(info.filename)
-                        if not member.parts:
-                            continue
-                        target = resolved_extract_target(dest, member, entry_name=info.filename)
-                        _ensure_parent_dir(target, info.filename)
-                        with zf.open(info, "r") as src, target.open("wb") as out:
-                            while True:
-                                chunk = src.read(1024 * 256)
-                                if not chunk:
-                                    break
-                                out.write(chunk)
-                zpath.unlink(missing_ok=True)
-                notes.append(
-                    f"Expanded nested zip `{rel.as_posix()}` → "
-                    f"`{dest.relative_to(workdir).as_posix()}`"
-                )
-            except PackageError:
-                raise
-            except Exception as exc:
-                raise PackageError(
-                    f"Failed to expand nested zip `{rel.as_posix()}`: {exc}"
-                ) from exc
-    leftover = [p for p in workdir.rglob("*.zip") if p.is_file()]
+def reject_nested_zips(workdir: Path) -> None:
+    """Fail closed if any ``*.zip`` remains after parent extract (no nested expansion)."""
+    leftover = sorted(p for p in workdir.rglob("*.zip") if p.is_file())
     if leftover:
+        names = ", ".join(p.relative_to(workdir).as_posix() for p in leftover[:8])
         raise PackageError(
-            f"Nested zip depth exceeded ({max_depth}); "
-            f"{len(leftover)} zip(s) remain unexpanded"
+            "Nested zip files are not allowed in an uploaded package "
+            f"({len(leftover)} found: {names}). Flatten with "
+            "scripts/vibe19_prepare_package.py before upload."
         )
-    return notes
 
 
 def extract_package_zip(
-    data: bytes, *, dest: Path | None = None, caps: PackageCaps | None = None
+    data: bytes,
+    *,
+    dest: Path | None = None,
+    caps: PackageCaps | None = None,
+    budget: ExtractionBudget | None = None,
 ) -> Path:
     """Extract zip bytes into a fresh temp dir. Returns workdir root."""
     caps = caps or effective_package_caps()
@@ -434,12 +460,12 @@ def extract_package_zip(
         raise PackageError(f"Zip exceeds {caps.max_zip_mb} MB compressed limit")
     workdir = Path(dest) if dest else Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
     workdir.mkdir(parents=True, exist_ok=True)
+    budget = budget or ExtractionBudget.from_caps(caps)
     try:
         from io import BytesIO
 
         with zipfile.ZipFile(BytesIO(data), "r") as zf:
             _inspect_zip(zf, caps)
-            written = 0
             for info in zf.infolist():
                 if _is_zip_dir(info):
                     continue
@@ -448,20 +474,9 @@ def extract_package_zip(
                     continue
                 target = resolved_extract_target(workdir, rel, entry_name=info.filename)
                 _ensure_parent_dir(target, info.filename)
-                # Stream copy with hard cap
                 with zf.open(info, "r") as src, target.open("wb") as out:
-                    while True:
-                        chunk = src.read(1024 * 256)
-                        if not chunk:
-                            break
-                        written += len(chunk)
-                        if written > caps.max_uncompressed_bytes:
-                            raise PackageError(
-                                f"Uncompressed size limit exceeded during extract "
-                                f"({caps.max_uncompressed_mb} MB)"
-                            )
-                        out.write(chunk)
-        expand_nested_zips(workdir, caps=caps)
+                    _stream_copy(src, out, budget, filename=info.filename)
+        reject_nested_zips(workdir)
     except PackageError:
         wipe_workdir(workdir)
         raise
@@ -894,7 +909,8 @@ def load_package_zip(
     """Extract + validate + load. Caller owns wipe via result.workdir.
 
     Pass ``caps=effective_package_caps(for_browser_upload=True)`` for Streamlit
-    uploader bytes (500 MB). Agent/CLI/path use default 2048 MB caps.
+    uploader bytes (150 MB compressed / 500 MB expanded). CLI/path use default
+    2048 MB caps.
     Pass ``dest`` (session package dir) so Cloud extracts stay isolated.
     """
     sweep_old_temp_dirs(protect=protect or dest)

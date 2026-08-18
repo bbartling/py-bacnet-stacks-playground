@@ -56,7 +56,7 @@ def test_building100_result_row_count():
     zpath = _building100_zip()
     if zpath is None:
         pytest.skip("Building 100 zip not available")
-    from app.agent_api import export_agent_bundle, load_package_path, run_rules
+    from app.fdd_runtime import export_engineering_bundle, load_package_path, run_rules
     from app.package_io import wipe_workdir
 
     ds = load_package_path(zpath)

@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.agent_api import make_session_config
+from app.fdd_runtime import make_session_config
 from app.column_map_json import (
     COOKBOOK_TO_HAYSTACK_POINT,
     build_column_map_from_equipment_frames,
@@ -52,6 +52,7 @@ def _hs_equip_type(eq_id: str, cookbook_type: str) -> str:
         "boiler": "boiler",
         "heatpump": "heatPump",
         "pump": "pump",
+        "cooling_tower": "coolingTower",
     }.get(et, et or "unknown")
 
 

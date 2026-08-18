@@ -6,7 +6,7 @@ Builds a fixed multi-equipment fixture and writes comparable JSON metrics.
 Modes
 -----
 ``live`` (default)
-    Measure whatever ``export_agent_bundle`` does *now* (post-profile default
+    Measure whatever ``export_engineering_bundle`` does *now* (post-profile default
     is ``summary``). This is **not** a frozen legacy baseline.
 
 ``summary`` / ``diagnostic`` / ``forensic``
@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.agent_api import AgentDataset, AgentRun, export_agent_bundle  # noqa: E402
+from app.fdd_runtime import BuildingDataset, FddRun, export_engineering_bundle  # noqa: E402
 from app.rules.base import RuleResult  # noqa: E402
 
 # Portable aggregate-only before metrics (checked in). Local re-measure for Task 5.
@@ -65,7 +65,7 @@ def _idx(periods: int = 24) -> pd.DatetimeIndex:
     return pd.date_range("2024-06-01", periods=periods, freq="1h", tz="UTC")
 
 
-def build_profile_fixture() -> tuple[AgentDataset, AgentRun]:
+def build_profile_fixture() -> tuple[BuildingDataset, FddRun]:
     """CHW plant, DX AHU, chilled-water AHU, heat pump, VAV + mixed FDD statuses."""
     idx = _idx()
     n = len(idx)
@@ -182,7 +182,7 @@ def build_profile_fixture() -> tuple[AgentDataset, AgentRun]:
         index=idx,
     )
 
-    dataset = AgentDataset(
+    dataset = BuildingDataset(
         building_id="PROFILE_FIXTURE",
         frames=frames,
         weather=weather,
@@ -260,7 +260,7 @@ def build_profile_fixture() -> tuple[AgentDataset, AgentRun]:
         ),
     ]
     status_counts = dict(Counter(r.status for r in results))
-    run = AgentRun(
+    run = FddRun(
         results=results,
         status_counts=status_counts,
         params={},
@@ -334,15 +334,15 @@ def measure_export(
         if normalized in _PROFILE_MODES:
             export_profile = profile or normalized
         else:
-            # live: use export_agent_bundle default (summary) unless overridden
+            # live: use export_engineering_bundle default (summary) unless overridden
             export_profile = profile
         if export_profile is not None:
-            written = export_agent_bundle(
-                dataset, run, out, include_bootstrap=False, profile=export_profile
+            written = export_engineering_bundle(
+                dataset, run, out, profile=export_profile
             )
             reported_profile = export_profile
         else:
-            written = export_agent_bundle(dataset, run, out, include_bootstrap=False)
+            written = export_engineering_bundle(dataset, run, out)
             reported_profile = "summary"  # live default after Task 4
         elapsed = time.perf_counter() - t0
 
@@ -374,7 +374,7 @@ def measure_export(
             "suppressed_combinations": suppressed,
             "artifact_keys": sorted(str(k) for k in written),
             "baseline_note": (
-                "live measures active export_agent_bundle; frozen before-metrics are "
+                "live measures active export_engineering_bundle; frozen before-metrics are "
                 f"{CHECKED_IN_BASELINE_PATH.as_posix()}"
             ),
             "metrics_note": (
@@ -397,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=("live", "current", "summary", "diagnostic", "forensic"),
         default="live",
         help=(
-            "live=measure active export_agent_bundle default (alias: current, deprecated); "
+            "live=measure active export_engineering_bundle default (alias: current, deprecated); "
             "summary/diagnostic/forensic=explicit profile. "
             "Frozen before-metrics: tests/fixtures/wattlab_export_before.json"
         ),

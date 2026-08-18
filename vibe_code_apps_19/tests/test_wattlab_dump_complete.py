@@ -18,7 +18,7 @@ def test_build_wattlab_dump_always_reruns_complete_cookbook(monkeypatch: pytest.
     import streamlit as st
 
     import streamlit_app as app
-    from app.agent_api import AgentRun
+    from app.fdd_runtime import FddRun
     from app.rules.base import RuleResult
 
     frames = {
@@ -69,7 +69,7 @@ def test_build_wattlab_dump_always_reruns_complete_cookbook(monkeypatch: pytest.
 
     def fake_run_rules(dataset, **kwargs):
         calls["run_rules"] += 1
-        return AgentRun(
+        return FddRun(
             results=complete,
             summary=pd.DataFrame(
                 [
@@ -90,7 +90,7 @@ def test_build_wattlab_dump_always_reruns_complete_cookbook(monkeypatch: pytest.
             params=dataset.params,
         )
 
-    def fake_export_agent_bundle(dataset, run, out_dir, include_bootstrap=False, **kwargs):
+    def fake_export_engineering_bundle(dataset, run, out_dir, **kwargs):
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         (out / "README_WATTLAB.md").write_text("ok\n", encoding="utf-8")
@@ -129,8 +129,8 @@ def test_build_wattlab_dump_always_reruns_complete_cookbook(monkeypatch: pytest.
     st.session_state.batch_results = partial
 
     # Local imports inside `_build_wattlab_dump_zip` resolve these names.
-    monkeypatch.setattr("app.agent_api.run_rules", fake_run_rules)
-    monkeypatch.setattr("app.agent_api.export_agent_bundle", fake_export_agent_bundle)
+    monkeypatch.setattr("app.fdd_runtime.run_rules", fake_run_rules)
+    monkeypatch.setattr("app.fdd_runtime.export_engineering_bundle", fake_export_engineering_bundle)
 
     data, fname = app._build_wattlab_dump_zip()
     assert calls["run_rules"] == 1

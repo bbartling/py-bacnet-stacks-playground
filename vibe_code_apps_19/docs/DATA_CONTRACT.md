@@ -42,7 +42,7 @@ Select building with `HVAC_BUILDING` env, `.env` file (see `.env.example`), or `
 }
 ```
 
-**Agent must derive:**
+**Runtime must derive:**
 
 ```python
 # After load (preferred) — set by app/data_loader.py from manifest grid_minutes:

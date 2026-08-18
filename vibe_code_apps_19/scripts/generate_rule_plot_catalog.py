@@ -1,4 +1,4 @@
-"""Generate vibe19_agent_spec/docs/RULE_PLOT_CATALOG.md from the live catalog."""
+"""Generate docs/RULE_PLOT_CATALOG.md from the live catalog."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from app.rules import CANONICAL_RULE_COUNT
 from app.rules.cookbook_catalog import RULES
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "vibe19_agent_spec" / "docs" / "RULE_PLOT_CATALOG.md"
+OUT = ROOT / "docs" / "RULE_PLOT_CATALOG.md"
 
 
 def main() -> None:
