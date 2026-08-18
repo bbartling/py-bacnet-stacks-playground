@@ -28,7 +28,7 @@ from eplus_gym.rl.report_bundle import build_report  # noqa: E402
 from eplus_gym.rl.split_manifest import persist_train_fold  # noqa: E402
 from eplus_gym.rl.operator_pay_experiment import refuse_full_campaign  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
-from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
+from eplus_gym.site_pins import resolve_a04_and_epw, resolve_site_epw, sha256_file  # noqa: E402
 
 EXIT_OK = 0
 EXIT_CONFIG = 1
@@ -285,7 +285,7 @@ def cmd_operator_pay_experiment(args) -> int:
 
 
 def cmd_campaign(args) -> int:
-    """100 unique heating-season days: PPO + DQN train, then random/heuristic report."""
+    """Contiguous-block campaign after verified Track B active model. Refuses A04 by default."""
     print(SCREENING_CLAIM)
     if args.simulator != SIMULATOR_REQUIRED:
         print("REFUSED: only LIVE_ENERGYPLUS", file=sys.stderr)
@@ -301,8 +301,34 @@ def cmd_campaign(args) -> int:
         }
         print(json.dumps(stub, indent=2, default=str))
         return EXIT_INTEGRITY
+    from eplus_gym.a04_identity import is_canonical_a04_idf_filename
+    from eplus_gym.rl.active_model import ActiveModelError, verify_active_model
+
+    try:
+        manifest = verify_active_model(_APP)
+    except ActiveModelError as exc:
+        print(json.dumps({"command": "campaign", "allowed": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    rel = str(manifest.get("idf_path") or "")
+    idf = _APP / rel
+    if is_canonical_a04_idf_filename(idf.name) and not manifest.get("a04_explicitly_verified_active"):
+        print(
+            json.dumps(
+                {
+                    "command": "campaign",
+                    "allowed": False,
+                    "reason": "campaign refuses A04 unless it is explicitly the verified active model",
+                },
+                indent=2,
+            )
+        )
+        return EXIT_INTEGRITY
     site = _site(args)
-    idf, epw = _paths(site)
+    try:
+        epw = resolve_site_epw(site)
+    except FileNotFoundError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return EXIT_CONFIG
     champ_hash = sha256_file(idf)
     n = int(args.n_days)
     if str(getattr(args, "pool", "unique_heating")) == "year2xsyn":
@@ -404,6 +430,43 @@ def cmd_campaign(args) -> int:
     )
     print(json.dumps(comparison, indent=2))
     print("repo_copy", repo_copy)
+    return EXIT_OK
+
+
+def cmd_preflight_campaign(args) -> int:
+    from eplus_gym.rl.campaign_preflight import PreflightError, preflight_campaign
+
+    path = Path(args.bundle)
+    bundle = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    try:
+        out = preflight_campaign(bundle, app_root=_APP)
+    except PreflightError as exc:
+        print(json.dumps({"ok": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    print(json.dumps(out, indent=2))
+    return EXIT_OK
+
+
+def cmd_prepare_campaign(args) -> int:
+    from eplus_gym.rl.campaign_bundle import CampaignBundleError, prepare_campaign_bundle, write_bundle
+    from eplus_gym.rl.campaign_preflight import PreflightError, preflight_campaign
+
+    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+    out_path = Path(args.out)
+    try:
+        bundle = prepare_campaign_bundle(
+            app_root=_APP,
+            site_root=_site(args),
+            days=days,
+            live_incumbent_baselines=bool(args.live_baselines),
+            output_root=out_path.parent,
+        )
+        write_bundle(out_path, bundle)
+        preflight_campaign(bundle, app_root=_APP)
+    except (CampaignBundleError, PreflightError, SystemExit) as exc:
+        print(json.dumps({"ok": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    print(json.dumps({"ok": True, "out": str(out_path), "n_days": len(days)}, indent=2))
     return EXIT_OK
 
 
@@ -590,6 +653,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     camp.add_argument("--reward-name", default="reward_v2")
     camp.set_defaults(func=cmd_campaign)
+
+    pf = sub.add_parser("preflight-campaign")
+    pf.add_argument("--bundle", required=True)
+    pf.set_defaults(func=cmd_preflight_campaign)
+
+    prep = sub.add_parser("prepare-campaign", parents=[site_parent])
+    prep.add_argument("--days", default="2025-12-08,2025-12-09,2025-12-10")
+    prep.add_argument("--out", required=True)
+    prep.add_argument("--live-baselines", action="store_true")
+    prep.add_argument("--model-manifest", default="contracts/active_rl_model_v1.json")
+    prep.set_defaults(func=cmd_prepare_campaign)
 
     legacy = sub.add_parser("legacy-daily-env", parents=[site_parent])
     legacy.add_argument("--confirm-legacy-diagnostic", action="store_true", required=True)

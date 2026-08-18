@@ -271,10 +271,13 @@ class MultiDayDailyEnv(gym.Env):
         self._baseline_billing = BillingState(**init)
         self._day_i = 0
         self._prev_action = [0.0] * 11
+        self._prev_schedules: dict[str, list[float]] | None = None
         self._prev_peak = 0.0
         self._prev_kwh = 0.0
         self._prev_cc = 0.0
         self._episode_return = 0.0
+        self._closed = False
+        self._quality_evidence: dict[str, Any] | None = None
         if self.algo_space == "discrete":
             self.action_space = discrete_action_space_v2()
         else:
@@ -321,10 +324,12 @@ class MultiDayDailyEnv(gym.Env):
         self.plant.start_episode()
         self._day_i = 0
         self._prev_action = [0.0] * 11
+        self._prev_schedules = None
         self._prev_peak = 0.0
         self._prev_kwh = 0.0
         self._prev_cc = 0.0
         self._episode_return = 0.0
+        self._closed = False
         init = dict(
             floor_kw=float(self.cfg.get("billing_floor_kw") or 0.0),
             ratchet_kw=float(self.cfg.get("ratchet_kw") or 0.0),
@@ -391,13 +396,20 @@ class MultiDayDailyEnv(gym.Env):
         params = self._decode(action)
         schedules = build_six_schedules_f(params)
         oat, _src = self._oat(day)
-        payload = self.plant.simulate_day(schedules, oat_c=oat)
+        try:
+            payload = self.plant.simulate_day(schedules, oat_c=oat)
+        except IntegrityFailure:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise IntegrityFailure(f"energyplus_crash:{type(exc).__name__}:{exc}") from exc
         if payload.get("failed") or payload.get("invalid"):
             raise IntegrityFailure(str(payload.get("reason") or "energyplus_crash"))
         facility = payload.get("facility_kw")
         zone_series = payload.get("zone_temps_series_f")
         if facility is None or zone_series is None:
             raise IntegrityFailure("incomplete trajectory: missing facility_kw or zone_temps_series_f")
+        if int(payload.get("n_intervals") or len(facility) or 0) != 96:
+            raise IntegrityFailure("incomplete trajectory: expected 96 intervals")
         try:
             baseline = self._lookup_baseline(day)
         except MissingBaselineError:
@@ -413,6 +425,7 @@ class MultiDayDailyEnv(gym.Env):
             baseline_facility_kw=b_fac,
             baseline_zone_temps_f=b_zones,
             candidate_schedules=schedules,
+            previous_schedules=self._prev_schedules,
             mtd_peak_kw=self._billing.mtd_peak_kw,
             ratchet_kw=self._billing.ratchet_kw,
             contract_kw=self._billing.contract_kw,
@@ -428,6 +441,7 @@ class MultiDayDailyEnv(gym.Env):
         if hasattr(self.plant, "zone_temps_f") and payload.get("zone_temps_f"):
             self.plant.zone_temps_f = list(payload["zone_temps_f"])
         self._prev_action = encode_continuous_v2(params).astype(float).tolist()
+        self._prev_schedules = {k: list(schedules[k]) for k in ACTION_KEYS}
         self._prev_peak = peak
         self._prev_kwh = kwh
         self._prev_cc = 1.0 if params.continuous_conditioning else 0.0
@@ -470,5 +484,44 @@ class MultiDayDailyEnv(gym.Env):
             "learnable": True,
             "billing_floor_at_start_kw": cand_old,
             "baseline_billing_floor_at_start_kw": base_old,
+            "block_id": self.cfg.get("block_id") or f"{self.days[0]}:{self.days[-1]}",
+            "action": action if not hasattr(action, "tolist") else np.asarray(action).tolist(),
+            "decoded_schedule_fingerprint": schedule_fingerprint(schedules),
+            "reward": reward,
+            "occupied_low_DH": scored.extras.get("occupied_low_DH"),
+            "occupied_high_DH": scored.extras.get("occupied_high_DH"),
+            "within_day_schedule_movement": scored.extras.get("within_day_schedule_movement"),
+            "between_day_action_movement": scored.extras.get("between_day_action_movement"),
+            "opening_mtd_kw": cand_old,
+            "closing_mtd_kw": self._billing.mtd_peak_kw,
+            "eplus_quality_ref": getattr(self.plant, "last_eplus_quality", None),
+            "model_sha256": self.cfg.get("idf_sha256"),
+            "epw_sha256": self.cfg.get("epw_sha256"),
+            "trajectory_sha256": trajectory_hash(payload),
+            "reward_breakdown": {
+                "reward": reward,
+                "day": day,
+                "daily_kwh": kwh,
+                "peak_kw": peak,
+                "savings": scored.savings,
+            },
         }
         return obs, reward, terminated, False, info
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        plant = self.plant
+        if hasattr(plant, "finish_quality"):
+            try:
+                self._quality_evidence = plant.finish_quality()
+            except Exception:  # noqa: BLE001
+                if hasattr(plant, "close"):
+                    plant.close()
+        elif hasattr(plant, "close"):
+            plant.close()
+        closer = getattr(super(), "close", None)
+        if callable(closer):
+            closer()
+        return None

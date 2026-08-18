@@ -10,3 +10,7 @@ def test_year2xsyn_report_writes_rl_report_year2x():
     assert "rl_report_year2x" in text
     assert "day_pool.json" in text
     assert "report_only_no_retrain" in text
+    camp = text.split("def cmd_campaign")[1].split("def cmd_preflight")[0]
+    assert "resolve_a04_and_epw" not in camp
+    assert "verify_active_model" in camp
+    assert "resolve_site_epw" in camp

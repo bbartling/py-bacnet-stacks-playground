@@ -1,0 +1,21 @@
+{
+  "schema": "vibe22.operational_dsm_ready.v1",
+  "OPERATIONAL_DSM_READY": false,
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "required_all": [
+    "held_out_interval_load_shape",
+    "demand_window_evidence",
+    "treatment_effect",
+    "verified_tariff",
+    "shadow_mode_field_evidence",
+    "deterministic_fallback",
+    "human_approval"
+  ],
+  "this_task_will_not_claim_those": true,
+  "reason": "Operational DSM readiness requires field evidence this task does not produce."
+}

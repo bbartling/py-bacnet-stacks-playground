@@ -1,0 +1,41 @@
+{
+  "schema": "vibe22.simulation_training_ready.v1",
+  "SIMULATION_TRAINING_READY": false,
+  "long_campaign_allowed": false,
+  "long_campaign_allowed_maps_to": "SIMULATION_TRAINING_READY",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "required_all": [
+    "valid_scored_runperiods",
+    "zero_severe_fatal",
+    "w2a_scored_runtime_0",
+    "frozen_ramp_pass",
+    "action_response_sanity",
+    "finite_kw_temps",
+    "acceptable_partial_period_monthly_screen",
+    "immutable_idf_epw_hashes",
+    "clean_three_day_live_rl_pilot"
+  ],
+  "passed_gates": [
+    "valid_scored_runperiods",
+    "zero_severe_fatal",
+    "frozen_ramp_pass",
+    "finite_kw_temps"
+  ],
+  "failed_gates": [
+    "w2a_scored_runtime_0"
+  ],
+  "not_run_gates": [
+    "action_response_sanity_across_arms_not_used_for_champion",
+    "acceptable_partial_period_monthly_screen",
+    "clean_three_day_live_rl_pilot"
+  ],
+  "first_failed_gate": "w2a_scored_runtime_0",
+  "first_live_w2a_scored_runtime": 2106,
+  "w2a_bound": 0,
+  "reason": "First LIVE Track B child produced a valid 96-row scored runperiod with zero severe/fatal, but scored-runtime W2A=2106. Bound stays 0. Warnings were not suppressed. Long simulation-only RL remains blocked. Phase 8-10 not started."
+}

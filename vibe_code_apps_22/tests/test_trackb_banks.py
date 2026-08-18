@@ -223,3 +223,19 @@ def test_rewrite_user_specified_heating_to_autosize_is_child_only():
     assert coil is not None
     assert str(field_by_comment(coil, "Rated Heating Capacity")).lower() == "autosize"
 
+
+def test_rewrite_autosize_covers_cooling_fan_and_noload():
+    from eplus_gym.idf_objects import field_by_comment, find_named_object
+    from eplus_gym.trackb_banks import CLG_TYPE, FAN_TYPE, HTG_TYPE, ZONEHVAC_TYPE, rewrite_parent_coils_to_autosize
+
+    a04 = APP / "models" / "eplus" / "lakeside_w2a_a04_dual_champion.idf"
+    src = a04.read_text(encoding="utf-8", errors="replace")
+    child, meta = rewrite_parent_coils_to_autosize(src)
+    assert meta["n_fields_rewritten"] > 9
+    clg = find_named_object(child, CLG_TYPE, "1F_Library_IMC WAHP Cooling Coil")
+    fan = find_named_object(child, FAN_TYPE, "1F_Library_IMC WAHP Supply Fan")
+    zh = find_named_object(child, ZONEHVAC_TYPE, "1F_Library_IMC WAHP")
+    assert clg is not None and fan is not None and zh is not None
+    assert str(field_by_comment(clg, "Rated Air Flow Rate")).lower() == "autosize"
+    assert str(field_by_comment(fan, "Maximum Flow Rate")).lower() == "autosize"
+

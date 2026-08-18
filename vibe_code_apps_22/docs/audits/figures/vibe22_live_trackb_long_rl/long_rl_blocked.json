@@ -1,0 +1,13 @@
+{
+  "schema": "vibe22.long_rl_blocked.v1",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "phase_8_3day_live_rl_pilot": "skipped",
+  "phase_9_10_long_campaign": "skipped",
+  "first_failed_gate": "w2a_scored_runtime_0",
+  "reason": "SIMULATION_TRAINING_READY is false because scored-runtime W2A is 2106 on the first LIVE Track B child (bound 0). A 3-day LIVE RL pilot and 20-30 h campaign were not started."
+}

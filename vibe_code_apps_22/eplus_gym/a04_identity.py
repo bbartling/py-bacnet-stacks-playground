@@ -26,6 +26,17 @@ def is_a04_idf_filename(name: str) -> bool:
     return base.startswith("lakeside_w2a_a04v2_") and base.endswith(".idf")
 
 
+def is_trackb_idf_filename(name: str) -> bool:
+    n = Path(name).name
+    base = n[7:] if n.startswith("staged_") else n
+    return base.startswith("lakeside_w2a_trackb_") and base.endswith(".idf")
+
+
+def is_allowed_lakeside_gym_idf(name: str) -> bool:
+    """LakesideW2AEnv may load A04, A04-v2, or Track B bank children."""
+    return is_a04_idf_filename(name) or is_trackb_idf_filename(name)
+
+
 def is_canonical_a04_idf_filename(name: str) -> bool:
     n = Path(name).name
     return n in {A04_IDF_NAME, f"staged_{A04_IDF_NAME}"}

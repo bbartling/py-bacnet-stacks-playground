@@ -1,0 +1,25 @@
+{
+  "schema": "vibe22.live_trackb.verdict.v1",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "champion": null,
+  "SIMULATION_TRAINING_READY": false,
+  "OPERATIONAL_DSM_READY": false,
+  "long_campaign_allowed": false,
+  "first_failed_gate": "w2a_scored_runtime_0",
+  "first_live": {
+    "run_id": "trackb_live_v3_base_20260112",
+    "n_rows": 96,
+    "scored_runperiod_valid": true,
+    "w2a_scored_runtime": 2106,
+    "w2a_bound": 0,
+    "frozen_ramp_passed": true,
+    "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a"
+  },
+  "vibe19_untouched": true,
+  "bacnet_commands": 0
+}

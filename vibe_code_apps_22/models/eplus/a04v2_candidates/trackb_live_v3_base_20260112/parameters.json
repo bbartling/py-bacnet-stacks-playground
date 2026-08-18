@@ -1,0 +1,221 @@
+{
+  "schema": "vibe22.trackb.candidate.v2",
+  "run_id": "trackb_live_v3_base_20260112",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "as_built": false,
+  "assumes_identical_3ton": false,
+  "parent_model": "lakeside_w2a_a04_dual_champion.idf",
+  "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "idf": "lakeside_w2a_trackb_trackb_live_v3_base_20260112.idf",
+  "idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+  "n_heating_coils": 20,
+  "n_zonehvac": 20,
+  "sensitivity": "base",
+  "six_group_plan": {
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+    "as_built": false,
+    "assumes_identical_3ton": false,
+    "sensitivity": "base",
+    "hp_count_sum": 67,
+    "groups": [
+      {
+        "action_key": "1F_A",
+        "bas_group": "1F_Area_A",
+        "hp_count": 15,
+        "n_banks": 3,
+        "fractions": {
+          "small": 0.25,
+          "medium": 0.5,
+          "large": 0.25
+        },
+        "tonnage_asserted": false
+      },
+      {
+        "action_key": "1F_B",
+        "bas_group": "1F_Area_B",
+        "hp_count": 10,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        },
+        "tonnage_asserted": false
+      },
+      {
+        "action_key": "1F_C",
+        "bas_group": "1F_Area_C",
+        "hp_count": 11,
+        "n_banks": 3,
+        "fractions": {
+          "small": 0.25,
+          "medium": 0.5,
+          "large": 0.25
+        },
+        "tonnage_asserted": false
+      },
+      {
+        "action_key": "1F_D",
+        "bas_group": "1F_Area_D",
+        "hp_count": 10,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        },
+        "tonnage_asserted": false
+      },
+      {
+        "action_key": "2F_A",
+        "bas_group": "2F_Area_A",
+        "hp_count": 11,
+        "n_banks": 3,
+        "fractions": {
+          "small": 0.25,
+          "medium": 0.5,
+          "large": 0.25
+        },
+        "tonnage_asserted": false
+      },
+      {
+        "action_key": "2F_B",
+        "bas_group": "2F_Area_B",
+        "hp_count": 10,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        },
+        "tonnage_asserted": false
+      }
+    ],
+    "curve_provenance": {
+      "heating_equationfit": "inherited_from_a04_parent_unverified_catalog",
+      "not_as_built": true,
+      "tonnage_asserted": false
+    },
+    "control_groups": 6,
+    "equipment_representation": "multiple_equationfit_banks_per_group"
+  },
+  "nine_zone_plan": {
+    "zones": [
+      {
+        "eplus_zone": "1F_Library_IMC",
+        "hp_count": 2,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "1F_Cafe_Kitchen",
+        "hp_count": 3,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "1F_Gym",
+        "hp_count": 4,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "1F_Area_A",
+        "hp_count": 13,
+        "n_banks": 3,
+        "fractions": {
+          "small": 0.25,
+          "medium": 0.5,
+          "large": 0.25
+        }
+      },
+      {
+        "eplus_zone": "1F_Area_B",
+        "hp_count": 10,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "1F_Area_C",
+        "hp_count": 8,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "1F_Area_D",
+        "hp_count": 6,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      },
+      {
+        "eplus_zone": "2F_Area_A",
+        "hp_count": 11,
+        "n_banks": 3,
+        "fractions": {
+          "small": 0.25,
+          "medium": 0.5,
+          "large": 0.25
+        }
+      },
+      {
+        "eplus_zone": "2F_Area_B",
+        "hp_count": 10,
+        "n_banks": 2,
+        "fractions": {
+          "small": 0.5,
+          "large": 0.5
+        }
+      }
+    ],
+    "sensitivity": "base",
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY"
+  },
+  "reference_integrity": {
+    "ok": true,
+    "n_heating_coils": 20,
+    "n_zonehvac": 20,
+    "n_fans": 20,
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY"
+  },
+  "sizing_totals_provenance": "live_energyplus_eio_component_sizing",
+  "champion_gates": {
+    "schema": "vibe22.trackb.champion_gates.v1",
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+    "long_campaign_allowed": false,
+    "gates": {
+      "energyplus_success": "engine_executed",
+      "zero_severe_fatal": "pass",
+      "zero_scored_runtime_w2a": "fail",
+      "six_zone_actuation": "not_run",
+      "transient_train_dev": "not_run",
+      "transient_model_selection_val": "not_run",
+      "partial_period_monthly_gl14_style": "not_run",
+      "load_shape_published": false,
+      "valid_native_aggregated_demand": false,
+      "observed_bas_incumbent_replay": false,
+      "heldout_after_selection": "locked_unseen"
+    },
+    "ramp_threshold_role": "internal_plausibility_screen_not_ashrae_validation",
+    "champion": null
+  },
+  "track_b_builder_prototype_created": true,
+  "track_b_structural_validation_passed": true,
+  "track_b_live_energyplus_executed": true,
+  "track_b_completed": false,
+  "scored_runperiod_valid": true
+}

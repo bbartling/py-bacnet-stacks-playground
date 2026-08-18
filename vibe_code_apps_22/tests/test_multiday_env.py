@@ -201,3 +201,44 @@ def test_w2a_warning_phases_warmup_vs_runtime(tmp_path):
     assert gate["w2a_low_airflow_by_phase"]["warmup"] == 6
     assert gate["w2a_low_airflow_by_phase"]["scored_runtime"] == 8
     assert gate["recurring"]["w2a_low_airflow"] == 14
+
+
+def test_between_day_movement_is_not_always_zero():
+    from eplus_gym.control_v2 import deep_setback_params
+
+    days = ["2025-12-08", "2025-12-09"]
+    oat = _oat_map(*days)
+    env = MultiDayDailyEnv(
+        {
+            "n_days": 2,
+            "start_day": "2025-12-08",
+            "days": days,
+            "plant": FakeContinuityPlant(),
+            "hourly_oat": oat,
+            "baseline_payloads": _baseline_payloads(days, oat),
+        }
+    )
+    env.reset()
+    _o, _r, _d, _t, info1 = env.step(encode_continuous_v2(continuous_params(70.0)))
+    assert info1["between_day_action_movement"] == 0.0
+    _o, _r, _d, _t, info2 = env.step(encode_continuous_v2(deep_setback_params()))
+    assert info2["between_day_action_movement"] > 0.0
+    env.close()
+    assert env._closed is True
+
+
+def test_close_does_not_insert_a_learnable_step():
+    days = ["2025-12-08"]
+    oat = _oat_map(*days)
+    env = MultiDayDailyEnv(
+        {
+            "n_days": 1,
+            "start_day": "2025-12-08",
+            "plant": FakeContinuityPlant(),
+            "hourly_oat": oat,
+            "baseline_payloads": _baseline_payloads(days, oat),
+        }
+    )
+    env.reset()
+    env.close()
+    assert env._day_i == 0

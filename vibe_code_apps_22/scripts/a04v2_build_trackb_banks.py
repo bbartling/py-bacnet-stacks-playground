@@ -51,7 +51,7 @@ def build_trackb_plan(*, sensitivity: str, run_id: str, sizing_totals: dict | No
     integrity = assert_reference_integrity(expanded, nine)
     out_dir = _APP / "models" / "eplus" / "a04v2_candidates" / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_idf = out_dir / f"lakeside_w2a_trackb_{run_id}.idf"
+    out_idf = out_dir / "lakeside_w2a_trackb_child.idf"
     data = expanded.encode("utf-8")
     out_idf.write_bytes(data)
     meta = {

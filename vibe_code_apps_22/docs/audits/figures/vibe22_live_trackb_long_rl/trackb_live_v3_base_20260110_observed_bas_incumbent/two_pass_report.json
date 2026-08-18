@@ -1,0 +1,150 @@
+{
+  "schema": "vibe22.trackb.two_pass.v2",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE \u2014 LONG RL BLOCKED",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "generated_at_utc": "2026-08-18T12:41:34.615761+00:00",
+  "parent_idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+  "pass1_returncode": 0,
+  "pass2_exception": null,
+  "eplus_quality": {
+    "ok": true,
+    "completed_successfully": true,
+    "warning_count": 18177,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "first_severe": null,
+    "first_fatal": null,
+    "recurring": {
+      "w2a_low_airflow": 18133
+    },
+    "w2a_low_airflow_by_phase": {
+      "warmup": 14401,
+      "sizing": 0,
+      "scored_runtime": 3732
+    },
+    "w2a_low_airflow_events": [
+      {
+        "phase": "scored_runtime",
+        "n": 18133,
+        "warmup": 14401,
+        "sizing": 0,
+        "scored_runtime": 3732,
+        "coil": null,
+        "line": "*************  ** Warning ** Actual air mass flow rate is smaller than 25% of water-to-air heat pump coil rated air flow rate."
+      }
+    ],
+    "w2a_phase_unparseable": false,
+    "w2a_phase_fail_closed": false,
+    "err_path": "<SITE_ROOT>\\reports\\eplus_gym\\trackb_two_pass\\trackb_live_v3_base_20260110_observed_bas_incumbent\\pass2_banks_scored\\continuity\\eplus\\episode-00000000-32220\\eplusout.err"
+  },
+  "scored_runtime_w2a_pass": false,
+  "scored_runperiod": {
+    "ok": true,
+    "status": "VALID_SCORED_RUNPERIOD",
+    "scored_runtime_proven": true,
+    "n_intervals": 96,
+    "first_runtime_timestamp": "2026-01-10",
+    "last_runtime_timestamp": "2026-01-10",
+    "returncode": 0,
+    "issues": [],
+    "engine_returncode_is_not_sufficient": true,
+    "scored_runperiod_valid": true
+  },
+  "frozen_ramp": {
+    "max_f_per_15min": 4.972585292086819,
+    "threshold_f_per_15min": 2.651,
+    "passed": false,
+    "retuned": false,
+    "n_delta_samples": 570
+  },
+  "year_aware_epw_sha256": "aef8bd548b688c76cd13c6df1f42f07605a8f96b9c19826552ccf8d5318d3adc",
+  "reference_integrity": {
+    "ok": true,
+    "n_heating_coils": 20,
+    "n_zonehvac": 20,
+    "n_fans": 20,
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY"
+  },
+  "track_b_live_energyplus_executed": true,
+  "track_b_completed": false,
+  "champion": null,
+  "long_campaign_allowed": false,
+  "sizing_provenance": "live_energyplus_eio_component_sizing",
+  "heating_capacity_source": [
+    "design_size"
+  ],
+  "heating_capacity_note": "Pass 1 uses a sizing-only A04 child with heating/cooling/fan/ZoneHVAC airflow rewritten to Autosize. Immutable A04 is not overwritten.",
+  "autosize_rewrite": {
+    "n_fields_rewritten": 0,
+    "reused_sizing_totals": true,
+    "not_a04_overwrite": true
+  },
+  "one_day_artifact": {
+    "schema": "vibe22.trackb.one_day_artifact.v1",
+    "track_b_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+    "staged_epw_sha256": "aef8bd548b688c76cd13c6df1f42f07605a8f96b9c19826552ccf8d5318d3adc",
+    "parent_idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "energyplus_version": "26.1.0",
+    "requested_date": "2026-01-10",
+    "n_rows": 96,
+    "first_runtime_timestamp": "2026-01-10",
+    "last_runtime_timestamp": "2026-01-10",
+    "six_finite_zone_temps": true,
+    "finite_facility_kw": true,
+    "start_zone_temps_f": [
+      70.00050720482453,
+      70.00063106811926,
+      70.00060517687409,
+      70.00058528932085,
+      70.00044262414718,
+      70.00060479508625
+    ],
+    "final_zone_temps_f": [
+      64.00058191296009,
+      64.00059744137164,
+      64.00057883408644,
+      64.0005677531859,
+      64.00054540872384,
+      64.00054619375194
+    ],
+    "process_identity": {
+      "pid": 32220,
+      "run_id": "trackb_live_v3_base_20260110_observed_bas_incumbent"
+    },
+    "n_process_starts": 1,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "w2a_by_phase": {
+      "warmup": 14401,
+      "sizing": 0,
+      "scored_runtime": 3732
+    },
+    "trajectory_sha256": "0ab5d4c9d4a89a5313e5ba5c64b76f8fd59e1cde8e0f939c04c562ab21884844",
+    "arm": "observed_bas_incumbent",
+    "sensitivity": "base"
+  },
+  "watchdog": {
+    "pid": 32220,
+    "started": true,
+    "elapsed_s": 1.556,
+    "last_note": "after_finish_quality",
+    "last_callback_utc": "2026-08-18T12:41:34.597946+00:00",
+    "limits": {
+      "startup_s": 1200.0,
+      "no_progress_s": 600.0,
+      "overall_s": 7200.0
+    }
+  },
+  "engine_executed": true,
+  "sizing_completed": true,
+  "scored_runperiod_valid": true,
+  "quality_gates_passed": false,
+  "model_champion": false,
+  "scored_runperiod_valid_not_derived_from_rc0": true
+}

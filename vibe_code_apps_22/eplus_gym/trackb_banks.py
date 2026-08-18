@@ -229,7 +229,27 @@ def rewrite_parent_coils_to_autosize(src: str) -> tuple[str, dict[str, Any]]:
     n = 0
     for obj_type, fields in (
         (HTG_TYPE, ("Rated Heating Capacity", "Rated Air Flow Rate", "Rated Water Flow Rate")),
-        (ZONEHVAC_TYPE, ("Supply Air Flow Rate During Heating Operation",)),
+        (
+            CLG_TYPE,
+            (
+                "Rated Total Cooling Capacity",
+                "Rated Sensible Cooling Capacity",
+                "Rated Air Flow Rate",
+                "Rated Water Flow Rate",
+            ),
+        ),
+        (FAN_TYPE, ("Maximum Flow Rate",)),
+        (
+            ZONEHVAC_TYPE,
+            (
+                "Supply Air Flow Rate During Heating Operation",
+                "Supply Air Flow Rate During Cooling Operation",
+                "Supply Air Flow Rate When No Cooling or Heating is Needed",
+                "Heating Supply Air Flow Rate",
+                "Cooling Supply Air Flow Rate",
+                "No Load Supply Air Flow Rate",
+            ),
+        ),
     ):
         for block in iter_objects(text, obj_type):
             new = block
@@ -473,6 +493,20 @@ def expand_complete_banks(
                 if obj_type == ZONEHVAC_TYPE:
                     cloned = replace_comment_field(cloned, "Heating Supply Air Flow Rate", f"{h_airs[label]:.6g}")
                     cloned = replace_comment_field(cloned, "Cooling Supply Air Flow Rate", f"{c_airs[label]:.6g}")
+                    try:
+                        cloned = replace_comment_field(
+                            cloned, "No Load Supply Air Flow Rate", f"{h_airs[label]:.6g}"
+                        )
+                    except ValueError:
+                        pass
+                    try:
+                        cloned = replace_comment_field(
+                            cloned,
+                            "Supply Air Flow Rate When No Cooling or Heating is Needed",
+                            f"{h_airs[label]:.6g}",
+                        )
+                    except ValueError:
+                        pass
                 clones.append(cloned)
             text = _replace_block(text, parent, "\n\n".join(clones))
 

@@ -60,6 +60,12 @@ def test_a04v2_filename_allowlist():
     assert not is_a04_idf_filename("unreviewed_lakeside_w2a_a04_dual_champion.idf")
     assert env_is_a04("lakeside_w2a_a04v2_x.idf")
     assert not env_is_a04("unreviewed_lakeside_w2a_a04_dual_champion.idf")
+    from eplus_gym.a04_identity import is_allowed_lakeside_gym_idf, is_trackb_idf_filename
+
+    assert is_trackb_idf_filename("lakeside_w2a_trackb_child.idf")
+    assert is_trackb_idf_filename("staged_lakeside_w2a_trackb_child.idf")
+    assert is_allowed_lakeside_gym_idf("staged_lakeside_w2a_trackb_x.idf")
+    assert not is_a04_idf_filename("lakeside_w2a_trackb_x.idf")
 
 
 def test_candidate_cannot_overwrite_canonical_ramp_gate(tmp_path: Path):

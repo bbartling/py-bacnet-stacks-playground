@@ -1,0 +1,44 @@
+{
+  "schema": "vibe22.trackb.one_day_artifact.v1",
+  "track_b_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+  "staged_epw_sha256": "aef8bd548b688c76cd13c6df1f42f07605a8f96b9c19826552ccf8d5318d3adc",
+  "parent_idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "energyplus_version": "26.1.0",
+  "requested_date": "2026-01-12",
+  "n_rows": 96,
+  "first_runtime_timestamp": "2026-01-12",
+  "last_runtime_timestamp": "2026-01-12",
+  "six_finite_zone_temps": true,
+  "finite_facility_kw": true,
+  "start_zone_temps_f": [
+    70.00017074899398,
+    70.00075847333876,
+    70.00073826155133,
+    70.00070936996906,
+    70.00006533242282,
+    70.00069440464834
+  ],
+  "final_zone_temps_f": [
+    66.00070201879012,
+    66.00024948586704,
+    66.0002499231104,
+    66.00022281672501,
+    66.00072097161821,
+    66.0002121366291
+  ],
+  "process_identity": {
+    "pid": 30420,
+    "run_id": "trackb_live_v3_base_20260112_shallow_setback"
+  },
+  "n_process_starts": 1,
+  "severe_count": 0,
+  "fatal_count": 0,
+  "w2a_by_phase": {
+    "warmup": 5332,
+    "sizing": 0,
+    "scored_runtime": 2688
+  },
+  "trajectory_sha256": "afbfb3f7859f2384b6000a204cb7f6a7b116ab2fa60a29ec317f7384019e78c5",
+  "arm": "shallow_setback",
+  "sensitivity": "base"
+}

@@ -13,6 +13,7 @@ from eplus_gym.rl.daily_env import DailySixZoneGymEnv
 from eplus_gym.rl.multiday_env import MultiDayDailyEnv
 from eplus_gym.rl.plots import plot_algo_bakeoff_bars, plot_learning_curve
 from eplus_gym.rl.policy_pack import pack_from_sb3_zip
+from eplus_gym.rl.sb3_configs import named_config
 from eplus_gym.rl.split_manifest import assert_train_fold_only
 
 campaign_env_class = MultiDayDailyEnv
@@ -64,6 +65,7 @@ def train_sb3(
     unoccupied_heating_f: float = 65.0,
     day_specs: Sequence[Dict[str, Any]] | None = None,
     reward_name: str = "reward_v2",
+    sb3_config: str = "smoke",
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -113,17 +115,29 @@ def train_sb3(
     )
 
     env = Monitor(make_env(cfg))
-    n_steps = max(2, min(8, int(timesteps)))
+    cfg_named = named_config(sb3_config)
+    ppo_kw = dict(cfg_named.get("ppo") or {})
+    dqn_kw = dict(cfg_named.get("dqn") or {})
+    n_steps = int(ppo_kw.get("n_steps") or max(2, min(8, int(timesteps))))
     if algo_u == "PPO":
-        model = PPO("MlpPolicy", env, verbose=0, seed=int(seed), n_steps=n_steps, batch_size=min(64, n_steps))
+        model = PPO(
+            "MlpPolicy",
+            env,
+            verbose=0,
+            seed=int(seed),
+            n_steps=n_steps,
+            batch_size=int(ppo_kw.get("batch_size") or min(64, n_steps)),
+        )
     else:
         model = DQN(
             "MlpPolicy",
             env,
             verbose=0,
             seed=int(seed),
-            learning_starts=max(1, min(2, int(timesteps))),
-            buffer_size=max(64, int(timesteps) * 8),
+            learning_starts=int(dqn_kw.get("learning_starts") or 2),
+            buffer_size=int(dqn_kw.get("buffer_size") or max(64, int(timesteps) * 8)),
+            exploration_fraction=float(dqn_kw.get("exploration_fraction") or 0.5),
+            target_update_interval=int(dqn_kw.get("target_update_interval") or 10),
         )
 
     episode_log: List[Dict[str, Any]] = []
@@ -142,18 +156,36 @@ def train_sb3(
                 br = info.get("reward_breakdown") or {}
                 episode_log.append(
                     {
-                        "reward": br.get("reward"),
+                        "reward": info.get("training_reward", br.get("reward")),
                         "day": info.get("day"),
-                        "daily_kwh": br.get("daily_kwh"),
-                        "peak_kw": br.get("peak_kw"),
+                        "block_id": info.get("block_id"),
+                        "action": info.get("action"),
+                        "decoded_schedule_fingerprint": info.get("decoded_schedule_fingerprint"),
+                        "daily_kwh": info.get("daily_kwh", br.get("daily_kwh")),
+                        "peak_kw": info.get("peak_kw", br.get("peak_kw")),
+                        "savings": info.get("savings"),
+                        "energy_cost": info.get("energy_cost"),
+                        "incremental_demand_cost": info.get("incremental_demand_cost"),
+                        "opening_mtd_kw": info.get("opening_mtd_kw"),
+                        "closing_mtd_kw": info.get("closing_mtd_kw"),
+                        "readiness": info.get("readiness"),
+                        "occupied_low_DH": info.get("occupied_low_DH"),
+                        "occupied_high_DH": info.get("occupied_high_DH"),
+                        "within_day_schedule_movement": info.get("within_day_schedule_movement"),
+                        "between_day_action_movement": info.get("between_day_action_movement"),
+                        "eplus_quality_ref": info.get("eplus_quality_ref"),
+                        "model_sha256": info.get("model_sha256"),
+                        "epw_sha256": info.get("epw_sha256"),
+                        "trajectory_sha256": info.get("trajectory_sha256"),
                         "pre8_violations": br.get("pre8_violations"),
                         "failed": info.get("failed"),
+                        "learnable": info.get("learnable"),
                         "reward_name": str(reward_name),
                     }
                 )
             return True
 
-    model.learn(total_timesteps=max(2, int(timesteps)), callback=LogCallback())
+    model.learn(total_timesteps=max(2, int(cfg_named.get("timesteps") or timesteps)), callback=LogCallback())
     model_path = models_dir / f"{algo_u.lower()}_final.zip"
     model.save(str(model_path))
 
@@ -179,6 +211,9 @@ def train_sb3(
         "n_episodes_logged": len(episode_log),
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
+        "sb3_config": cfg_named.get("name"),
+        "label": "PRELIMINARY_SINGLE_SEED",
+        "not_pure_algorithm_comparison": True,
     }
     (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     pack = pack_from_sb3_zip(
@@ -221,14 +256,19 @@ def bakeoff(
             seed=seed,
         )
     plot_algo_bakeoff_bars(results, root / "plots")
-    winner = max(results.keys(), key=lambda a: float(results[a].get("mean_reward", -1e18)))
     out = {
         "scientific_claim": SCREENING_CLAIM,
         "simulator": SIMULATOR_REQUIRED,
         "run_id": rid,
         "root": str(root),
         "results": results,
-        "winner": winner,
+        "winner": None,
+        "winner_rule": "not_mean_reward",
+        "comparison_note": (
+            "PPO vs DQN is not a pure algorithm comparison; action spaces differ. "
+            "Single-seed mean reward cannot crown a winner."
+        ),
+        "label": "PRELIMINARY_SINGLE_SEED",
         "days": list(days),
         "timesteps_per_algo": int(timesteps),
     }

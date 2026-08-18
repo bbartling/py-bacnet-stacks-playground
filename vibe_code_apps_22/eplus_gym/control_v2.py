@@ -257,6 +257,19 @@ def weather_rule_optimal_start_params(*, oat_min_c: float) -> SixZoneDailyParams
     )
 
 
+def arm_params(arm: str) -> SixZoneDailyParamsV2:
+    key = str(arm).strip().lower()
+    table = {
+        "continuous_70": lambda: continuous_params(70.0),
+        "observed_bas_incumbent": observed_bas_incumbent_params,
+        "shallow_setback": shallow_setback_params,
+        "deep_setback": deep_setback_params,
+    }
+    if key not in table:
+        raise ValueError(f"unknown physics arm {arm!r}")
+    return table[key]()
+
+
 def chronological_days(start: str, n: int) -> list[str]:
     d0 = date.fromisoformat(str(start)[:10])
     return [(d0 + timedelta(days=i)).isoformat() for i in range(int(n))]
