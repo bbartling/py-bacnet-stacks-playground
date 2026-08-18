@@ -1,0 +1,88 @@
+{
+  "n_eplusout_err": 8,
+  "live_energyplus_err_paths": [
+    "val_shallow_setback\\eplus\\episode-00000000-19240\\eplusout.err",
+    "val_incumbent\\eplus\\episode-00000000-19240\\eplusout.err",
+    "val_continuous_70\\eplus\\episode-00000000-19240\\eplusout.err",
+    "ppo_seed1\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+    "ppo_seed0\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+    "dqn_seed1\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+    "dqn_seed0\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+    "baseline_incumbent\\eplus\\episode-00000000-19240\\eplusout.err"
+  ],
+  "err_gates": [
+    {
+      "path": "val_shallow_setback\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "val_incumbent\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "val_continuous_70\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "ppo_seed1\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "ppo_seed0\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "dqn_seed1\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "dqn_seed0\\episodes\\continuity\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    },
+    {
+      "path": "baseline_incumbent\\eplus\\episode-00000000-19240\\eplusout.err",
+      "severe": 0,
+      "fatal": 0,
+      "completed": true,
+      "energyplus_version": null
+    }
+  ],
+  "mechanical": {
+    "real_energyplus_err_files": true,
+    "ppo_dqn_seeds": [
+      "PPO_0",
+      "DQN_0",
+      "PPO_1",
+      "DQN_1"
+    ],
+    "schedule_fingerprints_changed": true,
+    "paired_eval_arms": [
+      "incumbent",
+      "continuous_70",
+      "shallow_setback"
+    ],
+    "winner": null,
+    "FakeContinuityPlant": false
+  }
+}

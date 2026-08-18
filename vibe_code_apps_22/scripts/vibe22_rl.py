@@ -284,6 +284,52 @@ def cmd_operator_pay_experiment(args) -> int:
     return int(out.get("exit_code") or EXIT_OK)
 
 
+def cmd_research_poc(args) -> int:
+    """Bounded real-EnergyPlus research PoC. Cannot enable --mode full or long_campaign_allowed."""
+    from eplus_gym.rl.research_model import ResearchModelError
+    from eplus_gym.rl.research_poc import ResearchPocError, run_research_poc
+
+    if str(getattr(args, "simulator", SIMULATOR_REQUIRED)) != SIMULATOR_REQUIRED:
+        print(json.dumps({"command": "research-poc", "allowed": False, "reason": "only LIVE_ENERGYPLUS"}))
+        return EXIT_INTEGRITY
+    if not bool(getattr(args, "confirm_simulation_only_physics_limits", False)):
+        print(
+            json.dumps(
+                {
+                    "command": "research-poc",
+                    "allowed": False,
+                    "reason": "missing --confirm-simulation-only-physics-limits",
+                    "long_campaign_allowed": False,
+                }
+            )
+        )
+        return EXIT_INTEGRITY
+    try:
+        site = _site(args)
+        out = run_research_poc(
+            app_root=_APP,
+            site_root=site,
+            confirm_simulation_only_physics_limits=True,
+            max_wall_hours=float(args.max_wall_hours),
+            seed=int(getattr(args, "seed", 0) or 0),
+        )
+    except (ResearchPocError, ResearchModelError, SystemExit) as exc:
+        print(json.dumps({"command": "research-poc", "allowed": False, "reason": str(exc)}))
+        return EXIT_INTEGRITY
+    if bool(getattr(args, "execute_live", False)):
+        from eplus_gym.rl.research_poc_live import execute_research_poc_live
+
+        live = execute_research_poc_live(
+            app_root=_APP,
+            site_root=site,
+            max_wall_hours=float(args.max_wall_hours),
+            seed=int(getattr(args, "seed", 0) or 0),
+        )
+        out["live"] = live
+    print(json.dumps(out, indent=2, default=str))
+    return EXIT_OK
+
+
 def cmd_campaign(args) -> int:
     """Contiguous-block campaign after verified Track B active model. Refuses A04 by default."""
     print(SCREENING_CLAIM)
@@ -684,6 +730,14 @@ def main(argv: list[str] | None = None) -> int:
     op.add_argument("--simulator", default=SIMULATOR_REQUIRED)
     op.add_argument("--seed", type=int, default=0)
     op.set_defaults(func=cmd_operator_pay_experiment)
+
+    rp = sub.add_parser("research-poc", parents=[site_parent])
+    rp.add_argument("--confirm-simulation-only-physics-limits", action="store_true")
+    rp.add_argument("--max-wall-hours", type=float, default=6.0)
+    rp.add_argument("--seed", type=int, default=0)
+    rp.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    rp.add_argument("--execute-live", action="store_true")
+    rp.set_defaults(func=cmd_research_poc)
 
     args = p.parse_args(argv)
     try:

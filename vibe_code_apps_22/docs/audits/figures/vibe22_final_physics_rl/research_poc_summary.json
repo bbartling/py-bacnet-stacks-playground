@@ -1,0 +1,155 @@
+{
+  "schema": "vibe22.research_poc_live.v1",
+  "claim_labels": [
+    "SIMULATION_ONLY_RESEARCH_POC",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY",
+    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED"
+  ],
+  "SIMULATION_TRAINING_READY": false,
+  "RESEARCH_POC_ALLOWED": true,
+  "OPERATIONAL_DSM_READY": false,
+  "long_campaign_allowed": false,
+  "model_id": "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+  "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "train_days": [
+    "2025-12-08",
+    "2025-12-09"
+  ],
+  "validation_days": [
+    "2025-12-15",
+    "2025-12-16"
+  ],
+  "locked_unseen": "NO LOCKED UNSEEN TEST AVAILABLE",
+  "baseline_gate": {
+    "severe_count": 0,
+    "fatal_count": 0,
+    "completed_successfully": true
+  },
+  "train_results": {
+    "PPO_0": {
+      "algo": "PPO",
+      "timesteps": 4,
+      "mean_reward": -20.48419189453125,
+      "mean_peak_kw": 185.9804053448751,
+      "mean_daily_kwh": 3424.795926951881,
+      "model": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\ppo_seed0\\models\\ppo_final.zip",
+      "n_episodes_logged": 4,
+      "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+      "simulator": "LIVE_ENERGYPLUS",
+      "sb3_config": "research_poc",
+      "label": "PRELIMINARY_SINGLE_SEED",
+      "not_pure_algorithm_comparison": true,
+      "policy_pack": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\ppo_seed0\\models\\daily_policy.pkl"
+    },
+    "DQN_0": {
+      "algo": "DQN",
+      "timesteps": 4,
+      "mean_reward": -0.5755276530981064,
+      "mean_peak_kw": 197.77943014286708,
+      "mean_daily_kwh": 3560.5926047035136,
+      "model": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\dqn_seed0\\models\\dqn_final.zip",
+      "n_episodes_logged": 4,
+      "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+      "simulator": "LIVE_ENERGYPLUS",
+      "sb3_config": "research_poc",
+      "label": "PRELIMINARY_SINGLE_SEED",
+      "not_pure_algorithm_comparison": true,
+      "policy_pack": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\dqn_seed0\\models\\daily_policy.pkl"
+    },
+    "PPO_1": {
+      "algo": "PPO",
+      "timesteps": 4,
+      "mean_reward": -20.534467220306396,
+      "mean_peak_kw": 187.21812051430067,
+      "mean_daily_kwh": 3410.3146991523963,
+      "model": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\ppo_seed1\\models\\ppo_final.zip",
+      "n_episodes_logged": 4,
+      "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+      "simulator": "LIVE_ENERGYPLUS",
+      "sb3_config": "research_poc",
+      "label": "PRELIMINARY_SINGLE_SEED",
+      "not_pure_algorithm_comparison": true,
+      "policy_pack": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\ppo_seed1\\models\\daily_policy.pkl"
+    },
+    "DQN_1": {
+      "algo": "DQN",
+      "timesteps": 4,
+      "mean_reward": -0.12648414447903633,
+      "mean_peak_kw": 198.73488242403013,
+      "mean_daily_kwh": 3464.298493146415,
+      "model": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\dqn_seed1\\models\\dqn_final.zip",
+      "n_episodes_logged": 4,
+      "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+      "simulator": "LIVE_ENERGYPLUS",
+      "sb3_config": "research_poc",
+      "label": "PRELIMINARY_SINGLE_SEED",
+      "not_pure_algorithm_comparison": true,
+      "policy_pack": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_poc_20260818\\dqn_seed1\\models\\daily_policy.pkl"
+    }
+  },
+  "eval_rows": [
+    {
+      "arm": "incumbent",
+      "day": "2025-12-15",
+      "training_reward": null,
+      "savings": 0.0,
+      "peak_kw": 198.0799897616649,
+      "daily_kwh": 3562.85070092677,
+      "readiness_ok": null,
+      "role": "paired_baseline"
+    },
+    {
+      "arm": "incumbent",
+      "day": "2025-12-16",
+      "training_reward": null,
+      "savings": 0.0,
+      "peak_kw": 195.4881775451314,
+      "daily_kwh": 3098.55628577167,
+      "readiness_ok": null,
+      "role": "paired_baseline"
+    },
+    {
+      "arm": "continuous_70",
+      "day": "2025-12-15",
+      "training_reward": -1.1846327948737099,
+      "savings": -118.46327948737098,
+      "peak_kw": 202.19934023799473,
+      "daily_kwh": 4035.125887113635,
+      "readiness_ok": true
+    },
+    {
+      "arm": "continuous_70",
+      "day": "2025-12-16",
+      "training_reward": 0.0982927856723927,
+      "savings": 9.829278567239271,
+      "peak_kw": 192.24826010043176,
+      "daily_kwh": 3421.6353116321325,
+      "readiness_ok": true
+    },
+    {
+      "arm": "shallow_setback",
+      "day": "2025-12-15",
+      "training_reward": -0.845315313653925,
+      "savings": -84.36311031276091,
+      "peak_kw": 202.38324636636042,
+      "daily_kwh": 3727.969544612837,
+      "readiness_ok": true
+    },
+    {
+      "arm": "shallow_setback",
+      "day": "2025-12-16",
+      "training_reward": -0.7165297905675716,
+      "savings": -71.48455800412557,
+      "peak_kw": 199.36414476528094,
+      "daily_kwh": 3209.765033287358,
+      "readiness_ok": true
+    }
+  ],
+  "wall_s": 28.45161270000972,
+  "utc": "2026-08-18T15:09:44.068712+00:00",
+  "bacnet_commands": 0,
+  "winner": null,
+  "winner_rule": "not_mean_training_reward"
+}

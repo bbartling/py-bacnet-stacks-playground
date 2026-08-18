@@ -24,7 +24,11 @@ Not operational MPC. Not verified savings. Not BACnet.
 | IDF | `lakeside_w2a_a04_dual_champion.idf` fail-closed until a Track B champion exists |
 | Gym | Campaign factory: `MultiDayDailyEnv` + `EnergyPlusContinuityPlant`. `DailySixZoneGymEnv` is legacy diagnostic only. |
 | Trainer | Stable-Baselines3 PPO + DQN (not Ray) — **do not start** a full campaign |
-| Track B | LIVE two-pass **executed previously** (W2A runtime 3780; 2 DATA PERIOD Severes); year-aware EPW + sizing-only child are **code**, not a new champion |
+| Track B | Later LIVE matrix **executed** (first child **2,106 scored / 5,332 warmup** W2A; **37** reports). Superseded two-pass tree **3,780** scored kept. CLI instrumented day **738 / 4,657** plus active invalid-domain **759**. Not a champion. |
+
+**Terminal paths:** **A** = every champion gate passes → update `active_rl_model_v1.json` and long RL. **B** (this campaign) = no champion; bounded A04 `research-poc` labeled `RESEARCH_POC_ALLOWED`. **C** = EnergyPlus/RL computation itself failed. Do not call implementation complete.
+
+EnergyPlus MCP (`user-energyplus`) inspects IDF/RDD before edits. MCP cannot rewrite W2A banks. Track C (`scripts/a04v2_trackc_one_w2a.py`) stays in Python. Output names come from the generated RDD, never guessed.
 
 Frozen reward constants: `energy_rate=0.12`, `demand_rate=15`, `cost_scale=100`, `λ_occ=0.05`, `λ_move=0.02`.
 
@@ -34,9 +38,12 @@ Frozen reward constants: `energy_rate=0.12`, `demand_rate=15`, `cost_scale=100`,
 python scripts/a04_live_multiday_continuity.py --site-root $env:SITE_ROOT
 python scripts/a04v2_trackb_two_pass.py --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-poc --confirm-simulation-only-physics-limits --max-wall-hours 6 --site-root $env:SITE_ROOT
 ```
 
 `campaign --n-days 100` remains prohibited. Default campaign `reward_name` is `reward_v2`.
+`research-poc` is not an operator-pay `--mode`. Missing confirm → exit 4. The research
+contract cannot enable `long_campaign_allowed`.
 `scripts/vibe22_rl.py campaign` constructs `MultiDayDailyEnv` via `train_sb3.make_env`.
 `legacy-daily-env --confirm-legacy-diagnostic` is the only path to `DailySixZoneGymEnv`.
 A04 3-day continuity gallery (`scripts/a04_live_multiday_continuity.py`) is screening only:

@@ -66,6 +66,7 @@ def train_sb3(
     day_specs: Sequence[Dict[str, Any]] | None = None,
     reward_name: str = "reward_v2",
     sb3_config: str = "smoke",
+    extra_env_cfg: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -100,6 +101,8 @@ def train_sb3(
         "day_specs": list(day_specs or []),
         "reward_name": str(reward_name),
     }
+    if extra_env_cfg:
+        cfg.update(dict(extra_env_cfg))
     (run_root / "config.json").write_text(
         json.dumps(
             {

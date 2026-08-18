@@ -249,6 +249,7 @@ class MultiDayDailyEnv(gym.Env):
         self.start_day = str(cfg.get("start_day") or "2026-01-12")
         self.days = list(cfg.get("days") or chronological_days(self.start_day, self.n_days))
         self.algo_space = str(cfg.get("action_kind") or "continuous")
+        self._research = str(cfg.get("action_contract_version") or "") == "research_action_contract_v1"
         self.plant = cfg.get("plant") or FakeContinuityPlant()
         if cfg.get("require_live_energyplus"):
             assert_live_campaign_plant(self.plant)
@@ -278,7 +279,17 @@ class MultiDayDailyEnv(gym.Env):
         self._episode_return = 0.0
         self._closed = False
         self._quality_evidence: dict[str, Any] | None = None
-        if self.algo_space == "discrete":
+        if self._research:
+            from eplus_gym.rl.research_spaces import (
+                continuous_action_space_research,
+                discrete_action_space_research,
+            )
+
+            if self.algo_space == "discrete":
+                self.action_space = discrete_action_space_research()
+            else:
+                self.action_space = continuous_action_space_research()
+        elif self.algo_space == "discrete":
             self.action_space = discrete_action_space_v2()
         else:
             self.action_space = continuous_action_space_v2()
@@ -350,6 +361,12 @@ class MultiDayDailyEnv(gym.Env):
 
     def _decode(self, action) -> SixZoneDailyParamsV2:
         day = self.days[min(self._day_i, len(self.days) - 1)]
+        if getattr(self, "_research", False):
+            from eplus_gym.rl.research_spaces import decode_continuous_research, decode_discrete_research
+
+            if self.algo_space == "discrete":
+                return decode_discrete_research(int(np.asarray(action).reshape(-1)[0]), day=day)
+            return decode_continuous_research(action, day=day)
         if self.algo_space == "discrete":
             return decode_discrete_v2(int(np.asarray(action).reshape(-1)[0]), day=day)
         return decode_continuous_v2(action)

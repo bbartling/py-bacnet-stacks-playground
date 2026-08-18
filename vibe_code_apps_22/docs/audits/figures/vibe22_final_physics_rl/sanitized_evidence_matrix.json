@@ -1,0 +1,44 @@
+{
+  "schema": "vibe22.sanitized_evidence_matrix.v1",
+  "source": "external_deep_research_supporting_evidence_not_as_built",
+  "identifying_report_not_committed": true,
+  "high_confidence": {
+    "floor_area_ft2_range": [90000, 93000],
+    "floor_area_ft2_target": 91210,
+    "construction_years": [2007, 2008],
+    "geothermal_heating_cooling": true,
+    "doors_open_local": "07:30",
+    "student_day_begin_local": "07:40",
+    "regular_dismissal_local": "14:40",
+    "thursday_earlier_dismissal": true,
+    "office_hours_local": ["07:00", "15:00"],
+    "confidence": "high_or_corroborated"
+  },
+  "project_bas": {
+    "heat_pump_records": 67,
+    "identical_physical_units_proven": false,
+    "note": "BAS inventory records are not automatically 67 identical physical units. Reconcile records, control groups, physical count, and EnergyPlus object count separately.",
+    "control_groups": 6,
+    "energyplus_thermal_zones": 9
+  },
+  "low_confidence_not_as_built": [
+    "vertical_closed_loop_borefield",
+    "distributed_w2a_heat_pumps",
+    "cav_cycling_fans",
+    "doas",
+    "exact_bore_count_or_depth",
+    "unit_sizes_and_manufacturer_curves",
+    "loop_flow_and_pumping_sequence",
+    "erv_economizer_arrangement",
+    "exact_ventilation_rates_and_current_setpoints"
+  ],
+  "preliminary_screening_ranges_not_calibration_targets": {
+    "heating_delivered_kw": [675, 940],
+    "heating_initial_check_kw": 791,
+    "cooling_tons": [125, 160],
+    "cooling_initial_check_tons": 140,
+    "heating_cop_approx": 4.0,
+    "cooling_cop_approx": [4.5, 4.8],
+    "ewt_screen_f": {"winter": 30, "summer": 90}
+  }
+}

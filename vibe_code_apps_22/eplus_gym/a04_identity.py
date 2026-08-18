@@ -7,6 +7,7 @@ from pathlib import Path
 A04_IDF_NAME = "lakeside_w2a_a04_dual_champion.idf"
 A04_SHA_CRLF = "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
 A04_SHA_LF = "080ab87797c78df0c8efb257a52bba97f550ee628ec4bd1333801b2e104b21eb"
+A04_GIT_BLOB = "03d3ba368e70e5206773191d292dfe4ca91b8774"
 A04_SHA_ALLOWED = frozenset({A04_SHA_CRLF, A04_SHA_LF})
 CAPMULT_LO = 1.0
 CAPMULT_HI = 80.0
@@ -32,9 +33,19 @@ def is_trackb_idf_filename(name: str) -> bool:
     return base.startswith("lakeside_w2a_trackb_") and base.endswith(".idf")
 
 
+def is_trackc_idf_filename(name: str) -> bool:
+    n = Path(name).name
+    base = n[7:] if n.startswith("staged_") else n
+    return base.startswith("lakeside_w2a_trackc_") and base.endswith(".idf")
+
+
 def is_allowed_lakeside_gym_idf(name: str) -> bool:
-    """LakesideW2AEnv may load A04, A04-v2, or Track B bank children."""
-    return is_a04_idf_filename(name) or is_trackb_idf_filename(name)
+    """LakesideW2AEnv may load A04, A04-v2, Track B banks, or Track C one-W2A children."""
+    return (
+        is_a04_idf_filename(name)
+        or is_trackb_idf_filename(name)
+        or is_trackc_idf_filename(name)
+    )
 
 
 def is_canonical_a04_idf_filename(name: str) -> bool:

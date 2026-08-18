@@ -7,6 +7,8 @@ Gym/runner is **rllib-shaped and local** (`eplus_gym`). Pin generic helpers to r
 
 **Physics-ramp / A04-v2 (2026-08-16):** CapMult≥28 passes ramp but fails frozen Jan peak ±10% of 284.82 kW; InternalMass alone does not fix DualSP tracking. Verdict: `NO_GO_LONG_RL_TRAINING_TRANSIENT_MODEL_NOT_VALIDATED`. Audit: [`docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md`](docs/audits/2026-08-16-vibe22-a04v2-transient-nogo.md).
 
+**2026-08-18 final physics + research PoC:** Terminal **B**. No champion. Track B LIVE matrix **2,106 scored / 5,332 warmup** (37 reports). CLI instrumented Track B **738 / 4,657** plus active invalid-domain **759**. Track C sequential failed W2A=0. Long RL remains blocked. Bounded A04 `research-poc` is labeled `SIMULATION-ONLY RESEARCH POC`, not `SIMULATION_TRAINING_READY`. Audit: [`docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md`](docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md).
+
 **Physics-ramp gate (A04 parent):** still FAIL on evening DualSP — [`docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md).
 
 ## Where results live

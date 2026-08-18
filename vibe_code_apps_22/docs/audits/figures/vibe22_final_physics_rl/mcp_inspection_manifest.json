@@ -1,0 +1,116 @@
+{
+  "schema": "vibe22.mcp_inspection_manifest.v1",
+  "note": "MCP validate_idf failed on an eppy Idf_MSequence TypeError. Load/summary/zones/loops/schedules/settings/configured-outputs succeeded. Bounded simulations used EnergyPlus CLI, not MCP annual runs.",
+  "actions": [
+    {
+      "tool": "get_server_configuration",
+      "timestamp_utc": "2026-08-18T14:28:00Z",
+      "model_path": null,
+      "model_hash": null,
+      "fields": {
+        "energyplus_version": "26.1.0",
+        "executable_path": "C:\\EnergyPlusV26-1-0\\energyplus.exe",
+        "executable_exists": true,
+        "idd_path": "C:\\EnergyPlusV26-1-0\\Energy+.idd"
+      },
+      "validation_outcome": "server_ready"
+    },
+    {
+      "tool": "get_server_status",
+      "timestamp_utc": "2026-08-18T14:28:00Z",
+      "fields": {"status": "running", "idd_available": true, "executable_available": true},
+      "validation_outcome": "running"
+    },
+    {
+      "tool": "load_idf_model",
+      "timestamp_utc": "2026-08-18T14:29:00Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "model_hash": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "fields": {"zone_count": 9, "building_count": 1, "file_size_bytes": 498918, "loaded_successfully": true},
+      "validation_outcome": "loaded"
+    },
+    {
+      "tool": "load_idf_model",
+      "timestamp_utc": "2026-08-18T14:29:00Z",
+      "model_path": "models/eplus/research/a04_trackb_40fb33e8_NOT_CHAMPION.idf",
+      "model_hash": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "fields": {"zone_count": 9, "file_size_bytes": 607951, "loaded_successfully": true},
+      "validation_outcome": "loaded"
+    },
+    {
+      "tool": "validate_idf",
+      "timestamp_utc": "2026-08-18T14:29:10Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "model_hash": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "fields": {"error": "unsupported operand type(s) for +: 'Idf_MSequence' and 'Idf_MSequence'"},
+      "validation_outcome": "mcp_parser_defect_not_claimed_as_execution"
+    },
+    {
+      "tool": "validate_idf",
+      "timestamp_utc": "2026-08-18T14:29:10Z",
+      "model_path": "models/eplus/research/a04_trackb_40fb33e8_NOT_CHAMPION.idf",
+      "model_hash": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "fields": {"error": "unsupported operand type(s) for +: 'Idf_MSequence' and 'Idf_MSequence'"},
+      "validation_outcome": "mcp_parser_defect_not_claimed_as_execution"
+    },
+    {
+      "tool": "get_model_summary",
+      "timestamp_utc": "2026-08-18T14:29:20Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {"version": "26.1", "building": "Lakeside_ES", "plant_sizing": "No"},
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "list_zones",
+      "timestamp_utc": "2026-08-18T14:29:20Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {"zone_count": 9},
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "discover_hvac_loops",
+      "timestamp_utc": "2026-08-18T14:29:30Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {"total_plant_loops": 1, "loop_name": "Only Water Loop Mixed Water Loop", "air_loops": 0},
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "get_loop_topology",
+      "timestamp_utc": "2026-08-18T14:29:40Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {
+        "demand_heating_coils": 9,
+        "demand_cooling_coils": 9,
+        "supply_pump": "Pump:ConstantSpeed"
+      },
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "inspect_schedules",
+      "timestamp_utc": "2026-08-18T14:29:50Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {"total_schedule_objects": 33, "annual_schedules_count": 28},
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "check_simulation_settings",
+      "timestamp_utc": "2026-08-18T14:30:00Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {"run_period": "CalibrationWindow", "begin_year": 2025, "end_year": 2026},
+      "validation_outcome": "ok"
+    },
+    {
+      "tool": "get_output_variables",
+      "timestamp_utc": "2026-08-18T14:30:10Z",
+      "model_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+      "fields": {
+        "total_variables": 6,
+        "total_meters": 12,
+        "ideal_loads_requests_present": true,
+        "district_meters_present": true,
+        "coil_diagnostics_absent": true
+      },
+      "validation_outcome": "under_instrumented_configured_outputs"
+    }
+  ]
+}

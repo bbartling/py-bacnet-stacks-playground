@@ -22,8 +22,9 @@ deterministic DualSP defaults (**never** `action_space.sample()`) and six-actuat
 | Recovery | `recovery_lead_minutes` **is** the linear ramp duration ending at DualSP start |
 | Ramp gate | `eplus_gym/rl/physics_ramp_gate.py` — BAS p99.9 × 3; **do not raise** to pass A04 |
 | DQN v2 | Unique post-clamp table (`Discrete(74)`); declared grid 110 is not advertised as the action space |
-| Track B | LIVE two-pass executed previously; heating capacity on A04 is user-specified 149430 W/zone; pass-1 now writes a sizing-only autosize **child**; eio names are case-insensitive; **no champion** |
-| Trainer | SB3 PPO/DQN — `--mode full` refused until Track B champion gates pass |
+| Track B | Later LIVE matrix: **2,106 scored / 5,332 warmup** (37 reports); superseded two-pass **3,780** kept; **no champion**. Track C sequential C1/C2 also failed scored-runtime W2A=0. |
+| Trainer | SB3 PPO/DQN — `--mode full` refused until a physics champion is written to `active_rl_model_v1.json`. Fallback is `research-poc` (cannot set `long_campaign_allowed`). |
+| MCP | Inspect A04/RDD with EnergyPlus MCP before IDF edits; Track C topology changes stay in Python. |
 
 DSM DualSP recovery must not add a separate fixed 60-min ramp on top of lead (that made 60/120/180 identical). Evening setback remains a step; A04 zone air can follow ~5 °F in 15 min. That is a **model/physics** NO-GO for long RL, not a license to inflate the threshold.
 
@@ -33,4 +34,4 @@ Campaign paths refuse `FakeContinuityPlant`. Integrity failures are truncated/in
 
 1. Screening claim: ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY
 2. Subprocess isolation: `live_day_worker` (Windows torch + `delete_state`)
-3. Long campaign: **NO-GO** until a Track B champion exists. Do not start 5–10 sequence pilots without explicit human authorization.
+3. Long campaign: **NO-GO** until a physics champion exists. Terminal B = labeled A04 research PoC only. Do not start 5–10 sequence pilots without explicit human authorization.

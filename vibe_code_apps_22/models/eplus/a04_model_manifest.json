@@ -1,0 +1,34 @@
+{
+  "schema": "vibe22.a04_model_manifest.v1",
+  "idf_name": "lakeside_w2a_a04_dual_champion.idf",
+  "idf_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+  "sha256_crlf": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "sha256_lf": "080ab87797c78df0c8efb257a52bba97f550ee628ec4bd1333801b2e104b21eb",
+  "git_blob": "03d3ba368e70e5206773191d292dfe4ca91b8774",
+  "scorecard_path": "models/eplus/best_scorecard_a04_dual.json",
+  "energyplus_version": "26.1.0",
+  "idd_path": "C:\\EnergyPlusV26-1-0\\Energy+.idd",
+  "idd_sha256": "7d30c281aa21d63555c753a953124da03d88b6b149dc19e3649f2cbe6c944c68",
+  "epw_name": "madison_amy_202508_202608.epw",
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "campaign_provenance": "A04 dual champion frozen parent; monthly GL14-style screen is not 15-minute DSM validation",
+  "object_counts": {
+    "n_heating_coils": 9,
+    "n_zonehvac": 9,
+    "n_equipment_lists": 9,
+    "n_zones": 9
+  },
+  "aggregate_capacities": {
+    "heating_coil_w_each": 149430,
+    "heating_coil_w_total": 1344870
+  },
+  "january_peak_kw_approx": 287.49,
+  "monthly_partial_period": {
+    "nmbe_pct": 0.984,
+    "cvrmse_pct": 10.447
+  },
+  "monthly_gl14_does_not_validate_15min_dsm": true,
+  "SIMULATION_TRAINING_READY": false,
+  "OPERATIONAL_DSM_READY": false,
+  "do_not_rewrite_line_endings": true
+}

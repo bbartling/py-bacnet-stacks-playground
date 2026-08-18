@@ -1,0 +1,71 @@
+{
+  "schema": "vibe22.trackc.candidate.v1",
+  "run_id": "trackc_c2_base_20260112",
+  "variant": "c2",
+  "public_label": "TRACK_C ONE_W2A_PER_ZONE AGGREGATE \u2014 NOT AS-BUILT \u2014 NOT 67 IDENTICAL UNITS",
+  "parent": "lakeside_w2a_a04_dual_champion.idf",
+  "idf": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\trackc_c2_base_20260112\\lakeside_w2a_trackc_child.idf",
+  "idf_sha256": "47e70c8dd1f3ce3788a2c516b30bbd0c0307fb426ed92f44188039da569fbb53",
+  "one_w2a_per_zone": true,
+  "object_counts": {
+    "n_heating_coils": 9,
+    "n_zonehvac": 9,
+    "n_equipment_lists": 9,
+    "n_cooling_coils": 9,
+    "n_fans": 9
+  },
+  "aggregate_heating_capacity_w": 799999.9,
+  "one_day_returncode": 0,
+  "plan": {
+    "schema": "vibe22.trackc.one_w2a.v1",
+    "public_label": "TRACK_C ONE_W2A_PER_ZONE AGGREGATE \u2014 NOT AS-BUILT \u2014 NOT 67 IDENTICAL UNITS",
+    "as_built": false,
+    "topology": "one_aggregated_w2a_per_thermal_zone",
+    "sequential_load_clones": false,
+    "control_groups": 6,
+    "thermal_zones": 9,
+    "sensitivity": "base",
+    "c2_heating_w": {
+      "low": 675000.0,
+      "base": 800000.0,
+      "high": 940000.0
+    },
+    "screening_heating_w": [
+      675000.0,
+      940000.0
+    ],
+    "curve_provenance": {
+      "heating_equationfit": "inherited_from_a04_parent_unverified_catalog",
+      "not_as_built": true,
+      "tonnage_asserted": false
+    },
+    "c3_allowed": false,
+    "c3_skip_reason": "C3 VariableSpeedEquationFit skipped: inherited A04 EquationFit curves are unverified and no valid multi-speed manufacturer performance points are available",
+    "hp_count_records": {
+      "1F_Library_IMC": 2,
+      "1F_Cafe_Kitchen": 3,
+      "1F_Gym": 4,
+      "1F_Area_A": 13,
+      "1F_Area_B": 10,
+      "1F_Area_C": 8,
+      "1F_Area_D": 6,
+      "2F_Area_A": 11,
+      "2F_Area_B": 10
+    },
+    "identical_physical_units_proven": false
+  },
+  "c2_hard_sized": true,
+  "w2a_raw_err": {
+    "scored_runtime": 2016,
+    "warmup": 13032,
+    "sizing": 0,
+    "total": 15048
+  },
+  "severe_count": 0,
+  "fatal_count": 0,
+  "champion": false,
+  "SIMULATION_TRAINING_READY": false,
+  "champion_blockers": ["w2a_scored_runtime_not_zero"],
+  "three_day_live_screen": false,
+  "three_day_skip_reason": "scored-runtime W2A != 0 on the instrumented development day"
+}
