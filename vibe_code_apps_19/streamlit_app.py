@@ -227,6 +227,29 @@ def _init_state() -> None:
         "mapping_stale": False,
     }.items():
         st.session_state.setdefault(k, v)
+    from app.session_workspace import ensure_session_id
+
+    ensure_session_id(st.session_state)
+
+
+def _ensure_browser_session() -> str:
+    from app.session_workspace import ensure_session_id, session_root, touch_heartbeat
+
+    sid = ensure_session_id(st.session_state)
+    touch_heartbeat(session_root(sid))
+    return sid
+
+
+def _session_package_dir() -> Path:
+    from app.session_workspace import package_dir
+
+    return package_dir(_ensure_browser_session())
+
+
+def _session_protect_path() -> Path:
+    from app.session_workspace import session_root
+
+    return session_root(_ensure_browser_session())
 
 
 def _apply_agent_bootstrap_once() -> None:
@@ -235,6 +258,12 @@ def _apply_agent_bootstrap_once() -> None:
         return
     if st.session_state.get("equipment_frames"):
         # User already has data — don't clobber
+        st.session_state.bootstrap_applied = True
+        return
+    cfg = AppConfig.load()
+    from app.bootstrap import agent_bootstrap_allowed
+
+    if not agent_bootstrap_allowed(is_cloud=cfg.is_cloud):
         st.session_state.bootstrap_applied = True
         return
     try:
@@ -259,7 +288,11 @@ def _apply_agent_bootstrap_once() -> None:
     folder = boot.get("building_folder")
     try:
         if pkg and Path(str(pkg)).is_file():
-            result = load_package_zip(Path(str(pkg)).read_bytes())
+            result = load_package_zip(
+                Path(str(pkg)).read_bytes(),
+                dest=_session_package_dir(),
+                protect=_session_protect_path(),
+            )
             # Keep a stable source label for the UI
             result.report["bootstrap_package"] = str(pkg)
             _commit_package_result(result)
@@ -346,12 +379,16 @@ def _apply_agent_bootstrap_once() -> None:
 
 
 def _clear_uploaded_session() -> None:
-    """Wipe temp package dir + session data derived from an upload."""
+    """Wipe this browser session's temp package dir + session data derived from an upload."""
     from app.browser_session import clear_browser_session_pointer
-    from app.package_io import wipe_workdir
+    from app.config import AppConfig
+    from app.session_workspace import ensure_session_id, wipe_session_root
 
-    wipe_workdir(st.session_state.get("upload_workdir"))
-    clear_browser_session_pointer()
+    cfg = AppConfig.load()
+    sid = ensure_session_id(st.session_state)
+    wipe_session_root(sid)
+    if not cfg.is_cloud:
+        clear_browser_session_pointer(is_cloud=False)
     st.session_state.upload_workdir = None
     st.session_state.package_report = None
     st.session_state.equipment_frames = {}
@@ -374,10 +411,12 @@ def _apply_browser_autoload_once() -> None:
     try:
         from app.browser_session import (
             browser_autoload_enabled,
+            browser_pointer_allowed,
             pointer_paths_exist,
             read_browser_session_pointer,
             touch_path,
         )
+        from app.config import AppConfig
         from app.package_io import PackageError, load_package_from_dir
     except Exception as exc:  # pragma: no cover
         st.session_state.bootstrap_status = (
@@ -385,10 +424,11 @@ def _apply_browser_autoload_once() -> None:
         ).strip(" ·")
         return
 
-    if not browser_autoload_enabled():
+    cfg = AppConfig.load()
+    if not browser_pointer_allowed(is_cloud=cfg.is_cloud) or not browser_autoload_enabled():
         return
 
-    pointer = read_browser_session_pointer()
+    pointer = read_browser_session_pointer(is_cloud=cfg.is_cloud)
     if not pointer or not pointer_paths_exist(pointer):
         return
     workdir = Path(str(pointer["workdir"]))
@@ -409,8 +449,9 @@ def _apply_browser_autoload_once() -> None:
         ).strip(" ·")
     except PackageError as exc:
         from app.browser_session import clear_browser_session_pointer
+        from app.config import AppConfig
 
-        clear_browser_session_pointer()
+        clear_browser_session_pointer(is_cloud=AppConfig.load().is_cloud)
         st.session_state.bootstrap_status = (
             (st.session_state.get("bootstrap_status") or "") + f" · browser autoload failed: {exc}"
         ).strip(" ·")
@@ -1398,15 +1439,21 @@ def _pick_local_folder() -> str | None:
 
 def _materialize_uploaded_tree(files: list) -> Path | None:
     """Write a browser-picked directory upload into a temp tree and return its root."""
-    import tempfile
+    from app.package_io import PackageError, _safe_member_path, resolved_extract_target
 
     if not files:
         return None
-    tmp = Path(tempfile.mkdtemp(prefix="vibe19_building_"))
+    tmp = _session_package_dir() / "folder_upload"
+    tmp.mkdir(parents=True, exist_ok=True)
     for f in files:
         rel = getattr(f, "name", None) or "file.csv"
-        # Streamlit directory uploads use forward-slash relative paths.
-        dest = tmp / Path(*Path(str(rel).replace("\\", "/")).parts)
+        try:
+            member = _safe_member_path(str(rel))
+        except PackageError:
+            continue
+        if not member.parts:
+            continue
+        dest = resolved_extract_target(tmp, member, entry_name=str(rel))
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(f.getvalue())
     candidates = list_building_candidates(tmp)
@@ -1583,6 +1630,7 @@ def _commit_package_result(result) -> None:
             building_root=result.building_root,
             building_id=result.manifest.building_id,
             source=st.session_state.get("data_source") or f"zip:{result.manifest.building_id}",
+            is_cloud=AppConfig.load().is_cloud,
         )
     except Exception:
         pass
@@ -1676,7 +1724,8 @@ def _load_data(cfg: AppConfig) -> None:
     """Unified data picker: Folder (when allowed) + Zip package (always)."""
     from app.package_io import PackageError, load_package_zip, sweep_old_temp_dirs, wipe_workdir
 
-    sweep_old_temp_dirs()
+    protect = _session_protect_path()
+    sweep_old_temp_dirs(protect=protect)
     st.sidebar.markdown("**Building data**")
     img_cap = _docker_image_caption()
     if img_cap:
@@ -1787,9 +1836,16 @@ def _load_data(cfg: AppConfig) -> None:
         if load_clicked and zip_files:
             wipe_workdir(st.session_state.get("upload_workdir"))
             st.session_state.upload_workdir = None
+            dest = _session_package_dir()
+            protect = _session_protect_path()
             try:
                 if len(zip_files) == 1:
-                    result = load_package_zip(zip_files[0].getvalue(), caps=browser_caps)
+                    result = load_package_zip(
+                        zip_files[0].getvalue(),
+                        caps=browser_caps,
+                        dest=dest,
+                        protect=protect,
+                    )
                 else:
                     from app.multi_zip import load_package_from_zip_parts, parts_from_uploads
 
@@ -1797,6 +1853,7 @@ def _load_data(cfg: AppConfig) -> None:
                         parts_from_uploads(list(zip_files)),
                         merge_caps=agent_caps,
                         per_part_caps=browser_caps,
+                        dest=dest,
                     )
             except PackageError as exc:
                 st.sidebar.error(str(exc))
@@ -1829,7 +1886,11 @@ def _load_data(cfg: AppConfig) -> None:
                     wipe_workdir(st.session_state.get("upload_workdir"))
                     st.session_state.upload_workdir = None
                     try:
-                        result = load_package_zip(zip_path.read_bytes())
+                        result = load_package_zip(
+                            zip_path.read_bytes(),
+                            dest=_session_package_dir(),
+                            protect=_session_protect_path(),
+                        )
                     except PackageError as exc:
                         st.sidebar.error(str(exc))
                     except Exception as exc:  # pragma: no cover
@@ -2268,6 +2329,7 @@ def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> No
 def main() -> None:
     _init_state()
     cfg = AppConfig.load()
+    _ensure_browser_session()
     defaults_cfg = cached_rule_defaults(str(cfg.rule_defaults_path))
     _apply_agent_bootstrap_once()
     _apply_browser_autoload_once()

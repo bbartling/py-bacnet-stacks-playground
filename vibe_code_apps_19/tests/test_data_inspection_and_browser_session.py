@@ -5,9 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from app.browser_session import (
     BROWSER_SESSION_SCHEMA,
+    browser_pointer_allowed,
     clear_browser_session_pointer,
     pointer_paths_exist,
     read_browser_session_pointer,
@@ -66,6 +68,7 @@ def test_browser_session_pointer_round_trip(tmp_path: Path) -> None:
         building_id="BUILDING_T",
         source="zip:BUILDING_T",
         path=ptr,
+        is_cloud=False,
     )
     data = read_browser_session_pointer(ptr)
     assert data is not None
@@ -85,3 +88,57 @@ def test_pointer_paths_missing_when_workdir_gone(tmp_path: Path) -> None:
         "building_id": "X",
     }
     assert pointer_paths_exist(ptr_data) is False
+
+
+def test_browser_pointer_allowed_cloud_vs_local() -> None:
+    assert browser_pointer_allowed(is_cloud=True) is False
+    assert browser_pointer_allowed(is_cloud=False) is True
+
+
+def test_cloud_mode_does_not_write_or_read_global_pointer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.browser_session.app_root", lambda: tmp_path)
+    monkeypatch.delenv("VIBE19_BROWSER_SESSION_PATH", raising=False)
+    workdir = tmp_path / "vibe19_wd"
+    building = workdir / "BUILDING_T"
+    workdir.mkdir()
+    building.mkdir()
+    (building / "manifest.json").write_text("{}", encoding="utf-8")
+    wrote = write_browser_session_pointer(
+        workdir=workdir,
+        building_root=building,
+        building_id="BUILDING_T",
+        is_cloud=True,
+    )
+    assert wrote is None
+    default = tmp_path / ".last_browser_session.json"
+    assert not default.exists()
+    # Even a leftover file must not be readable in cloud mode.
+    default.write_text(
+        '{"schema_version":"openfdd_browser_session_v1","workdir":"x",'
+        '"building_root":"y","building_id":"stolen"}',
+        encoding="utf-8",
+    )
+    assert read_browser_session_pointer(is_cloud=True) is None
+
+
+def test_local_mode_writes_default_pointer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.browser_session.app_root", lambda: tmp_path)
+    monkeypatch.delenv("VIBE19_BROWSER_SESSION_PATH", raising=False)
+    workdir = tmp_path / "vibe19_wd"
+    building = workdir / "BUILDING_T"
+    workdir.mkdir()
+    building.mkdir()
+    (building / "manifest.json").write_text("{}", encoding="utf-8")
+    wrote = write_browser_session_pointer(
+        workdir=workdir,
+        building_root=building,
+        building_id="BUILDING_T",
+        is_cloud=False,
+    )
+    assert wrote is not None
+    assert wrote.is_file()
+    data = read_browser_session_pointer(is_cloud=False)
+    assert data is not None
+    assert data["building_id"] == "BUILDING_T"

@@ -148,10 +148,10 @@ Local agents: sidebar **Package zip path** → **Load zip from path**, or `scrip
 
 ## Session wipe
 
-- **Clear uploaded data** removes the temp extract dir and session frames / weather / results.
-- Temp dirs use `tempfile.mkdtemp(prefix="vibe19_")`.
-- Old `vibe19_*` dirs older than 6 hours may be swept on startup.
-- There is **no** guaranteed `on_session_end` on Streamlit Cloud — treat wipe as best-effort.
+- **Clear session** removes **this browser session's** extract dir (`{temp}/vibe19/{session_id}/`) plus session frames / weather / results. It never deletes the shared `{temp}/vibe19` parent or another session.
+- Browser uploads extract into that session `package/` directory (legacy CLI still uses `tempfile.mkdtemp(prefix="vibe19_")`).
+- Session dirs older than 6 hours (stale heartbeat) may be swept; the caller's active session is protected.
+- There is **no** guaranteed `on_session_end` on Streamlit Cloud — treat wipe as best-effort. Cloud does not restore via `.last_browser_session.json`.
 
 ## Designated CHW pump (weekly motor charts only)
 

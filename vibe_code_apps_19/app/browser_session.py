@@ -1,8 +1,12 @@
-"""Persist the last browser zip upload across Streamlit refreshes until Clear session.
+"""Persist the last browser zip upload across Streamlit refreshes (local only).
 
-Writes a small pointer (``.last_browser_session.json``) next to the app so a new
-browser session can reload from the still-extracted workdir without re-uploading.
-``Clear session`` deletes the pointer and wipes the temp dir.
+Writes a small pointer (``.last_browser_session.json``) next to the app so a
+**local single-user** refresh can reload from the still-extracted workdir.
+Cloud / GHCR (``cfg.is_cloud``) never read or write this file — two browsers
+must not restore each other's last upload.
+
+``Clear session`` deletes the pointer (local) and wipes the **current**
+session workspace only.
 
 Env:
 - ``VIBE19_BROWSER_SESSION_PATH`` — override pointer file location (tests use a temp path).
@@ -38,6 +42,11 @@ def browser_autoload_enabled() -> bool:
     return raw not in {"0", "false", "no", "off"}
 
 
+def browser_pointer_allowed(*, is_cloud: bool) -> bool:
+    """Process-wide ``.last_browser_session.json`` is local/single-user only."""
+    return not bool(is_cloud)
+
+
 def write_browser_session_pointer(
     *,
     workdir: Path | str,
@@ -45,8 +54,15 @@ def write_browser_session_pointer(
     building_id: str,
     source: str = "",
     path: Path | str | None = None,
-) -> Path:
-    """Write / refresh the pointer file for the active uploaded package."""
+    is_cloud: bool = False,
+) -> Path | None:
+    """Write / refresh the pointer file for the active uploaded package.
+
+    Cloud/shared hosts skip the process-wide pointer so two browsers cannot
+    restore each other's last upload.
+    """
+    if not browser_pointer_allowed(is_cloud=is_cloud):
+        return None
     target = Path(path) if path else default_browser_session_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -63,7 +79,13 @@ def write_browser_session_pointer(
     return target
 
 
-def read_browser_session_pointer(path: Path | str | None = None) -> dict[str, Any] | None:
+def read_browser_session_pointer(
+    path: Path | str | None = None,
+    *,
+    is_cloud: bool = False,
+) -> dict[str, Any] | None:
+    if not browser_pointer_allowed(is_cloud=is_cloud):
+        return None
     p = Path(path) if path else default_browser_session_path()
     if not p.is_file():
         return None
@@ -78,7 +100,11 @@ def read_browser_session_pointer(path: Path | str | None = None) -> dict[str, An
     return data
 
 
-def clear_browser_session_pointer(path: Path | str | None = None) -> None:
+def clear_browser_session_pointer(
+    path: Path | str | None = None, *, is_cloud: bool = False
+) -> None:
+    if not browser_pointer_allowed(is_cloud=is_cloud):
+        return
     p = Path(path) if path else default_browser_session_path()
     try:
         p.unlink(missing_ok=True)
