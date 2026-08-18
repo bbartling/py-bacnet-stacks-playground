@@ -41,6 +41,11 @@ Do not promote a topology merely because warnings drop.
 
 `research-poc` is a separate CLI. Default twin is A04 labeled
 `A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED`. Missing confirm flag exits 4.
+`research-long` is a **different** subcommand (not an alias of `campaign`).
+It requires both `--confirm-simulation-only-physics-limits` and
+`--confirm-a04-not-transient-validated`. PPO uses `research_action_contract_v2`
+(`Box[-1,1]^9` affine-decoded). The SB3 `.zip` is canonical; do not write a
+v2/dim-19 `daily_policy.pkl`. `long_campaign_allowed` stays false.
 Future agents: inspect IDF/RDD with EnergyPlus MCP first; MCP cannot rewrite
 W2A banks. Frozen ramp stays **2.651 °F / 15 min**.
 
@@ -52,7 +57,8 @@ Future `vibe22_rl.py campaign` constructs `MultiDayDailyEnv`, not
 `DailySixZoneGymEnv` (legacy diagnostic subcommand only). DQN v2 advertises
 unique post-clamp schedules (74), not Discrete(110).
 
-See `docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md`.
+See `docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md` and
+`docs/audits/2026-08-18-vibe22-research-long-launch.md`.
 A04 remains immutable. Do not raise `ENGINEERING_MARGIN`.
 
 ```powershell
@@ -60,6 +66,8 @@ python scripts/a04_live_multiday_continuity.py --site-root $env:SITE_ROOT
 python scripts/a04v2_trackb_two_pass.py --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --run-id oppay2x_smoke_20260816 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py research-poc --confirm-simulation-only-physics-limits --max-wall-hours 6 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --micro-gate --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --execute-live --max-wall-hours 30 --site-root $env:SITE_ROOT
 ```
 
 Long `campaign --n-days 100` is prohibited.

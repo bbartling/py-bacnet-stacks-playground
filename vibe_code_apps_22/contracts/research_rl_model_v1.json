@@ -14,22 +14,27 @@
     "track_b_w2a_scored_runtime_2106",
     "no_physics_champion"
   ],
-  "action_contract_version": "research_action_contract_v1",
+  "action_contract_version": "research_action_contract_v2",
   "action_space_restrictions": [
+    "normalized_ppo_box9",
     "continuous_68F",
     "continuous_70F",
-    "shallow_unoccupied_setback_only",
-    "deep_setback_excluded",
+    "occupied_heating_68_72F",
+    "unoccupied_heating_60F_through_occupied",
+    "recovery_0_180_minutes",
+    "six_zone_offsets_effective_60_to_occupied",
     "school_calendar_frozen",
-    "recovery_lead_and_gradual_ramp_allowed",
-    "six_zone_offsets_conservative"
+    "heating_dualsp_only",
+    "cooling_not_in_action_space"
   ],
-  "max_wall_hours": 6,
+  "max_wall_hours": 30,
   "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
     "SIMULATION_ONLY_RESEARCH_POC",
     "NOT VALIDATED FOR OPERATIONAL DSM",
     "NO BACNET COMMAND AUTHORITY",
-    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED"
+    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+    "RESEARCH_LONG_ALLOWED"
   ],
   "bacnet_authority": false,
   "reason": "No physics champion. Bounded real-EnergyPlus RL is allowed only as a labeled research PoC."

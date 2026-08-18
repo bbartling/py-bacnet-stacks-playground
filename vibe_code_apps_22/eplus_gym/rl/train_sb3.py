@@ -19,6 +19,15 @@ from eplus_gym.rl.split_manifest import assert_train_fold_only
 campaign_env_class = MultiDayDailyEnv
 
 
+def should_write_policy_pack(cfg: Dict[str, Any] | None) -> bool:
+    """Research contracts must not emit a dishonest obs-v2 / dim-19 daily_policy.pkl."""
+    body = dict(cfg or {})
+    contract = str(body.get("action_contract_version") or "")
+    if contract.startswith("research_action_contract"):
+        return False
+    return bool(body.get("write_policy_pack", True))
+
+
 def _new_run_id(prefix: str = "rl") -> str:
     return f"{prefix}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
 
@@ -67,6 +76,7 @@ def train_sb3(
     reward_name: str = "reward_v2",
     sb3_config: str = "smoke",
     extra_env_cfg: Dict[str, Any] | None = None,
+    extra_callback: Any | None = None,
 ) -> Dict[str, Any]:
     try:
         from stable_baselines3 import DQN, PPO
@@ -188,9 +198,19 @@ def train_sb3(
                 )
             return True
 
-    model.learn(total_timesteps=max(2, int(cfg_named.get("timesteps") or timesteps)), callback=LogCallback())
+    cb: Any = LogCallback()
+    if extra_callback is not None:
+        from stable_baselines3.common.callbacks import CallbackList
+
+        cb = CallbackList([LogCallback(), extra_callback])
+    model.learn(total_timesteps=max(2, int(cfg_named.get("timesteps") or timesteps)), callback=cb)
     model_path = models_dir / f"{algo_u.lower()}_final.zip"
     model.save(str(model_path))
+    if algo_u == "DQN" and (
+        str(cfg.get("action_contract_version") or "").startswith("research_action_contract")
+        or bool(cfg.get("save_replay_buffer"))
+    ):
+        model.save_replay_buffer(str(models_dir / "replay_buffer.pkl"))
 
     with (run_root / "episodes.jsonl").open("w", encoding="utf-8") as f:
         for row in episode_log:
@@ -199,7 +219,7 @@ def train_sb3(
     plot_learning_curve(
         rewards or [float("nan")],
         plots_dir,
-        title=f"{algo_u} LIVE learning curve",
+        title=f"{algo_u} LIVE learning curve TRAINING ONLY",
         filename=f"{algo_u.lower()}_learning_curve.png",
     )
     peaks = [r["peak_kw"] for r in episode_log if isinstance(r.get("peak_kw"), (int, float))]
@@ -217,16 +237,25 @@ def train_sb3(
         "sb3_config": cfg_named.get("name"),
         "label": "PRELIMINARY_SINGLE_SEED",
         "not_pure_algorithm_comparison": True,
+        "winner_rule": "not_mean_training_reward",
     }
-    (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    pack = pack_from_sb3_zip(
-        model_path,
-        algo=algo_u,
-        meta={"run_root": str(run_root), "days": list(days), "timesteps": int(timesteps)},
-    )
-    pack_path = models_dir / "daily_policy.pkl"
-    pack.save(pack_path)
-    summary["policy_pack"] = str(pack_path)
+    contract = str(cfg.get("action_contract_version") or "")
+    write_pack = should_write_policy_pack(cfg)
+    if write_pack:
+        pack = pack_from_sb3_zip(
+            model_path,
+            algo=algo_u,
+            meta={"run_root": str(run_root), "days": list(days), "timesteps": int(timesteps)},
+        )
+        pack_path = models_dir / "daily_policy.pkl"
+        pack.save(pack_path)
+        summary["policy_pack"] = str(pack_path)
+    else:
+        summary["policy_pack"] = None
+        summary["policy_pack_skipped"] = "research_sb3_zip_canonical"
+        summary["observation_contract"] = "vibe22.obs.v3"
+        summary["observation_dim"] = 80
+        summary["action_contract_version"] = contract or None
     (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     env.close()
     return summary

@@ -57,9 +57,34 @@ RESEARCH_POC: dict[str, Any] = {
 }
 
 
+RESEARCH_LONG: dict[str, Any] = {
+    "name": "research_long",
+    "label": "SIMULATION_ONLY_RL_RESEARCH",
+    "ppo": {"n_steps": 7, "batch_size": 7},
+    "dqn": {
+        "learning_starts": 14,
+        "buffer_size": 20_000,
+        "exploration_fraction": 0.2,
+        "target_update_interval": 50,
+    },
+    "timesteps": None,
+    "max_wall_hours": 30,
+    "block_size": 7,
+    "valid_transitions_target": 8192,
+}
+
+
 def named_config(name: str) -> dict[str, Any]:
     key = str(name).strip().lower()
-    table = {"smoke": SMOKE, "pilot": PILOT, "long_poc": LONG_POC, "research_poc": RESEARCH_POC}
+    table = {
+        "smoke": SMOKE,
+        "pilot": PILOT,
+        "long_poc": LONG_POC,
+        "research_poc": RESEARCH_POC,
+        "research_long": RESEARCH_LONG,
+    }
     if key not in table:
-        raise ValueError(f"unknown sb3 config {name!r}; expected smoke|pilot|long_poc|research_poc")
+        raise ValueError(
+            f"unknown sb3 config {name!r}; expected smoke|pilot|long_poc|research_poc|research_long"
+        )
     return dict(table[key])

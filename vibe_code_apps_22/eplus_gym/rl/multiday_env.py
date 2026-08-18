@@ -249,7 +249,14 @@ class MultiDayDailyEnv(gym.Env):
         self.start_day = str(cfg.get("start_day") or "2026-01-12")
         self.days = list(cfg.get("days") or chronological_days(self.start_day, self.n_days))
         self.algo_space = str(cfg.get("action_kind") or "continuous")
-        self._research = str(cfg.get("action_contract_version") or "") == "research_action_contract_v1"
+        self._research_contract = str(cfg.get("action_contract_version") or "")
+        self._research_v1 = self._research_contract == "research_action_contract_v1"
+        self._research_v2 = self._research_contract == "research_action_contract_v2"
+        self._research = self._research_v1 or self._research_v2
+        self._all_days = list(self.days)
+        self._block_size = int(cfg.get("block_size") or 0)
+        self._block_cursor = int(cfg.get("block_cursor") or 0)
+        self._persist_billing = bool(cfg.get("persist_billing"))
         self.plant = cfg.get("plant") or FakeContinuityPlant()
         if cfg.get("require_live_energyplus"):
             assert_live_campaign_plant(self.plant)
@@ -279,7 +286,17 @@ class MultiDayDailyEnv(gym.Env):
         self._episode_return = 0.0
         self._closed = False
         self._quality_evidence: dict[str, Any] | None = None
-        if self._research:
+        if self._research_v2:
+            from eplus_gym.rl.research_spaces import (
+                continuous_action_space_research_v2,
+                discrete_action_space_research_v2,
+            )
+
+            if self.algo_space == "discrete":
+                self.action_space = discrete_action_space_research_v2()
+            else:
+                self.action_space = continuous_action_space_research_v2()
+        elif self._research:
             from eplus_gym.rl.research_spaces import (
                 continuous_action_space_research,
                 discrete_action_space_research,
@@ -330,8 +347,22 @@ class MultiDayDailyEnv(gym.Env):
             continuous_conditioning_state=self._prev_cc,
         )
 
+    def _select_block(self) -> None:
+        if int(self._block_size or 0) <= 0 or not self._all_days:
+            return
+        start = int(self._block_cursor)
+        if start >= len(self._all_days):
+            start = 0
+        self.days = list(self._all_days[start : start + int(self._block_size)])
+        if not self.days:
+            start = 0
+            self.days = list(self._all_days[: int(self._block_size)])
+        nxt = start + len(self.days)
+        self._block_cursor = 0 if nxt >= len(self._all_days) else nxt
+
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
+        self._select_block()
         self.plant.start_episode()
         self._day_i = 0
         self._prev_action = [0.0] * 11
@@ -346,8 +377,9 @@ class MultiDayDailyEnv(gym.Env):
             ratchet_kw=float(self.cfg.get("ratchet_kw") or 0.0),
             contract_kw=float(self.cfg.get("contract_demand_kw") or 0.0),
         )
-        self._billing = BillingState(**init)
-        self._baseline_billing = BillingState(**init)
+        if not (self._persist_billing and getattr(self, "_billing", None) is not None):
+            self._billing = BillingState(**init)
+            self._baseline_billing = BillingState(**init)
         day = self.days[0]
         obs, ctx = self._obs(day)
         info = {
@@ -361,6 +393,15 @@ class MultiDayDailyEnv(gym.Env):
 
     def _decode(self, action) -> SixZoneDailyParamsV2:
         day = self.days[min(self._day_i, len(self.days) - 1)]
+        if getattr(self, "_research_v2", False):
+            from eplus_gym.rl.research_spaces import (
+                decode_continuous_research_v2,
+                decode_discrete_research_v2,
+            )
+
+            if self.algo_space == "discrete":
+                return decode_discrete_research_v2(int(np.asarray(action).reshape(-1)[0]), day=day)
+            return decode_continuous_research_v2(action, day=day)
         if getattr(self, "_research", False):
             from eplus_gym.rl.research_spaces import decode_continuous_research, decode_discrete_research
 
@@ -411,7 +452,12 @@ class MultiDayDailyEnv(gym.Env):
             raise RuntimeError("episode already done")
         day = self.days[self._day_i]
         params = self._decode(action)
-        schedules = build_six_schedules_f(params)
+        if getattr(self, "_research_v2", False):
+            from eplus_gym.rl.research_spaces import research_build_six_schedules_f
+
+            schedules = research_build_six_schedules_f(params, day)
+        else:
+            schedules = build_six_schedules_f(params)
         oat, _src = self._oat(day)
         try:
             payload = self.plant.simulate_day(schedules, oat_c=oat)

@@ -14,8 +14,12 @@ across **37** reports (superseded two-pass tree **3,780** scored kept on disk);
 CLI instrumented Track B day **738 scored / 4,657 warmup**, active invalid-domain
 **759**. Track C1/C2 one-W2A-per-zone children also failed scored-runtime W2A=0.
 Terminal **B**: `RESEARCH_POC_ALLOWED` on A04 only; `SIMULATION_TRAINING_READY`
-and `OPERATIONAL_DSM_READY` remain false. Audit:
+and `OPERATIONAL_DSM_READY` remain false. `research-long` is a labeled overnight
+research CLI (`RESEARCH_LONG_ALLOWED`) stacked on that PoC — still not a champion.
+Audit:
 [`docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md`](docs/audits/2026-08-18-vibe22-final-physics-and-rl-poc.md).
+Research-long launch:
+[`docs/audits/2026-08-18-vibe22-research-long-launch.md`](docs/audits/2026-08-18-vibe22-research-long-launch.md).
 Prior Track B readiness:
 [`docs/audits/2026-08-18-vibe22-live-trackb-long-rl.md`](docs/audits/2026-08-18-vibe22-live-trackb-long-rl.md).
 See [`docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md`](docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md)
@@ -37,13 +41,16 @@ python scripts/vibe22_instrumented_day.py --site-root $env:SITE_ROOT
 python scripts/a04v2_trackc_one_w2a.py --variant c1 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py operator-pay-experiment --mode smoke --reward-name operator_pay_2x_v1 --run-id oppay2x_smoke_20260816 --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py research-poc --confirm-simulation-only-physics-limits --max-wall-hours 6 --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --micro-gate --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --execute-live --max-wall-hours 30 --site-root $env:SITE_ROOT
 python scripts/reproduce_physics_ramp_gate.py
 ```
 
 `--mode full` must exit 4 until a **newly generated** ramp artifact has `passed=true`
 *and* `contracts/active_rl_model_v1.json` has `long_campaign_allowed=true` with
 verified hashes. `research-poc` is a **separate subcommand**, not an operator-pay
-`--mode`. Missing `--confirm-simulation-only-physics-limits` exits 4. The research
+`--mode`. `research-long` is another separate subcommand (not an alias of
+`campaign`). Missing either research-long confirm flag exits 4. The research
 contract cannot set `long_campaign_allowed=true`. EnergyPlus MCP (`user-energyplus`)
 is for IDF/RDD inspection before edits; it cannot rewrite W2A banks. Track C stays
 in Python. Control/action/observation v2: [`docs/audits/2026-08-17-vibe22-control-contract-v2.md`](docs/audits/2026-08-17-vibe22-control-contract-v2.md).

@@ -6,7 +6,7 @@
 | [CONTRIBUTING_RL.md](CONTRIBUTING_RL.md) | rleplus backend, A04, no Ray |
 | [EPLUS_GYM.md](EPLUS_GYM.md) | Gym adapter + W2A parser |
 | [AGENT_LOOP.md](AGENT_LOOP.md) | Campaign loop (ramp gate first; long RL NO-GO) |
-| [../docs/audits/2026-08-17-vibe22-correctness-repair.md](../docs/audits/2026-08-17-vibe22-correctness-repair.md) | P0/P1 scientific-correctness repair |
+| [../docs/audits/2026-08-18-vibe22-research-long-launch.md](../docs/audits/2026-08-18-vibe22-research-long-launch.md) | Research-long launch (v2 Box, checkpoints, no champion) |
 | [../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md](../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md) | Long-train NO-GO |
 | ../plots/rl_report/README.md | Report pack |
 | ../skills/rl-daily-dsm/SKILL.md | Skill |

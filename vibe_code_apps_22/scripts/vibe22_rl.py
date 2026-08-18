@@ -284,6 +284,51 @@ def cmd_operator_pay_experiment(args) -> int:
     return int(out.get("exit_code") or EXIT_OK)
 
 
+def cmd_research_long(args) -> int:
+    """Labeled research-long. Cannot enable campaign or long_campaign_allowed."""
+    from eplus_gym.rl.research_long import ResearchLongError, run_research_long
+    from eplus_gym.rl.research_model import ResearchModelError
+
+    if str(getattr(args, "simulator", SIMULATOR_REQUIRED)) != SIMULATOR_REQUIRED:
+        print(json.dumps({"command": "research-long", "allowed": False, "reason": "only LIVE_ENERGYPLUS"}))
+        return EXIT_INTEGRITY
+    if not bool(getattr(args, "confirm_simulation_only_physics_limits", False)) or not bool(
+        getattr(args, "confirm_a04_not_transient_validated", False)
+    ):
+        print(
+            json.dumps(
+                {
+                    "command": "research-long",
+                    "allowed": False,
+                    "reason": "missing --confirm-simulation-only-physics-limits and/or --confirm-a04-not-transient-validated",
+                    "long_campaign_allowed": False,
+                    "SIMULATION_TRAINING_READY": False,
+                    "OPERATIONAL_DSM_READY": False,
+                }
+            )
+        )
+        return EXIT_INTEGRITY
+    try:
+        live = bool(getattr(args, "micro_gate", False)) or bool(getattr(args, "execute_live", False))
+        site = _site(args) if live else Path(args.site_root or os.environ.get("SITE_ROOT") or ".")
+        out = run_research_long(
+            app_root=_APP,
+            site_root=site,
+            confirm_simulation_only_physics_limits=True,
+            confirm_a04_not_transient_validated=True,
+            max_wall_hours=float(getattr(args, "max_wall_hours", 30.0) or 30.0),
+            micro_gate=bool(getattr(args, "micro_gate", False)),
+            execute_live=bool(getattr(args, "execute_live", False)),
+            heartbeat_path=Path(args.heartbeat) if getattr(args, "heartbeat", None) else None,
+            seed=int(getattr(args, "seed", 0) or 0),
+        )
+    except (ResearchLongError, ResearchModelError, SystemExit) as exc:
+        print(json.dumps({"command": "research-long", "allowed": False, "reason": str(exc), "long_campaign_allowed": False}))
+        return EXIT_INTEGRITY
+    print(json.dumps(out, indent=2, default=str))
+    return EXIT_OK
+
+
 def cmd_research_poc(args) -> int:
     """Bounded real-EnergyPlus research PoC. Cannot enable --mode full or long_campaign_allowed."""
     from eplus_gym.rl.research_model import ResearchModelError
@@ -738,6 +783,17 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--simulator", default=SIMULATOR_REQUIRED)
     rp.add_argument("--execute-live", action="store_true")
     rp.set_defaults(func=cmd_research_poc)
+
+    rl = sub.add_parser("research-long", parents=[site_parent])
+    rl.add_argument("--confirm-simulation-only-physics-limits", action="store_true")
+    rl.add_argument("--confirm-a04-not-transient-validated", action="store_true")
+    rl.add_argument("--max-wall-hours", type=float, default=30.0)
+    rl.add_argument("--seed", type=int, default=0)
+    rl.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    rl.add_argument("--micro-gate", action="store_true")
+    rl.add_argument("--execute-live", action="store_true")
+    rl.add_argument("--heartbeat", default=None)
+    rl.set_defaults(func=cmd_research_long)
 
     args = p.parse_args(argv)
     try:
