@@ -51,3 +51,10 @@ models/eplus/a04v2_candidates/**/*.idf
 !docs/audits/figures/operator_pay_smoke/*.parquet
 Thumbs.db
 Desktop.ini
+
+# Synthetic mega-v3 audit artifacts (Phase 2 branch — real output under vibe22_mega_phase2/)
+docs/audits/figures/vibe22_mega/phase[3-9]/
+docs/audits/figures/vibe22_mega/phase1[0-9]/
+docs/audits/figures/vibe22_mega/phase20/
+docs/audits/figures/vibe22_mega/mega_run_summary.json
+docs/audits/figures/vibe22_live_trackb_long_rl/empty_bundle.json
