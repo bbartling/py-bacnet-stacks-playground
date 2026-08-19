@@ -180,6 +180,7 @@ def evaluate_validation_arms(
             )
         env.close()
     winner = select_winner(rows)
+    validation_selected_policy = winner
     return {
         "schema": "vibe22.research_long_eval.v1",
         "claim_labels": list(CLAIM),
@@ -188,6 +189,7 @@ def evaluate_validation_arms(
         "days": [str(d)[:10] for d in days],
         "rows": rows,
         "winner": winner,
+        "validation_selected_policy": validation_selected_policy,
         "winner_rule": "deterministic_validation_plus_readiness_multi_seed; never training mean_reward",
         "SIMULATION_TRAINING_READY": False,
         "OPERATIONAL_DSM_READY": False,
