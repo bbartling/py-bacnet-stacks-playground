@@ -1,0 +1,90 @@
+{
+  "returncode": 0,
+  "capacity_sensitivity": "base",
+  "capacity_mult": 1.0,
+  "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+  "patches": [
+    {
+      "zone": "1F_Library_IMC",
+      "hp_count_67": 2,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 21101.114999999998,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Cafe_Kitchen",
+      "hp_count_67": 3,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 31651.672499999997,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Gym",
+      "hp_count_67": 4,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 42202.229999999996,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Area_A",
+      "hp_count_67": 13,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 137157.2475,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Area_B",
+      "hp_count_67": 10,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 105505.57499999998,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Area_C",
+      "hp_count_67": 8,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 84404.45999999999,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "1F_Area_D",
+      "hp_count_67": 6,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 63303.344999999994,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "2F_Area_A",
+      "hp_count_67": 11,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 116056.13249999999,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    },
+    {
+      "zone": "2F_Area_B",
+      "hp_count_67": 10,
+      "capacity_sensitivity": "base",
+      "capacity_mult": 1.0,
+      "assumption": "67-HP inventory \u00d7 3-ton nominal unless field-proven",
+      "rated_heating_capacity_w": 105505.57499999998,
+      "op": "pass1_capacity_autosize_air_water_fan"
+    }
+  ],
+  "eio_path": "C:\\wt\\v22rll\\vibe_code_apps_22\\docs\\audits\\figures\\a04_child_hp67_scaled_v2\\sensitivity_base\\pass1_sizing\\eplus_out\\eplusout.eio"
+}

@@ -220,3 +220,49 @@ def test_score_day_savings_and_layers():
     assert scored.training_reward != scored.display_paycheck_usd
     assert abs(scored.training_reward) <= COST_SCALE
     assert json.dumps(load_reward_contract_v2()["does_not_reinterpret"])
+
+
+def test_tou_vs_flat_energy_cost_differs():
+    kw = _flat(100.0)
+    flat = score_day_v2(
+        day=SCHOOL,
+        candidate_facility_kw=kw,
+        candidate_zone_temps_f=_zones(70.0),
+        baseline_facility_kw=kw,
+        baseline_zone_temps_f=_zones(70.0),
+        rate_kwh=0.12,
+    )
+    tou_rates = [0.08 if i < 48 else 0.20 for i in range(96)]
+    tou = score_day_v2(
+        day=SCHOOL,
+        candidate_facility_kw=kw,
+        candidate_zone_temps_f=_zones(70.0),
+        baseline_facility_kw=kw,
+        baseline_zone_temps_f=_zones(70.0),
+        rate_kwh=tou_rates,
+    )
+    assert flat.candidate["energy_cost"] != tou.candidate["energy_cost"]
+
+
+def test_shift_load_to_cheap_hours_improves_reward():
+    rates = [0.05 if i < 48 else 0.30 for i in range(96)]
+    expensive = [90.0 if i >= 48 else 60.0 for i in range(96)]
+    cheap = [60.0 if i >= 48 else 90.0 for i in range(96)]
+    base = _flat(75.0)
+    exp_scored = score_day_v2(
+        day=SCHOOL,
+        candidate_facility_kw=expensive,
+        candidate_zone_temps_f=_zones(70.0),
+        baseline_facility_kw=base,
+        baseline_zone_temps_f=_zones(70.0),
+        rate_kwh=rates,
+    )
+    cheap_scored = score_day_v2(
+        day=SCHOOL,
+        candidate_facility_kw=cheap,
+        candidate_zone_temps_f=_zones(70.0),
+        baseline_facility_kw=base,
+        baseline_zone_temps_f=_zones(70.0),
+        rate_kwh=rates,
+    )
+    assert cheap_scored.training_reward > exp_scored.training_reward

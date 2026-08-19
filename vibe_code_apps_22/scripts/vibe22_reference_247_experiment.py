@@ -22,8 +22,11 @@ sys.path.insert(0, str(_APP))
 from eplus_gym.a04_identity import A04_IDF_NAME
 from eplus_gym.control_v2 import ACTION_KEYS
 from eplus_gym.mega.compact_scorecard import build_compact_scorecard, idf_byte_and_lf_sha256, write_slim_artifacts
+from eplus_gym.mega.pilot_arms import random_continuous_params
 from eplus_gym.mega.scored_day_runner import params_for_arm, run_scored_continuity_day
 from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
+from eplus_gym.rl.reward_v2 import score_day_v2
+from eplus_gym.mega.tariff_modes import default_tariff_catalog
 from eplus_gym.site_env import require_site_root
 from eplus_gym.site_pins import resolve_a04_and_epw
 
@@ -37,7 +40,9 @@ ARMS = (
     ("deep_setback", "deep_setback"),
     ("FIXED_WEATHER_RULE", "FIXED_WEATHER_RULE"),
     ("FIXED_TOU_RULE", "FIXED_TOU_RULE"),
+    ("random", "random"),
 )
+TARIFF_MODE = "flat_illustrative"
 ARM_LABELS = {
     "continuous_70": "CONTINUOUS_70_REFERENCE",
 }
@@ -56,17 +61,34 @@ def run_arm(
     day: str,
     arm: str,
     child_bytes: bytes,
+    seed: int = 247,
 ) -> dict:
     label = ARM_LABELS.get(arm, arm)
     day_dir = AUDIT_ROOT / label
-    live = run_scored_continuity_day(
-        site_root=site,
-        idf=idf,
-        epw=epw,
-        day=day,
-        arm=arm,
-        output=day_dir / "live_run",
-    )
+    if arm == "random":
+        params, raw, _decoded = random_continuous_params(day=day, seed=seed)
+        from eplus_gym.control_v2 import build_six_schedules_f
+        from eplus_gym.rl.continuity_plant import EnergyPlusContinuityPlant
+
+        schedules = build_six_schedules_f(params)
+        oat = list(forecast_from_epw_replay(epw, day).temps_c)
+        plant = EnergyPlusContinuityPlant(
+            site_root=site, idf=idf, epw=epw, output=day_dir / "live_run", days=[day]
+        )
+        plant.start_episode()
+        payload = plant.simulate_day(schedules, oat_c=oat)
+        gate = plant.finish_quality()
+        live = {"gate": gate, "payload": payload, "schedules": schedules}
+    else:
+        live = run_scored_continuity_day(
+            site_root=site,
+            idf=idf,
+            epw=epw,
+            day=day,
+            arm=arm,
+            output=day_dir / "live_run",
+            tariff_mode=TARIFF_MODE,
+        )
     byte_sha, lf_sha = idf_byte_and_lf_sha256(child_bytes)
     gate = dict(live.get("gate") or {})
     rc = 0 if gate.get("completed_successfully") else 1
@@ -86,11 +108,28 @@ def run_arm(
     write_slim_artifacts(day_dir, scorecard)
     scorecard["schedules"] = live.get("schedules")
     scorecard["payload"] = live.get("payload")
+    payload = live.get("payload") or {}
+    spec = default_tariff_catalog()[TARIFF_MODE]
+    rates = spec.hourly_prices()
+    rate96 = [rates[i // 4] for i in range(96)]
+    fac = list(payload.get("facility_kw") or [])
+    zones = payload.get("zone_temps_series_f") or {}
+    if len(fac) == 96 and zones:
+        scored = score_day_v2(
+            day=day,
+            candidate_facility_kw=fac,
+            candidate_zone_temps_f=zones,
+            baseline_facility_kw=fac,
+            baseline_zone_temps_f=zones,
+            rate_kwh=rate96,
+            demand_rate=spec.demand_rate_per_kw,
+        )
+        scorecard["illustrative_cost_usd"] = scored.candidate["daily_cost"]
     return scorecard
 
 
 def build_publication_figure(*, day: str, arm_results: list[dict], oat_c: list[float], out: Path) -> Path:
-    fig, axes = plt.subplots(5, 1, figsize=(12, 14), sharex=True)
+    fig, axes = plt.subplots(6, 1, figsize=(12, 16), sharex=True)
     hours = np.arange(96) * 0.25
     wm = "CONTINUOUS REFERENCE — NOT OPERATIONAL BASELINE"
     for ax in axes:
@@ -124,23 +163,33 @@ def build_publication_figure(*, day: str, arm_results: list[dict], oat_c: list[f
     axes[3].set_ylabel("Zone °F")
 
     inc = next((s for s in arm_results if s.get("arm") == "incumbent"), ref)
-    schedules = inc.get("schedules") or {}
-    if schedules:
-        mean_sp = np.mean([schedules[k] for k in ACTION_KEYS if k in schedules], axis=0)
-        axes[4].plot(hours, mean_sp, color="#c0392b", label="mean setpoint (incumbent arm)")
-    axes[4].set_ylabel("Setpoint °F")
-    axes[4].set_xlabel("Hour of day")
-
-    summary_txt = []
     for sc in arm_results:
-        summary_txt.append(
+        schedules = sc.get("schedules") or {}
+        if schedules:
+            mean_sp = np.mean([schedules[k] for k in ACTION_KEYS if k in schedules], axis=0)
+            if len(mean_sp) == 96:
+                axes[4].plot(hours, mean_sp, label=sc.get("label"), alpha=0.75)
+    axes[4].set_ylabel("Mean setpoint °F")
+    axes[4].legend(fontsize=6, ncol=2)
+
+    ann_lines = []
+    for sc in arm_results:
+        w2a = sc.get("scored_runtime_w2a_count")
+        cost = sc.get("illustrative_cost_usd")
+        ready = ((sc.get("readiness") or {}).get("readiness_ok"))
+        line = (
             f"{sc.get('label')}: peak={sc.get('peak_kw')} kW, kWh={sc.get('daily_kwh')}, "
-            f"W2A={sc.get('scored_runtime_w2a_count')}, ready={((sc.get('readiness') or {}).get('readiness_ok'))}"
+            f"W2A={w2a}, ready={ready}"
         )
-    fig.text(0.02, 0.01, "\n".join(summary_txt[:7]), fontsize=7, family="monospace")
+        if cost is not None:
+            line += f", cost=${cost:.0f}"
+        ann_lines.append(line)
+    axes[5].axis("off")
+    axes[5].text(0.01, 0.95, "\n".join(ann_lines), va="top", fontsize=7, family="monospace")
+    axes[5].set_xlabel("Cost / W2A / readiness summary")
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=(0, 0.02, 1, 1))
     fig.savefig(out, dpi=120)
     plt.close(fig)
     return out
@@ -165,7 +214,7 @@ def main() -> int:
     results = []
     for _name, arm in ARMS:
         results.append(
-            run_arm(site=site, idf=idf, epw=epw, day=day, arm=arm, child_bytes=child_bytes)
+            run_arm(site=site, idf=idf, epw=epw, day=day, arm=arm, child_bytes=child_bytes, seed=247)
         )
 
     slim_results = []

@@ -22,7 +22,8 @@ from eplus_gym.rl.multiday_env import (
     schedule_fingerprint,
     trajectory_hash,
 )
-from eplus_gym.rl.obs_v3 import N_OBS_V3, PERFECT_EPISODE_FORECAST
+from eplus_gym.mega.obs_tariff_v4 import N_OBS_V4, OBS_SCHEMA_V4
+from eplus_gym.rl.obs_v3 import PERFECT_EPISODE_FORECAST
 from eplus_gym.rl.research_checkpoint import rng_hex, write_block_checkpoint
 from eplus_gym.rl.research_eval import evaluate_validation_arms, load_sb3_model
 from eplus_gym.rl.research_model import ResearchModelError, verify_research_model
@@ -54,18 +55,22 @@ class ResearchLongError(ValueError):
     """research-long refused."""
 
 
-def _locked_flags() -> dict[str, Any]:
+def _locked_flags(*, obs_schema: str = "v4") -> dict[str, Any]:
+    dim = N_OBS_V4 if obs_schema == "v4" else 80
+    contract = OBS_SCHEMA_V4 if obs_schema == "v4" else "vibe22.obs.v3"
     return {
         "claim_labels": list(CLAIM_LABELS),
         "SIMULATION_TRAINING_READY": False,
         "OPERATIONAL_DSM_READY": False,
         "long_campaign_allowed": False,
         "RESEARCH_LONG_ALLOWED": True,
+        "RESEARCH_POC_ALLOWED": True,
         "bacnet_commands": 0,
         "locked_unseen": NO_LOCKED_UNSEEN,
         "action_contract_version": RESEARCH_ACTION_CONTRACT_V2,
-        "observation_dim": N_OBS_V3,
-        "observation_contract": "vibe22.obs.v3",
+        "observation_dim": dim,
+        "observation_contract": contract,
+        "obs_schema": obs_schema,
     }
 
 
@@ -181,6 +186,8 @@ def _env_cfg(
     algo: str,
     block_size: int,
     persist_billing: bool,
+    obs_schema: str = "v4",
+    tariff_mode: str = "flat_illustrative",
 ) -> dict[str, Any]:
     first = next(iter(payloads.values())) if payloads else {}
     return {
@@ -195,6 +202,8 @@ def _env_cfg(
         "action_contract_version": RESEARCH_ACTION_CONTRACT_V2,
         "hourly_oat": {k: list(v) for k, v in oat.items()},
         "forecast_source": PERFECT_EPISODE_FORECAST,
+        "obs_schema": obs_schema,
+        "tariff_mode": tariff_mode,
         "baseline_payloads": dict(payloads),
         "idf_sha256": idf_sha,
         "epw_sha256": epw_sha,
@@ -224,6 +233,10 @@ def run_research_long(
     execute_live: bool = False,
     heartbeat_path: Path | None = None,
     seed: int = 0,
+    obs_schema: str = "v4",
+    tariff_mode: str = "flat_illustrative",
+    child_idf: Path | None = None,
+    campaign_labels: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     if not confirm_simulation_only_physics_limits or not confirm_a04_not_transient_validated:
         raise ResearchLongError(
@@ -234,7 +247,9 @@ def run_research_long(
     manifest = verify_research_model(app_root)
     if manifest.get("long_campaign_allowed") is True:
         raise ResearchModelError("research contract must not set long_campaign_allowed=true")
-    flags = _locked_flags()
+    flags = _locked_flags(obs_schema=obs_schema)
+    if campaign_labels:
+        flags["claim_labels"] = list(campaign_labels)
     if not execute_live and not micro_gate:
         return {
             "command": "research-long",
@@ -244,7 +259,7 @@ def run_research_long(
             "model_id": manifest.get("model_id"),
         }
 
-    idf = Path(app_root) / str(manifest.get("idf_path") or f"models/eplus/{A04_IDF_NAME}")
+    idf = Path(child_idf) if child_idf is not None else Path(app_root) / str(manifest.get("idf_path") or f"models/eplus/{A04_IDF_NAME}")
     try:
         epw = resolve_site_epw(Path(site_root))
     except FileNotFoundError as exc:
@@ -338,6 +353,8 @@ def run_research_long(
                 algo=algo,
                 block_size=block_size,
                 persist_billing=True,
+                obs_schema=obs_schema,
+                tariff_mode=tariff_mode,
             )
 
             from stable_baselines3.common.callbacks import BaseCallback

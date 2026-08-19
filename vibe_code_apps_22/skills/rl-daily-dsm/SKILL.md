@@ -108,8 +108,15 @@ confirms causality at scored runtime.
 - Child pilot: `python scripts/a04_child_hp67_scaled_v1.py` → `docs/audits/figures/a04_child_hp67_scaled_v1/`.
 - hp67 v2 two-pass: `python scripts/a04_child_hp67_two_pass_v2.py` → `docs/audits/figures/a04_child_hp67_scaled_v2/`.
 - 24/7 reference figure: `python scripts/vibe22_reference_247_experiment.py`.
-- Three-day pilot gate: `python scripts/vibe22_three_day_pilot.py` (obs v4 + billing in `MultiDayDailyEnv`).
-- **P5 BLOCKED:** five-seed PPO/DQN mega until pilot passes and user approves (`P5_BLOCKED_UNTIL_PILOT_PASSES_AND_USER_APPROVES`).
+- Three-day pilot gate: `python scripts/vibe22_three_day_pilot.py` (obs v4 + tariff in `MultiDayDailyEnv`).
+- **Pilot passed 2026-08-19:** research-long authorized on A04 fallback (`Terminal B` labels).
+- Launch-readiness audit: `docs/audits/2026-08-19-vibe22-launch-readiness-second-research-long.md`.
+- Live campaign heartbeat: `$SITE_ROOT/reports/eplus_gym/rl/research_long_heartbeat.json`.
+- hp67 v2 two-pass: champion **failed** — use A04 parent for RL until a future child passes full physics gates.
+
+```powershell
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --obs-schema v4 --tariff-mode flat_illustrative --execute-live --heartbeat $env:SITE_ROOT/reports/eplus_gym/rl/research_long_heartbeat.json --site-root $env:SITE_ROOT
+```
 
 Index: [`../../vibe22_agent_spec/MEGA_V3_PHASES.md`](../../vibe22_agent_spec/MEGA_V3_PHASES.md).
 BACnet command authority = 0. Vibe19 untouched. Honor `NO_PRISTINE_LOCKED_TEST_AVAILABLE`.

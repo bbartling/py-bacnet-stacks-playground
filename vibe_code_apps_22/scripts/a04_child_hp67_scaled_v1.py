@@ -55,11 +55,11 @@ def build_child_idf(*, force_rebuild: bool = False) -> tuple[Path, list[dict], s
     out_idf = out_dir / "lakeside_w2a_hp67_scaled_v1.idf"
     manifest = AUDIT_ROOT / "patch_manifest.json"
     if out_idf.is_file() and not force_rebuild:
-        text = out_idf.read_text(encoding="utf-8")
+        child_bytes = out_idf.read_bytes()
+        text = child_bytes.decode("utf-8")
         patches: list[dict] = []
         if manifest.is_file():
             patches = json.loads(manifest.read_text(encoding="utf-8")).get("patches") or []
-        child_bytes = text.encode("utf-8")
         return out_idf, patches, child_sha256(text), child_bytes
     raw = A04.read_bytes()
     _assert_a04(raw)
@@ -67,13 +67,13 @@ def build_child_idf(*, force_rebuild: bool = False) -> tuple[Path, list[dict], s
         text, patches = patch_hp67_scaled_v1(raw.decode("utf-8", errors="replace"))
     except ValueError as exc:
         if out_idf.is_file():
-            text = out_idf.read_text(encoding="utf-8")
+            child_bytes = out_idf.read_bytes()
+            text = child_bytes.decode("utf-8")
             patches = [{"op": "reuse_historical_v1", "note": str(exc)}]
-            child_bytes = text.encode("utf-8")
             return out_idf, patches, child_sha256(text), child_bytes
         raise SystemExit(f"cannot build v1 child: {exc}") from exc
     out_idf.write_text(text, encoding="utf-8")
-    child_bytes = text.encode("utf-8")
+    child_bytes = out_idf.read_bytes()
     return out_idf, patches, child_sha256(text), child_bytes
 
 

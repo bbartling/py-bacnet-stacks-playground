@@ -7,12 +7,14 @@ from typing import Any
 from eplus_gym.control_v2 import SixZoneDailyParamsV2, build_six_schedules_f
 from eplus_gym.rl.continuity_plant import EnergyPlusContinuityPlant
 from eplus_gym.rl.eplus_watchdog import EplusWatchdog, WatchdogLimits, WatchdogTimeout
+from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
 from eplus_gym.trackb_scored_run import rows_from_continuity_payload
 
 
-def params_for_arm(arm: str) -> SixZoneDailyParamsV2:
+def params_for_arm(arm: str, *, day: str, epw: Path | None = None, tariff_mode: str = "tou_evening_peak_illustrative") -> SixZoneDailyParamsV2:
     from eplus_gym.control_v2 import arm_params, continuous_params, observed_bas_incumbent_params
     from eplus_gym.mega.fixed_rules import FIXED_TOU_RULE, FIXED_WEATHER_RULE
+    from eplus_gym.mega.tariff_modes import default_tariff_catalog
 
     if arm == "incumbent":
         return observed_bas_incumbent_params()
@@ -25,19 +27,33 @@ def params_for_arm(arm: str) -> SixZoneDailyParamsV2:
 
         return _shallow()
     if arm == "deep_setback":
+        from eplus_gym.rl.research_spaces import UNOCC_F_FLOOR_V2
+
         return SixZoneDailyParamsV2(
             occupied_heating_f=70.0,
-            unoccupied_heating_f=58.0,
+            unoccupied_heating_f=max(60.0, UNOCC_F_FLOOR_V2),
             heating_setpoint_start_step=32,
             heating_setpoint_end_step=59,
             recovery_lead_minutes=90,
             recovery_ramp_minutes=90,
         )
     if arm == "FIXED_WEATHER_RULE":
-        return FIXED_WEATHER_RULE.params_for_day("2026-01-12", forecast_min_oat_c=-12.0)
+        min_oat = -12.0
+        if epw is not None:
+            min_oat = float(min(forecast_from_epw_replay(epw, day).temps_c))
+        return FIXED_WEATHER_RULE.params_for_day(day, forecast_min_oat_c=min_oat)
     if arm == "FIXED_TOU_RULE":
-        return FIXED_TOU_RULE.params_for_day("2026-01-12")
+        rates = default_tariff_catalog()[tariff_mode].hourly_prices().tolist()
+        return FIXED_TOU_RULE.params_for_day(day, hourly_energy_rates=rates)
     return arm_params(arm)
+
+
+def _hourly_oat(epw: Path, day: str) -> list[float]:
+    fc = forecast_from_epw_replay(epw, day)
+    vals = [float(x) for x in fc.temps_c]
+    if len(vals) != 24:
+        raise ValueError(f"EPW replay for {day} must yield 24 hourly values, got {len(vals)}")
+    return vals
 
 
 def run_scored_continuity_day(
@@ -49,16 +65,11 @@ def run_scored_continuity_day(
     arm: str,
     output: Path,
     queue_timeout_s: float = 180.0,
+    tariff_mode: str = "tou_evening_peak_illustrative",
 ) -> dict[str, Any]:
-    params = params_for_arm(arm)
+    params = params_for_arm(arm, day=day, epw=epw, tariff_mode=tariff_mode)
     schedules = build_six_schedules_f(params)
-    oat = [-10.0] * 24
-    try:
-        from eplus_gym.rl.midnight_forecast import forecast_from_epw_replay
-
-        oat = list(forecast_from_epw_replay(epw, day).temps_c)
-    except Exception:  # noqa: BLE001
-        pass
+    oat = _hourly_oat(epw, day)
     watchdog = EplusWatchdog(
         output / "watchdog",
         WatchdogLimits(startup_s=1200.0, no_progress_s=600.0, overall_s=7200.0),
@@ -94,5 +105,6 @@ def run_scored_continuity_day(
         "watchdog": watchdog.snapshot(),
         "arm": arm,
         "schedules": schedules,
+        "hourly_oat_c": oat,
         "n_process_starts": int(payload.get("n_process_starts") or plant.n_process_starts),
     }

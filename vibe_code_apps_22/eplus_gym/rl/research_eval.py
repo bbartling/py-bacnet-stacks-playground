@@ -140,8 +140,9 @@ def evaluate_validation_arms(
     for arm in arms:
         env = env_factory()
         obs, info = env.reset(seed=int(seed))
-        if int(np.asarray(obs).reshape(-1).size) != N_OBS_V3:
-            raise PolicyReloadError("eval observation is not dim 80")
+        expected_dim = int(env.observation_space.shape[0])
+        if int(np.asarray(obs).reshape(-1).size) != expected_dim:
+            raise PolicyReloadError(f"eval observation is not dim {expected_dim}")
         done = False
         while not done:
             day = str(info.get("day") or env.days[env._day_i])

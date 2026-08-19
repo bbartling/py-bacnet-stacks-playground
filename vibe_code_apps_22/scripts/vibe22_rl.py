@@ -321,6 +321,10 @@ def cmd_research_long(args) -> int:
             execute_live=bool(getattr(args, "execute_live", False)),
             heartbeat_path=Path(args.heartbeat) if getattr(args, "heartbeat", None) else None,
             seed=int(getattr(args, "seed", 0) or 0),
+            obs_schema=str(getattr(args, "obs_schema", "v4") or "v4"),
+            tariff_mode=str(getattr(args, "tariff_mode", "flat_illustrative") or "flat_illustrative"),
+            child_idf=Path(args.child_idf) if getattr(args, "child_idf", None) else None,
+            campaign_labels=tuple(str(x) for x in (getattr(args, "campaign_labels", "") or "").split("|") if x) or None,
         )
     except (ResearchLongError, ResearchModelError, SystemExit) as exc:
         print(json.dumps({"command": "research-long", "allowed": False, "reason": str(exc), "long_campaign_allowed": False}))
@@ -793,6 +797,10 @@ def main(argv: list[str] | None = None) -> int:
     rl.add_argument("--micro-gate", action="store_true")
     rl.add_argument("--execute-live", action="store_true")
     rl.add_argument("--heartbeat", default=None)
+    rl.add_argument("--obs-schema", default="v4", choices=("v3", "v4"))
+    rl.add_argument("--tariff-mode", default="flat_illustrative")
+    rl.add_argument("--child-idf", default=None)
+    rl.add_argument("--campaign-labels", default="", help="pipe-separated terminal labels")
     rl.set_defaults(func=cmd_research_long)
 
     args = p.parse_args(argv)

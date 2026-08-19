@@ -336,6 +336,15 @@ class MultiDayDailyEnv(gym.Env):
             "(pass hourly_oat or labeled_placeholder_oat_c)"
         )
 
+    def _tariff_for_step(self) -> tuple[list[float], float, str]:
+        from eplus_gym.mega.tariff_modes import build_tariff_forecast_vectors, default_tariff_catalog
+
+        spec = default_tariff_catalog()[self._tariff_mode]
+        fc = build_tariff_forecast_vectors(self._tariff_mode)  # type: ignore[arg-type]
+        rates = [float(x) for x in fc["next_96x15min_energy_rates"]]
+        sha = hashlib.sha256(json.dumps(rates).encode("utf-8")).hexdigest()
+        return rates, float(spec.demand_rate_per_kw), sha
+
     def _obs(self, day: str):
         oat, src = self._oat(day)
         floor = self._billing.billing_floor_kw()
@@ -504,6 +513,7 @@ class MultiDayDailyEnv(gym.Env):
         b_zones = baseline.get("zone_temps_series_f")
         cand_old = self._billing.start_of_day(day)
         base_old = self._baseline_billing.start_of_day(day)
+        rate_kwh, demand_rate, rate_sha = self._tariff_for_step()
         scored = score_day_v2(
             day=day,
             candidate_facility_kw=facility,
@@ -519,6 +529,8 @@ class MultiDayDailyEnv(gym.Env):
             baseline_ratchet_kw=self._baseline_billing.ratchet_kw,
             baseline_contract_kw=self._baseline_billing.contract_kw,
             paycheck_k=self.paycheck_k,
+            rate_kwh=rate_kwh,
+            demand_rate=demand_rate,
         )
         peak = float(scored.candidate["day_peak_kw"])
         kwh = float(scored.candidate["daily_kwh"])
@@ -585,6 +597,12 @@ class MultiDayDailyEnv(gym.Env):
             "model_sha256": self.cfg.get("idf_sha256"),
             "epw_sha256": self.cfg.get("epw_sha256"),
             "trajectory_sha256": trajectory_hash(payload),
+            "payload": payload,
+            "tariff_mode": self._tariff_mode,
+            "rate_vector_sha256": rate_sha,
+            "demand_rate": demand_rate,
+            "opening_billing_floor_kw": cand_old,
+            "closing_mtd_peak_kw": self._billing.mtd_peak_kw,
             "reward_breakdown": {
                 "reward": reward,
                 "day": day,

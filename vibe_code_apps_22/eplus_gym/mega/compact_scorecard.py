@@ -16,6 +16,8 @@ from eplus_gym.trackb_scored_run import (
     validate_scored_trackb_run,
 )
 
+from eplus_gym.mega.physics_champion_gates import evaluate_day_physics_gates
+
 PHYSICS_REPAIR_FAILED = "PHYSICS_REPAIR_FAILED_NOT_RL_ELIGIBLE"
 
 
@@ -106,15 +108,28 @@ def build_compact_scorecard(
     fatal = int(gate.get("fatal_count") or 0)
     traj_sha = trajectory_sha256(rows) if rows else None
     slim = slim_trajectory_rows(rows) if rows else []
+    physics_gates = evaluate_day_physics_gates(
+        day=day,
+        gate=gate,
+        returncode=returncode,
+        rows=rows,
+        payload=payload,
+        require_monthly_gl14=True,
+    )
+    physics_champion = bool(physics_gates.get("physics_champion_eligible"))
+    gate_summary = dict(physics_gates.get("gate_summary") or {})
 
     return {
-        "schema": "vibe22.mega.compact_scorecard.v1",
+        "schema": "vibe22.mega.compact_scorecard.v2",
         "label": label,
         "day": day,
         "arm": arm,
         "child_name": child_name,
         "physics_status": physics_status,
+        "physics_champion_eligible": physics_champion,
+        "research_training_eligible": False,
         "rl_eligible": bool(rl_eligible),
+        "rl_eligible_deprecated": bool(rl_eligible),
         "child_idf_byte_sha256": child_idf_byte_sha256,
         "child_idf_lf_normalized_sha256": child_idf_lf_normalized_sha256,
         "n_rows": len(rows),
@@ -136,6 +151,8 @@ def build_compact_scorecard(
         "scored_runperiod_valid": bool(scored.get("scored_runperiod_valid")),
         "scored_runperiod_status": scored.get("status"),
         "engine_returncode_is_not_sufficient": True,
+        "gate_summary": gate_summary,
+        "physics_gates": physics_gates,
     }
 
 

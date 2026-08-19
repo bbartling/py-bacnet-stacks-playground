@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -23,11 +24,11 @@ from eplus_gym.mega.compact_scorecard import (
 )
 from eplus_gym.mega.hp67_banks import build_hp67_banks_child
 from eplus_gym.mega.hp67_two_pass import CAPACITY_MULT, child_sha256, patch_pass1_autosize, patch_pass2_hardsize
+from eplus_gym.mega.physics_champion_gates import evaluate_campaign_physics_gates
 from eplus_gym.mega.scored_day_runner import run_scored_continuity_day
 from eplus_gym.site_env import require_site_root
 from eplus_gym.site_pins import resolve_a04_and_epw
 from eplus_gym.stage_idf import stage_idf_for_period
-from eplus_gym.trackb_banks import scored_runtime_w2a_pass
 
 A04 = _APP / "models" / "eplus" / A04_IDF_NAME
 CHILD_NAME = "a04_child_hp67_two_pass_v2"
@@ -96,6 +97,7 @@ def run_pass1_sizing(
             "capacity_mult": CAPACITY_MULT[sensitivity],  # type: ignore[index]
             "assumption": "67-HP inventory × 3-ton nominal unless field-proven",
             "patches": pass1_patches,
+            "eio_path": str(eio),
         },
     )
     return pass1_text, eio_text, {"returncode": r1.get("returncode"), "eio_path": str(eio)}
@@ -127,8 +129,15 @@ def build_pass2_child(
     suffix = "banks" if use_banks else "hardsize"
     out_idf = out_dir / f"lakeside_w2a_hp67_v2_{suffix}.idf"
     out_idf.write_text(text, encoding="utf-8")
-    child_bytes = text.encode("utf-8")
-    return out_idf, pass2_patches, child_sha256(text), child_bytes, {"use_banks": use_banks}
+    child_bytes = out_idf.read_bytes()
+    byte_sha, lf_sha = idf_byte_and_lf_sha256(child_bytes)
+    return (
+        out_idf,
+        pass2_patches,
+        child_sha256(text),
+        child_bytes,
+        {"use_banks": use_banks, "child_idf_byte_sha256": byte_sha, "child_idf_lf_normalized_sha256": lf_sha},
+    )
 
 
 def score_days(
@@ -138,12 +147,12 @@ def score_days(
     child_bytes: bytes,
     epw: Path,
     physics_status: str,
-    rl_eligible: bool,
+    out_subdir: str = "",
 ) -> list[dict]:
     byte_sha, lf_sha = idf_byte_and_lf_sha256(child_bytes)
-    results = []
+    results: list[dict] = []
     for label, day in DEFAULT_DAYS:
-        day_dir = AUDIT_ROOT / label
+        day_dir = AUDIT_ROOT / out_subdir / label if out_subdir else AUDIT_ROOT / label
         live = run_scored_continuity_day(
             site_root=site,
             idf=child_idf,
@@ -165,10 +174,18 @@ def score_days(
             returncode=rc,
             payload=live.get("payload"),
             physics_status=physics_status,
-            rl_eligible=rl_eligible,
+            rl_eligible=False,
         )
         write_slim_artifacts(day_dir, scorecard)
-        results.append(scorecard)
+        results.append(
+            {
+                **scorecard,
+                "gate": gate,
+                "rows": live.get("rows") or [],
+                "payload": live.get("payload"),
+                "returncode": rc,
+            }
+        )
     return results
 
 
@@ -238,19 +255,31 @@ def main() -> int:
         print(json.dumps({"child_idf_sha256": idf_sha, "build_only": True}, indent=2))
         return 0
 
-    day_results = score_days(
+    single_coil_results = score_days(
         site=site,
         child_idf=child_idf,
         child_bytes=child_bytes,
         epw=epw,
         physics_status=PHYSICS_REPAIR_FAILED,
-        rl_eligible=False,
+        out_subdir="single_coil" if not use_banks else "",
     )
-    w2a_ok = all(
-        scored_runtime_w2a_pass({"w2a_low_airflow_by_phase": d.get("w2a_low_airflow_by_phase") or {}})
-        for d in day_results
-    )
-    if not args.no_auto_banks_on_w2a_fail and not w2a_ok and not use_banks:
+    if not use_banks:
+        for label, _day in DEFAULT_DAYS:
+            src = AUDIT_ROOT / "single_coil" / label
+            dst = AUDIT_ROOT / label
+            if src.is_dir() and not dst.exists():
+                shutil.copytree(src, dst)
+
+    day_results = list(single_coil_results)
+    champion_gates = evaluate_campaign_physics_gates(day_results)
+    used_banks = use_banks
+
+    if (
+        not args.no_auto_banks_on_w2a_fail
+        and not champion_gates.get("physics_champion_eligible")
+        and not use_banks
+    ):
+        _write(AUDIT_ROOT / "single_coil_failed", {"retained": True, "days": [d.get("label") for d in day_results]})
         banks_idf, banks_patches, banks_sha, banks_bytes, banks_meta = build_pass2_child(
             pass1_text,
             eio_text,
@@ -264,26 +293,31 @@ def main() -> int:
             child_bytes=banks_bytes,
             epw=epw,
             physics_status=PHYSICS_REPAIR_FAILED,
-            rl_eligible=False,
+            out_subdir="banks_fallback",
         )
         child_idf, patches, idf_sha, child_bytes = banks_idf, banks_patches, banks_sha, banks_bytes
-        w2a_ok = all(
-            scored_runtime_w2a_pass({"w2a_low_airflow_by_phase": d.get("w2a_low_airflow_by_phase") or {}})
-            for d in day_results
-        )
+        byte_sha, lf_sha = idf_byte_and_lf_sha256(child_bytes)
+        champion_gates = evaluate_campaign_physics_gates(day_results)
+        used_banks = True
 
-    physics_status = PHYSICS_REPAIR_FAILED if not w2a_ok else "PHYSICS_REPAIR_CANDIDATE"
+    physics_champion = bool(champion_gates.get("physics_champion_eligible"))
+    physics_status = "PHYSICS_REPAIR_CANDIDATE" if physics_champion else PHYSICS_REPAIR_FAILED
+    _write(AUDIT_ROOT / "champion_gates_summary.json", champion_gates)
     summary = {
-        "schema": "vibe22.a04_child_hp67_two_pass_v2.v1",
+        "schema": "vibe22.a04_child_hp67_two_pass_v2.v2",
         "child_name": CHILD_NAME,
         "physics_status": physics_status,
-        "rl_eligible": w2a_ok,
+        "physics_champion_eligible": physics_champion,
+        "research_training_eligible": False,
+        "rl_eligible_deprecated": physics_champion,
+        "child_idf_path": str(child_idf.relative_to(_APP)).replace("\\", "/"),
         "child_idf_sha256": idf_sha,
         "child_idf_byte_sha256": byte_sha,
         "child_idf_lf_normalized_sha256": lf_sha,
         "capacity_sensitivity": args.sensitivity,
-        "days": day_results,
-        "w2a_scored_runtime_pass": w2a_ok,
+        "used_banks_fallback": used_banks,
+        "days": [{k: v for k, v in d.items() if k not in {"gate", "rows", "payload"}} for d in day_results],
+        "champion_gates": champion_gates,
         "bacnet_command_authority": 0,
         "claim_labels": [
             physics_status,
@@ -292,7 +326,16 @@ def main() -> int:
         ],
     }
     _write(AUDIT_ROOT / "campaign_summary.json", summary)
-    print(json.dumps({"physics_status": physics_status, "w2a_ok": w2a_ok}, indent=2))
+    print(
+        json.dumps(
+            {
+                "physics_champion_eligible": physics_champion,
+                "used_banks": used_banks,
+                "child_idf": str(child_idf),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

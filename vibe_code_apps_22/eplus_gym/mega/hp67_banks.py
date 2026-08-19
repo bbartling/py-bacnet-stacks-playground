@@ -9,7 +9,6 @@ from eplus_gym.trackb_banks import (
     assert_reference_integrity,
     expand_complete_banks,
     nine_zone_plan,
-    parse_eio_component_sizing,
     sizing_totals_from_eio,
 )
 
@@ -17,8 +16,7 @@ from .hp67_two_pass import child_sha256
 
 
 def eio_totals_for_hp67(eio_text: str) -> dict[str, dict[str, Any]]:
-    parsed = parse_eio_component_sizing(eio_text)
-    return sizing_totals_from_eio(parsed)
+    return sizing_totals_from_eio(eio_text)
 
 
 def build_hp67_banks_child(
