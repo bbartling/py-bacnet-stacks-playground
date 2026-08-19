@@ -1,0 +1,26 @@
+{
+  "schema": "vibe22.mega.multi_seed.v1",
+  "algo": "DQN",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "n_seeds": 5,
+  "transitions_per_seed": 8192,
+  "policy_ids": [
+    "trained_dqn_seed0",
+    "trained_dqn_seed1",
+    "trained_dqn_seed2",
+    "trained_dqn_seed3",
+    "trained_dqn_seed4"
+  ],
+  "traceability": {
+    "contract": "research_action_contract_v2",
+    "full_episode_provenance": true
+  },
+  "phase_status": "NOT_RUN",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

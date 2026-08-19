@@ -1,0 +1,20 @@
+{
+  "schema": "vibe22.mega.child_model_ledger.v1",
+  "parent": {
+    "name": "lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "immutable_label": "A04_IMMUTABLE_PARENT"
+  },
+  "children": [
+    {
+      "child_name": "a04_child_hp67_scaled_v1",
+      "idf_sha256": "00163068e66b64553f8a01bf4190c5f1c8c296894d5590eba02c0a95d93fa033",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "parent_hash": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "patch_ledger": [],
+      "rationale": "Per-zone capacity+airflow+water scaled by 67-HP BAS split (v1 \u2014 physics repair failed).",
+      "registered_at_utc": "2026-08-19T19:26:13.995076+00:00"
+    }
+  ],
+  "n_children": 1
+}

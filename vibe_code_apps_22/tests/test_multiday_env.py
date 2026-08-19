@@ -12,6 +12,7 @@ from eplus_gym.rl.multiday_env import (
     incremental_monthly_demand_cost,
 )
 from eplus_gym.rl.obs_v3 import N_OBS_V3
+from eplus_gym.mega.obs_tariff_v4 import N_OBS_V4
 from eplus_gym.rl.reward_v2 import IntegrityFailure, MissingBaselineError
 from eplus_gym.rl.spaces_v2 import encode_continuous_v2
 from eplus_gym.eplus_err import parse_eplus_err
@@ -242,3 +243,26 @@ def test_close_does_not_insert_a_learnable_step():
     env.reset()
     env.close()
     assert env._day_i == 0
+
+
+def test_multiday_obs_v4_schema():
+    days = ["2026-01-12"]
+    oat = _oat_map(*days)
+    env = MultiDayDailyEnv(
+        {
+            "n_days": 1,
+            "start_day": "2026-01-12",
+            "plant": FakeContinuityPlant(),
+            "hourly_oat": oat,
+            "baseline_payloads": _baseline_payloads(days, oat),
+            "obs_schema": "v4",
+            "tariff_mode": "flat_illustrative",
+        }
+    )
+    obs, info = env.reset()
+    assert obs.shape[0] == N_OBS_V4
+    assert info["obs_ctx"]["obs_schema"] == "vibe22.obs.v4.mega"
+    action = encode_continuous_v2(continuous_params(68.0))
+    obs2, _, term, _, _ = env.step(action)
+    assert term is True
+    assert obs2.shape[0] == N_OBS_V4

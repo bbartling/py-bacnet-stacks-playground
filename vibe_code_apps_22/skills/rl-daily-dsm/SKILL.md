@@ -73,3 +73,43 @@ python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limi
 Long `campaign --n-days 100` is prohibited.
 
 [`../../vibe22_agent_spec/CONTRIBUTING_RL.md`](../../vibe22_agent_spec/CONTRIBUTING_RL.md)
+
+## Mega v3 program (scientific record — 2026-08-19)
+
+**Do not** treat scaffold JSON or unit tests as completed experiment phases. Phases
+that require live EnergyPlus or training stay `pending` until real evidence exists.
+
+| Phase | Status |
+| --- | --- |
+| 2 | `in_progress` — PR [#111](https://github.com/bbartling/py-bacnet-stacks-playground/pull/111) (`feat/vibe22-mega-phase2-w2a-diagnosis`): W2A **hypothesis** + MCP evidence |
+| 3 | `scaffold_complete` — child ledger contracts only |
+| 4–17 | `pending` — live E+ / training required |
+| 18 | `partial` — spec index only |
+| 19–20 | `pending` |
+
+**Phase 2 (hypothesis-only, no model edits):**
+
+```powershell
+python scripts/vibe22_mega_phase2_w2a_diagnosis.py `
+  --mcp-load docs/audits/figures/vibe22_mega_phase2/mcp_load_idf_model.json `
+  --mcp-summary docs/audits/figures/vibe22_mega_phase2/mcp_get_model_summary.json `
+  --mcp-hvac docs/audits/figures/vibe22_mega_phase2/mcp_discover_hvac_loops.json
+```
+
+Audit: `docs/audits/figures/vibe22_mega_phase2/phase2_w2a_diagnosis.json`.
+Conclusion strength must remain `LEADING_ROOT_CAUSE_HYPOTHESIS` until a child model
+confirms causality at scored runtime.
+
+**Scaffold branch (`feat/vibe22-mega-scaffold-local`):**
+
+- Contract examples only: `tests/fixtures/mega/EXAMPLE_NOT_EXPERIMENT_RESULT/` (`label: EXAMPLE_NOT_EXPERIMENT_RESULT`).
+- Fail-closed status runner: `python scripts/vibe22_mega_run_phases.py` → `docs/audits/figures/vibe22_mega/mega_run_status.json`.
+- Never commit synthetic metrics under `docs/audits/figures/vibe22_mega/phase3/` … `phase20/`.
+- Child pilot: `python scripts/a04_child_hp67_scaled_v1.py` → `docs/audits/figures/a04_child_hp67_scaled_v1/`.
+- hp67 v2 two-pass: `python scripts/a04_child_hp67_two_pass_v2.py` → `docs/audits/figures/a04_child_hp67_scaled_v2/`.
+- 24/7 reference figure: `python scripts/vibe22_reference_247_experiment.py`.
+- Three-day pilot gate: `python scripts/vibe22_three_day_pilot.py` (obs v4 + billing in `MultiDayDailyEnv`).
+- **P5 BLOCKED:** five-seed PPO/DQN mega until pilot passes and user approves (`P5_BLOCKED_UNTIL_PILOT_PASSES_AND_USER_APPROVES`).
+
+Index: [`../../vibe22_agent_spec/MEGA_V3_PHASES.md`](../../vibe22_agent_spec/MEGA_V3_PHASES.md).
+BACnet command authority = 0. Vibe19 untouched. Honor `NO_PRISTINE_LOCKED_TEST_AVAILABLE`.

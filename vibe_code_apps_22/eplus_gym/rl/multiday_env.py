@@ -25,6 +25,7 @@ from eplus_gym.rl.obs_v3 import (
     build_observation_v3,
     observation_space_v3,
 )
+from eplus_gym.mega.obs_tariff_v4 import N_OBS_V4, build_observation_v4, observation_space_v4
 from eplus_gym.rl.reward_v2 import (
     IntegrityFailure,
     MissingBaselineError,
@@ -263,6 +264,8 @@ class MultiDayDailyEnv(gym.Env):
         self.hourly_oat: dict[str, list[float]] = dict(cfg.get("hourly_oat") or {})
         self._placeholder_oat = cfg.get("labeled_placeholder_oat_c")
         self._forecast_source = str(cfg.get("forecast_source") or "PERFECT_EPISODE_FORECAST")
+        self._obs_schema = str(cfg.get("obs_schema") or "v3")
+        self._tariff_mode = str(cfg.get("tariff_mode") or "flat_illustrative")
         self.paycheck_k = float(cfg.get("paycheck_k") or 2.0)
         self._model_id = str(cfg.get("model_id") or "fake")
         self._weather_id = str(cfg.get("weather_id") or "fake")
@@ -310,7 +313,10 @@ class MultiDayDailyEnv(gym.Env):
             self.action_space = discrete_action_space_v2()
         else:
             self.action_space = continuous_action_space_v2()
-        self.observation_space = observation_space_v3()
+        if self._obs_schema == "v4":
+            self.observation_space = observation_space_v4()
+        else:
+            self.observation_space = observation_space_v3()
 
     def _oat(self, day: str) -> tuple[list[float], str]:
         if day in self.hourly_oat:
@@ -334,6 +340,23 @@ class MultiDayDailyEnv(gym.Env):
         oat, src = self._oat(day)
         floor = self._billing.billing_floor_kw()
         mtd = self._billing.mtd_peak_kw
+        if self._obs_schema == "v4":
+            mask = [1.0] * 24 if src != LABELED_PLACEHOLDER_FORECAST else [0.0] * 24
+            return build_observation_v4(
+                day=day,
+                hourly_oat_c=oat,
+                forecast_valid_mask=mask,
+                zone_temps_f=self.plant.zone_temps_f,
+                billing_floor_kw=floor,
+                mtd_peak_kw=mtd,
+                ratchet_floor_kw=self._billing.ratchet_kw,
+                contract_floor_kw=self._billing.contract_kw,
+                previous_day_peak_kw=self._prev_peak,
+                previous_day_kwh=self._prev_kwh,
+                previous_action=self._prev_action,
+                continuous_conditioning_state=self._prev_cc,
+                tariff_mode=self._tariff_mode,  # type: ignore[arg-type]
+            )
         return build_observation_v3(
             day=day,
             hourly_oat_c=oat,
@@ -513,7 +536,8 @@ class MultiDayDailyEnv(gym.Env):
         self._day_i += 1
         terminated = self._day_i >= len(self.days)
         if terminated:
-            obs = np.zeros(N_OBS_V3, dtype=np.float32)
+            n_obs = N_OBS_V4 if self._obs_schema == "v4" else N_OBS_V3
+            obs = np.zeros(n_obs, dtype=np.float32)
             next_day = None
         else:
             next_day = self.days[self._day_i]

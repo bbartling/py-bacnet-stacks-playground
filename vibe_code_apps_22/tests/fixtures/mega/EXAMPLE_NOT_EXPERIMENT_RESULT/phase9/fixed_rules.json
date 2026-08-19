@@ -1,0 +1,19 @@
+{
+  "schema": "vibe22.mega.fixed_rules.v1",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT",
+  "arms": [
+    {
+      "arm": "FIXED_WEATHER_RULE",
+      "label": "Weather-sensitive setback + extended morning recovery",
+      "params_fn": "weather_rule_v1",
+      "deterministic": true
+    },
+    {
+      "arm": "FIXED_TOU_RULE",
+      "label": "TOU-aware preheat/cool window shift (deterministic schedule)",
+      "params_fn": "tou_rule_v1",
+      "deterministic": true
+    }
+  ],
+  "phase_status": "CONTRACT_ONLY"
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "vibe22.mega.terminal_handoff.v1",
+  "phase_status": "SCAFFOLD_ONLY",
+  "vibe19_untouched": true,
+  "bacnet_command_authority": 0,
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

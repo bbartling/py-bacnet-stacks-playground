@@ -1,0 +1,57 @@
+{
+  "schema": "vibe22.mega.tariff_catalog.v1",
+  "phase_status": "CONTRACT_ONLY",
+  "modes": [
+    "flat_illustrative",
+    "tou_typical_illustrative",
+    "tou_winter_peak_illustrative",
+    "tou_evening_peak_illustrative",
+    "custom_hourly",
+    "verified_tariff"
+  ],
+  "specs": {
+    "flat_illustrative": {
+      "mode": "flat_illustrative",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "Flat illustrative",
+      "verified": false
+    },
+    "tou_typical_illustrative": {
+      "mode": "tou_typical_illustrative",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "TOU typical illustrative",
+      "verified": false
+    },
+    "tou_winter_peak_illustrative": {
+      "mode": "tou_winter_peak_illustrative",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "TOU winter peak illustrative",
+      "verified": false
+    },
+    "tou_evening_peak_illustrative": {
+      "mode": "tou_evening_peak_illustrative",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "TOU evening peak illustrative",
+      "verified": false
+    },
+    "custom_hourly": {
+      "mode": "custom_hourly",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "Custom hourly illustrative",
+      "verified": false
+    },
+    "verified_tariff": {
+      "mode": "verified_tariff",
+      "energy_rate_per_kwh": 0.11,
+      "demand_rate_per_kw": 12.0,
+      "label": "Verified tariff placeholder",
+      "verified": false
+    }
+  },
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

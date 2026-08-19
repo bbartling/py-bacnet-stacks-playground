@@ -1,0 +1,17 @@
+{
+  "candidate_floor_kw": 170.0,
+  "baseline_floor_kw": 180.0,
+  "floors_independent": true,
+  "formula": "max(mtd_peak, ratchet_floor, contract_floor)",
+  "no_retroactive_demand_savings": true,
+  "candidate": {
+    "mtd_peak_kw": 155.0,
+    "floor_kw": 170.0
+  },
+  "baseline": {
+    "mtd_peak_kw": 180.0,
+    "floor_kw": 180.0
+  },
+  "phase_status": "CONTRACT_ONLY",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

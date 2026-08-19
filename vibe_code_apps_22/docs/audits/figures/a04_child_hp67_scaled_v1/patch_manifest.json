@@ -1,0 +1,18 @@
+{
+  "child_name": "a04_child_hp67_scaled_v1",
+  "parent_idf": "lakeside_w2a_a04_dual_champion.idf",
+  "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "child_idf_sha256": "dde62ffb78c2f31630e7421b05ed74a26a26e0af25305b2d98402a202d87d3d0",
+  "child_idf_byte_sha256": "dde62ffb78c2f31630e7421b05ed74a26a26e0af25305b2d98402a202d87d3d0",
+  "child_idf_lf_normalized_sha256": "dde62ffb78c2f31630e7421b05ed74a26a26e0af25305b2d98402a202d87d3d0",
+  "child_idf_path": "models/eplus/a04v2_candidates/a04_child_hp67_scaled_v1/lakeside_w2a_hp67_scaled_v1.idf",
+  "physics_status": "PHYSICS_REPAIR_FAILED_NOT_RL_ELIGIBLE",
+  "object_counts": {
+    "n_heating_coils": 9,
+    "n_zonehvac": 9,
+    "n_equipment_lists": 9,
+    "n_cooling_coils": 9,
+    "n_fans": 9
+  },
+  "patches": []
+}

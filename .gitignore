@@ -353,4 +353,9 @@ vibe_code_apps_22/docs/audits/figures/a04v2/incumbent_schedule_compare/**/eplus/
 !vibe_code_apps_22/models/eplus/a04v2_candidates/**/README.md
 vibe_code_apps_22/models/eplus/a04v2_candidates/**/*.idf
 
+# hp67 audit renders — JSON scorecards only; never raw EnergyPlus trees
+vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v1/**/eplus_out/
+vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v2/**/eplus_out/
+vibe_code_apps_22/docs/audits/figures/vibe22_reference_247/**/eplus_out/
+vibe_code_apps_22/docs/audits/figures/vibe22_three_day_pilot/**/eplus_out/
 

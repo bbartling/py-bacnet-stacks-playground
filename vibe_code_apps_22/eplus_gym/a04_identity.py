@@ -39,12 +39,19 @@ def is_trackc_idf_filename(name: str) -> bool:
     return base.startswith("lakeside_w2a_trackc_") and base.endswith(".idf")
 
 
+def is_hp67_child_idf_filename(name: str) -> bool:
+    n = Path(name).name
+    base = n[7:] if n.startswith("staged_") else n
+    return base.startswith("lakeside_w2a_hp67_") and base.endswith(".idf")
+
+
 def is_allowed_lakeside_gym_idf(name: str) -> bool:
-    """LakesideW2AEnv may load A04, A04-v2, Track B banks, or Track C one-W2A children."""
+    """LakesideW2AEnv may load A04, A04-v2, Track B banks, Track C, or hp67 repair children."""
     return (
         is_a04_idf_filename(name)
         or is_trackb_idf_filename(name)
         or is_trackc_idf_filename(name)
+        or is_hp67_child_idf_filename(name)
     )
 
 

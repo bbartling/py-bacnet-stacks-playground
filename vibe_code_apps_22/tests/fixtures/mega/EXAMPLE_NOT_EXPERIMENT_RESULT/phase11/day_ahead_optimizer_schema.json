@@ -1,0 +1,10 @@
+{
+  "schema": "vibe22.mega.day_ahead_optimizer.v1",
+  "phase_status": "SCAFFOLD_ONLY",
+  "note": "stub_objective blocked in production runner; EnergyPlus confirmation required.",
+  "occupied_heating_bounds_f": [
+    68.0,
+    72.0
+  ],
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}
