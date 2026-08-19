@@ -347,6 +347,8 @@ vibe_code_apps_22/docs/audits/figures/a04v2/incumbent_schedule_compare/**/eplus/
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.json
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.csv
 !vibe_code_apps_22/docs/audits/figures/operator_pay_smoke/*.md
+!vibe_code_apps_22/docs/audits/figures/vibe22_final_physics_control_strategy_comparison/**/*.csv
+!vibe_code_apps_22/docs/audits/figures/vibe22_final_physics_control_strategy_comparison/**/*.json
 
 # A04-v2 parameter manifests only. Candidate IDFs regenerate from parent A04.
 !vibe_code_apps_22/models/eplus/a04v2_candidates/**/parameters.json
