@@ -1,0 +1,26 @@
+{
+  "schema": "vibe22.phase0.plot_manifest.v1",
+  "claim_label": "vibe22_final_physics_control_strategy_comparison",
+  "plots": [
+    "plots/analytics/gl14_progress_by_iteration.png",
+    "plots/analytics/gl14_status_by_iteration.png",
+    "plots/analytics/monthly_kwh_model_vs_obs_best.png",
+    "plots/analytics/monthly_fuel_pct_model_vs_actual_best.png",
+    "plots/analytics/monthly_fuel_share_pct_best.png",
+    "plots/analytics/monthly_panels_actual_vs_model_best.png",
+    "plots/analytics/monthly_peak_kw_model_vs_obs_best.png",
+    "plots/analytics/monthly_error_heatmap.png",
+    "plots/analytics/by_month/fuel_2025-08_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2025-09_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2025-10_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2025-11_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2025-12_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-01_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-02_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-03_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-04_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-05_actual_vs_model.png",
+    "plots/analytics/by_month/fuel_2026-06_actual_vs_model.png"
+  ]
+}
+
