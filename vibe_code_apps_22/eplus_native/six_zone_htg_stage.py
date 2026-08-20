@@ -78,14 +78,21 @@ def _dualsp_block(action_key: str) -> str:
     )
 
 
-def stage_six_zone_heating_actuators(text: str) -> tuple[str, dict[str, Any]]:
+def stage_six_zone_heating_actuators(
+    text: str, *, heating_c: float = DEFAULT_HTG_C
+) -> tuple[str, dict[str, Any]]:
     """Rewrite staged IDF text for six independent heating schedule actuators.
 
     Does not modify the published champion — caller must write a staged copy.
+    ``heating_c`` is the constant DualSP heating value (°C) written into each
+    ``DSM_HTG_SP_*`` Schedule:Compact (default 21.11 °C = 70 °F).
     """
     zone_to_key = eplus_zone_to_action_key()
+    sp = float(heating_c)
     # Insert six schedules + DualSPs after the shared DualSP block (or before first ZoneControl)
-    schedules = "\n".join(_always_on_htg_schedule(dsm_htg_schedule_name(k)) for k in ACTION_KEYS)
+    schedules = "\n".join(
+        _always_on_htg_schedule(dsm_htg_schedule_name(k), value_c=sp) for k in ACTION_KEYS
+    )
     duals = "\n".join(_dualsp_block(k) for k in ACTION_KEYS)
     inject = (
         "\n! --- DSM six-zone heating actuators (staged only) ---\n"
@@ -135,6 +142,7 @@ def stage_six_zone_heating_actuators(text: str) -> tuple[str, dict[str, Any]]:
         "zone_to_action_key": zone_to_key,
         "shared_dualsp_retained": SHARED_DUALSP,
         "contract": "eplus_nine_to_six_zone_agg_v1",
+        "heating_c": sp,
     }
     return text, provenance
 
