@@ -339,6 +339,10 @@ vibe_code_apps_22/docs/audits/figures/a04v2/incumbent_schedule_compare/**/eplus/
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.csv
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.md
 !vibe_code_apps_22/docs/audits/figures/a04v2/**/*.png
+!vibe_code_apps_22/docs/audits/figures/a04_continuous68_monthly_vs_utility/**/*.csv
+!vibe_code_apps_22/docs/audits/figures/a04_continuous68_monthly_vs_utility/**/*.json
+!vibe_code_apps_22/docs/audits/figures/a04_continuous68_monthly_vs_utility/**/*.png
+!vibe_code_apps_22/docs/audits/figures/a04_continuous68_monthly_vs_utility/**/*.md
 !vibe_code_apps_22/docs/audits/figures/postfix/*.json
 !vibe_code_apps_22/docs/audits/figures/postfix/*.png
 !vibe_code_apps_22/docs/audits/figures/postfix/ramp_repro/*.json
