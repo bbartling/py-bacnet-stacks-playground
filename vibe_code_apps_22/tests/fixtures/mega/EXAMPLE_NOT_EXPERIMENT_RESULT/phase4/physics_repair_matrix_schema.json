@@ -1,0 +1,6 @@
+{
+  "schema": "vibe22.mega.physics_repair_matrix.v1",
+  "phase_status": "BLOCKED_BY_PHYSICS",
+  "note": "LIVE_EPLUS_COMPLETE requires child-model scored runs with ERR/EIO evidence.",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

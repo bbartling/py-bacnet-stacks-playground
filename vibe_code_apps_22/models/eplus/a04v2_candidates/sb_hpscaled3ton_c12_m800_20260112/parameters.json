@@ -1,0 +1,14 @@
+{
+  "schema": "vibe22.a04v2.candidate.v1",
+  "run_id": "sb_hpscaled3ton_c12_m800_20260112",
+  "parent_model": "lakeside_w2a_a04_dual_champion.idf",
+  "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c12_m800_20260112.idf",
+  "idf_sha256": "170051ec832e9de3fd1e173ad000b550c7aa1bf8d6be2325d526aa64a2d56b79",
+  "stage": "B_multivariable",
+  "parameters": {
+    "plant": "hp_scaled_3ton",
+    "capmult": 12.0,
+    "internalmass_m2": 800.0
+  }
+}

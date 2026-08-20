@@ -11,20 +11,16 @@ from eplus_native.idf_inspect import NINE_ZONES
 from eplus_native.six_zone_htg_stage import ACTION_KEYS, dsm_htg_schedule_name
 from eplus_native.zone_agg import aggregate_zone_temps_row, load_agg_contract
 
+from ..a04_identity import A04_IDF_NAME, is_a04_idf_filename, is_allowed_lakeside_gym_idf
 from ..env import EnergyPlusEnv
 from ..honesty import HONESTY_W2A
 
-A04_IDF_NAME = "lakeside_w2a_a04_dual_champion.idf"
 _ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_IDF = _ROOT / "models" / "eplus" / A04_IDF_NAME
 HONESTY = HONESTY_W2A
 ZONE_VAR = "Zone Mean Air Temperature"
 
-
-def is_a04_idf_filename(name: str) -> bool:
-    """Champion or staged copy (``staged_<A04 name>``)."""
-    n = Path(name).name
-    return n == A04_IDF_NAME or n.endswith(A04_IDF_NAME)
+__all__ = ["A04_IDF_NAME", "DEFAULT_IDF", "HONESTY", "ZONE_VAR", "is_a04_idf_filename"]
 
 OBS_META_KEYS = (
     "oat_c",
@@ -99,10 +95,10 @@ class LakesideW2AEnv(EnergyPlusEnv):
     def get_idf_file(self) -> Union[Path, str]:
         idf = self.env_config.get("idf") or DEFAULT_IDF
         p = Path(idf)
-        if not is_a04_idf_filename(p.name):
+        if not is_allowed_lakeside_gym_idf(p.name):
             raise FileNotFoundError(
-                f"fail-closed: Lakeside A04 dual champion required "
-                f"({A04_IDF_NAME}), got {p.name}"
+                f"fail-closed: Lakeside A04 / A04-v2 / Track B required "
+                f"({A04_IDF_NAME} or lakeside_w2a_a04v2_*.idf or lakeside_w2a_trackb_*.idf), got {p.name}"
             )
         if not p.is_file():
             raise FileNotFoundError(p)

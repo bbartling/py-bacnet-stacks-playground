@@ -1,0 +1,32 @@
+{
+  "schema": "vibe22.research_long.v1",
+  "command": "research-long",
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+    "RESEARCH_LONG_ALLOWED",
+    "NO_BACNET_COMMAND_AUTHORITY"
+  ],
+  "SIMULATION_TRAINING_READY": false,
+  "OPERATIONAL_DSM_READY": false,
+  "long_campaign_allowed": false,
+  "RESEARCH_LONG_ALLOWED": true,
+  "bacnet_commands": 0,
+  "locked_unseen": "NO LOCKED UNSEEN TEST AVAILABLE",
+  "action_contract_version": "research_action_contract_v2",
+  "observation_contract": "vibe22.obs.v3",
+  "observation_dim": 80,
+  "policy_pack": null,
+  "policy_canonical": "sb3_zip",
+  "stacked_on": "3be739ad",
+  "base_branch": "feat/vibe22-final-physics-rl-poc",
+  "train_window": "2025-11-01:2025-12-14",
+  "validation_window": "2025-12-15:2025-12-31",
+  "block_size_days": 7,
+  "target_transitions": 8192,
+  "max_wall_hours": 30,
+  "winner_rule": "deterministic_validation_plus_readiness_multi_seed; never training mean_reward",
+  "heating_only": true,
+  "cooling_action_space": false,
+  "cooling_note": "LIVE Gym actuates six heating DualSP schedules only; A04 SCH_ClgSP remains ~74/85 F."
+}

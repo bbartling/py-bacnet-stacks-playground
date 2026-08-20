@@ -1,0 +1,25 @@
+{
+  "schema": "vibe22.a04v2.candidate.v1",
+  "run_id": "capmult_t10",
+  "parent_model": "lakeside_w2a_a04_dual_champion.idf",
+  "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "idf": "lakeside_w2a_a04v2_capmult_t10.idf",
+  "idf_sha256": "0563ff9387a69cd3d81650cef5570daa6dad01fb33ae2d9ab1f28bed51c2caf6",
+  "parameters": [
+    {
+      "name": "ZoneCapacitanceMultiplier:ResearchSpecial.Temperature_Capacity_Multiplier",
+      "baseline": 1.0,
+      "value": 10.0,
+      "lo": 1.0,
+      "hi": 80.0,
+      "units": "dimensionless",
+      "affects": [
+        "temperature_dynamics",
+        "possibly_peak_timing"
+      ],
+      "justification": "A04 has zero InternalMass and no capacitance multiplier; evening DualSP step tracks ~5F in one 15-min step.",
+      "source": "EnergyPlus ZoneCapacitanceMultiplier:ResearchSpecial; Stage A one-factor trial"
+    }
+  ],
+  "stage": "A_one_factor"
+}

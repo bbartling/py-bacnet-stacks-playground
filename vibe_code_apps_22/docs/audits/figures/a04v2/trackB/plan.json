@@ -1,0 +1,19 @@
+{
+  "schema": "vibe22.a04v2.trackB.plan.v3",
+  "track_b_plan_created": true,
+  "track_b_builder_prototype_created": true,
+  "track_b_structural_validation_passed": true,
+  "track_b_live_energyplus_executed": true,
+  "track_b_completed": false,
+  "track_b_failed_honestly": false,
+  "track_b_planned": true,
+  "track_b_executed": true,
+  "failed": false,
+  "status": "live_two_pass_executed_no_champion",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "reason": "Track B two-pass LIVE EnergyPlus ran. Banks split live eio totals. Heating capacity on A04 is user-specified 149430 W/zone, not autosized demand. No champion. Do not start long RL.",
+  "as_built": false,
+  "assumes_identical_3ton": false,
+  "long_campaign_allowed": false,
+  "terminal_nogo_only_after_track_b_fails": true
+}

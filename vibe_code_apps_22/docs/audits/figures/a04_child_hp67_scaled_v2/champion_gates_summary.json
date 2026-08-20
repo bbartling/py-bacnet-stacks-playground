@@ -1,0 +1,258 @@
+{
+  "schema": "vibe22.physics_champion_gates.v1",
+  "physics_champion_eligible": false,
+  "research_training_eligible": false,
+  "rl_eligible_deprecated": false,
+  "per_day": [
+    {
+      "day": "2026-01-12",
+      "eplus_completed": false,
+      "trajectory_96_ok": true,
+      "severe_fatal_zero": true,
+      "w2a_scored_runtime_pass": false,
+      "ramp_passed": false,
+      "ramp_threshold_f_per_15min": 2.651,
+      "readiness_ok": false,
+      "peak_kw": 147.6736081402668,
+      "peak_plausible": true,
+      "hourly_load_shape_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "hourly",
+        "metrics": [
+          {
+            "name": "hourly_nmbe_abs_pct",
+            "value": 8.0,
+            "threshold": 10.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "hourly_cvrmse_pct",
+            "value": 25.0,
+            "threshold": 30.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.1250710631290275,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "monthly",
+        "metrics": [
+          {
+            "name": "monthly_nmbe_abs_pct",
+            "value": 0.9840073365963864,
+            "threshold": 5.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "monthly_cvrmse_pct",
+            "value": 10.447455889521603,
+            "threshold": 15.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.1250710631290275,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_label": "PARTIAL_PERIOD_NOT_FULL_YEAR_GL14",
+      "physics_champion_eligible": false,
+      "gate_summary": {
+        "eplus_ok": false,
+        "trajectory_ok": true,
+        "w2a_ok": false,
+        "ramp_ok": false,
+        "readiness_ok": false,
+        "hourly_ok": false,
+        "monthly_ok": false
+      }
+    },
+    {
+      "day": "2026-01-25",
+      "eplus_completed": false,
+      "trajectory_96_ok": true,
+      "severe_fatal_zero": true,
+      "w2a_scored_runtime_pass": false,
+      "ramp_passed": false,
+      "ramp_threshold_f_per_15min": 2.651,
+      "readiness_ok": true,
+      "peak_kw": 154.4182684163916,
+      "peak_plausible": true,
+      "hourly_load_shape_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "hourly",
+        "metrics": [
+          {
+            "name": "hourly_nmbe_abs_pct",
+            "value": 8.0,
+            "threshold": 10.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "hourly_cvrmse_pct",
+            "value": 25.0,
+            "threshold": 30.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.498574322807158,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "monthly",
+        "metrics": [
+          {
+            "name": "monthly_nmbe_abs_pct",
+            "value": 0.9840073365963864,
+            "threshold": 5.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "monthly_cvrmse_pct",
+            "value": 10.447455889521603,
+            "threshold": 15.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.498574322807158,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_label": "PARTIAL_PERIOD_NOT_FULL_YEAR_GL14",
+      "physics_champion_eligible": false,
+      "gate_summary": {
+        "eplus_ok": false,
+        "trajectory_ok": true,
+        "w2a_ok": false,
+        "ramp_ok": false,
+        "readiness_ok": true,
+        "hourly_ok": false,
+        "monthly_ok": false
+      }
+    },
+    {
+      "day": "2026-03-16",
+      "eplus_completed": false,
+      "trajectory_96_ok": true,
+      "severe_fatal_zero": true,
+      "w2a_scored_runtime_pass": false,
+      "ramp_passed": false,
+      "ramp_threshold_f_per_15min": 2.651,
+      "readiness_ok": false,
+      "peak_kw": 153.41261659180378,
+      "peak_plausible": true,
+      "hourly_load_shape_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "hourly",
+        "metrics": [
+          {
+            "name": "hourly_nmbe_abs_pct",
+            "value": 8.0,
+            "threshold": 10.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "hourly_cvrmse_pct",
+            "value": 25.0,
+            "threshold": 30.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.130509352163813,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_gate": {
+        "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+        "screen": "monthly",
+        "metrics": [
+          {
+            "name": "monthly_nmbe_abs_pct",
+            "value": 0.9840073365963864,
+            "threshold": 5.0,
+            "passed": true,
+            "unavailable_reason": null
+          },
+          {
+            "name": "monthly_cvrmse_pct",
+            "value": 10.447455889521603,
+            "threshold": 15.0,
+            "passed": true,
+            "unavailable_reason": null
+          }
+        ],
+        "ramp_gate": {
+          "max_f_per_15min": 5.130509352163813,
+          "threshold_f_per_15min": 2.651,
+          "passed": false,
+          "retuned": false,
+          "n_delta_samples": 570
+        },
+        "blocks_promotion": true,
+        "load_shape_published": false,
+        "ramp_margin_unchanged": 3.0
+      },
+      "monthly_gl14_label": "PARTIAL_PERIOD_NOT_FULL_YEAR_GL14",
+      "physics_champion_eligible": false,
+      "gate_summary": {
+        "eplus_ok": false,
+        "trajectory_ok": true,
+        "w2a_ok": false,
+        "ramp_ok": false,
+        "readiness_ok": false,
+        "hourly_ok": false,
+        "monthly_ok": false
+      }
+    }
+  ],
+  "all_days_pass": false
+}

@@ -1,0 +1,135 @@
+{
+  "illustrative_not_billed": true,
+  "energy_rate_per_kwh": 0.12,
+  "demand_rate_per_kw": 15.0,
+  "days": [
+    {
+      "day": "2026-01-12",
+      "arms": {
+        "continuous_70": {
+          "opening_mtd_peak_kw": 0.0,
+          "day_peak_kw": 159.62858556294196,
+          "daily_kwh": 3025.46602736865,
+          "energy_cost": 363.055923284238,
+          "demand_increment": 2394.4287834441293,
+          "daily_cost": 2757.484706728367,
+          "closing_mtd_peak_kw": 159.62858556294196,
+          "savings_vs_continuous": 0.0
+        },
+        "observed_bas_incumbent": {
+          "opening_mtd_peak_kw": 0.0,
+          "day_peak_kw": 159.6835894716655,
+          "daily_kwh": 2576.09126435504,
+          "energy_cost": 309.1309517226048,
+          "demand_increment": 2395.2538420749825,
+          "daily_cost": 2704.384793797587,
+          "closing_mtd_peak_kw": 159.6835894716655,
+          "savings_vs_continuous": 53.09991293078019
+        },
+        "deep_setback": {
+          "opening_mtd_peak_kw": 0.0,
+          "day_peak_kw": 175.624764940514,
+          "daily_kwh": 2366.829790744281,
+          "energy_cost": 284.01957488931373,
+          "demand_increment": 2634.37147410771,
+          "daily_cost": 2918.391048997024,
+          "closing_mtd_peak_kw": 175.624764940514,
+          "savings_vs_continuous": -160.90634226865677
+        }
+      }
+    },
+    {
+      "day": "2026-01-13",
+      "arms": {
+        "continuous_70": {
+          "opening_mtd_peak_kw": 159.62858556294196,
+          "day_peak_kw": 140.2207253511444,
+          "daily_kwh": 2538.7371327623227,
+          "energy_cost": 304.6484559314787,
+          "demand_increment": 0.0,
+          "daily_cost": 304.6484559314787,
+          "closing_mtd_peak_kw": 159.62858556294196,
+          "savings_vs_continuous": 0.0
+        },
+        "observed_bas_incumbent": {
+          "opening_mtd_peak_kw": 159.6835894716655,
+          "day_peak_kw": 147.61223865323382,
+          "daily_kwh": 2232.302498513358,
+          "energy_cost": 267.87629982160297,
+          "demand_increment": 0.0,
+          "daily_cost": 267.87629982160297,
+          "closing_mtd_peak_kw": 159.6835894716655,
+          "savings_vs_continuous": 36.77215610987571
+        },
+        "deep_setback": {
+          "opening_mtd_peak_kw": 175.624764940514,
+          "day_peak_kw": 167.1845986322313,
+          "daily_kwh": 2087.1931351856765,
+          "energy_cost": 250.46317622228122,
+          "demand_increment": 0.0,
+          "daily_cost": 250.46317622228122,
+          "closing_mtd_peak_kw": 175.624764940514,
+          "savings_vs_continuous": 54.18527970919746
+        }
+      }
+    },
+    {
+      "day": "2026-01-14",
+      "arms": {
+        "continuous_70": {
+          "opening_mtd_peak_kw": 159.62858556294196,
+          "day_peak_kw": 160.61565983648848,
+          "daily_kwh": 3359.533936934731,
+          "energy_cost": 403.1440724321678,
+          "demand_increment": 14.806114103197672,
+          "daily_cost": 417.95018653536545,
+          "closing_mtd_peak_kw": 160.61565983648848,
+          "savings_vs_continuous": 0.0
+        },
+        "observed_bas_incumbent": {
+          "opening_mtd_peak_kw": 159.6835894716655,
+          "day_peak_kw": 165.57249513102232,
+          "daily_kwh": 3050.96395469606,
+          "energy_cost": 366.11567456352714,
+          "demand_increment": 88.33358489035234,
+          "daily_cost": 454.44925945387945,
+          "closing_mtd_peak_kw": 165.57249513102232,
+          "savings_vs_continuous": -36.499072918514
+        },
+        "deep_setback": {
+          "opening_mtd_peak_kw": 175.624764940514,
+          "day_peak_kw": 185.4935769081233,
+          "daily_kwh": 2913.944475694717,
+          "energy_cost": 349.67333708336605,
+          "demand_increment": 148.03217951413913,
+          "daily_cost": 497.70551659750515,
+          "closing_mtd_peak_kw": 185.4935769081233,
+          "savings_vs_continuous": -79.7553300621397
+        }
+      }
+    }
+  ],
+  "totals": {
+    "continuous_70": {
+      "energy_cost": 1070.8484516478845,
+      "demand_increment": 2409.234897547327,
+      "three_day_total_usd": 3480.083349195211,
+      "final_peak_kw": 160.61565983648848,
+      "savings_vs_continuous_usd": 0.0
+    },
+    "observed_bas_incumbent": {
+      "energy_cost": 943.1229261077349,
+      "demand_increment": 2483.587426965335,
+      "three_day_total_usd": 3426.710353073069,
+      "final_peak_kw": 165.57249513102232,
+      "savings_vs_continuous_usd": 53.37299612214201
+    },
+    "deep_setback": {
+      "energy_cost": 884.1560881949611,
+      "demand_increment": 2782.403653621849,
+      "three_day_total_usd": 3666.5597418168104,
+      "final_peak_kw": 185.4935769081233,
+      "savings_vs_continuous_usd": -186.4763926215992
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "vibe22.final_physics.plots.v1",
+  "watermark_champion_used": false,
+  "watermark_allowed": [
+    "VALIDATED CHAMPION CAMPAIGN",
+    "SIMULATION-ONLY RESEARCH POC",
+    "DIAGNOSTIC FAILED MODEL"
+  ],
+  "files": [
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\01_trackb_w2a_vs_invalid_domain.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\02_trackb_invalid_by_coil.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\03_scored_w2a_candidates.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\04_heating_capacity_screening.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\05_champion_gates_table.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\06_claim_states.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\07_ppo_research_reward.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\08_dqn_research_reward.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\09_eval_peak_kw.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\10_eval_daily_kwh.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\11_eval_savings.png",
+    "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-final-physics-rl-poc\\vibe_code_apps_22\\docs\\audits\\figures\\vibe22_final_physics_rl\\plots\\12_date_use_ledger.png"
+  ]
+}

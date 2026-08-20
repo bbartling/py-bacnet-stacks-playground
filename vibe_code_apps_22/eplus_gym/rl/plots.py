@@ -323,3 +323,79 @@ def plot_recovery_hist(
     fig.savefig(out, dpi=140)
     plt.close(fig)
     return out
+
+
+def plot_validation_arm_bars(
+    rows: Sequence[Mapping[str, Any]],
+    plots_dir: Path,
+    *,
+    filename: str = "validation_reward_by_arm.png",
+) -> Path:
+    """Validation-only bars. Training curves must stay labeled TRAINING ONLY."""
+    out = _ensure(plots_dir) / filename
+    df = pd.DataFrame(list(rows))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+    if df.empty:
+        for ax in axes:
+            ax.text(0.5, 0.5, "no eval rows", ha="center")
+    else:
+        g = df.groupby("arm", sort=True)
+        rew = g["training_reward"].mean()
+        axes[0].bar(list(rew.index), rew.values)
+        axes[0].set_title("validation reward by arm")
+        axes[0].tick_params(axis="x", rotation=45)
+        peak = g["peak_kw"].mean()
+        axes[1].bar(list(peak.index), peak.values)
+        axes[1].set_title("validation peak kW")
+        axes[1].tick_params(axis="x", rotation=45)
+        ready = g["readiness_ok"].mean()
+        axes[2].bar(list(ready.index), ready.values)
+        axes[2].set_title("readiness rate")
+        axes[2].tick_params(axis="x", rotation=45)
+    for ax in axes:
+        ax.grid(True, axis="y", alpha=0.3)
+    fig.suptitle("SIMULATION-ONLY RESEARCH — validation, not a champion")
+    fig.tight_layout()
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
+    return out
+
+
+def plot_paired_val_delta(
+    rows: Sequence[Mapping[str, Any]],
+    plots_dir: Path,
+    *,
+    filename: str = "paired_candidate_minus_baseline.png",
+) -> Path:
+    """Per-day candidate minus incumbent on chronological validation."""
+    out = _ensure(plots_dir) / filename
+    df = pd.DataFrame(list(rows))
+    fig, ax = plt.subplots(figsize=(9, 4.2))
+    if df.empty or "arm" not in df.columns:
+        ax.text(0.5, 0.5, "no paired rows", ha="center")
+    else:
+        base = df.loc[df["arm"] == "incumbent", ["day", "training_reward"]].rename(
+            columns={"training_reward": "incumbent_reward"}
+        )
+        trained = df.loc[df["arm"].astype(str).str.startswith("trained_")]
+        plotted = False
+        for arm, g in trained.groupby("arm"):
+            m = g.merge(base, on="day", how="inner")
+            if m.empty:
+                continue
+            delta = m["training_reward"] - m["incumbent_reward"]
+            ax.plot(m["day"].astype(str), delta.values, marker="o", linewidth=1.4, label=str(arm))
+            plotted = True
+        if not plotted:
+            ax.text(0.5, 0.5, "no trained vs incumbent pairs", ha="center")
+        else:
+            ax.axhline(0.0, color="#333333", linewidth=0.8)
+            ax.legend(loc="best", fontsize=8)
+            ax.tick_params(axis="x", rotation=45)
+    ax.set_ylabel("candidate − incumbent reward")
+    ax.set_title("Paired validation (TRAINING ONLY curves are elsewhere)")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
+    return out

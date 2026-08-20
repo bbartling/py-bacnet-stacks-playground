@@ -1,6 +1,6 @@
 # Plant point candidates (sensor archaeology)
 
-**Site:** `C:\Users\ben\OneDrive\Desktop\testing\sp_creekside`
+**Site:** `<SITE_ROOT>`
 **Primary candidates:** 0 · **NOT_IN_HISTORIAN roles:** 7
 
 Honesty: raw names from site FDD/Haystack CSVs only. **No BACnet object IDs invented.** Candidates are not PRESENT until confirmed in the 15-min export / inventory.

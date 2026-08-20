@@ -7,11 +7,15 @@ from datetime import date
 
 @dataclass
 class BillingState:
-    floor_kw: float = 0.0
+    floor_kw: float = 0.0  # observed month-to-date peak (alias of mtd_peak_kw)
     cycle_key: tuple[int, int] | None = None
     ratchet_kw: float = 0.0
     contract_kw: float = 0.0
     floors: dict[tuple[int, int], float] = field(default_factory=dict)
+
+    @property
+    def mtd_peak_kw(self) -> float:
+        return float(self.floor_kw)
 
     def billing_floor_kw(self) -> float:
         return max(float(self.floor_kw), float(self.ratchet_kw), float(self.contract_kw))
@@ -25,7 +29,8 @@ class BillingState:
                 self.floor_kw = float(self.floors[key])
         elif key != self.cycle_key:
             self.floors[self.cycle_key] = float(self.floor_kw)
-            self.floor_kw = float(self.floors.get(key, max(float(self.ratchet_kw), float(self.contract_kw))))
+            # Month-to-date peak resets; ratchet/contract still set the billing floor.
+            self.floor_kw = float(self.floors.get(key, 0.0))
             self.cycle_key = key
         return self.billing_floor_kw()
 

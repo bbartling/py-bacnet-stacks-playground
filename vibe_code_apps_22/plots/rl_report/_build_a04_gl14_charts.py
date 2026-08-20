@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -12,7 +13,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-SITE = Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
+SITE = Path(os.environ["SITE_ROOT"]) if os.environ.get("SITE_ROOT") else None
+if SITE is None:
+    raise SystemExit("set SITE_ROOT to the site pack; machine-local defaults are not allowed")
 SIM = (
     SITE
     / "eplus/campaigns/w2a_sc02_aug_in_session_20260809T134542Z"

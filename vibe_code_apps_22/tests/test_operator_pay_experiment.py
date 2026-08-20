@@ -1,7 +1,6 @@
 """Operator-pay experiment: equations, refuse full, exclude historical invalid runs."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -15,11 +14,12 @@ from eplus_gym.rl.operator_pay_experiment import (
     assert_reward_name,
     assert_run_id,
     filter_operator_pay_rows,
-    flatten_payload,
+    plot_action_space_schematic,
     refuse_full_campaign,
     run_operator_pay_experiment,
     summarize_rows,
     validate_scored_episode,
+    write_smoke_plots,
 )
 from eplus_gym.rl.reward import INFEASIBLE_TRAIN_REWARD, MONEY_ILLUSTRATIVE, operator_paycheck, score_day
 
@@ -124,6 +124,26 @@ def test_full_campaign_refuses_when_ramp_failed(tmp_path: Path):
     assert out["ppo_dqn_learned"] is False
 
 
+def test_vibe22_rl_campaign_refuses_when_ramp_failed(monkeypatch):
+    import argparse
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import vibe22_rl
+
+    monkeypatch.setattr(
+        vibe22_rl,
+        "refuse_full_campaign",
+        lambda _app: {
+            "allowed": False,
+            "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+            "reason": "isolated test: physics-ramp gate is not PASS",
+        },
+    )
+    args = argparse.Namespace(simulator="LIVE_ENERGYPLUS", n_days=100)
+    assert vibe22_rl.cmd_campaign(args) == 4
+
+
 def test_summarize_does_not_treat_year2xsyn_as_valid():
     rows = filter_operator_pay_rows(
         [
@@ -211,3 +231,28 @@ def test_incremental_demand_same_floor_for_pair():
         baseline_cost=100 + b_cost, candidate_cost=100 + c_cost, readiness_ok=True, savings_multiplier=2
     )
     assert pay["savings_usd"] == (b_cost - c_cost)
+
+
+def test_action_space_figure_is_schematic_not_11_vs_64_bar():
+    import inspect
+
+    src = inspect.getsource(plot_action_space_schematic)
+    assert "[11, 64]" not in src
+    assert "Box(11)" in src
+    assert "4 × 4 × 4" in src or "4 x 4 x 4" in src
+
+
+def test_regenerate_plots_from_committed_csv(tmp_path: Path):
+    app = Path(__file__).resolve().parents[1]
+    csv_path = app / "docs" / "audits" / "figures" / "operator_pay_smoke" / "episode_results.csv"
+    df = pd.read_csv(csv_path)
+    written = list(write_smoke_plots(tmp_path / "plots", rows=df))
+    names = {p.name for p in written}
+    assert "02-action-space.png" in names
+    assert "03-arm-scorecard.png" in names
+    assert "04-paired-paycheck-by-day.png" in names
+    inf = df[df["infeasible"].astype(str).str.lower() == "true"]
+    assert len(inf) == 1
+    assert inf.iloc[0]["arm"] == "random_policy"
+    assert float(inf.iloc[0]["display_paycheck_usd"]) == 0.0
+    assert float(inf.iloc[0]["training_reward"]) == -10.0

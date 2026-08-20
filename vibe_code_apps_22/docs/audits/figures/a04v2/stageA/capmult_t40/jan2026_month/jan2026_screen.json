@@ -1,0 +1,48 @@
+{
+  "schema": "vibe22.a04v2.jan2026_screen.v1",
+  "run_id": "capmult_t40",
+  "idf": "models\\eplus\\a04v2_candidates\\capmult_t40\\lakeside_w2a_a04v2_capmult_t40.idf",
+  "month": {
+    "begin": "2026-01-01",
+    "end": "2026-01-31",
+    "n_rows": 2976,
+    "peak_kw": 356.97009958604605,
+    "kwh": 103347.05671948876,
+    "severe": 0,
+    "fatal": 0,
+    "eplus_quality": {
+      "ok": true,
+      "completed_successfully": true,
+      "warning_count": 158253,
+      "severe_count": 0,
+      "fatal_count": 0,
+      "first_severe": null,
+      "first_fatal": null,
+      "recurring": {
+        "w2a_low_airflow": 1
+      },
+      "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageA\\capmult_t40\\jan2026_month\\eplus\\episode-00000000-18484\\eplusout.err"
+    }
+  },
+  "utility_jan2026_kwh": 81491.0,
+  "utility_jan2026_demand_kw": 284.82,
+  "kwh_pct_diff": 26.820209249473873,
+  "peak_tolerance_frozen_before_selection": {
+    "anchor_kw": 284.82,
+    "tol_frac": 0.1,
+    "lo_kw": 256.338,
+    "hi_kw": 313.302,
+    "legacy_band": {
+      "pass": false,
+      "peak_kw": 356.97009958604605,
+      "target_kw": 275.0,
+      "band_lo_kw": 250.0,
+      "band_hi_kw": 290.0,
+      "utility_jan2026_demand_kw": 284.82,
+      "design_day": "2026-01-26"
+    },
+    "pass_frozen_10pct": false,
+    "pass": false
+  },
+  "label": "January-only diagnostic; not a full partial-period GL14 screen"
+}

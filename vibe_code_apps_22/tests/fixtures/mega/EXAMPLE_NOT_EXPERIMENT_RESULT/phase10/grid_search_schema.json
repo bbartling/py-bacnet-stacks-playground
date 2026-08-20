@@ -1,0 +1,17 @@
+{
+  "schema": "vibe22.mega.grid_search.v1",
+  "day": "2025-12-15",
+  "max_extra_candidates_per_day": 40,
+  "coarse_count": 3,
+  "refined_count": 0,
+  "required_plots": [
+    "grid_search_candidate_landscape",
+    "grid_search_parameter_heatmap",
+    "grid_search_schedule_comparison",
+    "strategy_cost_comparison"
+  ],
+  "locked_test_tuning": false,
+  "candidates": [],
+  "phase_status": "SCAFFOLD_ONLY",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

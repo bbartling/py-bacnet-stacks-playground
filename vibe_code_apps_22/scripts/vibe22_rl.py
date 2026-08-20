@@ -26,8 +26,9 @@ from eplus_gym.rl.field_sidecar import midnight_tick  # noqa: E402
 from eplus_gym.rl.policy_pack import DailyPolicyPack  # noqa: E402
 from eplus_gym.rl.report_bundle import build_report  # noqa: E402
 from eplus_gym.rl.split_manifest import persist_train_fold  # noqa: E402
+from eplus_gym.rl.operator_pay_experiment import refuse_full_campaign  # noqa: E402
 from eplus_gym.rl.train_sb3 import bakeoff, train_sb3  # noqa: E402
-from eplus_gym.site_pins import resolve_a04_and_epw, sha256_file  # noqa: E402
+from eplus_gym.site_pins import resolve_a04_and_epw, resolve_site_epw, sha256_file  # noqa: E402
 
 EXIT_OK = 0
 EXIT_CONFIG = 1
@@ -74,7 +75,7 @@ def cmd_train(args) -> int:
         seed=int(args.seed),
         occupied_heating_f=70.0,
         unoccupied_heating_f=65.0,
-        reward_name=str(getattr(args, "reward_name", "legacy_reward_v1")),
+        reward_name=str(getattr(args, "reward_name", "reward_v2")),
     )
     if sha256_file(idf) != champ_hash:
         print("INTEGRITY FAIL: champion mutated", file=sys.stderr)
@@ -283,14 +284,150 @@ def cmd_operator_pay_experiment(args) -> int:
     return int(out.get("exit_code") or EXIT_OK)
 
 
+def cmd_research_long(args) -> int:
+    """Labeled research-long. Cannot enable campaign or long_campaign_allowed."""
+    from eplus_gym.rl.research_long import ResearchLongError, run_research_long
+    from eplus_gym.rl.research_model import ResearchModelError
+
+    if str(getattr(args, "simulator", SIMULATOR_REQUIRED)) != SIMULATOR_REQUIRED:
+        print(json.dumps({"command": "research-long", "allowed": False, "reason": "only LIVE_ENERGYPLUS"}))
+        return EXIT_INTEGRITY
+    if not bool(getattr(args, "confirm_simulation_only_physics_limits", False)) or not bool(
+        getattr(args, "confirm_a04_not_transient_validated", False)
+    ):
+        print(
+            json.dumps(
+                {
+                    "command": "research-long",
+                    "allowed": False,
+                    "reason": "missing --confirm-simulation-only-physics-limits and/or --confirm-a04-not-transient-validated",
+                    "long_campaign_allowed": False,
+                    "SIMULATION_TRAINING_READY": False,
+                    "OPERATIONAL_DSM_READY": False,
+                }
+            )
+        )
+        return EXIT_INTEGRITY
+    try:
+        live = bool(getattr(args, "micro_gate", False)) or bool(getattr(args, "execute_live", False))
+        site = _site(args) if live else Path(args.site_root or os.environ.get("SITE_ROOT") or ".")
+        out = run_research_long(
+            app_root=_APP,
+            site_root=site,
+            confirm_simulation_only_physics_limits=True,
+            confirm_a04_not_transient_validated=True,
+            max_wall_hours=float(getattr(args, "max_wall_hours", 30.0) or 30.0),
+            micro_gate=bool(getattr(args, "micro_gate", False)),
+            execute_live=bool(getattr(args, "execute_live", False)),
+            heartbeat_path=Path(args.heartbeat) if getattr(args, "heartbeat", None) else None,
+            seed=int(getattr(args, "seed", 0) or 0),
+            obs_schema=str(getattr(args, "obs_schema", "v4") or "v4"),
+            tariff_mode=str(getattr(args, "tariff_mode", "FLAT_PLUS_DEMAND") or "FLAT_PLUS_DEMAND"),
+            action_contract_version=str(
+                getattr(args, "action_contract", "research_action_contract_v3")
+                or "research_action_contract_v3"
+            ),
+            child_idf=Path(args.child_idf) if getattr(args, "child_idf", None) else None,
+            campaign_labels=tuple(str(x) for x in (getattr(args, "campaign_labels", "") or "").split("|") if x) or None,
+        )
+    except (ResearchLongError, ResearchModelError, SystemExit) as exc:
+        print(json.dumps({"command": "research-long", "allowed": False, "reason": str(exc), "long_campaign_allowed": False}))
+        return EXIT_INTEGRITY
+    print(json.dumps(out, indent=2, default=str))
+    return EXIT_OK
+
+
+def cmd_research_poc(args) -> int:
+    """Bounded real-EnergyPlus research PoC. Cannot enable --mode full or long_campaign_allowed."""
+    from eplus_gym.rl.research_model import ResearchModelError
+    from eplus_gym.rl.research_poc import ResearchPocError, run_research_poc
+
+    if str(getattr(args, "simulator", SIMULATOR_REQUIRED)) != SIMULATOR_REQUIRED:
+        print(json.dumps({"command": "research-poc", "allowed": False, "reason": "only LIVE_ENERGYPLUS"}))
+        return EXIT_INTEGRITY
+    if not bool(getattr(args, "confirm_simulation_only_physics_limits", False)):
+        print(
+            json.dumps(
+                {
+                    "command": "research-poc",
+                    "allowed": False,
+                    "reason": "missing --confirm-simulation-only-physics-limits",
+                    "long_campaign_allowed": False,
+                }
+            )
+        )
+        return EXIT_INTEGRITY
+    try:
+        site = _site(args)
+        out = run_research_poc(
+            app_root=_APP,
+            site_root=site,
+            confirm_simulation_only_physics_limits=True,
+            max_wall_hours=float(args.max_wall_hours),
+            seed=int(getattr(args, "seed", 0) or 0),
+        )
+    except (ResearchPocError, ResearchModelError, SystemExit) as exc:
+        print(json.dumps({"command": "research-poc", "allowed": False, "reason": str(exc)}))
+        return EXIT_INTEGRITY
+    if bool(getattr(args, "execute_live", False)):
+        from eplus_gym.rl.research_poc_live import execute_research_poc_live
+
+        live = execute_research_poc_live(
+            app_root=_APP,
+            site_root=site,
+            max_wall_hours=float(args.max_wall_hours),
+            seed=int(getattr(args, "seed", 0) or 0),
+        )
+        out["live"] = live
+    print(json.dumps(out, indent=2, default=str))
+    return EXIT_OK
+
+
 def cmd_campaign(args) -> int:
-    """100 unique heating-season days: PPO + DQN train, then random/heuristic report."""
+    """Contiguous-block campaign after verified Track B active model. Refuses A04 by default."""
     print(SCREENING_CLAIM)
     if args.simulator != SIMULATOR_REQUIRED:
         print("REFUSED: only LIVE_ENERGYPLUS", file=sys.stderr)
         return EXIT_INTEGRITY
+    decision = refuse_full_campaign(_APP)
+    if not decision["allowed"]:
+        stub = {
+            "command": "campaign",
+            "allowed": False,
+            "verdict": decision.get("verdict"),
+            "reason": decision.get("reason") or "physics-ramp gate is not PASS; long campaign refused",
+            "n_days": int(getattr(args, "n_days", 0) or 0),
+        }
+        print(json.dumps(stub, indent=2, default=str))
+        return EXIT_INTEGRITY
+    from eplus_gym.a04_identity import is_canonical_a04_idf_filename
+    from eplus_gym.rl.active_model import ActiveModelError, verify_active_model
+
+    try:
+        manifest = verify_active_model(_APP)
+    except ActiveModelError as exc:
+        print(json.dumps({"command": "campaign", "allowed": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    rel = str(manifest.get("idf_path") or "")
+    idf = _APP / rel
+    if is_canonical_a04_idf_filename(idf.name) and not manifest.get("a04_explicitly_verified_active"):
+        print(
+            json.dumps(
+                {
+                    "command": "campaign",
+                    "allowed": False,
+                    "reason": "campaign refuses A04 unless it is explicitly the verified active model",
+                },
+                indent=2,
+            )
+        )
+        return EXIT_INTEGRITY
     site = _site(args)
-    idf, epw = _paths(site)
+    try:
+        epw = resolve_site_epw(site)
+    except FileNotFoundError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return EXIT_CONFIG
     champ_hash = sha256_file(idf)
     n = int(args.n_days)
     if str(getattr(args, "pool", "unique_heating")) == "year2xsyn":
@@ -392,6 +529,63 @@ def cmd_campaign(args) -> int:
     )
     print(json.dumps(comparison, indent=2))
     print("repo_copy", repo_copy)
+    return EXIT_OK
+
+
+def cmd_preflight_campaign(args) -> int:
+    from eplus_gym.rl.campaign_preflight import PreflightError, preflight_campaign
+
+    path = Path(args.bundle)
+    bundle = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    try:
+        out = preflight_campaign(bundle, app_root=_APP)
+    except PreflightError as exc:
+        print(json.dumps({"ok": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    print(json.dumps(out, indent=2))
+    return EXIT_OK
+
+
+def cmd_prepare_campaign(args) -> int:
+    from eplus_gym.rl.campaign_bundle import CampaignBundleError, prepare_campaign_bundle, write_bundle
+    from eplus_gym.rl.campaign_preflight import PreflightError, preflight_campaign
+
+    days = [d.strip() for d in str(args.days).split(",") if d.strip()]
+    out_path = Path(args.out)
+    try:
+        bundle = prepare_campaign_bundle(
+            app_root=_APP,
+            site_root=_site(args),
+            days=days,
+            live_incumbent_baselines=bool(args.live_baselines),
+            output_root=out_path.parent,
+        )
+        write_bundle(out_path, bundle)
+        preflight_campaign(bundle, app_root=_APP)
+    except (CampaignBundleError, PreflightError, SystemExit) as exc:
+        print(json.dumps({"ok": False, "reason": str(exc)}, indent=2))
+        return EXIT_INTEGRITY
+    print(json.dumps({"ok": True, "out": str(out_path), "n_days": len(days)}, indent=2))
+    return EXIT_OK
+
+
+def cmd_legacy_daily_env(args) -> int:
+    """Explicit diagnostic: DailySixZoneGymEnv. Unreachable from campaign."""
+    from eplus_gym.rl.daily_env import DailySixZoneGymEnv
+    from eplus_gym.rl.train_sb3 import campaign_env_class
+
+    print(
+        json.dumps(
+            {
+                "command": "legacy-daily-env",
+                "legacy_diagnostic": True,
+                "env": DailySixZoneGymEnv.__name__,
+                "campaign_env": campaign_env_class.__name__,
+                "unreachable_from_campaign": True,
+                "did_not_train": True,
+            }
+        )
+    )
     return EXIT_OK
 
 
@@ -556,8 +750,23 @@ def main(argv: list[str] | None = None) -> int:
         default="unique_heating",
         help="unique_heating = n unique EPW days; year2xsyn = full AMY + synthetic 2x heating",
     )
-    camp.add_argument("--reward-name", required=True)
+    camp.add_argument("--reward-name", default="reward_v2")
     camp.set_defaults(func=cmd_campaign)
+
+    pf = sub.add_parser("preflight-campaign")
+    pf.add_argument("--bundle", required=True)
+    pf.set_defaults(func=cmd_preflight_campaign)
+
+    prep = sub.add_parser("prepare-campaign", parents=[site_parent])
+    prep.add_argument("--days", default="2025-12-08,2025-12-09,2025-12-10")
+    prep.add_argument("--out", required=True)
+    prep.add_argument("--live-baselines", action="store_true")
+    prep.add_argument("--model-manifest", default="contracts/active_rl_model_v1.json")
+    prep.set_defaults(func=cmd_prepare_campaign)
+
+    legacy = sub.add_parser("legacy-daily-env", parents=[site_parent])
+    legacy.add_argument("--confirm-legacy-diagnostic", action="store_true", required=True)
+    legacy.set_defaults(func=cmd_legacy_daily_env)
 
     ev = sub.add_parser("eval", parents=[site_parent])
     ev.add_argument("--run-id", required=True)
@@ -574,6 +783,34 @@ def main(argv: list[str] | None = None) -> int:
     op.add_argument("--simulator", default=SIMULATOR_REQUIRED)
     op.add_argument("--seed", type=int, default=0)
     op.set_defaults(func=cmd_operator_pay_experiment)
+
+    rp = sub.add_parser("research-poc", parents=[site_parent])
+    rp.add_argument("--confirm-simulation-only-physics-limits", action="store_true")
+    rp.add_argument("--max-wall-hours", type=float, default=6.0)
+    rp.add_argument("--seed", type=int, default=0)
+    rp.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    rp.add_argument("--execute-live", action="store_true")
+    rp.set_defaults(func=cmd_research_poc)
+
+    rl = sub.add_parser("research-long", parents=[site_parent])
+    rl.add_argument("--confirm-simulation-only-physics-limits", action="store_true")
+    rl.add_argument("--confirm-a04-not-transient-validated", action="store_true")
+    rl.add_argument("--max-wall-hours", type=float, default=30.0)
+    rl.add_argument("--seed", type=int, default=0)
+    rl.add_argument("--simulator", default=SIMULATOR_REQUIRED)
+    rl.add_argument("--micro-gate", action="store_true")
+    rl.add_argument("--execute-live", action="store_true")
+    rl.add_argument("--heartbeat", default=None)
+    rl.add_argument("--obs-schema", default="v4", choices=("v3", "v4"))
+    rl.add_argument("--tariff-mode", default="FLAT_PLUS_DEMAND")
+    rl.add_argument(
+        "--action-contract",
+        default="research_action_contract_v3",
+        choices=("research_action_contract_v2", "research_action_contract_v3"),
+    )
+    rl.add_argument("--child-idf", default=None)
+    rl.add_argument("--campaign-labels", default="", help="pipe-separated terminal labels")
+    rl.set_defaults(func=cmd_research_long)
 
     args = p.parse_args(argv)
     try:

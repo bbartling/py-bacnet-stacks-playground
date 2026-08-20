@@ -1,0 +1,95 @@
+{
+  "reward": -4155.426924365268,
+  "daily_kwh": 3878.0520134797407,
+  "peak_kw": 229.87045167225318,
+  "pre8_violations": 4,
+  "pre8_degree_hours": 8.40078153278025,
+  "occ_violations": 0,
+  "energy_cost": 465.36624161756885,
+  "peak_cost": 3448.0567750837977,
+  "failed": false,
+  "extras": {
+    "school_start_step": 32,
+    "reward_name": "legacy_reward_v1"
+  },
+  "params": {
+    "occupied_heating_f": 72.0,
+    "unoccupied_heating_f": 68.0,
+    "recovery_start_minutes_before_occupancy": 0,
+    "recovery_ramp_minutes": 0,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "zone_offsets": {
+      "1F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_C": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_D": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      }
+    },
+    "occupied_setpoint_start_step": 28
+  },
+  "day": "2026-01-20",
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "trajectory": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m0_20260120\\high_occ\\trajectory.parquet",
+  "trajectory_all": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m0_20260120\\high_occ\\trajectory_all.parquet",
+  "start_zone_temps_f": [
+    64.73866124443913,
+    64.68772638950755,
+    64.71375820413034,
+    64.57374432110322,
+    64.74745190607018,
+    64.73498169914916
+  ],
+  "episode_manifest": {
+    "schema": "vibe22.episode_manifest.v1",
+    "n_rows_scored": 96,
+    "n_all_rows": 192,
+    "scored_is_not_full_simulation": true,
+    "trajectory_sha256": "f2dc157fedf7806ffda6cdc91bc4f07d9417f7288f481894b0207d30ef561cc0",
+    "trajectory_all_sha256": "fb54e85ea351f555b401f9917d85ea804400992b787aa2d47d67ca3e9fc167ca"
+  },
+  "baseline_kwh": null,
+  "baseline_peak_kw": null,
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "simulator": "LIVE_ENERGYPLUS",
+  "eplus_quality": {
+    "ok": true,
+    "completed_successfully": true,
+    "warning_count": 124,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "first_severe": null,
+    "first_fatal": null,
+    "recurring": {
+      "w2a_low_airflow": 1
+    },
+    "err_path": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m0_20260120\\high_occ\\eplus\\episode-00000000-22376\\eplusout.err"
+  },
+  "lookback_days": 1
+}

@@ -1,0 +1,367 @@
+{
+  "schema": "vibe22.mega.phase2_w2a_diagnosis.v2",
+  "diagnosed_at_utc": "2026-08-19T15:40:43.170065+00:00",
+  "conclusion_strength": "LEADING_ROOT_CAUSE_HYPOTHESIS",
+  "parent_idf": {
+    "path_label": "lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "immutable": true,
+    "a04_champion": true
+  },
+  "object_inventory": {
+    "n_heating_coils": 9,
+    "n_zonehvac": 9,
+    "n_equipment_lists": 9,
+    "n_cooling_coils": 9,
+    "n_fans": 9,
+    "aggregate_heating_capacity_w": 1344870.0,
+    "one_w2a_per_zone": true,
+    "n_plant_loops": 1,
+    "plant_loops": [
+      {
+        "name": "Only Water Loop Mixed Water Loop",
+        "fluid_type": "Water",
+        "max_loop_flow_rate": null,
+        "demand_inlet_node": "Only Water Loop Mixed Supply Inlet",
+        "demand_outlet_node": "Only Water Loop Mixed Supply Outlet"
+      }
+    ]
+  },
+  "units": [
+    {
+      "zone": "1F_Library_IMC",
+      "zonehvac_name": "1F_Library_IMC WAHP",
+      "hp_count_bas_split": 2,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Library_IMC WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Library_IMC WAHP Heating Coil",
+      "cooling_coil_name": "1F_Library_IMC WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Library_IMC WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Library_IMC WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Library_IMC WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Cafe_Kitchen",
+      "zonehvac_name": "1F_Cafe_Kitchen WAHP",
+      "hp_count_bas_split": 3,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Cafe_Kitchen WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Cafe_Kitchen WAHP Heating Coil",
+      "cooling_coil_name": "1F_Cafe_Kitchen WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Cafe_Kitchen WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Cafe_Kitchen WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Cafe_Kitchen WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Gym",
+      "zonehvac_name": "1F_Gym WAHP",
+      "hp_count_bas_split": 4,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Gym WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Gym WAHP Heating Coil",
+      "cooling_coil_name": "1F_Gym WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Gym WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Gym WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Gym WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Area_A",
+      "zonehvac_name": "1F_Area_A WAHP",
+      "hp_count_bas_split": 13,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Area_A WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Area_A WAHP Heating Coil",
+      "cooling_coil_name": "1F_Area_A WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Area_A WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Area_A WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Area_A WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Area_B",
+      "zonehvac_name": "1F_Area_B WAHP",
+      "hp_count_bas_split": 10,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Area_B WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Area_B WAHP Heating Coil",
+      "cooling_coil_name": "1F_Area_B WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Area_B WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Area_B WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Area_B WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Area_C",
+      "zonehvac_name": "1F_Area_C WAHP",
+      "hp_count_bas_split": 8,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Area_C WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Area_C WAHP Heating Coil",
+      "cooling_coil_name": "1F_Area_C WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Area_C WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Area_C WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Area_C WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "1F_Area_D",
+      "zonehvac_name": "1F_Area_D WAHP",
+      "hp_count_bas_split": 6,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "1F_Area_D WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "1F_Area_D WAHP Heating Coil",
+      "cooling_coil_name": "1F_Area_D WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "1F_Area_D WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "1F_Area_D WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "1F_Area_D WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "2F_Area_A",
+      "zonehvac_name": "2F_Area_A WAHP",
+      "hp_count_bas_split": 11,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "2F_Area_A WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "2F_Area_A WAHP Heating Coil",
+      "cooling_coil_name": "2F_Area_A WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "2F_Area_A WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "2F_Area_A WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "2F_Area_A WAHP Heating Water Outlet Node"
+    },
+    {
+      "zone": "2F_Area_B",
+      "zonehvac_name": "2F_Area_B WAHP",
+      "hp_count_bas_split": 10,
+      "operating_mode": "DrawThrough",
+      "availability_schedule": "",
+      "fan_name": "2F_Area_B WAHP Supply Fan",
+      "fan_max_flow_m3_s": "autosize",
+      "heating_coil_name": "2F_Area_B WAHP Heating Coil",
+      "cooling_coil_name": "2F_Area_B WAHP Cooling Coil",
+      "rated_heating_capacity_w": 149430.0,
+      "rated_heating_cop": 4.5,
+      "rated_htg_airflow_m3_s": "autosize",
+      "rated_htg_waterflow_m3_s": "autosize",
+      "rated_cooling_capacity_w": "autosize",
+      "rated_cooling_cop": 4.8,
+      "max_cycling_rate_per_hr": 2.5,
+      "htg_capacity_curve": "2F_Area_B WAHP HtgCapCurve",
+      "htg_curve_domain": null,
+      "plant_water_inlet": "2F_Area_B WAHP Heating Water Inlet Node",
+      "plant_water_outlet": "2F_Area_B WAHP Heating Water Outlet Node"
+    }
+  ],
+  "identical_hardcoded_heating_w": true,
+  "hp_count_67_sum": 67,
+  "mcp_inspection": {
+    "mcp_tools_invoked": [
+      "load_idf_model",
+      "get_model_summary",
+      "discover_hvac_loops"
+    ],
+    "payloads": {
+      "load_idf_model": {
+        "file_path": "lakeside_w2a_a04_dual_champion.idf",
+        "original_path": "lakeside_w2a_a04_dual_champion.idf",
+        "building_count": 1,
+        "zone_count": 9,
+        "surface_count": 54,
+        "material_count": 5,
+        "construction_count": 4,
+        "loaded_successfully": true,
+        "file_size_bytes": 498918
+      },
+      "get_model_summary": {
+        "Building": {
+          "Name": "Lakeside_ES",
+          "North Axis": 0.0,
+          "Terrain": "Suburbs",
+          "Loads Convergence Tolerance": 0.04,
+          "Temperature Convergence Tolerance": 0.4,
+          "Solar Distribution": "FullInteriorAndExterior",
+          "Max Warmup Days": 50,
+          "Min Warmup Days": 6
+        },
+        "Site:Location": {
+          "Name": "Sun_Prairie_WI",
+          "Latitude": 43.16521,
+          "Longitude": -89.25408,
+          "Time Zone": -6.0,
+          "Elevation": 261.0
+        },
+        "SimulationControl": {
+          "Do Zone Sizing Calculation": "Yes",
+          "Do System Sizing Calculation": "Yes",
+          "Do Plant Sizing Calculation": "No",
+          "Run Simulation for Sizing Periods": "Yes",
+          "Run Simulation for Weather File Run Periods": "Yes",
+          "Do HVAC Sizing Simulation for Sizing Periods": "No",
+          "Max Number of HVAC Sizing Simulation Passes": 1
+        },
+        "Version": {
+          "Version Identifier": "26.1"
+        }
+      },
+      "discover_hvac_loops": {
+        "file_path": "lakeside_w2a_a04_dual_champion.idf",
+        "plant_loops": [
+          {
+            "index": 1,
+            "name": "Only Water Loop Mixed Water Loop",
+            "fluid_type": "Water",
+            "max_loop_flow_rate": "autosize",
+            "min_loop_flow_rate": 0.0,
+            "loop_inlet_node": "Only Water Loop Mixed Supply Inlet",
+            "loop_outlet_node": "Only Water Loop Mixed Supply Outlet",
+            "demand_inlet_node": "Only Water Loop Mixed Demand Inlet",
+            "demand_outlet_node": "Only Water Loop Mixed Demand Outlet"
+          }
+        ],
+        "condenser_loops": [],
+        "air_loops": [],
+        "summary": {
+          "total_plant_loops": 1,
+          "total_condenser_loops": 0,
+          "total_air_loops": 0,
+          "total_zones": 9
+        }
+      }
+    },
+    "payload_sha256": {
+      "load_idf_model": "c415f0ec070357a087ea30a9a6e87288933c262ea32cdb0699dcaf834841ee80",
+      "get_model_summary": "b062b4044979731f7c7efbecd3dda52c8db7c9491feacab591fe8d9608056369",
+      "discover_hvac_loops": "cd6e1045d4cf3ecc979176ec4f33739ee68a3974dc10c773bcaf57b682588cfa"
+    },
+    "evidence_complete": true
+  },
+  "historical_err_evidence": {
+    "label": "HISTORICAL_PHASE1_FREEZE",
+    "available": true,
+    "source": "phase1_evidence_freeze.research_long_audit.w2a_low_airflow",
+    "aggregate_totals": {
+      "warmup": 416648,
+      "sizing": 0,
+      "scored_runtime": 3338635,
+      "total_recurring_printed": 3755283
+    },
+    "severe_fatal": {
+      "severe": 0,
+      "fatal": 0,
+      "files": 17
+    },
+    "runtime_airflow_fraction_below_0_25": "UNAVAILABLE_FROM_ERR_ONLY",
+    "note": "ERR recurring counts only; per-timestep actual/rated airflow requires EIO/CSV or live child-model confirmation."
+  },
+  "leading_root_cause_hypotheses": [
+    {
+      "id": "H1_identical_hardcoded_heating",
+      "severity": "primary",
+      "object_pattern": "Coil:Heating:WaterToAirHeatPump:EquationFit, * WAHP Heating Coil",
+      "evidence": "All nine heating coils hard-coded to 149430 W (87900\u00d71.70 A04 dial) regardless of zone HP inventory (2\u201313 HP per zone).",
+      "consequence": "Giant-coil aggregation: one WAHP object represents many physical HPs with a single rated capacity."
+    },
+    {
+      "id": "H2_autosized_airflow_vs_part_load",
+      "severity": "primary",
+      "object_pattern": "Rated Air Flow Rate = Autosize on all W2A coils and fans",
+      "evidence": "Rated airflow autosized against identical 149430 W capacity; historical ERR shows millions of recurring low-airflow prints at scored runtime (Phase 1 freeze).",
+      "consequence": "Structural NO-GO for operational DSM until child-model confirms fix.",
+      "forbidden_fix": "Do not shrink rated airflow alone to silence warnings."
+    },
+    {
+      "id": "H3_hp_count_contract_mismatch",
+      "severity": "secondary",
+      "object_pattern": "contracts/eplus_nine_to_six_zone_agg_v1.json default_hp_counts",
+      "evidence": "BAS split sums to 67 HP; agg v1 sums to 79.",
+      "consequence": "Child models must use 67-HP split ledger."
+    },
+    {
+      "id": "H4_equationfit_wide_curve_domain",
+      "severity": "monitor",
+      "object_pattern": "Curve:QuadLinear * HtgCapCurve",
+      "evidence": "Performance curves allow wide w/x/y/z domains \u2014 extrapolation risk.",
+      "consequence": "Verify cold-Monday operating points before promotion."
+    }
+  ],
+  "leading_root_cause_hypothesis_summary": "LEADING_ROOT_CAUSE_HYPOTHESIS: identical 149430 W rated heating on all nine aggregated WAHP coils with autosized airflow likely drives chronic part-load airflow fraction below 25% of rated \u2014 pending live child-model confirmation.",
+  "model_edits_permitted": false,
+  "bacnet_command_authority": 0,
+  "vibe19_untouched": true,
+  "diagnosis_sha256": "c43bea864ebe9d7ff30b2c0fb8c8a6a9aa758d99d72db05191b36f78e92d3748"
+}

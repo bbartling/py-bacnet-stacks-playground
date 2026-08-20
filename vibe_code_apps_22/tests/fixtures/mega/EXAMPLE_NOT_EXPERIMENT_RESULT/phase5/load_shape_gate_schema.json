@@ -1,0 +1,14 @@
+{
+  "schema": "vibe22.mega.load_shape_promotion_gate.v1",
+  "phase_status": "NOT_RUN",
+  "hourly_thresholds": {
+    "nmbe_abs_pct": 10.0,
+    "cvrmse_pct": 30.0
+  },
+  "monthly_thresholds": {
+    "nmbe_abs_pct": 5.0,
+    "cvrmse_pct": 15.0
+  },
+  "note": "No hardcoded correlation/timing demonstration values.",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

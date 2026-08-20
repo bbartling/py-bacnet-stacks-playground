@@ -1,0 +1,5 @@
+model,rated_COP,nmbe_pct,cvrmse_pct,gl14,jan26_peak_kw,overnight_0_4_kw
+E20,5.04,-4.91,13.52,PASS,270.8,134.7
+SC01,4.7,-7.62,13.91,FAIL,281.9,142.2
+SC02,4.5,-9.41,14.59,FAIL,290.3,147.1
+SC03,4.0,-14.65,18.13,FAIL,322.6,161.6

@@ -1,0 +1,18 @@
+{
+  "schema": "vibe22.mega.common_action_contract.v1",
+  "research_action_contract": "research_action_contract_v2",
+  "school_occupancy": "calendar_truth",
+  "shared_by_arms": [
+    "FIXED_WEATHER_RULE",
+    "FIXED_TOU_RULE",
+    "GRID_SEARCH",
+    "DAY_AHEAD_OPTIMIZER",
+    "DQN",
+    "PPO",
+    "BAS_INCUMBENT"
+  ],
+  "decoder": "research_action_contract_v2_affine_box",
+  "bacnet_command_authority": 0,
+  "phase_status": "CONTRACT_ONLY",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

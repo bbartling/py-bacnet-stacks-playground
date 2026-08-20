@@ -1,0 +1,38 @@
+{
+  "schema": "vibe22.observed_bas_incumbent.v2",
+  "role": "paired operational baseline for DSM evaluation; not A04 native SCH_HtgSP; not Gym DualSP 70/65",
+  "split": "train_dev winter weekdays; Jan 25/26 and Mar 16 excluded from this snapshot",
+  "do_not_tune_to_utility_peak": true,
+  "utility_jan2026_billed_demand_kw": 284.82,
+  "occupied_heating_setpoint_f": {
+    "site_median": 68.0,
+    "per_zone_group": "see distributions when SITE_ROOT export is present"
+  },
+  "unoccupied_heating_setpoint_f": {
+    "site_median": 64.0
+  },
+  "weekday_transition": {
+    "occupancy_start_hour_median": 7.0,
+    "heating_setpoint_start_step": 28
+  },
+  "weekend": "unoccupied DualSP; school occupancy false",
+  "fan_status": {
+    "n_heat_pumps": 67,
+    "startup_distributions": "fill from BAS fan-status via scripts/vibe22_observed_bas_incumbent.py when SITE_ROOT is set",
+    "stagger_vs_simultaneous": "pending_site_export"
+  },
+  "missing_data": "pending_site_export",
+  "replay_params": {
+    "occupied_heating_f": 68.0,
+    "unoccupied_heating_f": 64.0,
+    "heating_setpoint_start_step": 28,
+    "heating_setpoint_end_step": 68,
+    "recovery_lead_minutes": 60,
+    "continuous_conditioning": false,
+    "label": "OBSERVED_BAS_INCUMBENT_REPLAY"
+  },
+  "rejected_baselines": {
+    "a04_sch_htgsp": "46F overnight, recovery ~03:15; calibration schedule, not operations",
+    "gym_dualsp_70_65": "previous Gym incumbent; not observed BAS median"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "vibe22.trackc.sequential.v1",
+  "label": "DIAGNOSTIC FAILED MODEL",
+  "champion": false,
+  "SIMULATION_TRAINING_READY": false,
+  "matrix_cells_launched": 0,
+  "note": "Sequential C1 then C2 one-day screens only. Not another 37-cell matrix.",
+  "c1": {
+    "run_id": "trackc_c1_20260112",
+    "idf_sha256": "e9be543082e076fc861f97ad4e2a7a46b9538a3f8c5b6413cbd6d25a476e7be6",
+    "one_w2a_per_zone": true,
+    "n_heating_coils": 9,
+    "aggregate_heating_capacity_w": 603047.4,
+    "below_screening_range_675_940_kw": true,
+    "w2a_scored_runtime": 822,
+    "w2a_warmup": 5778,
+    "w2a_sizing": 0,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "three_day_live_screen": false,
+    "champion": false
+  },
+  "c2_base": {
+    "run_id": "trackc_c2_base_20260112",
+    "idf_sha256": "47e70c8dd1f3ce3788a2c516b30bbd0c0307fb426ed92f44188039da569fbb53",
+    "one_w2a_per_zone": true,
+    "n_heating_coils": 9,
+    "aggregate_heating_capacity_w": 799999.9,
+    "w2a_scored_runtime": 2016,
+    "w2a_warmup": 13032,
+    "w2a_sizing": 0,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "three_day_live_screen": false,
+    "champion": false
+  },
+  "c3": {
+    "skipped": true,
+    "reason": "C3 VariableSpeedEquationFit skipped: inherited A04 EquationFit curves are unverified and no valid multi-speed manufacturer performance points are available"
+  },
+  "prior_trackb_live_matrix": {
+    "cells": 37,
+    "w2a_scored_runtime_first_live": 2106,
+    "w2a_warmup_first_live": 5332,
+    "superseded_two_pass_scored_runtime": 3780
+  },
+  "instrumented_trackb_cli_day_20260112": {
+    "w2a_scored_runtime": 738,
+    "w2a_warmup": 4657,
+    "active_invalid_domain": 759
+  },
+  "active_rl_model_updated": false,
+  "long_campaign_allowed": false
+}

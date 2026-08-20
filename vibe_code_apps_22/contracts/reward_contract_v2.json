@@ -1,0 +1,62 @@
+{
+  "contract_version": "reward_contract_v2",
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "long_rl": "BLOCKED",
+  "does_not_reinterpret": [
+    "operator_pay_v1",
+    "operator_pay_2x_v1",
+    "operator_pay_3x_v1",
+    "legacy_reward_v1"
+  ],
+  "layers": {
+    "utility_accounting": {
+      "energy_cost": "sum(rate_kwh[t] * facility_kw[t] * dt_h)",
+      "old_floor": "max(mtd_peak_kw, ratchet_kw, contract_kw)",
+      "new_floor": "max(old_floor, day_peak_kw)",
+      "demand_increment": "demand_rate * (new_floor - old_floor)",
+      "daily_cost": "energy_cost + demand_increment",
+      "savings": "baseline_daily_cost - candidate_daily_cost",
+      "paired_baseline": "hash-keyed exact model/weather/run-period/initial-state/schedule match; missing raises"
+    },
+    "display_paycheck": {
+      "human_only": true,
+      "readiness_fail": 0.0,
+      "else": "clip(base_wage + k * savings, 0, payout_cap)",
+      "k": [2, 3],
+      "note": "2x and 3x are separate experiments, not a random jackpot"
+    },
+    "training_reward": {
+      "never_the_capped_paycheck": true,
+      "hard_readiness_fail": "-20 - normalized_degree_violation",
+      "feasible": "clip(savings / cost_scale, -5, 5) - lambda_occ * occupied_zone_DH - lambda_move * action_movement, then clip to [-5, 5]",
+      "feasible_clip_after_penalties": [-5, 5],
+      "readiness_fail_strictly_worse_than_feasible": true
+    }
+  },
+  "frozen_defaults": {
+    "energy_rate_per_kwh": 0.12,
+    "demand_rate_per_kw": 15.0,
+    "dt_h": 0.25,
+    "cost_scale": 100.0,
+    "lambda_occ": 0.05,
+    "lambda_move": 0.02,
+    "readiness_band_f": [68.0, 74.0],
+    "readiness_check_steps": [30, 31],
+    "readiness_school_days_only": true,
+    "readiness_all_six_zones": true,
+    "never_mean_of_six": true,
+    "train_fail_base": -20.0,
+    "paycheck_base_wage_usd": 100.0,
+    "paycheck_cap_usd": 500.0
+  },
+  "integrity": {
+    "failures": [
+      "energyplus_crash",
+      "incomplete_or_nan_trajectory",
+      "missing_zones",
+      "missing_paired_baseline",
+      "wrong_timestep_count"
+    ],
+    "on_failure": "invalid/truncated; fail the campaign; do not emit a learnable -1e6 transition; do not fabricate values"
+  }
+}

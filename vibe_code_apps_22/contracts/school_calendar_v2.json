@@ -1,0 +1,63 @@
+{
+  "contract_version": "school_calendar_v2",
+  "timezone": "America/Chicago",
+  "civil_day_policy": "validation_peaks_and_occupancy_use_local_civil_days",
+  "never_fit_calendar_to_facility_kw": true,
+  "school_year_label": "2025-26_with_2026_summer_school",
+  "timestep_minutes": 15,
+  "steps_per_day": 96,
+  "regular_day": {
+    "doors_open_local": "07:30",
+    "doors_open_step": 30,
+    "attendance_local": "07:40",
+    "attendance_step_approx": 31,
+    "attendance_note": "07:40 is not on the 15-minute grid; readiness uses 07:30 and 07:45",
+    "dismissal_mon_tue_wed_fri_local": "14:40",
+    "dismissal_mon_tue_wed_fri_step_approx": 59,
+    "dismissal_thu_local": "13:30",
+    "dismissal_thu_step": 54,
+    "after_care_end_local": "18:00",
+    "after_care_end_step": 72,
+    "hvac_warmup_start_local": "05:30",
+    "hvac_warmup_start_step": 22,
+    "source": "deep-research locked hours + BAS occupancy where available",
+    "confidence": "high_for_bell_times_low_for_zone_extent"
+  },
+  "readiness_check_steps": {
+    "weekday": [30, 31],
+    "weekday_local": ["07:30", "07:45"],
+    "v1_approximation_step": 32,
+    "v1_approximation_local": "08:00",
+    "v1_note": "SCHOOL_START_STEP=32 remains on v1 paths only and is an intentional 08:00 approximation"
+  },
+  "holidays_and_breaks_local": {
+    "gaps_documented": [
+      "Exact 2025-26 district calendar holiday list not fully locked in public deep-research; use WinterBreak/Holiday placeholders below and label ASSUMED where noted"
+    ],
+    "winter_break_inclusive": ["2025-12-22", "2026-01-02"],
+    "assumed_holidays": [
+      "2025-09-01",
+      "2025-11-27",
+      "2025-11-28",
+      "2025-12-24",
+      "2025-12-25",
+      "2026-01-01",
+      "2026-01-19",
+      "2026-02-16",
+      "2026-03-27",
+      "2026-05-25"
+    ],
+    "summer_school_2026": {
+      "inclusive_start": "2026-06-24",
+      "inclusive_end": "2026-07-23",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+      "student_contact_local": ["08:00", "13:00"],
+      "source": "deep-research summer school hours"
+    }
+  },
+  "honesty": {
+    "dsm_status": "NO-GO_until_raw_gates",
+    "calendar_not_calibrated_to_kw": true,
+    "agent_cannot_move_school_occupancy": true
+  }
+}

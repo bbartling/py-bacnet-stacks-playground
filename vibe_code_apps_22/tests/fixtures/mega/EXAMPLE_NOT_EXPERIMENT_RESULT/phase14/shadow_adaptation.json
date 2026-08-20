@@ -1,0 +1,15 @@
+{
+  "schema": "vibe22.mega.shadow_adaptation.v1",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT",
+  "development_dates": [
+    "2025-11-05",
+    "2025-11-18"
+  ],
+  "inspect_locked_test_before_final": false,
+  "limitations": [
+    "Simulated shadow only \u2014 not operational BACnet adaptation",
+    "Separate from validation model selection",
+    "Never inspect locked test before final handoff"
+  ],
+  "phase_status": "CONTRACT_ONLY"
+}

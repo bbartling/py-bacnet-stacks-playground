@@ -1,0 +1,156 @@
+{
+  "schema": "vibe22.a04.multiday_continuity.v1",
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "generated_at_utc": "2026-08-17T17:28:34.540946+00:00",
+  "idf": "lakeside_w2a_a04_dual_champion.idf",
+  "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+  "days": [
+    "2026-01-12",
+    "2026-01-13",
+    "2026-01-14"
+  ],
+  "lookback_days": 1,
+  "live_energyplus": true,
+  "fake_continuity_plant_is_physics_evidence": false,
+  "n_live_energyplus_processes": 3,
+  "n_process_starts_by_arm": {
+    "continuous_70": 1,
+    "observed_bas_incumbent": 1,
+    "deep_setback": 1
+  },
+  "midnight_thermal_continuity_one_process": true,
+  "utility_table": [
+    {
+      "day": "2026-01-12",
+      "arms": {
+        "continuous_70": {
+          "daily_kwh": 3025.46602736865,
+          "day_peak_kw": 159.62858556294196,
+          "energy_cost": 363.055923284238,
+          "demand_increment": 2394.4287834441293,
+          "daily_cost": 2757.484706728367,
+          "savings_vs_continuous_70": 0.0,
+          "display_paycheck_usd": 100.0,
+          "training_reward": 0.0,
+          "readiness_ok": true
+        },
+        "observed_bas_incumbent": {
+          "daily_kwh": 2576.09126435504,
+          "day_peak_kw": 159.6835894716655,
+          "energy_cost": 309.1309517226048,
+          "demand_increment": 2395.2538420749825,
+          "daily_cost": 2704.384793797587,
+          "savings_vs_continuous_70": 53.09991293078019,
+          "display_paycheck_usd": 206.19982586156038,
+          "training_reward": 0.5293149187814861,
+          "readiness_ok": true
+        },
+        "deep_setback": {
+          "daily_kwh": 2366.829790744281,
+          "day_peak_kw": 175.624764940514,
+          "energy_cost": 284.01957488931373,
+          "demand_increment": 2634.37147410771,
+          "daily_cost": 2918.391048997024,
+          "savings_vs_continuous_70": -160.90634226865677,
+          "display_paycheck_usd": 0.0,
+          "training_reward": -1.614116054265515,
+          "readiness_ok": true
+        }
+      }
+    },
+    {
+      "day": "2026-01-13",
+      "arms": {
+        "continuous_70": {
+          "daily_kwh": 2538.7371327623227,
+          "day_peak_kw": 140.2207253511444,
+          "energy_cost": 304.6484559314787,
+          "demand_increment": 2103.3108802671663,
+          "daily_cost": 2407.959336198645,
+          "savings_vs_continuous_70": 0.0,
+          "display_paycheck_usd": 100.0,
+          "training_reward": 0.0,
+          "readiness_ok": true
+        },
+        "observed_bas_incumbent": {
+          "daily_kwh": 2232.302498513358,
+          "day_peak_kw": 147.61223865323382,
+          "energy_cost": 267.87629982160297,
+          "demand_increment": 2214.1835797985073,
+          "daily_cost": 2482.05987962011,
+          "savings_vs_continuous_70": -74.10054342146532,
+          "display_paycheck_usd": 0.0,
+          "training_reward": -0.742689644740969,
+          "readiness_ok": true
+        },
+        "deep_setback": {
+          "daily_kwh": 2087.1931351856765,
+          "day_peak_kw": 167.1845986322313,
+          "energy_cost": 250.46317622228122,
+          "demand_increment": 2507.7689794834696,
+          "daily_cost": 2758.2321557057508,
+          "savings_vs_continuous_70": -350.27281950710585,
+          "display_paycheck_usd": 0.0,
+          "training_reward": -3.507780826650006,
+          "readiness_ok": true
+        }
+      }
+    },
+    {
+      "day": "2026-01-14",
+      "arms": {
+        "continuous_70": {
+          "daily_kwh": 3359.533936934731,
+          "day_peak_kw": 160.61565983648848,
+          "energy_cost": 403.1440724321678,
+          "demand_increment": 2409.234897547327,
+          "daily_cost": 2812.3789699794947,
+          "savings_vs_continuous_70": 0.0,
+          "display_paycheck_usd": 100.0,
+          "training_reward": 0.0,
+          "readiness_ok": true
+        },
+        "observed_bas_incumbent": {
+          "daily_kwh": 3050.96395469606,
+          "day_peak_kw": 165.57249513102232,
+          "energy_cost": 366.11567456352714,
+          "demand_increment": 2483.587426965335,
+          "daily_cost": 2849.703101528862,
+          "savings_vs_continuous_70": -37.324131549367394,
+          "display_paycheck_usd": 25.351736901265213,
+          "training_reward": -0.37492552601998974,
+          "readiness_ok": true
+        },
+        "deep_setback": {
+          "daily_kwh": 2913.944475694717,
+          "day_peak_kw": 185.4935769081233,
+          "energy_cost": 349.67333708336605,
+          "demand_increment": 2782.403653621849,
+          "daily_cost": 3132.0769907052154,
+          "savings_vs_continuous_70": -319.69802072572065,
+          "display_paycheck_usd": 0.0,
+          "training_reward": -3.202032838836154,
+          "readiness_ok": true
+        }
+      }
+    }
+  ],
+  "w2a_runtime_gate": {
+    "continuous_70": {
+      "count": 0,
+      "pass": true
+    },
+    "observed_bas_incumbent": {
+      "count": 35124,
+      "pass": false
+    },
+    "deep_setback": {
+      "count": 36360,
+      "pass": false
+    }
+  },
+  "long_campaign_allowed": false,
+  "champion": null,
+  "site_payload": "SITE_ROOT/reports/eplus_gym/a04_multiday_continuity"
+}

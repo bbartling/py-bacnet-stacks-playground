@@ -1,0 +1,35 @@
+{
+  "schema": "vibe22.research_child_model_card.v1",
+  "model_id": "a04_trackb_40fb33e8_NOT_CHAMPION",
+  "idf_path": "models/eplus/research/a04_trackb_40fb33e8_NOT_CHAMPION.idf",
+  "idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+  "labels": [
+    "NOT_CHAMPION",
+    "SIMULATION_ONLY",
+    "TRANSIENT_NOT_VALIDATED",
+    "W2A_WARNING_GATE_FAILED"
+  ],
+  "champion": false,
+  "SIMULATION_TRAINING_READY": false,
+  "RESEARCH_POC_ALLOWED": false,
+  "OPERATIONAL_DSM_READY": false,
+  "long_campaign_allowed": false,
+  "source_bytes": "copied_exact_not_regenerated",
+  "source_path_note": "models/eplus/a04v2_candidates/trackb_live_v3_base_20260112/lakeside_w2a_trackb_trackb_live_v3_base_20260112.idf",
+  "object_counts": {
+    "n_w2a": 20,
+    "n_zones": 9,
+    "n_equipment_lists": 9,
+    "load_distribution": "SequentialLoad"
+  },
+  "explicit_heating_capacity_w_approx": 603055,
+  "known_result": {
+    "n_rows": 96,
+    "severe_fatal": 0,
+    "continuous_70_ramp_f_per_15min": 0.082,
+    "w2a_scored_runtime": 2106,
+    "w2a_warmup": 5332,
+    "valid_ppo_dqn_transitions": 0
+  },
+  "claim": "DIAGNOSTIC FAILED MODEL — not a champion, not operational DSM"
+}

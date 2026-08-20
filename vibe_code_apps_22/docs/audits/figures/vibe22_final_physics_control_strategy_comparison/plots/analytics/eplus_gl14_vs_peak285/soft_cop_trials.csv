@@ -1,0 +1,4 @@
+trial_id,status,target_rated_cop,effective_rated_htg_cop,jan26_peak_kw,overnight_0_4_sim_kw,gl14_pass,nmbe_pct,cvrmse_pct,peak_near_285
+SC01_cop47,ok_gl14_fail,4.7,4.7,281.85,142.21,False,-7.62,13.91,True
+SC02_cop45,ok_gl14_fail,4.5,4.5,290.32,147.14,False,-9.41,14.59,True
+SC03_cop40,ok_gl14_fail,4.0,4.0,322.57,161.63,False,-14.65,18.13,False

@@ -137,6 +137,22 @@ def test_campaign_plots_fail_closed(tmp_path: Path):
         load_valid_eval(bare)
 
 
+def test_ramp_gate_bas_gaps_use_true_15min_pairs_only():
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-01 00:00",
+            "2024-01-01 00:15",
+            "2024-01-01 04:00",
+            "2024-01-01 04:15",
+        ]
+    )
+    real = pd.DataFrame({c: [70.0, 70.1, 80.0, 80.05] for c in BAS_ZONE_COLS}, index=idx)
+    sim = pd.DataFrame({c: [70.0, 70.2, 70.3, 70.4] for c in BAS_ZONE_COLS}, index=pd.date_range("2024-01-01", periods=4, freq="15min"))
+    out = evaluate_ramp_gate(simulated=sim, real_bas=real)
+    # 10°F jump across the 4-hour gap must not enter BAS quantiles
+    assert out["bas_quantiles_f_per_15min"]["max"] < 1.0
+
+
 def test_ramp_gate_fails_fast_sim():
     idx = pd.date_range("2024-01-01", periods=8, freq="15min")
     real = pd.DataFrame({c: [70.0 + i * 0.02 for i in range(8)] for c in BAS_ZONE_COLS}, index=idx)

@@ -1,0 +1,192 @@
+{
+  "schema": "vibe22.mega.child_model_ledger.v1",
+  "parent": {
+    "name": "lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "immutable_label": "A04_IMMUTABLE_PARENT"
+  },
+  "children": [
+    {
+      "child_name": "a04_child_hp67_two_pass_v2",
+      "idf_sha256": "c76ff9f5e99ba6cafe3e9c15359f6fa8f071bad240ab2f3053a8b66003e2ef4d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "parent_hash": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "patch_ledger": [
+        {
+          "zone": "1F_Library_IMC",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 21101.1,
+            "heating_airflow_m3s": 1.18253,
+            "heating_water_m3s": 0.00109547,
+            "cooling_capacity_w": 23440.83737,
+            "cooling_airflow_m3s": 1.18253,
+            "cooling_water_m3s": 0.00109547,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 21101.1,
+          "rated_htg_airflow_m3_s": 1.18253,
+          "rated_htg_waterflow_m3_s": 0.00109547,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Cafe_Kitchen",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 31651.7,
+            "heating_airflow_m3s": 1.86491,
+            "heating_water_m3s": 0.00164321,
+            "cooling_capacity_w": 37029.63698,
+            "cooling_airflow_m3s": 1.86491,
+            "cooling_water_m3s": 0.00164321,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 31651.7,
+          "rated_htg_airflow_m3_s": 1.86491,
+          "rated_htg_waterflow_m3_s": 0.00164321,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Gym",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 42202.2,
+            "heating_airflow_m3s": 2.68631,
+            "heating_water_m3s": 0.00219094,
+            "cooling_capacity_w": 51871.12775,
+            "cooling_airflow_m3s": 2.68631,
+            "cooling_water_m3s": 0.00219094,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 42202.2,
+          "rated_htg_airflow_m3_s": 2.68631,
+          "rated_htg_waterflow_m3_s": 0.00219094,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Area_A",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 137157.0,
+            "heating_airflow_m3s": 2.5954,
+            "heating_water_m3s": 0.00712056,
+            "cooling_capacity_w": 52621.93504,
+            "cooling_airflow_m3s": 2.5954,
+            "cooling_water_m3s": 0.00712056,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 137157.0,
+          "rated_htg_airflow_m3_s": 2.5954,
+          "rated_htg_waterflow_m3_s": 0.00712056,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Area_B",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 105506.0,
+            "heating_airflow_m3s": 1.85615,
+            "heating_water_m3s": 0.00547739,
+            "cooling_capacity_w": 37467.57625,
+            "cooling_airflow_m3s": 1.85615,
+            "cooling_water_m3s": 0.00547739,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 105506.0,
+          "rated_htg_airflow_m3_s": 1.85615,
+          "rated_htg_waterflow_m3_s": 0.00547739,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Area_C",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 84404.5,
+            "heating_airflow_m3s": 2.00717,
+            "heating_water_m3s": 0.00438189,
+            "cooling_capacity_w": 40552.38286,
+            "cooling_airflow_m3s": 2.00717,
+            "cooling_water_m3s": 0.00438189,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 84404.5,
+          "rated_htg_airflow_m3_s": 2.00717,
+          "rated_htg_waterflow_m3_s": 0.00438189,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "1F_Area_D",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 63303.3,
+            "heating_airflow_m3s": 1.85797,
+            "heating_water_m3s": 0.00328642,
+            "cooling_capacity_w": 37454.67921,
+            "cooling_airflow_m3s": 1.85797,
+            "cooling_water_m3s": 0.00328642,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 63303.3,
+          "rated_htg_airflow_m3_s": 1.85797,
+          "rated_htg_waterflow_m3_s": 0.00328642,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "2F_Area_A",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 116056.0,
+            "heating_airflow_m3s": 3.90618,
+            "heating_water_m3s": 0.00602509,
+            "cooling_capacity_w": 79941.77588,
+            "cooling_airflow_m3s": 3.90618,
+            "cooling_water_m3s": 0.00602509,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 116056.0,
+          "rated_htg_airflow_m3_s": 3.90618,
+          "rated_htg_waterflow_m3_s": 0.00602509,
+          "fan_max_flow_m3_s": null
+        },
+        {
+          "zone": "2F_Area_B",
+          "capacity_sensitivity": "base",
+          "op": "pass2_hardsize_from_eio",
+          "eio_sources": {
+            "heating_capacity_w": 105506.0,
+            "heating_airflow_m3s": 3.59987,
+            "heating_water_m3s": 0.00547739,
+            "cooling_capacity_w": 73554.72357,
+            "cooling_airflow_m3s": 3.59987,
+            "cooling_water_m3s": 0.00547739,
+            "heating_capacity_source": "user_specified",
+            "provenance": "live_energyplus_eio_component_sizing"
+          },
+          "rated_heating_capacity_w": 105506.0,
+          "rated_htg_airflow_m3_s": 3.59987,
+          "rated_htg_waterflow_m3_s": 0.00547739,
+          "fan_max_flow_m3_s": null
+        }
+      ],
+      "rationale": "hp67 v2 two-pass EIO hard-sizing (no water=air*0.05 fallback).",
+      "registered_at_utc": "2026-08-19T20:41:50.700835+00:00"
+    }
+  ],
+  "n_children": 1
+}

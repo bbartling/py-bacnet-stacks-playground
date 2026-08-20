@@ -1,0 +1,20 @@
+{
+  "schema": "vibe22.environment_pins.v1",
+  "recorded_utc": "2026-08-18T14:30:00Z",
+  "branch": "feat/vibe22-final-physics-rl-poc",
+  "head": "7ca13a60d19e1c3754c6c56246c8c3b93c273739",
+  "parent_branch": "feat/vibe22-live-trackb-long-rl-readiness",
+  "git_status_sb": "## feat/vibe22-final-physics-rl-poc",
+  "python": "3.14.2",
+  "energyplus": "26.1.0-6f2e40d102",
+  "sb3": "2.9.0",
+  "idd_path": "C:\\EnergyPlusV26-1-0\\Energy+.idd",
+  "idd_sha256": "7d30c281aa21d63555c753a953124da03d88b6b149dc19e3649f2cbe6c944c68",
+  "epw_name": "madison_amy_202508_202608.epw",
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "site_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside",
+  "mcp_server": "user-energyplus",
+  "mcp_energyplus_exe": "C:\\EnergyPlusV26-1-0\\energyplus.exe",
+  "a04_sha256_crlf": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "trackb_research_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a"
+}

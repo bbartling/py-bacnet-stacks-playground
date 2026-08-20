@@ -1,0 +1,41 @@
+{
+  "schema": "vibe22.research_rl_model.v1",
+  "model_id": "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+  "idf_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+  "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "energyplus_version": "26.1.0",
+  "research_poc_allowed": true,
+  "simulation_training_ready": false,
+  "operational_dsm_ready": false,
+  "long_campaign_allowed": false,
+  "known_failed_physics_gates": [
+    "transient_ramp_on_A04_postfix_not_pass",
+    "track_b_w2a_scored_runtime_2106",
+    "no_physics_champion"
+  ],
+  "action_contract_version": "research_action_contract_v2",
+  "action_space_restrictions": [
+    "normalized_ppo_box9",
+    "continuous_68F",
+    "continuous_70F",
+    "occupied_heating_68_72F",
+    "unoccupied_heating_60F_through_occupied",
+    "recovery_0_180_minutes",
+    "six_zone_offsets_effective_60_to_occupied",
+    "school_calendar_frozen",
+    "heating_dualsp_only",
+    "cooling_not_in_action_space"
+  ],
+  "max_wall_hours": 30,
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "SIMULATION_ONLY_RESEARCH_POC",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY",
+    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+    "RESEARCH_LONG_ALLOWED"
+  ],
+  "bacnet_authority": false,
+  "reason": "No physics champion. Bounded real-EnergyPlus RL is allowed only as a labeled research PoC."
+}

@@ -1,0 +1,35 @@
+{
+  "schema": "vibe22.a04v2.phase0_baseline.v1",
+  "created_utc": "2026-08-17T00:41:39.988510+00:00",
+  "git_sha": "a5f6e770fd84fd7577defb3e41752e4047575d64",
+  "branch_note": "stacked on PR #97 tip a5f6e770 (includes #96); #96/#97 still OPEN on develop",
+  "a04": {
+    "filename": "lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "immutable_copy": "docs/audits/figures/a04v2/phase0/IMMUTABLE_lakeside_w2a_a04_dual_champion.idf",
+    "role": "immutable_parent_comparison_baseline"
+  },
+  "epw": {
+    "path": "<SITE_ROOT>\\eplus\\weather\\madison_amy_202508_202608.epw",
+    "sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2"
+  },
+  "environment": {
+    "python": "3.14.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 158 Stepping 13, GenuineIntel",
+    "energyplus": "26.1.0"
+  },
+  "january_holdout_status": "not_pristine; 2026-01-25/26 and 2026-03-16 used for gates/smoke",
+  "recovery_window_software_fix": "retained; do not undo (six_zone_daily_controller ramp window)",
+  "ramp_gate_frozen": {
+    "engineering_margin": 3.0,
+    "threshold_f_per_15min": 2.650769999999918,
+    "incumbent_max": 4.6159822583014005,
+    "low_unocc_max": 8.203297957430323,
+    "high_occ_max": 3.9887604478004306,
+    "passed": false,
+    "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+    "source_artifact": "docs/audits/figures/postfix/ramp_gate.json"
+  },
+  "remaining_physics_finding": "Evening DualSP 70\u219265 at occupancy_end causes ~4.6\u00b0F zone-air drop in 15 min; A04 has no ZoneCapacitanceMultiplier or InternalMass."
+}

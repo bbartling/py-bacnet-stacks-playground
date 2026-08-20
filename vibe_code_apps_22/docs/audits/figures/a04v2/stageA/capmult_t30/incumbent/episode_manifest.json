@@ -1,0 +1,8 @@
+{
+  "schema": "vibe22.episode_manifest.v1",
+  "n_rows_scored": 96,
+  "n_all_rows": 192,
+  "scored_is_not_full_simulation": true,
+  "trajectory_sha256": "ecff6f016f7d3e84fff5ccb04de6fb9492193cc93376cea9ce3e5e45dc614b2b",
+  "trajectory_all_sha256": "4c931e9e0fc59918156681e31c0b4fb1df9df486fb5c613c3a078f4cca7028c8"
+}

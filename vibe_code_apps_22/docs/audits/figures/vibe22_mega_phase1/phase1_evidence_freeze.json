@@ -1,0 +1,470 @@
+{
+  "schema": "vibe22.phase1_evidence_freeze.v1",
+  "frozen_at_utc": "2026-08-19T14:38:46.712962+00:00",
+  "git": {
+    "branch": "feat/vibe22-mega-phase1-evidence-freeze",
+    "sha": "38bc73d40b5fc6c8bafc08e8d001b2d5cd6fe443",
+    "dirty": true
+  },
+  "python_version": "3.14.2",
+  "stable_baselines3_version": "2.9.0",
+  "energyplus_version": "26.1.0",
+  "date_use_ledger": {
+    "schema": "vibe22.date_use_ledger.v1",
+    "frozen_at_utc": "2026-08-19T14:38:43.927312+00:00",
+    "physics_development": {
+      "dates": [
+        "2026-01-12",
+        "2026-01-25",
+        "2026-01-26",
+        "2026-03-16"
+      ],
+      "note": "Includes January 2026 P1 gates and manual perturbation days; not an unseen holdout."
+    },
+    "rl_training": {
+      "start": "2025-11-01",
+      "end": "2025-12-14",
+      "fold": "train"
+    },
+    "validation": {
+      "start": "2025-12-15",
+      "end": "2025-12-31",
+      "fold": "validation",
+      "note": "Chronological model-selection only; not operational promotion."
+    },
+    "adaptation_development": {
+      "dates": [],
+      "note": "Reserved for simulated shadow adaptation; empty until Phase 14."
+    },
+    "locked_test": {
+      "nominal_window": "2026-01-01:2026-01-31",
+      "status": "NO_PRISTINE_LOCKED_TEST_AVAILABLE",
+      "inspected_january_dates": [
+        "2026-01-12",
+        "2026-01-25",
+        "2026-01-26"
+      ],
+      "rule": "Never relabel an already inspected January period as unseen."
+    },
+    "locked_unseen_label": "NO LOCKED UNSEEN TEST AVAILABLE",
+    "ledger_sha256": "ae39ebdce2ca3251909f96cc1a444e511778b12fa738f798297f6ca26bc4d05a"
+  },
+  "research_long_audit": {
+    "schema": "vibe22.research_long_audit.v1",
+    "run_root_label": "research_long_20260818T194337Z",
+    "campaign_manifest_sha256": "938c05a57b760289fe6431c8224c42afd75a4befd79aad5ffad682cc1605dd4f",
+    "trained_policies": 4,
+    "valid_transitions_per_seed": {
+      "ppo_seed0": 8192,
+      "ppo_seed1": 8192,
+      "dqn_seed0": 8192,
+      "dqn_seed1": 8192
+    },
+    "total_valid_transitions": 32768,
+    "validation_days": 17,
+    "evaluation_rows": 187,
+    "readiness_rate_all_arms": 0.9518716577540107,
+    "mean_reward_all_rows": -1.0642838577836042,
+    "median_reward_all_rows": -0.07727322070161563,
+    "schedule_fingerprint_count": 79,
+    "schedule_fingerprints_sample": [
+      "057d37cf698051d101f7eef603105e74379b3085bbed67846442870b24ba0689",
+      "08c07711844159236f4aef2cf81a87ea082316d383970f6810d2ae8e8d621f7f",
+      "0a862fc2a7f1316a90a0eef627c3cbdab51f72f9e5e7595c7b6dcfd1bae9af76",
+      "0c3408eb13854aa10da671e3714e95b9a72b338fbfd42dd90a41edf0babd0679",
+      "0da236aea7aff4268f49d18c6b0a3e84670dfed7c98663b21989dc7feddc838d",
+      "0dd1d9b12898d85ae4cea37a4b655c728c925793ca9736334eddc2d71d9ef529",
+      "101c133bcfcab93cc31cd743cce34150863610969d0065fea43bf18a113dd292",
+      "11fb36a86e0d6d730bbb123d17bf4533f212a070675586c5d3eb8f4e3df46425"
+    ],
+    "seed_variability": {
+      "dqn": {
+        "n_rows": 17,
+        "mean_reward": 0.12221984208474691,
+        "median_reward": 0.29557268224807787,
+        "mean_peak_kw": 149.8551278992262,
+        "mean_daily_kwh": 2570.7248644617844,
+        "readiness_rate": 1.0
+      },
+      "ppo": {
+        "n_rows": 17,
+        "mean_reward": 0.10280823302436087,
+        "median_reward": 0.2779535578258333,
+        "mean_peak_kw": 155.70085092088934,
+        "mean_daily_kwh": 2725.4873455394372,
+        "readiness_rate": 1.0
+      }
+    },
+    "policy_stats": {
+      "trained_dqn_seed0": {
+        "n_rows": 17,
+        "mean_reward": 0.12221984208474691,
+        "median_reward": 0.29557268224807787,
+        "mean_peak_kw": 149.8551278992262,
+        "mean_daily_kwh": 2570.7248644617844,
+        "readiness_rate": 1.0
+      },
+      "trained_dqn_seed1": {
+        "n_rows": 17,
+        "mean_reward": -0.09883779290465806,
+        "median_reward": 0.00013047732281791014,
+        "mean_peak_kw": 155.92442145128337,
+        "mean_daily_kwh": 2845.030582241594,
+        "readiness_rate": 1.0
+      },
+      "trained_ppo_seed0": {
+        "n_rows": 17,
+        "mean_reward": 0.10280823302436087,
+        "median_reward": 0.2779535578258333,
+        "mean_peak_kw": 155.70085092088934,
+        "mean_daily_kwh": 2725.4873455394372,
+        "readiness_rate": 1.0
+      },
+      "trained_ppo_seed1": {
+        "n_rows": 17,
+        "mean_reward": 0.07356827224605476,
+        "median_reward": 0.27422998056649817,
+        "mean_peak_kw": 152.90517040945454,
+        "mean_daily_kwh": 2586.6416998290156,
+        "readiness_rate": 1.0
+      }
+    },
+    "winner_legacy_key": "trained_dqn_seed0",
+    "validation_selected_policy": "trained_dqn_seed0",
+    "winner_rule": "deterministic_validation_plus_readiness_multi_seed; never training mean_reward",
+    "factual_notes": {
+      "best_individual_validation_policy": "trained_dqn_seed0",
+      "ppo_consistency": "two seeds present",
+      "locked_unseen": "NO LOCKED UNSEEN TEST AVAILABLE",
+      "a04_physics_valid": false,
+      "tariff_illustrative": true
+    },
+    "w2a_low_airflow": {
+      "all_eplusout_err_files": 17,
+      "aggregate": {
+        "totals": {
+          "warmup": 416648,
+          "sizing": 0,
+          "scored_runtime": 3338635,
+          "total_recurring_printed": 3755283
+        },
+        "by_file": [
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 347584,
+            "total_recurring_printed": 401336,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 348748,
+            "total_recurring_printed": 402500,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 133824,
+            "total_recurring_printed": 146148,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 109524,
+            "total_recurring_printed": 121848,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 101316,
+            "total_recurring_printed": 113640,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 125352,
+            "total_recurring_printed": 137676,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 129768,
+            "total_recurring_printed": 142092,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 130044,
+            "total_recurring_printed": 142368,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 131844,
+            "total_recurring_printed": 144168,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 139392,
+            "total_recurring_printed": 151716,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 148605,
+            "total_recurring_printed": 160929,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 146850,
+            "total_recurring_printed": 159174,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 131676,
+            "total_recurring_printed": 144000,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 384864,
+            "total_recurring_printed": 438616,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 348604,
+            "total_recurring_printed": 402356,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 347512,
+            "total_recurring_printed": 401264,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          },
+          {
+            "err_path": "eplusout.err",
+            "parent": "episode-00000000-04048",
+            "warmup": 12324,
+            "sizing": 0,
+            "scored_runtime": 133128,
+            "total_recurring_printed": 145452,
+            "severe_count": 0,
+            "fatal_count": 0,
+            "completed_successfully": true
+          }
+        ],
+        "severe_fatal": {
+          "severe": 0,
+          "fatal": 0,
+          "files": 17
+        }
+      },
+      "by_rl_seed": {
+        "ppo_seed0": {
+          "totals": {
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 348604,
+            "total_recurring_printed": 402356
+          },
+          "by_file": [
+            {
+              "err_path": "eplusout.err",
+              "parent": "episode-00000000-04048",
+              "warmup": 53752,
+              "sizing": 0,
+              "scored_runtime": 348604,
+              "total_recurring_printed": 402356,
+              "severe_count": 0,
+              "fatal_count": 0,
+              "completed_successfully": true
+            }
+          ],
+          "severe_fatal": {
+            "severe": 0,
+            "fatal": 0,
+            "files": 1
+          }
+        },
+        "ppo_seed1": {
+          "totals": {
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 347512,
+            "total_recurring_printed": 401264
+          },
+          "by_file": [
+            {
+              "err_path": "eplusout.err",
+              "parent": "episode-00000000-04048",
+              "warmup": 53752,
+              "sizing": 0,
+              "scored_runtime": 347512,
+              "total_recurring_printed": 401264,
+              "severe_count": 0,
+              "fatal_count": 0,
+              "completed_successfully": true
+            }
+          ],
+          "severe_fatal": {
+            "severe": 0,
+            "fatal": 0,
+            "files": 1
+          }
+        },
+        "dqn_seed0": {
+          "totals": {
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 347584,
+            "total_recurring_printed": 401336
+          },
+          "by_file": [
+            {
+              "err_path": "eplusout.err",
+              "parent": "episode-00000000-04048",
+              "warmup": 53752,
+              "sizing": 0,
+              "scored_runtime": 347584,
+              "total_recurring_printed": 401336,
+              "severe_count": 0,
+              "fatal_count": 0,
+              "completed_successfully": true
+            }
+          ],
+          "severe_fatal": {
+            "severe": 0,
+            "fatal": 0,
+            "files": 1
+          }
+        },
+        "dqn_seed1": {
+          "totals": {
+            "warmup": 53752,
+            "sizing": 0,
+            "scored_runtime": 348748,
+            "total_recurring_printed": 402500
+          },
+          "by_file": [
+            {
+              "err_path": "eplusout.err",
+              "parent": "episode-00000000-04048",
+              "warmup": 53752,
+              "sizing": 0,
+              "scored_runtime": 348748,
+              "total_recurring_printed": 402500,
+              "severe_count": 0,
+              "fatal_count": 0,
+              "completed_successfully": true
+            }
+          ],
+          "severe_fatal": {
+            "severe": 0,
+            "fatal": 0,
+            "files": 1
+          }
+        }
+      },
+      "by_eval_arm": null
+    },
+    "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3"
+  },
+  "claim_labels": [
+    "SIMULATION_ONLY_RL_RESEARCH",
+    "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+    "NO_BACNET_COMMAND_AUTHORITY",
+    "Vibe19_untouched"
+  ],
+  "readiness_flags": {
+    "SIMULATION_TRAINING_READY": false,
+    "OPERATIONAL_DSM_READY": false,
+    "long_campaign_allowed": false,
+    "bacnet_commands": 0
+  },
+  "freeze_sha256": "11058e119db32c4b6a42fab459512fd0db5d5abb861bc9ef431bf014647d834b"
+}

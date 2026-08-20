@@ -1,0 +1,41 @@
+{
+  "schema": "vibe22.a04v2.parameter_manifest.v1",
+  "parameters": [
+    {
+      "name": "ZoneCapacitanceMultiplier.Temperature",
+      "baseline": 1.0,
+      "lo": 1.0,
+      "hi": 20.0,
+      "units": "dimensionless",
+      "justification": "BAS evening mean |dT|\u22480.143\u00b0F/15min; 5\u00b0F DualSP / measured slope \u2248 20.00. Diagnostic, not a ramp-threshold tuner.",
+      "affects": [
+        "temperature_dynamics",
+        "peak"
+      ]
+    },
+    {
+      "name": "InternalMass.Surface_Area_m2_per_zone",
+      "baseline": 0.0,
+      "lo": 0.0,
+      "hi": 3000.0,
+      "units": "m2",
+      "justification": "Furniture/contents mass; Stage A showed InternalMass alone does not fix DualSP tracking.",
+      "affects": [
+        "temperature_dynamics"
+      ]
+    },
+    {
+      "name": "W2A_heating_capacity_airflow",
+      "baseline": "149430 W heating + autosize airflow on all 9 units",
+      "lo": "autosize both",
+      "hi": "3-ton/HP \u00d7 67 split",
+      "units": "W and m3/s",
+      "justification": "Identical 149430 W with autosized airflow causes W2A <25% rated flow warnings.",
+      "affects": [
+        "warnings",
+        "peak",
+        "temperature_dynamics"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schema": "vibe22.a04v2.peak_contract.v1",
+  "frozen_before_stage_b": true,
+  "utility_jan2026_billed_demand_kw": 284.82,
+  "utility_demand_interval_status": "unresolved",
+  "tol_frac": 0.1,
+  "billed_band_kw": [
+    256.338,
+    313.302
+  ],
+  "windows_min": [
+    5,
+    15,
+    30,
+    60
+  ],
+  "alignments": [
+    "end",
+    "start",
+    "center"
+  ],
+  "hard_gate_on_15min_vs_billed": false,
+  "legacy_250_290": {
+    "band_kw": [
+      250.0,
+      290.0
+    ],
+    "role": "a04_calibration_diagnostic_only",
+    "enforced_in_a04v2_selection": false
+  },
+    "same_function_for_bas_and_eplus": true,
+    "native_energyplus_minutes": 15,
+    "sub_native_windows_min": [5],
+    "sub_native_policy": "unavailable_not_invented",
+    "guideline14_hourly": "diagnostic_until_meter_boundary_resolved"
+}

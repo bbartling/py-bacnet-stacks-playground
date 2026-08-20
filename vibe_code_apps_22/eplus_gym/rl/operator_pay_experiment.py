@@ -7,7 +7,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 import matplotlib
 
@@ -107,15 +107,33 @@ def full_mode_allowed(ramp: Mapping[str, Any]) -> bool:
 
 
 def refuse_full_campaign(app_root: Path) -> dict[str, Any]:
-    ramp = load_ramp_gate(app_root)
-    if full_mode_allowed(ramp):
-        return {"allowed": True, "ramp": ramp}
-    return {
-        "allowed": False,
-        "ramp": ramp,
-        "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
-        "reason": "physics-ramp gate is not PASS; long campaign refused",
-    }
+    from eplus_gym.rl.active_model import ActiveModelError, verify_active_model
+
+    try:
+        ramp = load_ramp_gate(app_root)
+    except Exception as exc:  # noqa: BLE001
+        ramp = {"passed": False, "verdict": VERDICT_FAIL, "error": str(exc)}
+    try:
+        manifest = verify_active_model(app_root)
+    except ActiveModelError as exc:
+        extra = ""
+        if not full_mode_allowed(ramp):
+            extra = "; A04 postfix physics-ramp gate is also not PASS"
+        return {
+            "allowed": False,
+            "ramp": ramp,
+            "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
+            "reason": f"{exc}{extra}",
+        }
+    if not full_mode_allowed(ramp):
+        return {
+            "allowed": False,
+            "ramp": ramp,
+            "manifest": manifest,
+            "verdict": str(ramp.get("verdict") or VERDICT_FAIL),
+            "reason": "physics-ramp gate is not PASS; nonempty artifact path is not evidence",
+        }
+    return {"allowed": True, "ramp": ramp, "manifest": manifest}
 
 
 def no_setback_params() -> SixZoneDailyParams:
@@ -304,71 +322,231 @@ def build_manifest(
     }
 
 
-def _watermark(ax, text: str = SMOKE_WATERMARK) -> None:
-    ax.text(
+ARM_LABELS = {
+    "incumbent": "incumbent",
+    "no_setback": "no setback",
+    "random_policy": "random policy",
+    "ppo": "untrained PPO",
+    "dqn": "untrained DQN",
+}
+
+
+def _banner_footer(fig) -> None:
+    fig.text(
         0.5,
-        0.52,
-        text,
+        0.99,
+        SMOKE_WATERMARK,
         ha="center",
-        va="center",
-        transform=ax.transAxes,
-        fontsize=11,
+        va="top",
+        fontsize=10,
         color="#a33",
-        alpha=0.85,
+        fontweight="bold",
     )
-    ax.text(0.5, 0.04, PLOT_FOOTER, ha="center", va="bottom", transform=ax.transAxes, fontsize=7)
+    fig.text(0.5, 0.01, PLOT_FOOTER, ha="center", va="bottom", fontsize=8)
 
 
-def write_smoke_plots(plots_dir: Path, summary: Mapping[str, Any]) -> list[Path]:
-    plots_dir = Path(plots_dir)
-    plots_dir.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.set_title("Reward anatomy (illustrative)")
+def plot_reward_anatomy(plots_dir: Path) -> Path:
+    fig, ax = plt.subplots(figsize=(10, 5.5))
     ax.set_axis_off()
+    ax.set_title("Reward anatomy (illustrative operator_pay_2x_v1)")
     ax.text(
-        0.05,
-        0.75,
+        0.04,
+        0.88,
         "baseline cost → candidate cost → savings\n"
         "→ readiness gate → display paycheck → training reward\n\n"
         "savings = paired_baseline_cost - candidate_cost\n"
         "display = clip(100 + k * savings, 0, 500)\n"
-        "readiness fail: display $0, train reward -10",
+        "valid + readiness fail: display $0, train reward -10\n"
+        "crashed/empty EnergyPlus: FAIL_REWARD -1e6",
         va="top",
         fontsize=11,
         family="monospace",
+        transform=ax.transAxes,
     )
-    _watermark(ax)
-    p1 = plots_dir / "01-reward-anatomy.png"
-    fig.savefig(p1, dpi=120)
+    _banner_footer(fig)
+    fig.subplots_adjust(top=0.86, bottom=0.10)
+    path = Path(plots_dir) / "01-reward-anatomy.png"
+    fig.savefig(path, dpi=140)
     plt.close(fig)
-    written.append(p1)
+    return path
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(["PPO Box(11)", "DQN Discrete(64)"], [11, 64], color=["#127d8e", "#d17b2f"])
-    ax.set_ylabel("Action cardinality (dims or discrete n)")
-    ax.set_title("Action-space comparison")
-    _watermark(ax)
-    p2 = plots_dir / "02-action-space.png"
-    fig.tight_layout()
-    fig.savefig(p2, dpi=120)
-    plt.close(fig)
-    written.append(p2)
 
-    arms = list((summary.get("by_arm") or {}).keys()) or list(ARMS)
-    counts = [int((summary.get("by_arm") or {}).get(a, {}).get("candidate_count") or 0) for a in arms]
-    fig, ax = plt.subplots(figsize=(9, 4.5))
-    ax.bar(arms, counts, color="#4a7c59")
-    ax.set_ylabel("Candidate EnergyPlus days")
-    ax.set_title("Per-arm smoke scorecard")
-    _watermark(ax)
-    p3 = plots_dir / "03-arm-scorecard.png"
-    fig.tight_layout()
-    fig.savefig(p3, dpi=120)
+def plot_action_space_schematic(plots_dir: Path) -> Path:
+    """Two-column schematic. Never bar-plot 11 dimensions against 64 discrete actions."""
+    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12.5, 6.8))
+    for ax in (ax_l, ax_r):
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_axis_off()
+    ax_l.set_title("PPO — Box(11), continuous")
+    ax_l.text(
+        0.06,
+        0.92,
+        "occupied heating setpoint\n"
+        "unoccupied heating setpoint\n"
+        "occupancy start\n"
+        "occupancy end\n"
+        "recovery duration\n"
+        "six zone-specific setback offsets",
+        va="top",
+        fontsize=11,
+        family="monospace",
+        transform=ax_l.transAxes,
+    )
+    ax_r.set_title("DQN — Discrete(64), coarse ablation")
+    ax_r.text(
+        0.06,
+        0.92,
+        "4 unoccupied setpoints\n"
+        "4 recovery durations\n"
+        "4 shared setback levels\n"
+        "4 × 4 × 4 = 64 actions\n\n"
+        "Not the same measurement as Box(11).\n"
+        "No ranking. Untrained smoke only.",
+        va="top",
+        fontsize=11,
+        family="monospace",
+        transform=ax_r.transAxes,
+    )
+    _banner_footer(fig)
+    fig.subplots_adjust(top=0.84, bottom=0.10)
+    path = Path(plots_dir) / "02-action-space.png"
+    fig.savefig(path, dpi=140)
     plt.close(fig)
-    written.append(p3)
+    return path
+
+
+def _rows_frame(rows: Sequence[Mapping[str, Any]] | pd.DataFrame) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
+    if df.empty:
+        raise OperatorPayExperimentError("no episode rows for smoke figures")
+    if "infeasible" in df.columns:
+        df = df.copy()
+        df["infeasible"] = df["infeasible"].map(
+            lambda v: str(v).strip().lower() in {"true", "1", "yes"} if not isinstance(v, bool) else bool(v)
+        )
+    if "failed" in df.columns:
+        df = df.copy()
+        df["failed"] = df["failed"].map(
+            lambda v: str(v).strip().lower() in {"true", "1", "yes"} if not isinstance(v, bool) else bool(v)
+        )
+    return df
+
+
+def plot_arm_scorecard(plots_dir: Path, rows: Sequence[Mapping[str, Any]] | pd.DataFrame) -> Path:
+    df = _rows_frame(rows)
+    labels = [ARM_LABELS[a] for a in ARMS]
+    means_pay: list[float] = []
+    means_kwh: list[float] = []
+    means_peak: list[float] = []
+    n_ready_fail: list[int] = []
+    n_ok: list[int] = []
+    for arm in ARMS:
+        sub = df[df["arm"] == arm]
+        ok = sub[~sub["failed"].astype(bool)]
+        n_ok.append(int(len(ok)))
+        n_ready_fail.append(int(ok["infeasible"].fillna(False).astype(bool).sum()))
+        means_pay.append(float(ok["display_paycheck_usd"].astype(float).mean()) if len(ok) else 0.0)
+        means_kwh.append(float(ok["daily_kwh"].astype(float).mean()) if len(ok) else 0.0)
+        means_peak.append(float(ok["peak_kw"].astype(float).mean()) if len(ok) else 0.0)
+
+    fig, axes = plt.subplots(2, 2, figsize=(12.5, 8.2))
+    axes[0, 0].bar(labels, means_pay, color="#127d8e")
+    axes[0, 0].set_ylabel("Mean illustrative paycheck (USD)")
+    axes[0, 0].set_title("Illustrative mean paycheck")
+    axes[0, 1].bar(labels, means_kwh, color="#4a7c59")
+    axes[0, 1].set_ylabel("Mean daily kWh")
+    axes[0, 1].set_title("Mean daily energy")
+    axes[1, 0].bar(labels, means_peak, color="#d17b2f")
+    axes[1, 0].set_ylabel("Mean peak kW")
+    axes[1, 0].set_title("Mean peak demand")
+    axes[1, 1].bar(labels, n_ready_fail, color="#a33")
+    axes[1, 1].set_ylabel("Readiness failures (count)")
+    axes[1, 1].set_title("Readiness failures (n=3 valid E+ / arm)")
+    for ax, ns in zip(axes.ravel(), (n_ok, n_ok, n_ok, n_ok)):
+        ax.tick_params(axis="x", rotation=20)
+        ax.set_ylim(bottom=0)
+    fig.suptitle("Smoke scorecard — 15 LIVE EnergyPlus episodes; no winner", fontsize=12)
+    _banner_footer(fig)
+    fig.subplots_adjust(top=0.86, bottom=0.12, hspace=0.42, wspace=0.28)
+    path = Path(plots_dir) / "03-arm-scorecard.png"
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+    return path
+
+
+def plot_paired_paycheck_by_day(plots_dir: Path, rows: Sequence[Mapping[str, Any]] | pd.DataFrame) -> Path:
+    df = _rows_frame(rows)
+    days = ["2026-01-25", "2026-01-26", "2026-03-16"]
+    x = np.arange(len(days))
+    width = 0.15
+    fig, ax = plt.subplots(figsize=(12.5, 6.4))
+    for i, arm in enumerate(ARMS):
+        pays: list[float] = []
+        fails: list[bool] = []
+        for day in days:
+            hit = df[(df["arm"] == arm) & (df["day"].astype(str) == day)]
+            if hit.empty:
+                pays.append(0.0)
+                fails.append(False)
+                continue
+            pays.append(float(hit.iloc[0]["display_paycheck_usd"]))
+            fails.append(bool(hit.iloc[0]["infeasible"]))
+        offs = x + (i - 2) * width
+        bars = ax.bar(offs, pays, width, label=ARM_LABELS[arm])
+        for bar, failed in zip(bars, fails):
+            if failed:
+                bar.set_hatch("//")
+                ax.annotate(
+                    "readiness fail\n$0 / train −10",
+                    xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()),
+                    xytext=(0, 8),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=7,
+                    color="#a33",
+                )
+    ax.set_xticks(x)
+    ax.set_xticklabels(["Jan 25", "Jan 26", "Mar 16"])
+    ax.set_ylabel("Illustrative paycheck (USD)")
+    ax.set_title(
+        "Paired per-day paycheck — reused engineering-gate dates, not validation or holdout"
+    )
+    ax.legend(ncols=3, fontsize=8)
+    ax.set_ylim(0, 560)
+    _banner_footer(fig)
+    fig.subplots_adjust(top=0.82, bottom=0.12)
+    path = Path(plots_dir) / "04-paired-paycheck-by-day.png"
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+    return path
+
+
+def write_smoke_plots(
+    plots_dir: Path,
+    summary: Mapping[str, Any] | None = None,
+    rows: Sequence[Mapping[str, Any]] | pd.DataFrame | None = None,
+) -> list[Path]:
+    plots_dir = Path(plots_dir)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    _ = summary
+    written = [
+        plot_reward_anatomy(plots_dir),
+        plot_action_space_schematic(plots_dir),
+    ]
+    if rows is not None and len(rows) > 0:
+        written.append(plot_arm_scorecard(plots_dir, rows))
+        written.append(plot_paired_paycheck_by_day(plots_dir, rows))
     return written
+
+
+def regenerate_plots_from_csv(app_root: Path) -> list[Path]:
+    csv_path = Path(app_root) / "docs" / "audits" / "figures" / "operator_pay_smoke" / "episode_results.csv"
+    if not csv_path.is_file():
+        raise OperatorPayExperimentError(f"missing {csv_path}")
+    df = pd.read_csv(csv_path)
+    plots_dir = Path(app_root) / "plots" / "rl_report_operator_pay"
+    return write_smoke_plots(plots_dir, rows=df)
 
 
 def write_package(
@@ -435,7 +613,7 @@ def write_package(
     )
     paths["readme"] = readme
     if plots_dir is not None:
-        write_smoke_plots(plots_dir, summary)
+        write_smoke_plots(plots_dir, summary=summary, rows=rows)
     return paths
 
 
@@ -584,3 +762,17 @@ def run_operator_pay_experiment(
         "manifest": manifest,
         "n_rows": len(rows),
     }
+
+
+if __name__ == "__main__":
+    import argparse
+
+    p = argparse.ArgumentParser(description="Regenerate operator-pay smoke figures from committed CSV")
+    p.add_argument("--plots-from-csv", action="store_true")
+    args = p.parse_args()
+    if args.plots_from_csv:
+        root = Path(__file__).resolve().parents[2]
+        paths = regenerate_plots_from_csv(root)
+        print("\n".join(str(p) for p in paths))
+    else:
+        raise SystemExit("pass --plots-from-csv (does not run EnergyPlus)")

@@ -1,0 +1,341 @@
+{
+  "schema": "vibe22.trackb.matrix_summary.v1",
+  "n_reports": 37,
+  "all_w2a_nonzero": true,
+  "n_valid_96": 37,
+  "rows": [
+    {
+      "run_id": "trackb_live_v3_base_20260110_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3882,
+      "ramp_passed": true,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260110_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3714,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260110_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3732,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260110_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3666,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260112",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2106,
+      "ramp_passed": true,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260112_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2106,
+      "ramp_passed": true,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260112_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2166,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260112_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2580,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260112_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2688,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260114_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3528,
+      "ramp_passed": true,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260114_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3996,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260114_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 4092,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_base_20260114_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3492,
+      "ramp_passed": false,
+      "child_idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260110_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3630,
+      "ramp_passed": true,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260110_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 4440,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260110_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 5142,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260110_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3234,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260112_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 1932,
+      "ramp_passed": true,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260112_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3264,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260112_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3402,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260112_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2856,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260114_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3412,
+      "ramp_passed": true,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260114_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 4438,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260114_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 4762,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_high_20260114_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 4300,
+      "ramp_passed": false,
+      "child_idf_sha256": "d1f7643832d6823507923baa8c1308e41d0125da734167c6a5eaf27ffaed4341",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260110_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 1998,
+      "ramp_passed": true,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260110_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2622,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260110_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 1734,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260110_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2076,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260112_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3366,
+      "ramp_passed": true,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260112_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3228,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260112_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2928,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260112_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2526,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260114_continuous_70",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2282,
+      "ramp_passed": true,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260114_deep_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3398,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260114_observed_bas_incumbent",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 2540,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    },
+    {
+      "run_id": "trackb_live_v3_low_20260114_shallow_setback",
+      "n_rows": 96,
+      "scored_runperiod_valid": true,
+      "w2a_scored_runtime": 3056,
+      "ramp_passed": false,
+      "child_idf_sha256": "3f5f44f5ae510dfbc727a5729bf5d1d265302db780b9ba339341c24f3bb209fb",
+      "quality_gates_passed": false
+    }
+  ]
+}

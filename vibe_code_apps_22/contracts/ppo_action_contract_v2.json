@@ -1,0 +1,36 @@
+{
+  "contract_version": "ppo_action_contract_v2",
+  "space": "Box",
+  "n": 11,
+  "order": [
+    "occupied_heating_f",
+    "setback_depth_f",
+    "heating_setpoint_start_step",
+    "heating_setpoint_end_step",
+    "recovery_lead_minutes",
+    "offset_1F_A",
+    "offset_1F_B",
+    "offset_1F_C",
+    "offset_1F_D",
+    "offset_2F_A",
+    "offset_2F_B"
+  ],
+  "bounds": {
+    "occupied_heating_f": [68.0, 72.0],
+    "setback_depth_f": [0.0, 14.0],
+    "heating_setpoint_start_step": [20, 40],
+    "heating_setpoint_end_step": [52, 96],
+    "recovery_lead_minutes": [0, 180],
+    "six_zone_setback_offsets_f": [-3.0, 1.0]
+  },
+  "setback_depth": {
+    "unoccupied_effective": "occupied - setback_depth + zone_adj",
+    "deadband_f": 0.25,
+    "deadband_selects": "CONTINUOUS_CONDITIONING_THERMOSTATIC",
+    "preheat": "rejected_unless_named_mode; no preheat mode in this PR"
+  },
+  "recovery_lead_minutes": "linear ramp duration ending at heating_setpoint_start_step; not a hold plus a separate 60-min ramp",
+  "end_step_96": "midnight / end of day; must not wrap to 0",
+  "does_not_move_school_occupancy": true,
+  "v1_frozen": "eplus_gym.rl.spaces remains Discrete/Box v1 including UNOCC_F_HI=68"
+}

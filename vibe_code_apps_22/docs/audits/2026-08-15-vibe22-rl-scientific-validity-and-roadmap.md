@@ -21,7 +21,7 @@ Builder: `scripts/build_vibe22_rl_validity_report.py`
 | Playground branch | `fix/vibe22-rl-scientific-validity` |
 | Champion IDF | `models/eplus/lakeside_w2a_a04_dual_champion.idf` |
 | Champion SHA256 | `212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683` |
-| rllib root | `C:\Users\ben\Documents\rllib-energyplus\.worktrees\feat-generic-runner` |
+| rllib root | `<RLLIB_ENERGYPLUS_ROOT>` (pin `feat/generic-runner` @ `01c5dc7`) |
 | rllib SHA | `01c5dc7cf55c1c9e33e995f2340b0859563bb045` |
 | year2xsyn site winner field | `None` (TRAIN exploration; repo snapshot `winner=null`) |
 | EnergyPlus (year2xsyn logs) | 26.1.0 |
@@ -56,7 +56,7 @@ Monthly utility (n=10): NMBE ≈ **+0.98%**, CVRMSE ≈ **10.45%**. Jan 26 15-mi
 
 - `legacy_reward_v1`: `-(kWh*rate + peak*demand) - comfort`
 - `operator_pay_v1` (historical): incremental demand vs floor; readiness fail → reward **0**
-- `operator_pay_2x_v1` / `operator_pay_3x_v1`: same floor for pair; `display_paycheck = clip(100 + k*savings, 0, cap)`; training uses `READINESS_FAIL_REWARD` (`-1e6`) on school readiness fail
+- `operator_pay_2x_v1` / `operator_pay_3x_v1`: same floor for pair; `display_paycheck = clip(100 + k*savings, 0, cap)`. Crashed/empty EnergyPlus → `FAIL_REWARD` (`-1e6`). Valid episode that fails school readiness → display paycheck `$0` and training reward `-10` (`INFEASIBLE_TRAIN_REWARD`).
 
 ## 7. Dataset / splits
 

@@ -1,0 +1,85 @@
+{
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "as_built": false,
+  "assumes_identical_3ton": false,
+  "sensitivity": "base",
+  "hp_count_sum": 67,
+  "groups": [
+    {
+      "action_key": "1F_A",
+      "bas_group": "1F_Area_A",
+      "hp_count": 15,
+      "n_banks": 3,
+      "fractions": {
+        "small": 0.25,
+        "medium": 0.5,
+        "large": 0.25
+      },
+      "tonnage_asserted": false
+    },
+    {
+      "action_key": "1F_B",
+      "bas_group": "1F_Area_B",
+      "hp_count": 10,
+      "n_banks": 2,
+      "fractions": {
+        "small": 0.5,
+        "large": 0.5
+      },
+      "tonnage_asserted": false
+    },
+    {
+      "action_key": "1F_C",
+      "bas_group": "1F_Area_C",
+      "hp_count": 11,
+      "n_banks": 3,
+      "fractions": {
+        "small": 0.25,
+        "medium": 0.5,
+        "large": 0.25
+      },
+      "tonnage_asserted": false
+    },
+    {
+      "action_key": "1F_D",
+      "bas_group": "1F_Area_D",
+      "hp_count": 10,
+      "n_banks": 2,
+      "fractions": {
+        "small": 0.5,
+        "large": 0.5
+      },
+      "tonnage_asserted": false
+    },
+    {
+      "action_key": "2F_A",
+      "bas_group": "2F_Area_A",
+      "hp_count": 11,
+      "n_banks": 3,
+      "fractions": {
+        "small": 0.25,
+        "medium": 0.5,
+        "large": 0.25
+      },
+      "tonnage_asserted": false
+    },
+    {
+      "action_key": "2F_B",
+      "bas_group": "2F_Area_B",
+      "hp_count": 10,
+      "n_banks": 2,
+      "fractions": {
+        "small": 0.5,
+        "large": 0.5
+      },
+      "tonnage_asserted": false
+    }
+  ],
+  "curve_provenance": {
+    "heating_equationfit": "inherited_from_a04_parent_unverified_catalog",
+    "not_as_built": true,
+    "tonnage_asserted": false
+  },
+  "control_groups": 6,
+  "equipment_representation": "multiple_equationfit_banks_per_group"
+}

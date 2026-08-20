@@ -1,0 +1,51 @@
+{
+  "contract_version": "control_contract_v2",
+  "label": "heating DualSP daily plan; not compressor command; not school occupancy",
+  "continuous_conditioning_label": "CONTINUOUS_CONDITIONING_THERMOSTATIC",
+  "layers": {
+    "A_school_occupancy": "external calendar constraint; agent must not move it",
+    "B_bas_occupied_unoccupied_mode": "BAS occ/unocc mode around the school day",
+    "C_heating_setpoint_schedule": "six 96-step DualSP heating setpoints the agent may choose inside a safe envelope",
+    "D_equipment_availability": "plant remains available for setback and freeze protection",
+    "E_fan_compressor_operation": "thermostatic cycling under BAS/thermostat safety; never direct compressor control"
+  },
+  "school_occupied_start": {
+    "weekday_local": "07:30",
+    "weekday_step": 30,
+    "source": "school_calendar_v2.doors_open"
+  },
+  "school_occupied_end": {
+    "mon_tue_wed_fri_local": "14:40",
+    "mon_tue_wed_fri_step_approx": 59,
+    "thursday_local": "13:30",
+    "thursday_step": 54
+  },
+  "readiness_check_steps": [30, 31],
+  "agent_envelope": {
+    "heating_setpoint_start_step": {"min": 20, "max": 40, "note": "05:00-10:00 DualSP occupied start; cannot move school occupancy"},
+    "heating_setpoint_end_step": {"min": 52, "max": 96, "note": "96 means midnight/end of day and must not wrap to 0"},
+    "recovery_lead_minutes": {"min": 0, "max": 180, "note": "linear ramp duration ending at heating_setpoint_start_step"},
+    "recovery_ramp_minutes": {"min": 0, "max": 180, "equals_lead": true, "note": "must equal recovery_lead_minutes; no extra fixed 60-min ramp"},
+    "occupied_heating_setpoint_f": {"min": 68.0, "max": 72.0},
+    "unoccupied_heating_setpoint_f": {"min": 58.0, "max": 72.0, "may_equal_occupied": true},
+    "six_zone_setback_offsets_f": {"min": -3.0, "max": 1.0}
+  },
+  "equipment_availability_mode": "AVAILABLE_FOR_SETBACK_AND_FREEZE_PROTECTION",
+  "continuous_conditioning": {
+    "eligible_when": "occupied_heating_setpoint_f equals unoccupied_heating_setpoint_f, or explicit flag",
+    "emits": "identical setpoint on all 96 intervals",
+    "examples_f": [68.0, 70.0],
+    "not": "running the compressor 24/7"
+  },
+  "fixed_comparison_arms": [
+    "observed_bas_incumbent",
+    "deep_setback",
+    "shallow_setback",
+    "continuous_conditioning_68",
+    "continuous_conditioning_70",
+    "weather_rule_optimal_start",
+    "random_policy",
+    "ppo",
+    "dqn"
+  ]
+}

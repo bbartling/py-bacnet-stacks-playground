@@ -1,0 +1,23 @@
+{
+  "schema": "vibe22.a04v2.candidate.v1",
+  "run_id": "imass_a500",
+  "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "idf": "lakeside_w2a_a04v2_imass_a500.idf",
+  "idf_sha256": "b812817148195a1b9a41edc8ccf48e4ec4f6b0ea440120ca7e50376ed6076a1d",
+  "stage": "A_one_factor",
+  "parameters": [
+    {
+      "name": "InternalMass.Surface_Area_m2_per_zone",
+      "baseline": 0.0,
+      "value": 500.0,
+      "lo": 0.0,
+      "hi": 5000.0,
+      "units": "m2",
+      "affects": [
+        "temperature_dynamics",
+        "possibly_peak"
+      ],
+      "justification": "Explicit furniture mass; CapMult-alone inflates Jan peak past \u00b110% band."
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+timestamp,zone,delta_f,zone_temp_f,prior_zone_temp_f,local_step,lookback,facility_kw,oat_c,heating_setpoint_f
+2025-12-06T07:30:00,zone_temp_1F_B_f,2.7122143677529493,70.71234656509583,68.00013219734288,29,False,286.060229089557,-5.975,71.9999984741211

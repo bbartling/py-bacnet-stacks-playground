@@ -1,0 +1,7 @@
+{
+  "schema": "vibe22.mega.validation_selection.v1",
+  "phase_status": "BLOCKED_BY_PHYSICS",
+  "locked_test_status": "NO_PRISTINE_LOCKED_TEST_AVAILABLE",
+  "note": "No synthetic PPO/DQN validation rows.",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

@@ -1,0 +1,42 @@
+{
+  "scorecard": "a04_dial_scorecard.csv",
+  "models": [
+    {
+      "model": "E20",
+      "nmbe_pct": -4.91,
+      "cvrmse_pct": 13.52,
+      "gl14_pass": true,
+      "jan26_peak_kw": 270.8
+    },
+    {
+      "model": "SC02",
+      "nmbe_pct": -9.41,
+      "cvrmse_pct": 14.59,
+      "gl14_pass": false,
+      "jan26_peak_kw": 290.3
+    },
+    {
+      "model": "R02",
+      "nmbe_pct": -1.6,
+      "cvrmse_pct": 11.05,
+      "gl14_pass": true,
+      "jan26_peak_kw": 288.6
+    },
+    {
+      "model": "A04",
+      "nmbe_pct": 0.98,
+      "cvrmse_pct": 10.45,
+      "gl14_pass": true,
+      "jan26_peak_kw": 287.5
+    }
+  ],
+  "outputs": [
+    "gl14_gate_scatter_enhanced.png",
+    "gl14_peak_pareto_enhanced.png",
+    "enhanced_dial_trials_gl14.png"
+  ],
+  "gates": {
+    "nmbe_abs_pct": 5.0,
+    "cvrmse_pct": 15.0
+  }
+}

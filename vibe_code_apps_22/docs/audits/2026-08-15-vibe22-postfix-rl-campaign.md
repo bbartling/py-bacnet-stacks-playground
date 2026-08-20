@@ -53,7 +53,7 @@ Synthetic clones stay with `calendar_fold_key`.
 ## 5. Commands
 
 ```powershell
-$env:SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+$env:SITE_ROOT="<SITE_ROOT>"
 cd vibe_code_apps_22
 python -m pytest tests -q
 python scripts/postfix_p1_gates.py

@@ -1,0 +1,39 @@
+{
+  "schema": "vibe22.rdd_discovery.v1",
+  "day": "2026-01-12",
+  "idf_sha256": "40fb33e863e5d04cabf087be42b74cc38de67d5030a2534e54847a98aa54029a",
+  "n_rdd_names": 615,
+  "confirmed": [
+    "Heating Coil Air Mass Flow Rate",
+    "Heating Coil Part Load Ratio",
+    "Heating Coil Runtime Fraction",
+    "Heating Coil Electricity Rate",
+    "Heating Coil Heating Rate",
+    "Heating Coil Source Side Heat Transfer Rate",
+    "Heating Coil Source Side Mass Flow Rate",
+    "Cooling Coil Air Mass Flow Rate",
+    "Cooling Coil Part Load Ratio",
+    "Cooling Coil Runtime Fraction",
+    "Cooling Coil Electricity Rate",
+    "Cooling Coil Total Cooling Rate",
+    "Cooling Coil Source Side Heat Transfer Rate",
+    "Fan Air Mass Flow Rate",
+    "Fan Electricity Rate",
+    "Pump Electricity Rate",
+    "System Node Temperature",
+    "System Node Mass Flow Rate",
+    "Zone Predicted Sensible Load to Setpoint Heat Transfer Rate",
+    "Zone Mean Air Temperature"
+  ],
+  "wanted_missing": [
+    "Heating Coil Water Mass Flow Rate",
+    "Heating Coil Electric Power",
+    "Cooling Coil Water Mass Flow Rate",
+    "Cooling Coil Electric Power",
+    "Fan Electric Power",
+    "Pump Electric Power",
+    "Zone Thermostat Heating Setpoint"
+  ],
+  "returncode": 0,
+  "rdd_bytes": 55340
+}

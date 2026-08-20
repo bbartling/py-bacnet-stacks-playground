@@ -1,0 +1,6 @@
+{
+  "schema": "vibe22.mega.child_model_ledger.v1",
+  "phase_status": "SCAFFOLD_ONLY",
+  "note": "Real child hashes require patched IDF on disk \u2014 see a04_child_hp67_scaled_v1.",
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

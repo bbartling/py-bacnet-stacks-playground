@@ -1,0 +1,11 @@
+{
+  "source_epw": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\weather\\madison_amy_202508_202608.epw",
+  "staged_epw": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c1_m0_20260112\\low_unocc\\staged_madison_amy_202508_202608.epw",
+  "source_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "staged_sha256": "3537b9ad2c0d368e50c80b49525a754d3e5c0a529a515afb71ae274b479bd7fc",
+  "source_data_periods": "DATA PERIODS,1,1,Data,Friday,8/1/2025,8/7/2026",
+  "staged_data_periods": "DATA PERIODS,1,1,Data,Friday,8/1/2025,8/7/2026",
+  "span_start": "2025-08-01",
+  "span_end": "2026-08-07",
+  "source_had_year": true
+}

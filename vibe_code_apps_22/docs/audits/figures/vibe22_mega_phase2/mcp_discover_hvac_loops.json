@@ -1,0 +1,24 @@
+{
+  "file_path": "lakeside_w2a_a04_dual_champion.idf",
+  "plant_loops": [
+    {
+      "index": 1,
+      "name": "Only Water Loop Mixed Water Loop",
+      "fluid_type": "Water",
+      "max_loop_flow_rate": "autosize",
+      "min_loop_flow_rate": 0.0,
+      "loop_inlet_node": "Only Water Loop Mixed Supply Inlet",
+      "loop_outlet_node": "Only Water Loop Mixed Supply Outlet",
+      "demand_inlet_node": "Only Water Loop Mixed Demand Inlet",
+      "demand_outlet_node": "Only Water Loop Mixed Demand Outlet"
+    }
+  ],
+  "condenser_loops": [],
+  "air_loops": [],
+  "summary": {
+    "total_plant_loops": 1,
+    "total_condenser_loops": 0,
+    "total_air_loops": 0,
+    "total_zones": 9
+  }
+}

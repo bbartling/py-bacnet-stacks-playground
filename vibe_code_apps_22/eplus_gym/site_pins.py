@@ -15,15 +15,19 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def resolve_site_epw(site: Path) -> Path:
+    """Site AMY EPW without implying the campaign IDF is A04."""
+    weather = Path(site) / "eplus" / "weather"
+    epws = sorted(weather.glob("*.epw")) if weather.is_dir() else []
+    if not epws:
+        raise FileNotFoundError(f"no EPW under {weather}")
+    amy = [p for p in epws if "amy" in p.name.lower()]
+    return amy[0] if amy else epws[0]
+
+
 def resolve_a04_and_epw(site: Path) -> tuple[Path, Path]:
     site = Path(site)
     idf = site / "eplus" / "models" / A04_IDF_NAME
     if not idf.is_file():
         raise FileNotFoundError(f"A04 dual champion missing: {idf}")
-    weather = site / "eplus" / "weather"
-    epws = sorted(weather.glob("*.epw")) if weather.is_dir() else []
-    if not epws:
-        raise FileNotFoundError(f"no EPW under {weather}")
-    amy = [p for p in epws if "amy" in p.name.lower()]
-    epw = amy[0] if amy else epws[0]
-    return idf, epw
+    return idf, resolve_site_epw(site)

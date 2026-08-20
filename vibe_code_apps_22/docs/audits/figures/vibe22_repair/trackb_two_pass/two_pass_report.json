@@ -1,0 +1,58 @@
+{
+  "schema": "vibe22.trackb.two_pass.v1",
+  "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY",
+  "generated_at_utc": "2026-08-17T17:21:42.180704+00:00",
+  "parent_idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "child_idf_sha256": "d7b1ce51c37f46acfa12da8fea2493a091ceb9d94e874a960ef912d57a922dc7",
+  "pass1_returncode": 0,
+  "pass2_returncode": 0,
+  "eplus_quality": {
+    "ok": false,
+    "completed_successfully": true,
+    "warning_count": 28998,
+    "severe_count": 2,
+    "fatal_count": 0,
+    "first_severe": "** Severe  ** GetNextEnvironment: Actual weather runperiod has been entered but weatherfile DATA PERIOD does not have year included in start/end date.",
+    "first_fatal": null,
+    "recurring": {
+      "data_period_year": 2,
+      "w2a_low_airflow": 28934
+    },
+    "w2a_low_airflow_by_phase": {
+      "warmup": 25154,
+      "sizing": 0,
+      "scored_runtime": 3780
+    },
+    "w2a_low_airflow_events": [
+      {
+        "phase": "scored_runtime",
+        "n": 28934,
+        "warmup": 25154,
+        "sizing": 0,
+        "scored_runtime": 3780,
+        "coil": null,
+        "line": "*************  ** Warning ** Actual air mass flow rate is smaller than 25% of water-to-air heat pump coil rated air flow rate."
+      }
+    ],
+    "w2a_phase_unparseable": false,
+    "w2a_phase_fail_closed": false,
+    "err_path": "<SITE_ROOT>\\reports\\eplus_gym\\trackb_two_pass\\trackb_two_pass_base\\pass2_banks_smoke\\eplus\\eplusout.err"
+  },
+  "scored_runtime_w2a_pass": false,
+  "reference_integrity": {
+    "ok": true,
+    "n_heating_coils": 20,
+    "n_zonehvac": 20,
+    "n_fans": 20,
+    "public_label": "PRELIMINARY CAPACITY-CLASS ARCHETYPE CONSTRAINED BY THE 67-UNIT BAS INVENTORY"
+  },
+  "track_b_live_energyplus_executed": true,
+  "track_b_completed": false,
+  "champion": null,
+  "long_campaign_allowed": false,
+  "sizing_provenance": "live_energyplus_eio_component_sizing",
+  "heating_capacity_source": [
+    "user_specified"
+  ],
+  "heating_capacity_note": "A04 parent heating coils report User-Specified Rated Heating Capacity (149430 W every zone). Airflow is Design Size. Banks split those eio totals; this is not as-built tonnage."
+}

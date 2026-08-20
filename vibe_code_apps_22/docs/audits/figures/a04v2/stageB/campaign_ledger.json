@@ -1,0 +1,5445 @@
+{
+  "schema": "vibe22.a04v2.stageB_ledger.v1",
+  "trials": [
+    {
+      "run_id": "sb_autosizehtg_c1_m0_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:37:46.749637+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "fc3cb6d35494893baf77777e06f8ca2226f1e40c2dc42ea864c4afeb40f61363",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.08531970927055,
+        "perturbed_simulated_max_f_per_15min": 5.4029315219862895,
+        "high_occ_simulated_max_f_per_15min": 3.567433776716072,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.08531970927055,
+            "splice": {
+              "zone_temp_1F_A_f": 1.1696866835109176e-06,
+              "zone_temp_1F_B_f": 1.2184600421960567e-06,
+              "zone_temp_1F_C_f": 9.781756062920977e-07,
+              "zone_temp_1F_D_f": 1.0206595248973827e-06,
+              "zone_temp_2F_A_f": 1.0588651377929637e-06,
+              "zone_temp_2F_B_f": 1.0540282744386786e-06
+            },
+            "n_breaches": 6
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 5.4029315219862895,
+            "splice": {
+              "zone_temp_1F_A_f": 1.1551824172784109e-06,
+              "zone_temp_1F_B_f": 1.2035107772589981e-06,
+              "zone_temp_1F_C_f": 9.638394260491623e-07,
+              "zone_temp_1F_D_f": 1.0085992698805057e-06,
+              "zone_temp_2F_A_f": 1.0452713752329146e-06,
+              "zone_temp_2F_B_f": 1.0400802352705796e-06
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.567433776716072,
+            "splice": {
+              "zone_temp_1F_A_f": 1.1766799588031063e-06,
+              "zone_temp_1F_B_f": 1.225739055144004e-06,
+              "zone_temp_1F_C_f": 9.852427638179506e-07,
+              "zone_temp_1F_D_f": 1.0269537540352758e-06,
+              "zone_temp_2F_A_f": 1.0657506379629922e-06,
+              "zone_temp_2F_B_f": 1.0609728917643224e-06
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c1_m0_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c1_m0_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 163.51882885147694,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 163.51882885147694,
+            "start": 163.51882885147694,
+            "center": 163.51882885147694
+          },
+          "30": {
+            "end": 161.4214016348331,
+            "start": 161.59702372885457,
+            "center": 161.4214016348331
+          },
+          "60": {
+            "end": 160.2484814335599,
+            "start": 157.3952020560918,
+            "center": 160.2484814335599
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 163.51882885147694,
+          "30": 161.59702372885457,
+          "60": 160.2484814335599
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2950,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m0_20260112\\low_unocc\\eplus\\episode-00000000-25032\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:38:25.607174+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2925,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-25032",
+          "w2a_low_airflow": 2925,
+          "warning_count": 2950,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-10904",
+          "w2a_low_airflow": 1269,
+          "warning_count": 1294,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-27472",
+          "w2a_low_airflow": 1053,
+          "warning_count": 1078,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c1_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:38:25.608490+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "742790bcc01bbd1864f8fc0f6d1ff153704c34fe56b2b1016a0afbfa453c3d9d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.025738848411535,
+        "perturbed_simulated_max_f_per_15min": 5.28017768771204,
+        "high_occ_simulated_max_f_per_15min": 3.535905048674195,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.025738848411535,
+            "splice": {
+              "zone_temp_1F_A_f": 2.0545561909557364e-06,
+              "zone_temp_1F_B_f": 2.330374826442494e-06,
+              "zone_temp_1F_C_f": 1.999891878767812e-06,
+              "zone_temp_1F_D_f": 1.9799059742808822e-06,
+              "zone_temp_2F_A_f": 1.5274467415338222e-06,
+              "zone_temp_2F_B_f": 1.5675010445193038e-06
+            },
+            "n_breaches": 6
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 5.28017768771204,
+            "splice": {
+              "zone_temp_1F_A_f": 2.0363728623351562e-06,
+              "zone_temp_1F_B_f": 2.3096809513845074e-06,
+              "zone_temp_1F_C_f": 1.981037968334931e-06,
+              "zone_temp_1F_D_f": 1.9635571817389064e-06,
+              "zone_temp_2F_A_f": 1.51228483957766e-06,
+              "zone_temp_2F_B_f": 1.5518434253181113e-06
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.535905048674195,
+            "splice": {
+              "zone_temp_1F_A_f": 2.062889024045944e-06,
+              "zone_temp_1F_B_f": 2.33940656357845e-06,
+              "zone_temp_1F_C_f": 2.0084316076918185e-06,
+              "zone_temp_1F_D_f": 1.9876173382726847e-06,
+              "zone_temp_2F_A_f": 1.5350827595739247e-06,
+              "zone_temp_2F_B_f": 1.5752586648432043e-06
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c1_m800_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c1_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 170.784421576782,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 170.784421576782,
+            "start": 170.784421576782,
+            "center": 170.784421576782
+          },
+          "30": {
+            "end": 169.13884825021233,
+            "start": 168.56886250004885,
+            "center": 169.13884825021233
+          },
+          "60": {
+            "end": 167.30013746761023,
+            "start": 164.97579422102558,
+            "center": 167.30013746761023
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 170.784421576782,
+          "30": 169.13884825021233,
+          "60": 167.30013746761023
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2926,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m800_20260112\\low_unocc\\eplus\\episode-00000000-28904\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:39:24.433784+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2901,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-28904",
+          "w2a_low_airflow": 2901,
+          "warning_count": 2926,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-17852",
+          "w2a_low_airflow": 1377,
+          "warning_count": 1402,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-32388",
+          "w2a_low_airflow": 1059,
+          "warning_count": 1084,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c1_m2000_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T12:39:24.435069+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "72374d8442ff2eec2837fe226dc0ffb1ed49e811d99a5219a7a5d4cf9430ef3d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 3.927656196199152,
+        "perturbed_simulated_max_f_per_15min": 5.021097562036168,
+        "high_occ_simulated_max_f_per_15min": 3.4960112763185833,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 3.927656196199152,
+            "splice": {
+              "zone_temp_1F_A_f": 3.5827506650321084e-06,
+              "zone_temp_1F_B_f": 4.6367331094643305e-06,
+              "zone_temp_1F_C_f": 4.0812820287783325e-06,
+              "zone_temp_1F_D_f": 3.909172534122263e-06,
+              "zone_temp_2F_A_f": 2.218728369030032e-06,
+              "zone_temp_2F_B_f": 2.325817192172508e-06
+            },
+            "n_breaches": 6
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 5.021097562036168,
+            "splice": {
+              "zone_temp_1F_A_f": 3.559687613119422e-06,
+              "zone_temp_1F_B_f": 4.608896972513321e-06,
+              "zone_temp_1F_C_f": 4.056697747500948e-06,
+              "zone_temp_1F_D_f": 3.88739869094934e-06,
+              "zone_temp_2F_A_f": 2.201148504354933e-06,
+              "zone_temp_2F_B_f": 2.307138160517752e-06
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.4960112763185833,
+            "splice": {
+              "zone_temp_1F_A_f": 3.593433604009988e-06,
+              "zone_temp_1F_B_f": 4.649410342949523e-06,
+              "zone_temp_1F_C_f": 4.092561255220062e-06,
+              "zone_temp_1F_D_f": 3.9196054189005736e-06,
+              "zone_temp_2F_A_f": 2.227695333090196e-06,
+              "zone_temp_2F_B_f": 2.3350195021976106e-06
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c1_m2000_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c1_m2000_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 180.64393518222585,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 180.64393518222585,
+            "start": 180.64393518222585,
+            "center": 180.64393518222585
+          },
+          "30": {
+            "end": 179.67904135053755,
+            "start": 178.08131254263415,
+            "center": 179.67904135053755
+          },
+          "60": {
+            "end": 176.95652464618416,
+            "start": 175.28206755743867,
+            "center": 176.95652464618416
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 180.64393518222585,
+          "30": 179.67904135053755,
+          "60": 176.95652464618414
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2945,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m2000_20260112\\low_unocc\\eplus\\episode-00000000-05916\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:40:04.745974+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2920,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-05916",
+          "w2a_low_airflow": 2920,
+          "warning_count": 2945,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-18868",
+          "w2a_low_airflow": 1516,
+          "warning_count": 1541,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-21244",
+          "w2a_low_airflow": 1114,
+          "warning_count": 1139,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m0_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:40:04.747910+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "995aaf46e9b66d14a354c73c51c8b2d46c6dbcda69cfe554ecf66c43bfcbe230",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.977181776364361,
+        "perturbed_simulated_max_f_per_15min": 3.063420438894923,
+        "high_occ_simulated_max_f_per_15min": 1.6595339764786843,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.977181776364361,
+            "splice": {
+              "zone_temp_1F_A_f": 7.57329416956054e-08,
+              "zone_temp_1F_B_f": 7.853748229535995e-08,
+              "zone_temp_1F_C_f": 5.304084993440483e-08,
+              "zone_temp_1F_D_f": 6.345125314055622e-08,
+              "zone_temp_2F_A_f": 6.29159728759987e-08,
+              "zone_temp_2F_B_f": 6.128298934982013e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 3.063420438894923,
+            "splice": {
+              "zone_temp_1F_A_f": 7.57329416956054e-08,
+              "zone_temp_1F_B_f": 7.853748229535995e-08,
+              "zone_temp_1F_C_f": 5.304084993440483e-08,
+              "zone_temp_1F_D_f": 6.345125314055622e-08,
+              "zone_temp_2F_A_f": 6.29159728759987e-08,
+              "zone_temp_2F_B_f": 6.128298934982013e-08
+            },
+            "n_breaches": 6
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.6595339764786843,
+            "splice": {
+              "zone_temp_1F_A_f": 7.617738617682335e-08,
+              "zone_temp_1F_B_f": 7.908693078206852e-08,
+              "zone_temp_1F_C_f": 5.351306242573628e-08,
+              "zone_temp_1F_D_f": 6.391154272478161e-08,
+              "zone_temp_2F_A_f": 6.322298418126593e-08,
+              "zone_temp_2F_B_f": 6.161847920793662e-08
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c6_m0_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c6_m0_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 176.70867928510495,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 176.70867928510495,
+            "start": 176.70867928510495,
+            "center": 176.70867928510495
+          },
+          "30": {
+            "end": 168.22165268716037,
+            "start": 168.25798262612358,
+            "center": 168.22165268716037
+          },
+          "60": {
+            "end": 164.61115648500277,
+            "start": 164.8205927795239,
+            "center": 164.61115648500277
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 176.70867928510495,
+          "30": 168.25798262612358,
+          "60": 167.5468224581573
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2350,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m0_20260112\\low_unocc\\eplus\\episode-00000000-07684\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:40:37.905585+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2325,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-07684",
+          "w2a_low_airflow": 2325,
+          "warning_count": 2350,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-14648",
+          "w2a_low_airflow": 1143,
+          "warning_count": 1168,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-32560",
+          "w2a_low_airflow": 951,
+          "warning_count": 976,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:40:37.908289+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "2a7d16aab4f711ba0a3577da0c30fb647fc11fd1c8cd3345bd876d1d6e102616",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.5025125807280375,
+        "perturbed_simulated_max_f_per_15min": 2.9373536963157747,
+        "high_occ_simulated_max_f_per_15min": 1.6260379548061792,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.5025125807280375,
+            "splice": {
+              "zone_temp_1F_A_f": 2.2180648784342338e-07,
+              "zone_temp_1F_B_f": 2.6624478266512597e-07,
+              "zone_temp_1F_C_f": 2.194126551557929e-07,
+              "zone_temp_1F_D_f": 2.2521624032378895e-07,
+              "zone_temp_2F_A_f": 1.3498436146619497e-07,
+              "zone_temp_2F_B_f": 1.4100467637945258e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.9373536963157747,
+            "splice": {
+              "zone_temp_1F_A_f": 2.2180648784342338e-07,
+              "zone_temp_1F_B_f": 2.6624478266512597e-07,
+              "zone_temp_1F_C_f": 2.194126551557929e-07,
+              "zone_temp_1F_D_f": 2.2521624032378895e-07,
+              "zone_temp_2F_A_f": 1.3498436146619497e-07,
+              "zone_temp_2F_B_f": 1.4100467637945258e-07
+            },
+            "n_breaches": 5
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.6260379548061792,
+            "splice": {
+              "zone_temp_1F_A_f": 2.2227057172585774e-07,
+              "zone_temp_1F_B_f": 2.668287777396472e-07,
+              "zone_temp_1F_C_f": 2.199090403109949e-07,
+              "zone_temp_1F_D_f": 2.2564412915926368e-07,
+              "zone_temp_2F_A_f": 1.3529981401916302e-07,
+              "zone_temp_2F_B_f": 1.4134953119082638e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c6_m800_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c6_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 183.4759889037895,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 183.4759889037895,
+            "start": 183.4759889037895,
+            "center": 183.4759889037895
+          },
+          "30": {
+            "end": 178.0393697811577,
+            "start": 180.41064370758792,
+            "center": 178.0393697811577
+          },
+          "60": {
+            "end": 174.2865365302984,
+            "start": 174.3975455636164,
+            "center": 174.2865365302984
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 183.4759889037895,
+          "30": 180.41064370758795,
+          "60": 179.86750772545102
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2398,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m800_20260112\\low_unocc\\eplus\\episode-00000000-25032\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:41:05.781029+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2373,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-25032",
+          "w2a_low_airflow": 2373,
+          "warning_count": 2398,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-26904",
+          "w2a_low_airflow": 1125,
+          "warning_count": 1150,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-28476",
+          "w2a_low_airflow": 897,
+          "warning_count": 922,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m2000_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T12:41:05.783399+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "40818c94add50dc8d8a67602a16b5c1806d618a70e82ec4e261782e524e4c5ec",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.4938218783215262,
+        "perturbed_simulated_max_f_per_15min": 2.76551219524962,
+        "high_occ_simulated_max_f_per_15min": 1.5866321019752974,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.4938218783215262,
+            "splice": {
+              "zone_temp_1F_A_f": 4.746939197275424e-07,
+              "zone_temp_1F_B_f": 6.475484042312019e-07,
+              "zone_temp_1F_C_f": 5.553121553703022e-07,
+              "zone_temp_1F_D_f": 5.472318065358195e-07,
+              "zone_temp_2F_A_f": 2.433718861993839e-07,
+              "zone_temp_2F_B_f": 2.616516638909161e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.76551219524962,
+            "splice": {
+              "zone_temp_1F_A_f": 4.746939197275424e-07,
+              "zone_temp_1F_B_f": 6.475484042312019e-07,
+              "zone_temp_1F_C_f": 5.553121553703022e-07,
+              "zone_temp_1F_D_f": 5.472318065358195e-07,
+              "zone_temp_2F_A_f": 2.433718861993839e-07,
+              "zone_temp_2F_B_f": 2.616516638909161e-07
+            },
+            "n_breaches": 5
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.5866321019752974,
+            "splice": {
+              "zone_temp_1F_A_f": 4.751140494363426e-07,
+              "zone_temp_1F_B_f": 6.480756411519906e-07,
+              "zone_temp_1F_C_f": 5.557784561460721e-07,
+              "zone_temp_1F_D_f": 5.476153432937281e-07,
+              "zone_temp_2F_A_f": 2.436790822457624e-07,
+              "zone_temp_2F_B_f": 2.6198664215826284e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c6_m2000_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c6_m2000_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 199.9937101110564,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 199.9937101110564,
+            "start": 199.9937101110564,
+            "center": 199.9937101110564
+          },
+          "30": {
+            "end": 193.81020967362969,
+            "start": 195.8303739108806,
+            "center": 193.81020967362969
+          },
+          "60": {
+            "end": 183.0503375636876,
+            "start": 188.5217954199025,
+            "center": 183.0503375636876
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 199.9937101110564,
+          "30": 195.8303739108806,
+          "60": 191.14039227420466
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2212,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m2000_20260112\\low_unocc\\eplus\\episode-00000000-13752\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:41:38.266710+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2187,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-13752",
+          "w2a_low_airflow": 2187,
+          "warning_count": 2212,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-19484",
+          "w2a_low_airflow": 1083,
+          "warning_count": 1108,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-18036",
+          "w2a_low_airflow": 933,
+          "warning_count": 958,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m0_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:41:38.268349+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "134fa2fd121d57bc942537daf63551464de42d743261ad9f2156b18218868fe3",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.4291161725055872,
+        "perturbed_simulated_max_f_per_15min": 1.7955334292459213,
+        "high_occ_simulated_max_f_per_15min": 1.4577550572829239,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.4291161725055872,
+            "splice": {
+              "zone_temp_1F_A_f": 2.3779961111358716e-08,
+              "zone_temp_1F_B_f": 2.4140220489243802e-08,
+              "zone_temp_1F_C_f": 1.430342422281683e-08,
+              "zone_temp_1F_D_f": 1.9794370587078447e-08,
+              "zone_temp_2F_A_f": 1.8645124555405346e-08,
+              "zone_temp_2F_B_f": 1.7701168530948053e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.7955334292459213,
+            "splice": {
+              "zone_temp_1F_A_f": 2.3779961111358716e-08,
+              "zone_temp_1F_B_f": 2.4140220489243802e-08,
+              "zone_temp_1F_C_f": 1.430342422281683e-08,
+              "zone_temp_1F_D_f": 1.9794370587078447e-08,
+              "zone_temp_2F_A_f": 1.8645124555405346e-08,
+              "zone_temp_2F_B_f": 1.7701168530948053e-08
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.4577550572829239,
+            "splice": {
+              "zone_temp_1F_A_f": 2.3779961111358716e-08,
+              "zone_temp_1F_B_f": 2.4140220489243802e-08,
+              "zone_temp_1F_C_f": 1.430342422281683e-08,
+              "zone_temp_1F_D_f": 1.9794370587078447e-08,
+              "zone_temp_2F_A_f": 1.8645124555405346e-08,
+              "zone_temp_2F_B_f": 1.7701168530948053e-08
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c12_m0_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c12_m0_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 197.40910708346428,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 197.40910708346428,
+            "start": 197.40910708346428,
+            "center": 197.40910708346428
+          },
+          "30": {
+            "end": 197.17682844297963,
+            "start": 196.47303004790376,
+            "center": 197.17682844297963
+          },
+          "60": {
+            "end": 184.87574358376884,
+            "start": 181.11482189334993,
+            "center": 184.87574358376884
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 197.40910708346428,
+          "30": 197.1768284429796,
+          "60": 193.15596845378738
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 1747,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m0_20260112\\low_unocc\\eplus\\episode-00000000-27888\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:42:14.669883+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 1722,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-27888",
+          "w2a_low_airflow": 1722,
+          "warning_count": 1747,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-24416",
+          "w2a_low_airflow": 954,
+          "warning_count": 979,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-01632",
+          "w2a_low_airflow": 732,
+          "warning_count": 757,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:42:14.671822+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "63d4288d9f63a7848347d1ed4b30e1c3a7f3eeffb8bf933f052e87f7ea3bd85f",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.3371257714866118,
+        "perturbed_simulated_max_f_per_15min": 1.7960485722288837,
+        "high_occ_simulated_max_f_per_15min": 1.3662243329115569,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.3371257714866118,
+            "splice": {
+              "zone_temp_1F_A_f": 9.183169424886728e-08,
+              "zone_temp_1F_B_f": 1.1174059011409554e-07,
+              "zone_temp_1F_C_f": 9.211348128701502e-08,
+              "zone_temp_1F_D_f": 9.665642153322551e-08,
+              "zone_temp_2F_A_f": 5.184809026559378e-08,
+              "zone_temp_2F_B_f": 5.4514174507858115e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.7960485722288837,
+            "splice": {
+              "zone_temp_1F_A_f": 9.183169424886728e-08,
+              "zone_temp_1F_B_f": 1.1174059011409554e-07,
+              "zone_temp_1F_C_f": 9.211348128701502e-08,
+              "zone_temp_1F_D_f": 9.665642153322551e-08,
+              "zone_temp_2F_A_f": 5.184809026559378e-08,
+              "zone_temp_2F_B_f": 5.4514174507858115e-08
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.3662243329115569,
+            "splice": {
+              "zone_temp_1F_A_f": 9.183169424886728e-08,
+              "zone_temp_1F_B_f": 1.1174059011409554e-07,
+              "zone_temp_1F_C_f": 9.211348128701502e-08,
+              "zone_temp_1F_D_f": 9.665642153322551e-08,
+              "zone_temp_2F_A_f": 5.184809026559378e-08,
+              "zone_temp_2F_B_f": 5.4514174507858115e-08
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_autosizehtg_c12_m800_20260112\\lakeside_w2a_a04v2_sb_autosizehtg_c12_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 210.69155302868973,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 210.69155302868973,
+            "start": 210.69155302868973,
+            "center": 210.69155302868973
+          },
+          "30": {
+            "end": 198.40586128543572,
+            "start": 204.66133515896755,
+            "center": 198.40586128543572
+          },
+          "60": {
+            "end": 186.11024624172663,
+            "start": 189.5961003295097,
+            "center": 186.11024624172663
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 210.69155302868973,
+          "30": 204.66133515896752,
+          "60": 197.86926186594093
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 1609,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m800_20260112\\low_unocc\\eplus\\episode-00000000-27132\\eplusout.err"
+      },
+      "finished_utc": "2026-08-17T12:42:48.508021+00:00",
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 1584,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-27132",
+          "w2a_low_airflow": 1584,
+          "warning_count": 1609,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22544",
+          "w2a_low_airflow": 918,
+          "warning_count": 943,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-19600",
+          "w2a_low_airflow": 720,
+          "warning_count": 745,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c1_m0_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 1.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:52:49.973880+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "8d598bcef8e769b5c835c2473ef892f40e448e2d0473dfe5a293968a0476d7d8",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.08540032943263,
+        "perturbed_simulated_max_f_per_15min": 5.40302220951142,
+        "high_occ_simulated_max_f_per_15min": 3.6819306807993115,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.08540032943263,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0508063752467933e-06,
+              "zone_temp_1F_B_f": 1.0021968819273752e-06,
+              "zone_temp_1F_C_f": 1.0719385556967609e-07,
+              "zone_temp_1F_D_f": 1.0571522608415762e-06,
+              "zone_temp_2F_A_f": 1.3191972101367355e-06,
+              "zone_temp_2F_B_f": 1.3123035813578099e-06
+            },
+            "n_breaches": 6
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 5.40302220951142,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0368152487671978e-06,
+              "zone_temp_1F_B_f": 9.941534671042973e-07,
+              "zone_temp_1F_C_f": 8.100293769075506e-08,
+              "zone_temp_1F_D_f": 1.0079001668827914e-06,
+              "zone_temp_2F_A_f": 1.2955952684023941e-06,
+              "zone_temp_2F_B_f": 1.2876516706228358e-06
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.6819306807993115,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0563818335640462e-06,
+              "zone_temp_1F_B_f": 1.006146973736577e-06,
+              "zone_temp_1F_C_f": 1.2200679577745177e-07,
+              "zone_temp_1F_D_f": 1.0614162420097273e-06,
+              "zone_temp_2F_A_f": 1.3312291713418745e-06,
+              "zone_temp_2F_B_f": 1.3246557983848106e-06
+            },
+            "n_breaches": 13
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_hpscaled3ton_c1_m0_20260112\\lakeside_w2a_a04v2_sb_hpscaled3ton_c1_m0_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 161.90771688253764,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 161.90771688253764,
+            "start": 161.90771688253764,
+            "center": 161.90771688253764
+          },
+          "30": {
+            "end": 161.69377118859393,
+            "start": 159.91269272101403,
+            "center": 161.69377118859393
+          },
+          "60": {
+            "end": 159.720354573144,
+            "start": 156.3343009349981,
+            "center": 159.720354573144
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 161.90771688253764,
+          "30": 161.69377118859393,
+          "60": 159.720354573144
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 16209,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c1_m0_20260112\\low_unocc\\eplus\\episode-00000000-19796\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 16178,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:53:16.222968+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-19796",
+          "w2a_low_airflow": 16178,
+          "warning_count": 16209,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-20024",
+          "w2a_low_airflow": 14836,
+          "warning_count": 14867,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-08484",
+          "w2a_low_airflow": 14614,
+          "warning_count": 14645,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c1_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 1.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:53:16.224255+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "a20002c1559fe9cdba1696269e867502b5e2b7aaff86bf3fd7fbda32a460b511",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.025806429195654,
+        "perturbed_simulated_max_f_per_15min": 5.28024432096025,
+        "high_occ_simulated_max_f_per_15min": 3.6703039115239733,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.025806429195654,
+            "splice": {
+              "zone_temp_1F_A_f": 2.1179442768470835e-06,
+              "zone_temp_1F_B_f": 1.7146383441968283e-06,
+              "zone_temp_1F_C_f": 1.6667914763957015e-06,
+              "zone_temp_1F_D_f": 2.6765505225512243e-06,
+              "zone_temp_2F_A_f": 2.079979353197814e-06,
+              "zone_temp_2F_B_f": 2.1583302327599085e-06
+            },
+            "n_breaches": 6
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 5.28024432096025,
+            "splice": {
+              "zone_temp_1F_A_f": 2.098882504242283e-06,
+              "zone_temp_1F_B_f": 1.7016431854699476e-06,
+              "zone_temp_1F_C_f": 1.635321424942049e-06,
+              "zone_temp_1F_D_f": 2.6126079433197447e-06,
+              "zone_temp_2F_A_f": 2.054487694636009e-06,
+              "zone_temp_2F_B_f": 2.1316394906989444e-06
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.6703039115239733,
+            "splice": {
+              "zone_temp_1F_A_f": 2.125569977806663e-06,
+              "zone_temp_1F_B_f": 1.7203797568754453e-06,
+              "zone_temp_1F_C_f": 1.6775680080627353e-06,
+              "zone_temp_1F_D_f": 2.6813437585815336e-06,
+              "zone_temp_2F_A_f": 2.0928609814063748e-06,
+              "zone_temp_2F_B_f": 2.1716004710015113e-06
+            },
+            "n_breaches": 13
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\models\\eplus\\a04v2_candidates\\sb_hpscaled3ton_c1_m800_20260112\\lakeside_w2a_a04v2_sb_hpscaled3ton_c1_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 169.1500031843538,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 169.1500031843538,
+            "start": 169.1500031843538,
+            "center": 169.1500031843538
+          },
+          "30": {
+            "end": 168.32303656336393,
+            "start": 166.18018314213174,
+            "center": 168.32303656336393
+          },
+          "60": {
+            "end": 166.12273169226205,
+            "start": 162.76397797553034,
+            "center": 166.12273169226205
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 169.1500031843538,
+          "30": 168.32303656336393,
+          "60": 166.12273169226205
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 15936,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c1_m800_20260112\\low_unocc\\eplus\\episode-00000000-10448\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 15905,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:53:45.276689+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-10448",
+          "w2a_low_airflow": 15905,
+          "warning_count": 15936,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-27588",
+          "w2a_low_airflow": 14695,
+          "warning_count": 14726,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-28004",
+          "w2a_low_airflow": 14367,
+          "warning_count": 14398,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c6_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 6.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:53:45.278621+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "6d39fa7d2e90fe7f84b6eb44a83e058448cb11721e8ffd43b5f4bd77beeefe16",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.4735217044320734,
+        "perturbed_simulated_max_f_per_15min": 2.967155097062083,
+        "high_occ_simulated_max_f_per_15min": 2.0017796169231303,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.4735217044320734,
+            "splice": {
+              "zone_temp_1F_A_f": 2.674963184290391e-07,
+              "zone_temp_1F_B_f": 8.543462115540024e-08,
+              "zone_temp_1F_C_f": 2.5978478390698e-07,
+              "zone_temp_1F_D_f": 4.512213394036735e-07,
+              "zone_temp_2F_A_f": 3.027885213668924e-07,
+              "zone_temp_2F_B_f": 3.2161352692128276e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.967155097062083,
+            "splice": {
+              "zone_temp_1F_A_f": 2.6749489734356757e-07,
+              "zone_temp_1F_B_f": 8.543462115540024e-08,
+              "zone_temp_1F_C_f": 2.5978478390698e-07,
+              "zone_temp_1F_D_f": 4.512213394036735e-07,
+              "zone_temp_2F_A_f": 3.027885213668924e-07,
+              "zone_temp_2F_B_f": 3.2161352692128276e-07
+            },
+            "n_breaches": 2
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 2.0017796169231303,
+            "splice": {
+              "zone_temp_1F_A_f": 2.6844601563880133e-07,
+              "zone_temp_1F_B_f": 8.553089969609573e-08,
+              "zone_temp_1F_C_f": 2.612657681311248e-07,
+              "zone_temp_1F_D_f": 4.520772733940248e-07,
+              "zone_temp_2F_A_f": 3.0343217360950803e-07,
+              "zone_temp_2F_B_f": 3.223569109422897e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c6_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 172.5029132843767,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 172.5029132843767,
+            "start": 172.5029132843767,
+            "center": 172.5029132843767
+          },
+          "30": {
+            "end": 172.48703121492036,
+            "start": 169.9002753316777,
+            "center": 172.48703121492036
+          },
+          "60": {
+            "end": 169.1409081785157,
+            "start": 169.6958688396283,
+            "center": 169.1409081785157
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 172.5029132843767,
+          "30": 172.48703121492036,
+          "60": 169.69586883962833
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 14415,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c6_m800_20260112\\low_unocc\\eplus\\episode-00000000-23760\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 14384,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:54:12.604358+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-23760",
+          "w2a_low_airflow": 14384,
+          "warning_count": 14415,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-24752",
+          "w2a_low_airflow": 13272,
+          "warning_count": 13303,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-28184",
+          "w2a_low_airflow": 13086,
+          "warning_count": 13117,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c12_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:54:12.606305+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "170051ec832e9de3fd1e173ad000b550c7aa1bf8d6be2325d526aa64a2d56b79",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.5849742250163814,
+        "perturbed_simulated_max_f_per_15min": 2.269041964161545,
+        "high_occ_simulated_max_f_per_15min": 1.1811498244899212,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.5849742250163814,
+            "splice": {
+              "zone_temp_1F_A_f": 1.2214560740630986e-07,
+              "zone_temp_1F_B_f": 7.591282269459043e-09,
+              "zone_temp_1F_C_f": 1.3546774368933256e-07,
+              "zone_temp_1F_D_f": 2.3257582881797134e-07,
+              "zone_temp_2F_A_f": 1.4855118024570402e-07,
+              "zone_temp_2F_B_f": 1.5878504200372845e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 2.269041964161545,
+            "splice": {
+              "zone_temp_1F_A_f": 1.2214560740630986e-07,
+              "zone_temp_1F_B_f": 7.591282269459043e-09,
+              "zone_temp_1F_C_f": 1.3546774368933256e-07,
+              "zone_temp_1F_D_f": 2.3257582881797134e-07,
+              "zone_temp_2F_A_f": 1.4855118024570402e-07,
+              "zone_temp_2F_B_f": 1.5878504200372845e-07
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.1811498244899212,
+            "splice": {
+              "zone_temp_1F_A_f": 1.2239517843681824e-07,
+              "zone_temp_1F_B_f": 7.591197004330752e-09,
+              "zone_temp_1F_C_f": 1.3599390058516292e-07,
+              "zone_temp_1F_D_f": 2.3075764943314425e-07,
+              "zone_temp_2F_A_f": 1.485524734334831e-07,
+              "zone_temp_2F_B_f": 1.587864915109094e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c12_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 198.4696772931574,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 198.4696772931574,
+            "start": 198.4696772931574,
+            "center": 198.4696772931574
+          },
+          "30": {
+            "end": 194.70333443344708,
+            "start": 187.73506728909305,
+            "center": 194.70333443344708
+          },
+          "60": {
+            "end": 186.57640420585625,
+            "start": 187.29006561460378,
+            "center": 186.57640420585625
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 198.4696772931574,
+          "30": 194.70333443344708,
+          "60": 187.29006561460378
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 12827,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260112\\low_unocc\\eplus\\episode-00000000-12324\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 12796,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:54:40.460477+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-12324",
+          "w2a_low_airflow": 12796,
+          "warning_count": 12827,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22028",
+          "w2a_low_airflow": 12290,
+          "warning_count": 12321,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-21908",
+          "w2a_low_airflow": 11912,
+          "warning_count": 11943,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_a04capacity_c6_m800_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "a04_capacity",
+        "capmult": 6.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:54:40.462142+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "90c4b4e030689008cb2d3bb91606598682f2c48ed24a2f2c89ff6e89eb655528",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.4756514843975879,
+        "perturbed_simulated_max_f_per_15min": 2.8540209308958993,
+        "high_occ_simulated_max_f_per_15min": 3.5143656893330757,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.4756514843975879,
+            "splice": {
+              "zone_temp_1F_A_f": 1.2255314629783243e-07,
+              "zone_temp_1F_B_f": 1.5302116196380666e-07,
+              "zone_temp_1F_C_f": 1.3397973930295848e-07,
+              "zone_temp_1F_D_f": 1.3786103636448388e-07,
+              "zone_temp_2F_A_f": 1.2044097275065724e-08,
+              "zone_temp_2F_B_f": 3.381768465260393e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.8540209308958993,
+            "splice": {
+              "zone_temp_1F_A_f": 1.2255314629783243e-07,
+              "zone_temp_1F_B_f": 1.5302116196380666e-07,
+              "zone_temp_1F_C_f": 1.3397973930295848e-07,
+              "zone_temp_1F_D_f": 1.3786103636448388e-07,
+              "zone_temp_2F_A_f": 1.2044097275065724e-08,
+              "zone_temp_2F_B_f": 3.381768465260393e-08
+            },
+            "n_breaches": 2
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.5143656893330757,
+            "splice": {
+              "zone_temp_1F_A_f": 1.229492880838734e-07,
+              "zone_temp_1F_B_f": 1.5352014770542155e-07,
+              "zone_temp_1F_C_f": 1.3442233637306344e-07,
+              "zone_temp_1F_D_f": 1.382282448503247e-07,
+              "zone_temp_2F_A_f": 1.2142834293626947e-08,
+              "zone_temp_2F_B_f": 3.399169656859158e-08
+            },
+            "n_breaches": 5
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_a04capacity_c6_m800_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 195.56040171717697,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 195.56040171717697,
+            "start": 195.56040171717697,
+            "center": 195.56040171717697
+          },
+          "30": {
+            "end": 189.12608262757072,
+            "start": 187.89836105236787,
+            "center": 189.12608262757072
+          },
+          "60": {
+            "end": 182.8384260662048,
+            "start": 181.0842069436311,
+            "center": 182.8384260662048
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 195.56040171717697,
+          "30": 189.12608262757072,
+          "60": 182.8384260662048
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 43990,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_a04capacity_c6_m800_20260112\\low_unocc\\eplus\\episode-00000000-13540\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 43956,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:55:10.547931+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-13540",
+          "w2a_low_airflow": 43956,
+          "warning_count": 43990,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-02256",
+          "w2a_low_airflow": 42714,
+          "warning_count": 42748,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-13448",
+          "w2a_low_airflow": 42114,
+          "warning_count": 42148,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_a04capacity_c12_m2000_20260112",
+      "day": "2026-01-12",
+      "parameters": {
+        "plant": "a04_capacity",
+        "capmult": 12.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T12:55:10.550051+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "17b8bc5b3bdee28611c9a06712469077c919b0ddc23cc03e753560b0582ea1b5",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.3684168644315235,
+        "perturbed_simulated_max_f_per_15min": 2.835599027625058,
+        "high_occ_simulated_max_f_per_15min": 2.7693393521534233,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.3684168644315235,
+            "splice": {
+              "zone_temp_1F_A_f": 1.9218940394694073e-07,
+              "zone_temp_1F_B_f": 2.7240855615673354e-07,
+              "zone_temp_1F_C_f": 2.485753611836117e-07,
+              "zone_temp_1F_D_f": 2.340602520689572e-07,
+              "zone_temp_2F_A_f": 4.4305778601483325e-08,
+              "zone_temp_2F_B_f": 6.924712181444193e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.835599027625058,
+            "splice": {
+              "zone_temp_1F_A_f": 1.9218940394694073e-07,
+              "zone_temp_1F_B_f": 2.7240855615673354e-07,
+              "zone_temp_1F_C_f": 2.485753611836117e-07,
+              "zone_temp_1F_D_f": 2.340602520689572e-07,
+              "zone_temp_2F_A_f": 4.4305778601483325e-08,
+              "zone_temp_2F_B_f": 6.924712181444193e-08
+            },
+            "n_breaches": 2
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 2.7693393521534233,
+            "splice": {
+              "zone_temp_1F_A_f": 1.9218940394694073e-07,
+              "zone_temp_1F_B_f": 2.7240855615673354e-07,
+              "zone_temp_1F_C_f": 2.485753611836117e-07,
+              "zone_temp_1F_D_f": 2.340602520689572e-07,
+              "zone_temp_2F_A_f": 4.4305778601483325e-08,
+              "zone_temp_2F_B_f": 6.924712181444193e-08
+            },
+            "n_breaches": 1
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_a04capacity_c12_m2000_20260112.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 243.0745986522114,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 243.0745986522114,
+            "start": 243.0745986522114,
+            "center": 243.0745986522114
+          },
+          "30": {
+            "end": 231.79009930367602,
+            "start": 226.49782364905167,
+            "center": 231.79009930367602
+          },
+          "60": {
+            "end": 222.07630227808147,
+            "start": 200.8379890766322,
+            "center": 222.07630227808147
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 243.0745986522114,
+          "30": 231.79009930367602,
+          "60": 222.07630227808147
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 40132,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_a04capacity_c12_m2000_20260112\\low_unocc\\eplus\\episode-00000000-14240\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 41160,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:55:37.028411+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-14240",
+          "w2a_low_airflow": 40098,
+          "warning_count": 40132,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-21176",
+          "w2a_low_airflow": 41160,
+          "warning_count": 41194,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-17032",
+          "w2a_low_airflow": 40260,
+          "warning_count": 40294,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c1_m0_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:55:37.030062+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "b9f312b3e1d008541b792b912c3e87b38cce17ce6f1913149cde3de579cc7919",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.5590771404774415,
+        "perturbed_simulated_max_f_per_15min": 7.90585593221558,
+        "high_occ_simulated_max_f_per_15min": 4.0460132570241285,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.5590771404774415,
+            "splice": {
+              "zone_temp_1F_A_f": 0.07960968904704657,
+              "zone_temp_1F_B_f": 0.08247585280665248,
+              "zone_temp_1F_C_f": 0.07612739205066532,
+              "zone_temp_1F_D_f": 0.09101501702433268,
+              "zone_temp_2F_A_f": 0.07517049913353446,
+              "zone_temp_2F_B_f": 0.07592451669890465
+            },
+            "n_breaches": 12
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 7.90585593221558,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0797800522661305,
+              "zone_temp_1F_B_f": 0.08259258906454647,
+              "zone_temp_1F_C_f": 0.07625894122027432,
+              "zone_temp_1F_D_f": 0.09108975072700787,
+              "zone_temp_2F_A_f": 0.0752985149069616,
+              "zone_temp_2F_B_f": 0.07605199597769285
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 4.0460132570241285,
+            "splice": {
+              "zone_temp_1F_A_f": 0.07956899818890406,
+              "zone_temp_1F_B_f": 0.08244935089598471,
+              "zone_temp_1F_C_f": 0.07609696634790453,
+              "zone_temp_1F_D_f": 0.09099581372025511,
+              "zone_temp_2F_A_f": 0.07514185996620881,
+              "zone_temp_2F_B_f": 0.07589629216954563
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c1_m0_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 218.86948366412147,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 218.86948366412147,
+            "start": 218.86948366412147,
+            "center": 218.86948366412147
+          },
+          "30": {
+            "end": 215.59525674488128,
+            "start": 210.9591650690723,
+            "center": 215.59525674488128
+          },
+          "60": {
+            "end": 211.8496226756145,
+            "start": 209.35234227093727,
+            "center": 211.8496226756145
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 218.86948366412147,
+          "30": 215.59525674488128,
+          "60": 211.8496226756145
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 271,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m0_20260120\\low_unocc\\eplus\\episode-00000000-01588\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 246,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:56:00.965835+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-01588",
+          "w2a_low_airflow": 246,
+          "warning_count": 271,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-19528",
+          "w2a_low_airflow": 168,
+          "warning_count": 193,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-26468",
+          "w2a_low_airflow": 168,
+          "warning_count": 193,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c1_m800_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:56:00.967940+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "b0f20ec326adead93ca77a002e810ac0f3acd66ad0cd76e0d9374976f1ad5509",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.53479251571531,
+        "perturbed_simulated_max_f_per_15min": 7.749071782211608,
+        "high_occ_simulated_max_f_per_15min": 3.7791539740273663,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.53479251571531,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06961626737724202,
+              "zone_temp_1F_B_f": 0.0706408343253031,
+              "zone_temp_1F_C_f": 0.06580927626770006,
+              "zone_temp_1F_D_f": 0.08001745820253348,
+              "zone_temp_2F_A_f": 0.06910243666126803,
+              "zone_temp_2F_B_f": 0.06944231069049067
+            },
+            "n_breaches": 12
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 7.749071782211608,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0698463428675069,
+              "zone_temp_1F_B_f": 0.0708496736002644,
+              "zone_temp_1F_C_f": 0.06601553932847537,
+              "zone_temp_1F_D_f": 0.0801816326909659,
+              "zone_temp_2F_A_f": 0.06931186125532918,
+              "zone_temp_2F_B_f": 0.06965073881478645
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.7791539740273663,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06955664100637193,
+              "zone_temp_1F_B_f": 0.07058773126755113,
+              "zone_temp_1F_C_f": 0.06575605353394565,
+              "zone_temp_1F_D_f": 0.07997369112901254,
+              "zone_temp_2F_A_f": 0.06905252583221966,
+              "zone_temp_2F_B_f": 0.0693924031318005
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c1_m800_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 226.45421435682536,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 226.45421435682536,
+            "start": 226.45421435682536,
+            "center": 226.45421435682536
+          },
+          "30": {
+            "end": 224.1562556621799,
+            "start": 219.71321844435582,
+            "center": 224.1562556621799
+          },
+          "60": {
+            "end": 220.27992297191287,
+            "start": 215.9776364440847,
+            "center": 220.27992297191287
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 226.45421435682536,
+          "30": 224.1562556621799,
+          "60": 220.27992297191287
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 379,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m800_20260120\\low_unocc\\eplus\\episode-00000000-15872\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 354,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:56:25.314757+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-15872",
+          "w2a_low_airflow": 354,
+          "warning_count": 379,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-16276",
+          "w2a_low_airflow": 210,
+          "warning_count": 235,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22564",
+          "w2a_low_airflow": 204,
+          "warning_count": 229,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c1_m2000_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 1.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T12:56:25.319736+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "88d2ad4d24a76ebea8263fdc79577aac91370aea56a1625a4f5f2942e370af5a",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 4.5116668290841915,
+        "perturbed_simulated_max_f_per_15min": 7.4453147363141525,
+        "high_occ_simulated_max_f_per_15min": 3.7670398713312636,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": false,
+            "max": 4.5116668290841915,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06007283866867397,
+              "zone_temp_1F_B_f": 0.06028725166157756,
+              "zone_temp_1F_C_f": 0.05675454590587492,
+              "zone_temp_1F_D_f": 0.07013424791020384,
+              "zone_temp_2F_A_f": 0.06188596084865594,
+              "zone_temp_2F_B_f": 0.061867664680193
+            },
+            "n_breaches": 12
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 7.4453147363141525,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0604267648940322,
+              "zone_temp_1F_B_f": 0.06036533383124265,
+              "zone_temp_1F_C_f": 0.056854772323404745,
+              "zone_temp_1F_D_f": 0.0702261827206172,
+              "zone_temp_2F_A_f": 0.062138543136754265,
+              "zone_temp_2F_B_f": 0.06212365350600635
+            },
+            "n_breaches": 18
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 3.7670398713312636,
+            "splice": {
+              "zone_temp_1F_A_f": 0.05992480523148913,
+              "zone_temp_1F_B_f": 0.06026424380186768,
+              "zone_temp_1F_C_f": 0.05672463637627345,
+              "zone_temp_1F_D_f": 0.07011282594936574,
+              "zone_temp_2F_A_f": 0.06182073006382893,
+              "zone_temp_2F_B_f": 0.0618012589798127
+            },
+            "n_breaches": 12
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c1_m2000_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 230.86684753594068,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 230.86684753594068,
+            "start": 230.86684753594068,
+            "center": 230.86684753594068
+          },
+          "30": {
+            "end": 230.0353779033392,
+            "start": 228.01774115177096,
+            "center": 230.0353779033392
+          },
+          "60": {
+            "end": 227.9125568193269,
+            "start": 221.4856440540912,
+            "center": 227.9125568193269
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 230.86684753594068,
+          "30": 230.0353779033392,
+          "60": 227.9125568193269
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 677,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c1_m2000_20260120\\low_unocc\\eplus\\episode-00000000-23060\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 652,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:56:51.781308+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-23060",
+          "w2a_low_airflow": 652,
+          "warning_count": 677,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-29136",
+          "w2a_low_airflow": 202,
+          "warning_count": 227,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-21176",
+          "w2a_low_airflow": 190,
+          "warning_count": 215,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m0_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:56:51.784177+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "a5c6f4a2abc167c2ca060f3519b7c7240607c296f308f235f2626d0dc3243e98",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 2.3653279163616503,
+        "perturbed_simulated_max_f_per_15min": 2.5622388587691773,
+        "high_occ_simulated_max_f_per_15min": 2.428125959314059,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 2.3653279163616503,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06715699016534415,
+              "zone_temp_1F_B_f": 0.07251227488205814,
+              "zone_temp_1F_C_f": 0.06756239801107711,
+              "zone_temp_1F_D_f": 0.0785016926517983,
+              "zone_temp_2F_A_f": 0.06340464894732634,
+              "zone_temp_2F_B_f": 0.06477122537621938
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 2.5622388587691773,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06748216031184029,
+              "zone_temp_1F_B_f": 0.0728213180209849,
+              "zone_temp_1F_C_f": 0.06784226186869091,
+              "zone_temp_1F_D_f": 0.07878389637475891,
+              "zone_temp_2F_A_f": 0.06374016422182649,
+              "zone_temp_2F_B_f": 0.06508612701888694
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 2.428125959314059,
+            "splice": {
+              "zone_temp_1F_A_f": 0.06709676523311714,
+              "zone_temp_1F_B_f": 0.07246980084804022,
+              "zone_temp_1F_C_f": 0.06751226499730478,
+              "zone_temp_1F_D_f": 0.0784607898823424,
+              "zone_temp_2F_A_f": 0.06334196806454884,
+              "zone_temp_2F_B_f": 0.06471080680893238
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c6_m0_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 228.91345109269272,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 228.91345109269272,
+            "start": 228.91345109269272,
+            "center": 228.91345109269272
+          },
+          "30": {
+            "end": 228.80143676195308,
+            "start": 228.67183042236724,
+            "center": 228.80143676195308
+          },
+          "60": {
+            "end": 228.4729394612957,
+            "start": 220.1796242694028,
+            "center": 228.4729394612957
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 228.91345109269272,
+          "30": 228.80143676195308,
+          "60": 228.4729394612957
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 160,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m0_20260120\\low_unocc\\eplus\\episode-00000000-26964\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 135,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:57:15.266405+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-26964",
+          "w2a_low_airflow": 135,
+          "warning_count": 160,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-04128",
+          "w2a_low_airflow": 135,
+          "warning_count": 160,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22376",
+          "w2a_low_airflow": 99,
+          "warning_count": 124,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m800_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:57:15.268604+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "8226347c4c807e2c171a4a42d92ff26058e354ea6ba5e1f0d417b23d291834cc",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 2.3196047931503614,
+        "perturbed_simulated_max_f_per_15min": 2.9989064613373273,
+        "high_occ_simulated_max_f_per_15min": 2.412027321895124,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 2.3196047931503614,
+            "splice": {
+              "zone_temp_1F_A_f": 0.05914298508913873,
+              "zone_temp_1F_B_f": 0.06307953679942102,
+              "zone_temp_1F_C_f": 0.05928657561344153,
+              "zone_temp_1F_D_f": 0.07030309544762758,
+              "zone_temp_2F_A_f": 0.05800246524741226,
+              "zone_temp_2F_B_f": 0.058930457703496586
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.9989064613373273,
+            "splice": {
+              "zone_temp_1F_A_f": 0.05938786285175013,
+              "zone_temp_1F_B_f": 0.06326674645013952,
+              "zone_temp_1F_C_f": 0.05949172884857035,
+              "zone_temp_1F_D_f": 0.07049980838219483,
+              "zone_temp_2F_A_f": 0.05824088359051416,
+              "zone_temp_2F_B_f": 0.05916381802248338
+            },
+            "n_breaches": 6
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 2.412027321895124,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0589978070428856,
+              "zone_temp_1F_B_f": 0.06296272352507515,
+              "zone_temp_1F_C_f": 0.05914397454036191,
+              "zone_temp_1F_D_f": 0.07018908391458467,
+              "zone_temp_2F_A_f": 0.05786461575419821,
+              "zone_temp_2F_B_f": 0.05879376681333781
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c6_m800_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 230.30358890225602,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 230.30358890225602,
+            "start": 230.30358890225602,
+            "center": 230.30358890225602
+          },
+          "30": {
+            "end": 230.13822573629398,
+            "start": 229.81540062814634,
+            "center": 230.13822573629398
+          },
+          "60": {
+            "end": 229.7674324210935,
+            "start": 221.39685068916913,
+            "center": 229.7674324210935
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 230.30358890225602,
+          "30": 230.13822573629398,
+          "60": 229.76743242109347
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 145,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m800_20260120\\low_unocc\\eplus\\episode-00000000-18988\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 120,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:57:38.438845+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-18988",
+          "w2a_low_airflow": 120,
+          "warning_count": 145,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-06592",
+          "w2a_low_airflow": 102,
+          "warning_count": 127,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-18140",
+          "w2a_low_airflow": 90,
+          "warning_count": 115,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c6_m2000_20260120",
+      "day": "2026-01-20",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 6.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T12:57:38.441001+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "fbb5e6f57c2dbf56417c41a7529e1a10199253991ac6ffe871bf0f926cebe8fa",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 2.2547733500794465,
+        "perturbed_simulated_max_f_per_15min": 2.81028648409864,
+        "high_occ_simulated_max_f_per_15min": 2.384529928235807,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 2.2547733500794465,
+            "splice": {
+              "zone_temp_1F_A_f": 0.04763814346981121,
+              "zone_temp_1F_B_f": 0.04577100158891767,
+              "zone_temp_1F_C_f": 0.043431648483831964,
+              "zone_temp_1F_D_f": 0.055693809954362905,
+              "zone_temp_2F_A_f": 0.05137146708383966,
+              "zone_temp_2F_B_f": 0.05210788670746069
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.81028648409864,
+            "splice": {
+              "zone_temp_1F_A_f": 0.047908058360917494,
+              "zone_temp_1F_B_f": 0.0460885178838879,
+              "zone_temp_1F_C_f": 0.04372736999243898,
+              "zone_temp_1F_D_f": 0.055933338759501794,
+              "zone_temp_2F_A_f": 0.05161791482122169,
+              "zone_temp_2F_B_f": 0.05234620667864931
+            },
+            "n_breaches": 4
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 2.384529928235807,
+            "splice": {
+              "zone_temp_1F_A_f": 0.047410959348468396,
+              "zone_temp_1F_B_f": 0.0454866718938689,
+              "zone_temp_1F_C_f": 0.04315614075231622,
+              "zone_temp_1F_D_f": 0.05546970594733125,
+              "zone_temp_2F_A_f": 0.05125065013642427,
+              "zone_temp_2F_B_f": 0.0519893691299842
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c6_m2000_20260120.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 231.5569909311846,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 231.5569909311846,
+            "start": 231.5569909311846,
+            "center": 231.5569909311846
+          },
+          "30": {
+            "end": 231.17000853067032,
+            "start": 231.4313284703536,
+            "center": 231.17000853067032
+          },
+          "60": {
+            "end": 230.85325089842155,
+            "start": 226.8934943436517,
+            "center": 230.85325089842155
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 231.5569909311846,
+          "30": 231.4313284703536,
+          "60": 231.16603492622494
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 262,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c6_m2000_20260120\\low_unocc\\eplus\\episode-00000000-01608\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 237,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:58:01.472892+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-01608",
+          "w2a_low_airflow": 237,
+          "warning_count": 262,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-16024",
+          "w2a_low_airflow": 141,
+          "warning_count": 166,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-10060",
+          "w2a_low_airflow": 111,
+          "warning_count": 136,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m0_20260117",
+      "day": "2026-01-17",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:58:01.474992+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "3e97bfb7db5746816d85e9a49aa5861059fd6711d9a59c22fe0f5a1c12865b8d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.9769124158001858,
+        "perturbed_simulated_max_f_per_15min": 1.7933369257095535,
+        "high_occ_simulated_max_f_per_15min": 1.2700186987798219,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.9769124158001858,
+            "splice": {
+              "zone_temp_1F_A_f": 2.935813185445113e-06,
+              "zone_temp_1F_B_f": 3.150598303136576e-06,
+              "zone_temp_1F_C_f": 2.9958554534914583e-06,
+              "zone_temp_1F_D_f": 2.9052985297539635e-06,
+              "zone_temp_2F_A_f": 2.6531920127581543e-06,
+              "zone_temp_2F_B_f": 2.7008294836150526e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.7933369257095535,
+            "splice": {
+              "zone_temp_1F_A_f": 2.935813185445113e-06,
+              "zone_temp_1F_B_f": 3.150598303136576e-06,
+              "zone_temp_1F_C_f": 2.9958554534914583e-06,
+              "zone_temp_1F_D_f": 2.9052985297539635e-06,
+              "zone_temp_2F_A_f": 2.6531920127581543e-06,
+              "zone_temp_2F_B_f": 2.7008294836150526e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.2700186987798219,
+            "splice": {
+              "zone_temp_1F_A_f": 2.935813185445113e-06,
+              "zone_temp_1F_B_f": 3.150598303136576e-06,
+              "zone_temp_1F_C_f": 2.9958554534914583e-06,
+              "zone_temp_1F_D_f": 2.9052985297539635e-06,
+              "zone_temp_2F_A_f": 2.6531920127581543e-06,
+              "zone_temp_2F_B_f": 2.7008294836150526e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m0_20260117.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 154.14664064010117,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 154.14664064010117,
+            "start": 154.14664064010117,
+            "center": 154.14664064010117
+          },
+          "30": {
+            "end": 153.9804383575863,
+            "start": 153.6277013277221,
+            "center": 153.9804383575863
+          },
+          "60": {
+            "end": 153.06609403094035,
+            "start": 152.19528863997533,
+            "center": 153.06609403094035
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 154.14664064010117,
+          "30": 153.98043835758628,
+          "60": 153.63158815998293
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 5935,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m0_20260117\\low_unocc\\eplus\\episode-00000000-19076\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 5910,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:58:26.920357+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-19076",
+          "w2a_low_airflow": 5910,
+          "warning_count": 5935,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-04344",
+          "w2a_low_airflow": 5856,
+          "warning_count": 5881,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-29556",
+          "w2a_low_airflow": 5862,
+          "warning_count": 5887,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m0_20260209",
+      "day": "2026-02-09",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:58:26.926469+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "3e97bfb7db5746816d85e9a49aa5861059fd6711d9a59c22fe0f5a1c12865b8d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.3152857804085158,
+        "perturbed_simulated_max_f_per_15min": 1.6800482144184912,
+        "high_occ_simulated_max_f_per_15min": 1.4186373874934048,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.3152857804085158,
+            "splice": {
+              "zone_temp_1F_A_f": 2.5685399265285014e-06,
+              "zone_temp_1F_B_f": 2.74222351492881e-06,
+              "zone_temp_1F_C_f": 2.602675579055358e-06,
+              "zone_temp_1F_D_f": 2.4886284393232927e-06,
+              "zone_temp_2F_A_f": 2.436155327245615e-06,
+              "zone_temp_2F_B_f": 2.4762164230196504e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.6800482144184912,
+            "splice": {
+              "zone_temp_1F_A_f": 2.5685399265285014e-06,
+              "zone_temp_1F_B_f": 2.74222351492881e-06,
+              "zone_temp_1F_C_f": 2.602675579055358e-06,
+              "zone_temp_1F_D_f": 2.4886284393232927e-06,
+              "zone_temp_2F_A_f": 2.436155327245615e-06,
+              "zone_temp_2F_B_f": 2.4762164230196504e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.4186373874934048,
+            "splice": {
+              "zone_temp_1F_A_f": 2.5685399265285014e-06,
+              "zone_temp_1F_B_f": 2.74222351492881e-06,
+              "zone_temp_1F_C_f": 2.602675579055358e-06,
+              "zone_temp_1F_D_f": 2.4886284393232927e-06,
+              "zone_temp_2F_A_f": 2.436155327245615e-06,
+              "zone_temp_2F_B_f": 2.4762164230196504e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m0_20260209.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 229.40390228977415,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 229.40390228977415,
+            "start": 229.40390228977415,
+            "center": 229.40390228977415
+          },
+          "30": {
+            "end": 229.22055488234446,
+            "start": 214.80822458655712,
+            "center": 229.22055488234446
+          },
+          "60": {
+            "end": 208.21999802233293,
+            "start": 213.90481778159082,
+            "center": 208.21999802233293
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 229.40390228977415,
+          "30": 229.22055488234446,
+          "60": 213.90481778159082
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 1561,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m0_20260209\\low_unocc\\eplus\\episode-00000000-02596\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 1536,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:58:51.739884+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-02596",
+          "w2a_low_airflow": 1536,
+          "warning_count": 1561,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-27672",
+          "w2a_low_airflow": 852,
+          "warning_count": 877,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-05168",
+          "w2a_low_airflow": 450,
+          "warning_count": 475,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m0_20251206",
+      "day": "2025-12-06",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 0.0
+      },
+      "started_utc": "2026-08-17T12:58:51.742514+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "3e97bfb7db5746816d85e9a49aa5861059fd6711d9a59c22fe0f5a1c12865b8d",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.564591510887098,
+        "perturbed_simulated_max_f_per_15min": 1.728554179465661,
+        "high_occ_simulated_max_f_per_15min": 1.1987253743308486,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.564591510887098,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0876563294459629e-07,
+              "zone_temp_1F_B_f": 1.1659868448532507e-07,
+              "zone_temp_1F_C_f": 1.0955758966701978e-07,
+              "zone_temp_1F_D_f": 1.0527131166782056e-07,
+              "zone_temp_2F_A_f": 9.555346025535982e-08,
+              "zone_temp_2F_B_f": 9.698248959466582e-08
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.728554179465661,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0876563294459629e-07,
+              "zone_temp_1F_B_f": 1.1659868448532507e-07,
+              "zone_temp_1F_C_f": 1.0955758966701978e-07,
+              "zone_temp_1F_D_f": 1.0527131166782056e-07,
+              "zone_temp_2F_A_f": 9.555346025535982e-08,
+              "zone_temp_2F_B_f": 9.698248959466582e-08
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.1987253743308486,
+            "splice": {
+              "zone_temp_1F_A_f": 1.0876563294459629e-07,
+              "zone_temp_1F_B_f": 1.1659868448532507e-07,
+              "zone_temp_1F_C_f": 1.0955758966701978e-07,
+              "zone_temp_1F_D_f": 1.0527131166782056e-07,
+              "zone_temp_2F_A_f": 9.555346025535982e-08,
+              "zone_temp_2F_B_f": 9.698248959466582e-08
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m0_20251206.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 154.25154332813216,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 154.25154332813216,
+            "start": 154.25154332813216,
+            "center": 154.25154332813216
+          },
+          "30": {
+            "end": 153.76892412787583,
+            "start": 154.07251434889992,
+            "center": 153.76892412787583
+          },
+          "60": {
+            "end": 153.46534021210067,
+            "start": 140.6902316554847,
+            "center": 153.46534021210067
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 154.25154332813216,
+          "30": 154.07251434889992,
+          "60": 153.76981236254971
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 1675,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m0_20251206\\low_unocc\\eplus\\episode-00000000-09308\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 1650,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:59:15.602554+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-09308",
+          "w2a_low_airflow": 1650,
+          "warning_count": 1675,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-04140",
+          "w2a_low_airflow": 1500,
+          "warning_count": 1525,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-04660",
+          "w2a_low_airflow": 1494,
+          "warning_count": 1519,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m800_20260117",
+      "day": "2026-01-17",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:59:15.605027+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "b2b8a764aeb6283544dc6687a85c2f9321da49143a64be565ca31d2a93b7c928",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.5481090984277444,
+        "perturbed_simulated_max_f_per_15min": 1.7174497514492444,
+        "high_occ_simulated_max_f_per_15min": 1.2502412075074858,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.5481090984277444,
+            "splice": {
+              "zone_temp_1F_A_f": 2.9799983138900643e-06,
+              "zone_temp_1F_B_f": 3.208807314081241e-06,
+              "zone_temp_1F_C_f": 3.0521349572154577e-06,
+              "zone_temp_1F_D_f": 2.9680933835152246e-06,
+              "zone_temp_2F_A_f": 2.6622718962698855e-06,
+              "zone_temp_2F_B_f": 2.712227214374252e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.7174497514492444,
+            "splice": {
+              "zone_temp_1F_A_f": 2.9799983138900643e-06,
+              "zone_temp_1F_B_f": 3.208807314081241e-06,
+              "zone_temp_1F_C_f": 3.0521349572154577e-06,
+              "zone_temp_1F_D_f": 2.9680933835152246e-06,
+              "zone_temp_2F_A_f": 2.6622718962698855e-06,
+              "zone_temp_2F_B_f": 2.712227214374252e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.2502412075074858,
+            "splice": {
+              "zone_temp_1F_A_f": 2.9799983138900643e-06,
+              "zone_temp_1F_B_f": 3.208807314081241e-06,
+              "zone_temp_1F_C_f": 3.0521349572154577e-06,
+              "zone_temp_1F_D_f": 2.9680933835152246e-06,
+              "zone_temp_2F_A_f": 2.6622718962698855e-06,
+              "zone_temp_2F_B_f": 2.712227214374252e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m800_20260117.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 155.60415053847296,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 155.60415053847296,
+            "start": 155.60415053847296,
+            "center": 155.60415053847296
+          },
+          "30": {
+            "end": 155.18062122500476,
+            "start": 155.4697419262946,
+            "center": 155.18062122500476
+          },
+          "60": {
+            "end": 154.30028449806105,
+            "start": 155.15850517510563,
+            "center": 154.30028449806105
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 155.60415053847296,
+          "30": 155.4697419262946,
+          "60": 155.15850517510563
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 5965,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m800_20260117\\low_unocc\\eplus\\episode-00000000-03912\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 5940,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T12:59:39.649717+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-03912",
+          "w2a_low_airflow": 5940,
+          "warning_count": 5965,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-25076",
+          "w2a_low_airflow": 5892,
+          "warning_count": 5917,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-09064",
+          "w2a_low_airflow": 5910,
+          "warning_count": 5935,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m800_20260209",
+      "day": "2026-02-09",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T12:59:39.652048+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "b2b8a764aeb6283544dc6687a85c2f9321da49143a64be565ca31d2a93b7c928",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.1906423149473824,
+        "perturbed_simulated_max_f_per_15min": 1.5771091960711274,
+        "high_occ_simulated_max_f_per_15min": 1.3719305408137785,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.1906423149473824,
+            "splice": {
+              "zone_temp_1F_A_f": 2.343908960256158e-06,
+              "zone_temp_1F_B_f": 2.4600440156063996e-06,
+              "zone_temp_1F_C_f": 2.3543170186712814e-06,
+              "zone_temp_1F_D_f": 2.25499059069989e-06,
+              "zone_temp_2F_A_f": 2.309676972345187e-06,
+              "zone_temp_2F_B_f": 2.3384553742289427e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.5771091960711274,
+            "splice": {
+              "zone_temp_1F_A_f": 2.343908960256158e-06,
+              "zone_temp_1F_B_f": 2.4600440156063996e-06,
+              "zone_temp_1F_C_f": 2.3543170186712814e-06,
+              "zone_temp_1F_D_f": 2.25499059069989e-06,
+              "zone_temp_2F_A_f": 2.309676972345187e-06,
+              "zone_temp_2F_B_f": 2.3384553742289427e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.3719305408137785,
+            "splice": {
+              "zone_temp_1F_A_f": 2.343908960256158e-06,
+              "zone_temp_1F_B_f": 2.4600440156063996e-06,
+              "zone_temp_1F_C_f": 2.3543170186712814e-06,
+              "zone_temp_1F_D_f": 2.25499059069989e-06,
+              "zone_temp_2F_A_f": 2.309676972345187e-06,
+              "zone_temp_2F_B_f": 2.3384553742289427e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m800_20260209.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 230.63351429393632,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 230.63351429393632,
+            "start": 230.63351429393632,
+            "center": 230.63351429393632
+          },
+          "30": {
+            "end": 230.4433280275245,
+            "start": 214.22204598217073,
+            "center": 230.4433280275245
+          },
+          "60": {
+            "end": 205.9259805702687,
+            "start": 209.3296869936183,
+            "center": 205.9259805702687
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 230.63351429393632,
+          "30": 230.4433280275245,
+          "60": 214.2197623438493
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 1627,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m800_20260209\\low_unocc\\eplus\\episode-00000000-20776\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 1602,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:00:05.441265+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-20776",
+          "w2a_low_airflow": 1602,
+          "warning_count": 1627,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-18684",
+          "w2a_low_airflow": 912,
+          "warning_count": 937,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-32588",
+          "w2a_low_airflow": 558,
+          "warning_count": 583,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_autosizehtg_c12_m800_20251206",
+      "day": "2025-12-06",
+      "parameters": {
+        "plant": "autosize_htg",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T13:00:05.443704+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "b2b8a764aeb6283544dc6687a85c2f9321da49143a64be565ca31d2a93b7c928",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.8812511389573245,
+        "perturbed_simulated_max_f_per_15min": 1.672469512171375,
+        "high_occ_simulated_max_f_per_15min": 1.146876540101502,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.8812511389573245,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4574466433714406e-07,
+              "zone_temp_1F_B_f": 1.647837137852548e-07,
+              "zone_temp_1F_C_f": 1.51987109120455e-07,
+              "zone_temp_1F_D_f": 1.4854249741347303e-07,
+              "zone_temp_2F_A_f": 1.1231324492655403e-07,
+              "zone_temp_2F_B_f": 1.1576106828670163e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.672469512171375,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4574466433714406e-07,
+              "zone_temp_1F_B_f": 1.647837137852548e-07,
+              "zone_temp_1F_C_f": 1.51987109120455e-07,
+              "zone_temp_1F_D_f": 1.4854249741347303e-07,
+              "zone_temp_2F_A_f": 1.1231324492655403e-07,
+              "zone_temp_2F_B_f": 1.1576106828670163e-07
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.146876540101502,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4574466433714406e-07,
+              "zone_temp_1F_B_f": 1.647837137852548e-07,
+              "zone_temp_1F_C_f": 1.51987109120455e-07,
+              "zone_temp_1F_D_f": 1.4854249741347303e-07,
+              "zone_temp_2F_A_f": 1.1231324492655403e-07,
+              "zone_temp_2F_B_f": 1.1576106828670163e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_autosizehtg_c12_m800_20251206.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 155.46508199439953,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 155.46508199439953,
+            "start": 155.46508199439953,
+            "center": 155.46508199439953
+          },
+          "30": {
+            "end": 155.00172952920224,
+            "start": 155.29403718280912,
+            "center": 155.00172952920224
+          },
+          "60": {
+            "end": 154.7017503333914,
+            "start": 143.9174335763296,
+            "center": 154.7017503333914
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 155.46508199439953,
+          "30": 155.29403718280912,
+          "60": 154.99971408776514
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 2086,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_autosizehtg_c12_m800_20251206\\low_unocc\\eplus\\episode-00000000-25168\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 2061,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:00:30.280443+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-25168",
+          "w2a_low_airflow": 2061,
+          "warning_count": 2086,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-11140",
+          "w2a_low_airflow": 1869,
+          "warning_count": 1894,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-01440",
+          "w2a_low_airflow": 1839,
+          "warning_count": 1864,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c12_m800_20260117",
+      "day": "2026-01-17",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T13:00:30.283298+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "170051ec832e9de3fd1e173ad000b550c7aa1bf8d6be2325d526aa64a2d56b79",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.4228086780689182,
+        "perturbed_simulated_max_f_per_15min": 1.8089547400437667,
+        "high_occ_simulated_max_f_per_15min": 1.2483123367551627,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.4228086780689182,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0018312176154893223,
+              "zone_temp_1F_B_f": 1.132759592792354e-06,
+              "zone_temp_1F_C_f": 0.005312151611263971,
+              "zone_temp_1F_D_f": 0.024060509353645898,
+              "zone_temp_2F_A_f": 5.675918345104947e-06,
+              "zone_temp_2F_B_f": 5.909441654239345e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 1.8089547400437667,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0018312176154893223,
+              "zone_temp_1F_B_f": 1.132759592792354e-06,
+              "zone_temp_1F_C_f": 0.005312151611263971,
+              "zone_temp_1F_D_f": 0.024060509353645898,
+              "zone_temp_2F_A_f": 5.675918345104947e-06,
+              "zone_temp_2F_B_f": 5.909441654239345e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.2483123367551627,
+            "splice": {
+              "zone_temp_1F_A_f": 0.0018002171529190036,
+              "zone_temp_1F_B_f": 1.1327604028110727e-06,
+              "zone_temp_1F_C_f": 0.005245660559282328,
+              "zone_temp_1F_D_f": 0.024014303427520645,
+              "zone_temp_2F_A_f": 5.675919908298965e-06,
+              "zone_temp_2F_B_f": 5.909443174800799e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c12_m800_20260117.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 131.37281589497883,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 131.37281589497883,
+            "start": 131.37281589497883,
+            "center": 131.37281589497883
+          },
+          "30": {
+            "end": 131.23212224732947,
+            "start": 131.0104156513221,
+            "center": 131.23212224732947
+          },
+          "60": {
+            "end": 131.05814165839968,
+            "start": 127.71223328474858,
+            "center": 131.05814165839968
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 131.37281589497883,
+          "30": 131.23212224732947,
+          "60": 131.05814165839968
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 15823,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260117\\low_unocc\\eplus\\episode-00000000-07976\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 15792,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:00:53.541847+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-07976",
+          "w2a_low_airflow": 15792,
+          "warning_count": 15823,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-30780",
+          "w2a_low_airflow": 15504,
+          "warning_count": 15535,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-17772",
+          "w2a_low_airflow": 15198,
+          "warning_count": 15229,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c12_m800_20260209",
+      "day": "2026-02-09",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T13:00:53.544587+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "170051ec832e9de3fd1e173ad000b550c7aa1bf8d6be2325d526aa64a2d56b79",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.5380713220609152,
+        "perturbed_simulated_max_f_per_15min": 2.1617020462839207,
+        "high_occ_simulated_max_f_per_15min": 1.5580603372037416,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.5380713220609152,
+            "splice": {
+              "zone_temp_1F_A_f": 2.2299354469623722e-06,
+              "zone_temp_1F_B_f": 5.895364694197269e-07,
+              "zone_temp_1F_C_f": 0.004580210927400685,
+              "zone_temp_1F_D_f": 0.007498444293986495,
+              "zone_temp_2F_A_f": 5.316151458600871e-06,
+              "zone_temp_2F_B_f": 5.518707453688876e-06
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 2.1617020462839207,
+            "splice": {
+              "zone_temp_1F_A_f": 2.2299354469623722e-06,
+              "zone_temp_1F_B_f": 5.895364694197269e-07,
+              "zone_temp_1F_C_f": 0.004580210927400685,
+              "zone_temp_1F_D_f": 0.007498444293986495,
+              "zone_temp_2F_A_f": 5.316151458600871e-06,
+              "zone_temp_2F_B_f": 5.518707453688876e-06
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.5580603372037416,
+            "splice": {
+              "zone_temp_1F_A_f": 2.229066438985683e-06,
+              "zone_temp_1F_B_f": 5.895420827073394e-07,
+              "zone_temp_1F_C_f": 0.0045896587442655346,
+              "zone_temp_1F_D_f": 0.007474347640837209,
+              "zone_temp_2F_A_f": 5.316158819823613e-06,
+              "zone_temp_2F_B_f": 5.518715326502388e-06
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c12_m800_20260209.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 195.9725746186033,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 195.9725746186033,
+            "start": 195.9725746186033,
+            "center": 195.9725746186033
+          },
+          "30": {
+            "end": 193.51789242040633,
+            "start": 189.78194082328793,
+            "center": 193.51789242040633
+          },
+          "60": {
+            "end": 190.1524571059108,
+            "start": 187.6289621259836,
+            "center": 190.1524571059108
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 195.9725746186033,
+          "30": 193.51789242040633,
+          "60": 190.1524571059108
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 11818,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260209\\low_unocc\\eplus\\episode-00000000-21516\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 11787,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:01:16.987257+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-21516",
+          "w2a_low_airflow": 11787,
+          "warning_count": 11818,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-24268",
+          "w2a_low_airflow": 11411,
+          "warning_count": 11442,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-12256",
+          "w2a_low_airflow": 11121,
+          "warning_count": 11152,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_hpscaled3ton_c12_m800_20251206",
+      "day": "2025-12-06",
+      "parameters": {
+        "plant": "hp_scaled_3ton",
+        "capmult": 12.0,
+        "mass_m2": 800.0
+      },
+      "started_utc": "2026-08-17T13:01:16.990127+00:00",
+      "status": "RAMP_PASS_WARNING_FAIL",
+      "returncode": 0,
+      "idf_sha256": "170051ec832e9de3fd1e173ad000b550c7aa1bf8d6be2325d526aa64a2d56b79",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.8786495029084307,
+        "perturbed_simulated_max_f_per_15min": 2.1550805506595125,
+        "high_occ_simulated_max_f_per_15min": 1.4077050493953038,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": true,
+        "verdict": "GO_RAMP_PLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.8786495029084307,
+            "splice": {
+              "zone_temp_1F_A_f": 1.5336144087996217e-07,
+              "zone_temp_1F_B_f": 1.58919988280104e-08,
+              "zone_temp_1F_C_f": 3.1314834814111236e-07,
+              "zone_temp_1F_D_f": 3.708619829012605e-07,
+              "zone_temp_2F_A_f": 3.380867497071449e-07,
+              "zone_temp_2F_B_f": 3.56093892150966e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": true,
+            "max": 2.1550805506595125,
+            "splice": {
+              "zone_temp_1F_A_f": 1.5336144087996217e-07,
+              "zone_temp_1F_B_f": 1.58919988280104e-08,
+              "zone_temp_1F_C_f": 3.1314834814111236e-07,
+              "zone_temp_1F_D_f": 3.708619829012605e-07,
+              "zone_temp_2F_A_f": 3.380867497071449e-07,
+              "zone_temp_2F_B_f": 3.56093892150966e-07
+            },
+            "n_breaches": 0
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 1.4077050493953038,
+            "splice": {
+              "zone_temp_1F_A_f": 1.5405410636049055e-07,
+              "zone_temp_1F_B_f": 1.5892752003310306e-08,
+              "zone_temp_1F_C_f": 3.1396881183809455e-07,
+              "zone_temp_1F_D_f": 3.73245086393581e-07,
+              "zone_temp_2F_A_f": 3.380874602498807e-07,
+              "zone_temp_2F_B_f": 3.5609471638053947e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_hpscaled3ton_c12_m800_20251206.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 131.58662239162888,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 131.58662239162888,
+            "start": 131.58662239162888,
+            "center": 131.58662239162888
+          },
+          "30": {
+            "end": 131.44476748994407,
+            "start": 131.4596955995521,
+            "center": 131.44476748994407
+          },
+          "60": {
+            "end": 131.34428718381136,
+            "start": 123.5931288379345,
+            "center": 131.34428718381136
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 131.58662239162888,
+          "30": 131.4596955995521,
+          "60": 131.34428718381136
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 13531,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20251206\\low_unocc\\eplus\\episode-00000000-20004\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 13500,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:01:40.485116+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-20004",
+          "w2a_low_airflow": 13500,
+          "warning_count": 13531,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-16136",
+          "w2a_low_airflow": 12888,
+          "warning_count": 12919,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22372",
+          "w2a_low_airflow": 12654,
+          "warning_count": 12685,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_a04capacity_c12_m2000_20260117",
+      "day": "2026-01-17",
+      "parameters": {
+        "plant": "a04_capacity",
+        "capmult": 12.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T13:01:40.487831+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "17b8bc5b3bdee28611c9a06712469077c919b0ddc23cc03e753560b0582ea1b5",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.5341422848643447,
+        "perturbed_simulated_max_f_per_15min": 3.1094962722890784,
+        "high_occ_simulated_max_f_per_15min": 2.6499918372116014,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.5341422848643447,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4643247254753078e-06,
+              "zone_temp_1F_B_f": 1.8422204277612764e-06,
+              "zone_temp_1F_C_f": 1.7543044634749094e-06,
+              "zone_temp_1F_D_f": 1.5699327349238956e-06,
+              "zone_temp_2F_A_f": 5.2819331131104263e-08,
+              "zone_temp_2F_B_f": 3.653537703485199e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 3.1094962722890784,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4643247254753078e-06,
+              "zone_temp_1F_B_f": 1.8422204277612764e-06,
+              "zone_temp_1F_C_f": 1.7543044634749094e-06,
+              "zone_temp_1F_D_f": 1.5699327349238956e-06,
+              "zone_temp_2F_A_f": 5.2819331131104263e-08,
+              "zone_temp_2F_B_f": 3.653537703485199e-07
+            },
+            "n_breaches": 2
+          },
+          "high_occ": {
+            "passed": true,
+            "max": 2.6499918372116014,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4643247254753078e-06,
+              "zone_temp_1F_B_f": 1.8422204277612764e-06,
+              "zone_temp_1F_C_f": 1.7543044634749094e-06,
+              "zone_temp_1F_D_f": 1.5699327349238956e-06,
+              "zone_temp_2F_A_f": 5.2819331131104263e-08,
+              "zone_temp_2F_B_f": 3.653537703485199e-07
+            },
+            "n_breaches": 0
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_a04capacity_c12_m2000_20260117.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 231.952983240184,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 231.952983240184,
+            "start": 231.952983240184,
+            "center": 231.952983240184
+          },
+          "30": {
+            "end": 224.77224074440525,
+            "start": 219.82615624303583,
+            "center": 224.77224074440525
+          },
+          "60": {
+            "end": 220.88539240885666,
+            "start": 200.4155292839802,
+            "center": 220.88539240885666
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 231.952983240184,
+          "30": 224.77224074440525,
+          "60": 220.8853924088567
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 48328,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_a04capacity_c12_m2000_20260117\\low_unocc\\eplus\\episode-00000000-01792\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 48294,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:02:05.264032+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-01792",
+          "w2a_low_airflow": 48294,
+          "warning_count": 48328,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-31616",
+          "w2a_low_airflow": 46692,
+          "warning_count": 46726,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-19888",
+          "w2a_low_airflow": 45756,
+          "warning_count": 45790,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_a04capacity_c12_m2000_20260209",
+      "day": "2026-02-09",
+      "parameters": {
+        "plant": "a04_capacity",
+        "capmult": 12.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T13:02:05.266625+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "17b8bc5b3bdee28611c9a06712469077c919b0ddc23cc03e753560b0582ea1b5",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.3608869679464703,
+        "perturbed_simulated_max_f_per_15min": 3.0026132183943233,
+        "high_occ_simulated_max_f_per_15min": 2.7309903659547246,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.3608869679464703,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4395135963241046e-06,
+              "zone_temp_1F_B_f": 1.6303750101087644e-06,
+              "zone_temp_1F_C_f": 1.5777359578805772e-06,
+              "zone_temp_1F_D_f": 1.4100805003636196e-06,
+              "zone_temp_2F_A_f": 2.5300958839125087e-07,
+              "zone_temp_2F_B_f": 6.264813805501035e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 3.0026132183943233,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4395135963241046e-06,
+              "zone_temp_1F_B_f": 1.6303750101087644e-06,
+              "zone_temp_1F_C_f": 1.5777359578805772e-06,
+              "zone_temp_1F_D_f": 1.4100805003636196e-06,
+              "zone_temp_2F_A_f": 2.5300958839125087e-07,
+              "zone_temp_2F_B_f": 6.264813805501035e-07
+            },
+            "n_breaches": 2
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 2.7309903659547246,
+            "splice": {
+              "zone_temp_1F_A_f": 1.4395135963241046e-06,
+              "zone_temp_1F_B_f": 1.6303750101087644e-06,
+              "zone_temp_1F_C_f": 1.5777359578805772e-06,
+              "zone_temp_1F_D_f": 1.4100805003636196e-06,
+              "zone_temp_2F_A_f": 2.5300958839125087e-07,
+              "zone_temp_2F_B_f": 6.264813805501035e-07
+            },
+            "n_breaches": 1
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_a04capacity_c12_m2000_20260209.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 256.36165445385626,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 256.36165445385626,
+            "start": 256.36165445385626,
+            "center": 256.36165445385626
+          },
+          "30": {
+            "end": 243.7297347569129,
+            "start": 239.0289467802737,
+            "center": 243.7297347569129
+          },
+          "60": {
+            "end": 237.13625011022526,
+            "start": 212.80134317369658,
+            "center": 237.13625011022526
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 256.36165445385626,
+          "30": 243.72973475691288,
+          "60": 237.13625011022526
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 40018,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_a04capacity_c12_m2000_20260209\\low_unocc\\eplus\\episode-00000000-22012\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 40644,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:02:31.648267+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-22012",
+          "w2a_low_airflow": 39984,
+          "warning_count": 40018,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-06472",
+          "w2a_low_airflow": 40644,
+          "warning_count": 40678,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-31224",
+          "w2a_low_airflow": 39384,
+          "warning_count": 39418,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    },
+    {
+      "run_id": "sb_a04capacity_c12_m2000_20251206",
+      "day": "2025-12-06",
+      "parameters": {
+        "plant": "a04_capacity",
+        "capmult": 12.0,
+        "mass_m2": 2000.0
+      },
+      "started_utc": "2026-08-17T13:02:31.652100+00:00",
+      "status": "RAMP_FAIL",
+      "returncode": 4,
+      "idf_sha256": "17b8bc5b3bdee28611c9a06712469077c919b0ddc23cc03e753560b0582ea1b5",
+      "parent_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+      "ramp": {
+        "schema": "vibe22.physics_ramp_gate.v1",
+        "arm": "incumbent_low_high_jan26",
+        "engineering_margin": 3.0,
+        "threshold_rule": "bas_p99_9 * engineering_margin",
+        "threshold_f_per_15min": 2.650769999999918,
+        "incumbent_simulated_max_f_per_15min": 1.6610110537400828,
+        "perturbed_simulated_max_f_per_15min": 2.8057795381962976,
+        "high_occ_simulated_max_f_per_15min": 2.7122143677529493,
+        "bas_quantiles_f_per_15min": {
+          "median": 0.03666666666667595,
+          "p95": 0.22333333333331495,
+          "p99": 0.44615384615384485,
+          "p99_9": 0.8835899999999727,
+          "max": 2.2266666666666453
+        },
+        "passed": false,
+        "verdict": "NO_GO_LONG_RL_TRAINING_PHYSICS_RAMP_IMPLAUSIBLE",
+        "per_arm": {
+          "incumbent": {
+            "passed": true,
+            "max": 1.6610110537400828,
+            "splice": {
+              "zone_temp_1F_A_f": 2.92473373519897e-07,
+              "zone_temp_1F_B_f": 3.791344340697833e-07,
+              "zone_temp_1F_C_f": 3.5950839105680643e-07,
+              "zone_temp_1F_D_f": 3.242482051746265e-07,
+              "zone_temp_2F_A_f": 1.0179621767747449e-07,
+              "zone_temp_2F_B_f": 1.4112717394709762e-07
+            },
+            "n_breaches": 0
+          },
+          "low_unocc": {
+            "passed": false,
+            "max": 2.8057795381962976,
+            "splice": {
+              "zone_temp_1F_A_f": 2.92473373519897e-07,
+              "zone_temp_1F_B_f": 3.791344340697833e-07,
+              "zone_temp_1F_C_f": 3.5950839105680643e-07,
+              "zone_temp_1F_D_f": 3.242482051746265e-07,
+              "zone_temp_2F_A_f": 1.0179621767747449e-07,
+              "zone_temp_2F_B_f": 1.4112717394709762e-07
+            },
+            "n_breaches": 1
+          },
+          "high_occ": {
+            "passed": false,
+            "max": 2.7122143677529493,
+            "splice": {
+              "zone_temp_1F_A_f": 2.92473373519897e-07,
+              "zone_temp_1F_B_f": 3.791344340697833e-07,
+              "zone_temp_1F_C_f": 3.5950839105680643e-07,
+              "zone_temp_1F_D_f": 3.242482051746265e-07,
+              "zone_temp_2F_A_f": 1.0179621767747449e-07,
+              "zone_temp_2F_B_f": 1.4112717394709762e-07
+            },
+            "n_breaches": 1
+          }
+        },
+        "notes": "Newly generated from LIVE EnergyPlus; threshold not retuned.",
+        "idf": "lakeside_w2a_a04v2_sb_a04capacity_c12_m2000_20251206.idf"
+      },
+      "demand_windows": {
+        "schema": "vibe22.demand_windows.v2",
+        "native_minutes": 15,
+        "native_max_kw": 211.24847047359827,
+        "aligned_max_kw": {
+          "5": {
+            "end": null,
+            "start": null,
+            "center": null
+          },
+          "15": {
+            "end": 211.24847047359827,
+            "start": 211.24847047359827,
+            "center": 211.24847047359827
+          },
+          "30": {
+            "end": 198.83584949543115,
+            "start": 197.90394070202893,
+            "center": 198.83584949543115
+          },
+          "60": {
+            "end": 198.40140713149995,
+            "start": 174.88054901659638,
+            "center": 198.40140713149995
+          }
+        },
+        "rolling_max_kw": {
+          "5": null,
+          "15": 211.24847047359827,
+          "30": 198.83584949543115,
+          "60": 198.40140713149995
+        },
+        "utility_demand_interval_status": "unresolved",
+        "utility_jan2026_billed_demand_kw": 284.82,
+        "tol_frac": 0.1,
+        "billed_band_kw": [
+          256.338,
+          313.302
+        ],
+        "legacy_band_kw": [
+          250.0,
+          290.0
+        ],
+        "legacy_band_role": "a04_calibration_diagnostic_only",
+        "hard_gate": false,
+        "notes": "Do not hard-fail a candidate solely on native 15-min max vs billed 284.82 kW while the utility averaging window remains unresolved.",
+        "unavailable_windows_min": [
+          5
+        ],
+        "sub_native_policy": "unavailable_not_invented"
+      },
+      "eplus_quality": {
+        "ok": true,
+        "completed_successfully": true,
+        "warning_count": 45358,
+        "severe_count": 0,
+        "fatal_count": 0,
+        "first_severe": null,
+        "first_fatal": null,
+        "recurring": {
+          "w2a_low_airflow": 1
+        },
+        "err_path": "<USER_HOME>/Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_a04capacity_c12_m2000_20251206\\low_unocc\\eplus\\episode-00000000-27756\\eplusout.err"
+      },
+      "warning_gate": {
+        "max_w2a_low_airflow": 0,
+        "w2a_low_airflow": 45324,
+        "n_err_files": 3,
+        "passed": false
+      },
+      "finished_utc": "2026-08-17T13:02:58.135417+00:00",
+      "eplus_warning_histogram": [
+        {
+          "err": "episode-00000000-27756",
+          "w2a_low_airflow": 45324,
+          "warning_count": 45358,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-16256",
+          "w2a_low_airflow": 44880,
+          "warning_count": 44914,
+          "severe_count": 0,
+          "fatal_count": 0
+        },
+        {
+          "err": "episode-00000000-22144",
+          "w2a_low_airflow": 43848,
+          "warning_count": 43882,
+          "severe_count": 0,
+          "fatal_count": 0
+        }
+      ]
+    }
+  ]
+}

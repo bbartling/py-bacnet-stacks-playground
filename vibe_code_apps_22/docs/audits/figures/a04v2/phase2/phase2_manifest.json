@@ -1,0 +1,29 @@
+{
+  "schema": "vibe22.a04v2.phase2_zone_dataset.v1",
+  "created_utc": "2026-08-17T00:45:59.183318+00:00",
+  "source_parquet": "<SITE_ROOT>\\ml\\artifacts\\real_baseline_15min_v1.parquet",
+  "source_sha256": "20d28ba2f89159e6bf2a850514ed15ee5d7a92b45602caea7a21a236a28c9b43",
+  "primary_aggregation_method": "mean_of_valid_sensors_preaggregated_in_real_baseline_v1",
+  "aggregation_justification": "real_baseline_15min_v1 already publishes six BAS-aligned zone columns from the 67-HP thermal_zone_model map. Per-interval sensor min/max/std within each group are not in this parquet; cross-zone std/range are published as disagreement proxies. Do not hide disagreement \u2014 report zone_cross_std_f / zone_cross_range_f.",
+  "zone_cols": [
+    "zone_temp_1F_A_f",
+    "zone_temp_1F_B_f",
+    "zone_temp_1F_C_f",
+    "zone_temp_1F_D_f",
+    "zone_temp_2F_A_f",
+    "zone_temp_2F_B_f"
+  ],
+  "gate_smoke_dates_excluded_from_heldout": [
+    "2026-01-25",
+    "2026-01-26",
+    "2026-03-16"
+  ],
+  "n_days": 336,
+  "fold_counts": {
+    "train_dev": 233,
+    "model_selection_val": 50,
+    "heldout_transient": 50,
+    "gate_smoke_excluded": 3
+  },
+  "january_not_pristine": true
+}

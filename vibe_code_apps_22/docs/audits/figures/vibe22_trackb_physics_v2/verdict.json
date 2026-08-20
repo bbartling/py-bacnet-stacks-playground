@@ -1,0 +1,43 @@
+{
+  "schema": "vibe22.trackb.physics_validity_v2.verdict.v1",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "ready_nogo": "NO-GO",
+  "champion": null,
+  "long_campaign_allowed": false,
+  "long_rl_blocked": true,
+  "bounded_pilot_ran": false,
+  "bacnet_commands_issued": false,
+  "vibe19_touched": false,
+  "campaign_cli_env": "MultiDayDailyEnv",
+  "legacy_env": "DailySixZoneGymEnv",
+  "dqn_declared_n": 110,
+  "dqn_unique_n": 74,
+  "new_valid_scored_energyplus_runs": 0,
+  "track_b_simulated_requested_weather_dates_this_session": false,
+  "w2a": {
+    "bound": 0,
+    "committed_trackb_pass2_scored_runtime": 3780,
+    "provenance": "models/eplus/a04v2_candidates/trackb_two_pass_base/parameters.json",
+    "a04_continuity_continuous_70": 0,
+    "a04_continuity_incumbent": 35124,
+    "a04_continuity_deep_setback": 36360
+  },
+  "ramp": {
+    "threshold_f_per_15min": 2.651,
+    "engineering_margin": 3.0,
+    "artifact": "docs/audits/figures/postfix/ramp_gate.json",
+    "passed": false,
+    "incumbent_max_f_per_15min": 4.616,
+    "low_unocc_max_f_per_15min": 8.203,
+    "high_occ_max_f_per_15min": 3.989
+  },
+  "monthly_and_load_shape": "not_run_this_session",
+  "idf_sha256_a04_crlf": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "trackb_child_sha256": "d7b1ce51c37f46acfa12da8fea2493a091ceb9d94e874a960ef912d57a922dc7",
+  "epw_sha256_continuity": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+  "epw_sha256_a04v2_phase0": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "energyplus_version": "26.1.0",
+  "a04_not_overwritten": true,
+  "failed_trackb_two_pass_tree_retained": true,
+  "tests": "179 passed, 1 deselected"
+}

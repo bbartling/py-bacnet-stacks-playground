@@ -1,0 +1,155 @@
+{
+  "schema": "vibe22.a04v2.meter_source_ledger.v1",
+  "created_utc": "2026-08-17T00:41:41.420530+00:00",
+  "sources": {
+    "A_utility_provider": {
+      "files": [
+        {
+          "path": "<SITE_ROOT>\\utilities\\electricity_utility_demand.csv",
+          "sha256": "34d0acfbb4948ffb2fbe5dcf14b7b0a28e3f904889afcbb57953c0bb282b982b"
+        },
+        {
+          "path": "<SITE_ROOT>\\utilities\\utility_bills_raw.csv",
+          "sha256": "95c7856096f17fb654e0d900e50ceef9d2a806de0b38b7970a2be40b92b0b412"
+        }
+      ],
+      "use_for": [
+        "monthly_billed_energy_kwh",
+        "monthly_billed_demand_kw",
+        "tariff_context"
+      ],
+      "january_2026_billed_demand_kw": 284.82,
+      "january_2026_kwh": 81491.0,
+      "not_for": [
+        "15min_load_shape",
+        "morning_recovery_timing"
+      ]
+    },
+    "B_bas_bacnet_electrical_submeter": {
+      "files": [
+        {
+          "path": "<SITE_ROOT>\\utilities\\demand_interval_kw.csv",
+          "sha256": "1587de29c8e71a4ff0c912809ee484b9781117b9894ecb85ac8606abdc669c45",
+          "note": "Same series family as BAS/BACnet CS_ELEC_METER. NOT an independent utility AMI source. Do not label as utility-provider interval data."
+        },
+        {
+          "path": "<SITE_ROOT>\\ml\\artifacts\\real_baseline_15min_v1.parquet",
+          "sha256": "20d28ba2f89159e6bf2a850514ed15ee5d7a92b45602caea7a21a236a28c9b43"
+        }
+      ],
+      "use_for": [
+        "5min_15min_30min_hourly_load_shape",
+        "peak_timing",
+        "morning_recovery",
+        "weekday_weekend_patterns",
+        "zone_temperature_transients"
+      ],
+      "january_2026_interval_max_kw": 330.0,
+      "january_2026_15min_mean_peak_note": "BAS 15-min mean peak historically ~304 kW; verify on this build",
+      "observed_context": {
+        "bas_5min_peak_kw_approx": 330.0,
+        "bas_15min_mean_peak_kw_approx": 304.0,
+        "bas_30min_mean_peak_kw_approx": 288.0,
+        "utility_jan2026_billed_demand_kw": 284.82
+      }
+    }
+  },
+  "open_questions": [
+    "Meter boundary: does CS_ELEC_METER include loads absent from A04 IdealLoads/W2A plant?",
+    "Timestamp convention of demand_interval_kw.csv (interval end vs start)",
+    "DST handling between BAS local and UTC",
+    "Consistent bias between monthly integrated BAS kWh and utility billed kWh"
+  ],
+  "correction_policy": "Do not rescale BAS merely to improve validation. Any correction needs physical/metering basis, estimated on development data only, checked on held-out validation.",
+  "january_2026_utility_vs_interval": {
+    "utility_billed_demand_kw": 284.82,
+    "interval_max_kw": 330.0,
+    "interval_rows": 8928,
+    "interpretation": "Interval max exceeds billed demand; billed demand uses a utility averaging window (document before peak-tolerance freeze)."
+  },
+  "real_baseline_15min": {
+    "n_rows": 32156,
+    "columns_present": [
+      "facility_kw",
+      "oat_f",
+      "zone_temp_1F_A_f",
+      "zone_temp_1F_B_f",
+      "zone_temp_1F_C_f",
+      "zone_temp_1F_D_f",
+      "zone_temp_2F_A_f",
+      "zone_temp_2F_B_f"
+    ]
+  },
+  "monthly_bas_vs_utility_kwh": [
+    {
+      "month": "2025-08",
+      "bas_integrated_kwh": 32594.499966666666,
+      "utility_billed_kwh": 32789.0,
+      "delta_kwh": -194.5000333333337,
+      "pct_diff": -0.5931868411154159
+    },
+    {
+      "month": "2025-09",
+      "bas_integrated_kwh": 32280.499948333334,
+      "utility_billed_kwh": 31350.0,
+      "delta_kwh": 930.499948333334,
+      "pct_diff": 2.9681019085592792
+    },
+    {
+      "month": "2025-10",
+      "bas_integrated_kwh": 33530.99997416667,
+      "utility_billed_kwh": 32552.0,
+      "delta_kwh": 978.9999741666688,
+      "pct_diff": 3.007495619828793
+    },
+    {
+      "month": "2025-11",
+      "bas_integrated_kwh": 43517.999866666665,
+      "utility_billed_kwh": 42097.0,
+      "delta_kwh": 1420.9998666666652,
+      "pct_diff": 3.375537132495582
+    },
+    {
+      "month": "2025-12",
+      "bas_integrated_kwh": 69566.99982916667,
+      "utility_billed_kwh": 67328.0,
+      "delta_kwh": 2238.9998291666707,
+      "pct_diff": 3.325510677825972
+    },
+    {
+      "month": "2026-01",
+      "bas_integrated_kwh": 84157.99974833333,
+      "utility_billed_kwh": 81491.0,
+      "delta_kwh": 2666.999748333328,
+      "pct_diff": 3.272753737631552
+    },
+    {
+      "month": "2026-02",
+      "bas_integrated_kwh": 68149.99978916667,
+      "utility_billed_kwh": 67205.0,
+      "delta_kwh": 944.9997891666717,
+      "pct_diff": 1.4061450623713587
+    },
+    {
+      "month": "2026-03",
+      "bas_integrated_kwh": 55098.99986416667,
+      "utility_billed_kwh": 51938.0,
+      "delta_kwh": 3160.999864166668,
+      "pct_diff": 6.086102399335107
+    },
+    {
+      "month": "2026-04",
+      "bas_integrated_kwh": 43770.99992,
+      "utility_billed_kwh": 42296.0,
+      "delta_kwh": 1474.999920000002,
+      "pct_diff": 3.4873272177038066
+    },
+    {
+      "month": "2026-05",
+      "bas_integrated_kwh": 32348.4999775,
+      "utility_billed_kwh": 31398.0,
+      "delta_kwh": 950.4999774999997,
+      "pct_diff": 3.027262811325561
+    }
+  ]
+}

@@ -27,10 +27,32 @@ def _require_contiguous_15min(frame: pd.DataFrame) -> None:
         raise ValueError("ramp gate requires contiguous 15-minute timestamps")
 
 
-def abs_15min_deltas(frame: pd.DataFrame, cols: Sequence[str] = BAS_ZONE_COLS) -> np.ndarray:
-    _require_contiguous_15min(frame)
-    arr = frame[list(cols)].astype(float).diff().abs().to_numpy().reshape(-1)
-    return arr[np.isfinite(arr)]
+def abs_15min_deltas(
+    frame: pd.DataFrame,
+    cols: Sequence[str] = BAS_ZONE_COLS,
+    *,
+    require_contiguous: bool = True,
+) -> np.ndarray:
+    """Absolute 15-minute zone deltas. BAS series may have gaps; only true 15-min pairs count."""
+    if require_contiguous:
+        _require_contiguous_15min(frame)
+        arr = frame[list(cols)].astype(float).diff().abs().to_numpy().reshape(-1)
+        return arr[np.isfinite(arr)]
+    idx = frame.index
+    if not isinstance(idx, pd.DatetimeIndex):
+        raise ValueError("ramp gate requires a DatetimeIndex")
+    if not idx.is_unique or not bool(idx.is_monotonic_increasing):
+        raise ValueError("ramp gate timestamps must be unique and monotonic")
+    vals = frame[list(cols)].astype(float)
+    chunks: list[np.ndarray] = []
+    for i in range(1, len(idx)):
+        if idx[i] - idx[i - 1] != pd.Timedelta(minutes=15):
+            continue
+        delta = (vals.iloc[i] - vals.iloc[i - 1]).abs().to_numpy()
+        chunks.append(delta[np.isfinite(delta)])
+    if not chunks:
+        raise ValueError("empty ramp samples")
+    return np.concatenate(chunks)
 
 
 def evaluate_ramp_gate(
@@ -40,8 +62,8 @@ def evaluate_ramp_gate(
     cols: Sequence[str] = BAS_ZONE_COLS,
     engineering_margin: float = ENGINEERING_MARGIN,
 ) -> dict[str, Any]:
-    real = abs_15min_deltas(real_bas, cols)
-    sim = abs_15min_deltas(simulated, cols)
+    sim = abs_15min_deltas(simulated, cols, require_contiguous=True)
+    real = abs_15min_deltas(real_bas, cols, require_contiguous=False)
     if real.size == 0 or sim.size == 0:
         raise ValueError("empty ramp samples")
     qs = {

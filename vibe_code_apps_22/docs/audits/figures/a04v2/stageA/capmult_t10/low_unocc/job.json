@@ -1,0 +1,55 @@
+{
+  "site_root": "<SITE_ROOT>",
+  "epw": "<SITE_ROOT>\\eplus\\weather\\madison_amy_202508_202608.epw",
+  "champion_idf": "models\\eplus\\a04v2_candidates\\capmult_t10\\lakeside_w2a_a04v2_capmult_t10.idf",
+  "day": "2026-01-26",
+  "params": {
+    "occupied_heating_f": 68.0,
+    "unoccupied_heating_f": 58.0,
+    "recovery_start_minutes_before_occupancy": 0,
+    "recovery_ramp_minutes": 60,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "zone_offsets": {
+      "1F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_C": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_D": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      }
+    },
+    "occupied_setpoint_start_step": 28
+  },
+  "ep_dir": "docs\\audits\\figures\\a04v2\\stageA\\capmult_t10\\low_unocc",
+  "queue_timeout_s": 180.0,
+  "lookback_days": 1,
+  "reward_name": "legacy_reward_v1",
+  "reward_weights": null,
+  "mtd_peak_kw": 0.0,
+  "skip_paired_baseline": false,
+  "cache_dir": null
+}

@@ -1,0 +1,9 @@
+{
+  "rng": "864e9d62f1703ca5648fc2f3b0f6af7f43eb9c03014d5d3caad5b243a6e3c3ed",
+  "valid_transition_count": 4,
+  "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "87d7d9bfca7de4ac5b905ec1a65defc7622a78dac9444fc55cdef618ddf91fb2",
+  "episode_block": "research_poc",
+  "seed": 0,
+  "utc": "2026-08-18T15:09:28.739706+00:00"
+}

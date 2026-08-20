@@ -1,0 +1,7 @@
+{
+  "schema": "vibe22.mega.obs_v4_sample.v1",
+  "phase_status": "CONTRACT_ONLY",
+  "n_obs": 206,
+  "future_tariff_in_observation": true,
+  "label": "EXAMPLE_NOT_EXPERIMENT_RESULT"
+}

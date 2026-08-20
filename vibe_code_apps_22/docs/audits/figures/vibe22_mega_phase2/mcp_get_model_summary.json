@@ -1,0 +1,31 @@
+{
+  "Building": {
+    "Name": "Lakeside_ES",
+    "North Axis": 0.0,
+    "Terrain": "Suburbs",
+    "Loads Convergence Tolerance": 0.04,
+    "Temperature Convergence Tolerance": 0.4,
+    "Solar Distribution": "FullInteriorAndExterior",
+    "Max Warmup Days": 50,
+    "Min Warmup Days": 6
+  },
+  "Site:Location": {
+    "Name": "Sun_Prairie_WI",
+    "Latitude": 43.16521,
+    "Longitude": -89.25408,
+    "Time Zone": -6.0,
+    "Elevation": 261.0
+  },
+  "SimulationControl": {
+    "Do Zone Sizing Calculation": "Yes",
+    "Do System Sizing Calculation": "Yes",
+    "Do Plant Sizing Calculation": "No",
+    "Run Simulation for Sizing Periods": "Yes",
+    "Run Simulation for Weather File Run Periods": "Yes",
+    "Do HVAC Sizing Simulation for Sizing Periods": "No",
+    "Max Number of HVAC Sizing Simulation Passes": 1
+  },
+  "Version": {
+    "Version Identifier": "26.1"
+  }
+}

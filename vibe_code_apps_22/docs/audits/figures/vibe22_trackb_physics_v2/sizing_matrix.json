@@ -1,0 +1,31 @@
+{
+  "schema": "vibe22.trackb.sizing_matrix.v1",
+  "public_line": "MODEL DEVELOPMENT INCOMPLETE — LONG RL BLOCKED",
+  "a04_not_overwritten": true,
+  "a04_sha256_crlf": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "user_specified_149430_not_treated_as_autosized": true,
+  "hp_inventory": 67,
+  "control_groups": 6,
+  "sensitivities": ["low", "base", "high"],
+  "curve_provenance": "inherited_from_a04_parent_unverified_catalog",
+  "locked_holdout_used_for_tuning": false,
+  "runs": [
+    {
+      "sensitivity": "low",
+      "status": "not_run_this_session",
+      "reason": "No Track B child has cleared physics gates; refuse using LIVE EnergyPlus to hunt a pass."
+    },
+    {
+      "sensitivity": "base",
+      "status": "not_run_this_session",
+      "reason": "Code path rewrites a sizing-only child and stages year-aware EPW; committed pass2 remains W2A 3780 / 2 DATA PERIOD Severes."
+    },
+    {
+      "sensitivity": "high",
+      "status": "not_run_this_session",
+      "reason": "Same as base. Failed/superseded two-pass artifacts retained."
+    }
+  ],
+  "champion": null,
+  "long_campaign_allowed": false
+}

@@ -1,0 +1,95 @@
+{
+  "reward": -2594.715821189912,
+  "daily_kwh": 2860.7411197975753,
+  "peak_kw": 132.24088013445083,
+  "pre8_violations": 5,
+  "pre8_degree_hours": 2.5627369594881415,
+  "occ_violations": 1,
+  "energy_cost": 343.288934375709,
+  "peak_cost": 1983.6132020167624,
+  "failed": false,
+  "extras": {
+    "school_start_step": 32,
+    "reward_name": "legacy_reward_v1"
+  },
+  "params": {
+    "occupied_heating_f": 72.0,
+    "unoccupied_heating_f": 68.0,
+    "recovery_start_minutes_before_occupancy": 0,
+    "recovery_ramp_minutes": 0,
+    "occupancy_start_step": 28,
+    "occupancy_end_step": 68,
+    "zone_offsets": {
+      "1F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_C": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "1F_D": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_A": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      },
+      "2F_B": {
+        "setback_offset_f": 0.0,
+        "recovery_offset_min": 0,
+        "occupied_offset_f": 0.0
+      }
+    },
+    "occupied_setpoint_start_step": 28
+  },
+  "day": "2026-01-17",
+  "n_rows": 96,
+  "n_all_rows": 192,
+  "trajectory": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260117\\high_occ\\trajectory.parquet",
+  "trajectory_all": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260117\\high_occ\\trajectory_all.parquet",
+  "start_zone_temps_f": [
+    65.00017756333003,
+    65.00021727007876,
+    64.99851760366379,
+    64.94863792364998,
+    65.00012512989716,
+    65.00012390882867
+  ],
+  "episode_manifest": {
+    "schema": "vibe22.episode_manifest.v1",
+    "n_rows_scored": 96,
+    "n_all_rows": 192,
+    "scored_is_not_full_simulation": true,
+    "trajectory_sha256": "ffbb98f5f71fc6768c3053acda42e20a152f3e337ba5b38e4a2dc2c0fd580723",
+    "trajectory_all_sha256": "cb849ab85b90be219ddb741959f2fdc3d1cf4184316055c2464df010d340ece4"
+  },
+  "baseline_kwh": null,
+  "baseline_peak_kw": null,
+  "scientific_claim": "ENERGYPLUS DSM OPTIMIZATION SCREENING / RETROSPECTIVE REPLAY",
+  "simulator": "LIVE_ENERGYPLUS",
+  "eplus_quality": {
+    "ok": true,
+    "completed_successfully": true,
+    "warning_count": 15229,
+    "severe_count": 0,
+    "fatal_count": 0,
+    "first_severe": null,
+    "first_fatal": null,
+    "recurring": {
+      "w2a_low_airflow": 1
+    },
+    "err_path": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\.worktrees\\feat-vibe22-a04v2-transient\\vibe_code_apps_22\\docs\\audits\\figures\\a04v2\\stageB\\sb_hpscaled3ton_c12_m800_20260117\\high_occ\\eplus\\episode-00000000-17772\\eplusout.err"
+  },
+  "lookback_days": 1
+}
