@@ -253,9 +253,18 @@ def train_sb3(
     else:
         summary["policy_pack"] = None
         summary["policy_pack_skipped"] = "research_sb3_zip_canonical"
-        summary["observation_contract"] = "vibe22.obs.v3"
-        summary["observation_dim"] = 80
+        obs_schema = str(cfg.get("obs_schema") or "v3")
+        if obs_schema == "v4":
+            from eplus_gym.mega.obs_tariff_v4 import N_OBS_V4, OBS_SCHEMA_V4
+
+            summary["observation_contract"] = OBS_SCHEMA_V4
+            summary["observation_dim"] = N_OBS_V4
+        else:
+            summary["observation_contract"] = "vibe22.obs.v3"
+            summary["observation_dim"] = 80
         summary["action_contract_version"] = contract or None
+        summary["tariff_mode"] = cfg.get("tariff_mode")
+        summary["cooling_action_space"] = False
     (run_root / "train_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     env.close()
     return summary

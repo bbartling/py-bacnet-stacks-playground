@@ -9,6 +9,7 @@ import pytest
 
 from eplus_gym.control_v2 import build_six_schedules_f, continuous_params
 from eplus_gym.rl.multiday_env import FakeContinuityPlant, MultiDayDailyEnv
+from eplus_gym.mega.obs_tariff_v4 import N_OBS_V4
 from eplus_gym.rl.obs_v3 import N_OBS_V3
 from eplus_gym.rl.research_checkpoint import (
     SCHEMA,
@@ -19,7 +20,11 @@ from eplus_gym.rl.research_checkpoint import (
 )
 from eplus_gym.rl.research_eval import select_winner
 from eplus_gym.rl.research_long import freeze_research_long_days, run_research_long, write_heartbeat
-from eplus_gym.rl.research_spaces import RESEARCH_ACTION_CONTRACT_V2, encode_continuous_research_v2
+from eplus_gym.rl.research_spaces import (
+    RESEARCH_ACTION_CONTRACT_V2,
+    RESEARCH_ACTION_CONTRACT_V3,
+    encode_continuous_research_v2,
+)
 
 APP = Path(__file__).resolve().parents[1]
 
@@ -70,8 +75,10 @@ def test_research_long_dry_run_keeps_gates_false():
     assert out["OPERATIONAL_DSM_READY"] is False
     assert out["bacnet_commands"] == 0
     assert "RESEARCH_LONG_ALLOWED" in out["claim_labels"]
-    assert out["action_contract_version"] == RESEARCH_ACTION_CONTRACT_V2
-    assert out["observation_dim"] == N_OBS_V3
+    assert out["action_contract_version"] == RESEARCH_ACTION_CONTRACT_V3
+    assert out["observation_dim"] == N_OBS_V4
+    assert out["tariff_mode"] == "FLAT_PLUS_DEMAND"
+    assert out["cooling_action_space"] is False
 
 
 def test_research_long_does_not_alias_campaign():

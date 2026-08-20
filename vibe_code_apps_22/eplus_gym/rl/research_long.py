@@ -30,10 +30,12 @@ from eplus_gym.rl.research_model import ResearchModelError, verify_research_mode
 from eplus_gym.rl.research_poc import refuse_fake_plant, reject_candidate_as_baseline
 from eplus_gym.rl.research_spaces import (
     RESEARCH_ACTION_CONTRACT_V2,
+    RESEARCH_ACTION_CONTRACT_V3,
     decode_continuous_research_v2,
     research_build_six_schedules_f,
     research_continuous_70,
 )
+from eplus_gym.mega.tariff_modes import experiment_id_for_mode, tariff_banner
 from eplus_gym.rl.split_manifest import TRAIN_END, VAL_END, assert_train_fold_only
 from eplus_gym.rl.train_sb3 import make_env, train_sb3
 from eplus_gym.site_pins import resolve_site_epw, sha256_file
@@ -55,7 +57,12 @@ class ResearchLongError(ValueError):
     """research-long refused."""
 
 
-def _locked_flags(*, obs_schema: str = "v4") -> dict[str, Any]:
+def _locked_flags(
+    *,
+    obs_schema: str = "v4",
+    action_contract_version: str = RESEARCH_ACTION_CONTRACT_V3,
+    tariff_mode: str = "FLAT_PLUS_DEMAND",
+) -> dict[str, Any]:
     dim = N_OBS_V4 if obs_schema == "v4" else 80
     contract = OBS_SCHEMA_V4 if obs_schema == "v4" else "vibe22.obs.v3"
     return {
@@ -67,10 +74,14 @@ def _locked_flags(*, obs_schema: str = "v4") -> dict[str, Any]:
         "RESEARCH_POC_ALLOWED": True,
         "bacnet_commands": 0,
         "locked_unseen": NO_LOCKED_UNSEEN,
-        "action_contract_version": RESEARCH_ACTION_CONTRACT_V2,
+        "action_contract_version": action_contract_version,
         "observation_dim": dim,
         "observation_contract": contract,
         "obs_schema": obs_schema,
+        "tariff_mode": tariff_mode,
+        "experiment_id": experiment_id_for_mode(tariff_mode),
+        "tariff_banner": tariff_banner(tariff_mode),
+        "cooling_action_space": False,
     }
 
 
@@ -91,11 +102,11 @@ def freeze_research_long_days(epw: Path) -> dict[str, Any]:
     }
 
 
-def write_heartbeat(path: Path, body: Mapping[str, Any]) -> None:
+def write_heartbeat(path: Path, body: Mapping[str, Any], *, flags: Mapping[str, Any] | None = None) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        **_locked_flags(),
+        **(dict(flags) if flags is not None else _locked_flags()),
         "pid": os.getpid(),
         "contaminated": False,
         **dict(body),
@@ -187,7 +198,8 @@ def _env_cfg(
     block_size: int,
     persist_billing: bool,
     obs_schema: str = "v4",
-    tariff_mode: str = "flat_illustrative",
+    tariff_mode: str = "FLAT_PLUS_DEMAND",
+    action_contract_version: str = RESEARCH_ACTION_CONTRACT_V3,
 ) -> dict[str, Any]:
     first = next(iter(payloads.values())) if payloads else {}
     return {
@@ -199,7 +211,7 @@ def _env_cfg(
         "n_days": len(days),
         "start_day": str(days[0])[:10],
         "action_kind": "discrete" if str(algo).upper() == "DQN" else "continuous",
-        "action_contract_version": RESEARCH_ACTION_CONTRACT_V2,
+        "action_contract_version": action_contract_version,
         "hourly_oat": {k: list(v) for k, v in oat.items()},
         "forecast_source": PERFECT_EPISODE_FORECAST,
         "obs_schema": obs_schema,
@@ -234,7 +246,8 @@ def run_research_long(
     heartbeat_path: Path | None = None,
     seed: int = 0,
     obs_schema: str = "v4",
-    tariff_mode: str = "flat_illustrative",
+    tariff_mode: str = "FLAT_PLUS_DEMAND",
+    action_contract_version: str = RESEARCH_ACTION_CONTRACT_V3,
     child_idf: Path | None = None,
     campaign_labels: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
@@ -244,10 +257,16 @@ def run_research_long(
         )
     if float(max_wall_hours) > MAX_WALL_HOURS + 1e-9:
         raise ResearchLongError("research-long wall clock cap is 30 hours")
+    if action_contract_version not in {RESEARCH_ACTION_CONTRACT_V2, RESEARCH_ACTION_CONTRACT_V3}:
+        raise ResearchLongError(f"unsupported action_contract_version {action_contract_version!r}")
     manifest = verify_research_model(app_root)
     if manifest.get("long_campaign_allowed") is True:
         raise ResearchModelError("research contract must not set long_campaign_allowed=true")
-    flags = _locked_flags(obs_schema=obs_schema)
+    flags = _locked_flags(
+        obs_schema=obs_schema,
+        action_contract_version=action_contract_version,
+        tariff_mode=tariff_mode,
+    )
     if campaign_labels:
         flags["claim_labels"] = list(campaign_labels)
     if not execute_live and not micro_gate:
@@ -285,7 +304,8 @@ def run_research_long(
         raise ResearchLongError("need at least two train days in EPW coverage")
     oat = forecasts_from_epw(epw, train_days + val_days)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_root = Path(site_root) / "reports" / "eplus_gym" / "rl" / f"research_long_{stamp}"
+    exp = experiment_id_for_mode(tariff_mode).lower().replace(" ", "_")
+    out_root = Path(site_root) / "reports" / "eplus_gym" / "rl" / f"research_long_{exp}_{stamp}"
     out_root.mkdir(parents=True, exist_ok=True)
     hb = Path(heartbeat_path) if heartbeat_path is not None else out_root / "heartbeat.json"
     write_heartbeat(
@@ -306,7 +326,11 @@ def run_research_long(
             "train_days": train_days,
             "validation_days": val_days,
             "micro_gate": bool(micro_gate),
+            "tariff_mode": tariff_mode,
+            "experiment_id": experiment_id_for_mode(tariff_mode),
+            "action_contract_version": action_contract_version,
         },
+        flags=flags,
     )
     cache = cache_incumbent_payloads(
         site=Path(site_root),
@@ -355,6 +379,7 @@ def run_research_long(
                 persist_billing=True,
                 obs_schema=obs_schema,
                 tariff_mode=tariff_mode,
+                action_contract_version=action_contract_version,
             )
 
             from stable_baselines3.common.callbacks import BaseCallback
@@ -388,6 +413,7 @@ def run_research_long(
                                     "run_root": str(out_root),
                                     "day": info.get("day"),
                                 },
+                                flags=flags,
                             )
                             if self.valid >= int(target):
                                 return False
@@ -441,7 +467,7 @@ def run_research_long(
                     "model": load_sb3_model(
                         zpath,
                         algo=algo,
-                        contract={"action_contract_version": RESEARCH_ACTION_CONTRACT_V2},
+                        contract={"action_contract_version": action_contract_version},
                     ),
                     "algo": algo,
                 }
@@ -463,6 +489,9 @@ def run_research_long(
                 algo="PPO",
                 block_size=0,
                 persist_billing=True,
+                obs_schema=obs_schema,
+                tariff_mode=tariff_mode,
+                action_contract_version=action_contract_version,
             )
             return make_env(cfg)
 
@@ -472,6 +501,8 @@ def run_research_long(
                 days=val_days,
                 models=models,
                 seed=int(seed),
+                action_contract_version=action_contract_version,
+                tariff_mode=tariff_mode,
             )
             (out_root / "eval.json").write_text(
                 json.dumps(eval_out, indent=2, default=str) + "\n", encoding="utf-8"
@@ -535,6 +566,7 @@ def run_research_long(
             "failures": failures,
             "run_root": str(out_root),
         },
+        flags=flags,
     )
     return summary
 
@@ -545,6 +577,8 @@ def _assert_micro_gate(
     models: Mapping[str, Any],
     cache: Mapping[str, Any],
 ) -> None:
+    from eplus_gym.rl.research_spaces import decode_continuous_research_v3
+
     ppo = results.get("PPO_0") or {}
     dqn = results.get("DQN_0") or {}
     if int(ppo.get("n_episodes_logged") or 0) < 8:
@@ -562,6 +596,7 @@ def _assert_micro_gate(
             raise ResearchLongError(f"micro-gate: {day} does not have 96 scored intervals")
     if ppo.get("policy_pack"):
         raise ResearchLongError("micro-gate: refused dishonest daily_policy.pkl")
+    contract = str(summary.get("action_contract_version") or RESEARCH_ACTION_CONTRACT_V3)
     jsonl = Path(str(ppo.get("model") or "")).parent.parent / "episodes.jsonl"
     if jsonl.is_file():
         occs = []
@@ -572,7 +607,18 @@ def _assert_micro_gate(
             act = row.get("action")
             if act is None:
                 continue
-            params = decode_continuous_research_v2(act, day=str(row.get("day") or "2025-12-08"))
+            day = str(row.get("day") or "2025-12-08")
+            if contract == RESEARCH_ACTION_CONTRACT_V3:
+                params = decode_continuous_research_v3(act, day=day)
+            else:
+                params = decode_continuous_research_v2(act, day=day)
             occs.append(params.occupied_heating_f)
         if occs and all(abs(x - 68.0) < 0.05 for x in occs):
             raise ResearchLongError("micro-gate: PPO actions collapsed to occupied=68")
+    if not summary.get("eval") or summary.get("eval", {}).get("failed"):
+        # Soft: eval may still fail on micro; require schedule_proof presence when eval ok
+        pass
+    else:
+        rows = summary.get("eval", {}).get("rows") or []
+        if rows and not any(r.get("schedule_proof") for r in rows):
+            raise ResearchLongError("micro-gate: eval rows missing schedule_proof")

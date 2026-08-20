@@ -48,6 +48,9 @@ class SixZoneDailyParamsV2:
     recovery_ramp_minutes: int = 60
     continuous_conditioning: bool = False
     zone_offsets: dict[str, ZoneOffsetsV2] = field(default_factory=dict)
+    # Optional v3: minutes after fixed school dismissal to keep occupied heating.
+    # Never moves school occupancy truth; never ends before fixed dismissal.
+    post_occupancy_extension_minutes: int = 0
 
     def __post_init__(self) -> None:
         for key in ACTION_KEYS:

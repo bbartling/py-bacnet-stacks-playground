@@ -111,11 +111,14 @@ confirms causality at scored runtime.
 - Three-day pilot gate: `python scripts/vibe22_three_day_pilot.py` (obs v4 + tariff in `MultiDayDailyEnv`).
 - **Pilot passed 2026-08-19:** research-long authorized on A04 fallback (`Terminal B` labels).
 - Launch-readiness audit: `docs/audits/2026-08-19-vibe22-launch-readiness-second-research-long.md`.
-- Live campaign heartbeat: `$SITE_ROOT/reports/eplus_gym/rl/research_long_heartbeat.json`.
+- **Action contract v3:** `research_action_contract_v3` adds `post_occupancy_extension_minutes` (0–180); school occupancy stays immutable; schedule proof on every step; `cooling_action_space=false`.
+- **PRIMARY tariff:** `FLAT_PLUS_DEMAND` — heartbeat `$SITE_ROOT/reports/eplus_gym/rl/research_long_flat_plus_demand_heartbeat.json`.
+- **SECONDARY tariff (after PRIMARY):** `ILLUSTRATIVE_TOU_PLUS_DEMAND` — separate leaders; banner `ILLUSTRATIVE TARIFF — NOT VERIFIED UTILITY PRICING`. Never mix flat/TOU winners.
+- Audit: `docs/audits/2026-08-20-vibe22-action-space-tariff-experiments.md`.
 - hp67 v2 two-pass: champion **failed** — use A04 parent for RL until a future child passes full physics gates.
 
 ```powershell
-python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --obs-schema v4 --tariff-mode flat_illustrative --execute-live --heartbeat $env:SITE_ROOT/reports/eplus_gym/rl/research_long_heartbeat.json --site-root $env:SITE_ROOT
+python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --obs-schema v4 --tariff-mode FLAT_PLUS_DEMAND --action-contract research_action_contract_v3 --execute-live --heartbeat $env:SITE_ROOT/reports/eplus_gym/rl/research_long_flat_plus_demand_heartbeat.json --site-root $env:SITE_ROOT
 ```
 
 Index: [`../../vibe22_agent_spec/MEGA_V3_PHASES.md`](../../vibe22_agent_spec/MEGA_V3_PHASES.md).

@@ -340,3 +340,209 @@ def decode_discrete_research_v2(index: int, *, day: str) -> SixZoneDailyParamsV2
         recovery_ramp_minutes=params.recovery_lead_minutes,
         zone_offsets=params.zone_offsets,
     )
+
+
+# --- research_action_contract_v3: v2 + post_occupancy_extension_minutes. Do not mutate v2. ---
+
+RESEARCH_ACTION_CONTRACT_V3 = "research_action_contract_v3"
+DECODER_VERSION_V3 = "research_affine_v3"
+N_CONT_V3 = N_CONT_V2 + 1  # + extension minutes
+EXT_LO_V3, EXT_HI_V3 = 0.0, 180.0
+DQN_V3_EXTENSION = (0, 60, 120, 180)
+
+
+def assert_research_v3_contract(meta: dict | object) -> None:
+    body = meta if isinstance(meta, dict) else {}
+    got = str(body.get("action_contract_version") or "")
+    if got != RESEARCH_ACTION_CONTRACT_V3:
+        raise ActionContractMismatch(
+            f"refusing to load action contract {got!r}; expected {RESEARCH_ACTION_CONTRACT_V3}"
+        )
+
+
+def continuous_action_space_research_v3() -> gym.spaces.Box:
+    return gym.spaces.Box(low=-1.0, high=1.0, shape=(N_CONT_V3,), dtype=np.float32)
+
+
+def _snap_extension_minutes(raw: float) -> int:
+    m = int(round(_clip(float(raw), EXT_LO_V3, EXT_HI_V3) / 15.0) * 15)
+    return int(min(EXT_HI_V3, max(EXT_LO_V3, m)))
+
+
+def effective_occupied_end_step(*, frozen_end: int, extension_minutes: int) -> int:
+    """Occupied heating may extend past fixed dismissal; never ends before it; max step 96."""
+    ext_steps = max(0, int(extension_minutes) // 15)
+    return int(min(96, max(int(frozen_end), int(frozen_end) + ext_steps)))
+
+
+def decode_continuous_research_v3(
+    action: Sequence[float] | np.ndarray,
+    *,
+    day: str,
+) -> SixZoneDailyParamsV2:
+    a = np.asarray(action, dtype=np.float64).reshape(-1)
+    if a.size != N_CONT_V3:
+        raise ValueError(f"expected research v3 action len {N_CONT_V3}, got {a.size}")
+    base = decode_continuous_research_v2(a[:N_CONT_V2], day=day)
+    ext = _snap_extension_minutes(_affine(float(a[N_CONT_V2]), EXT_LO_V3, EXT_HI_V3))
+    if base.continuous_conditioning:
+        return base
+    frozen = frozen_school_occupancy_v2(day)
+    if frozen is None:
+        # No school day: extension must not invent occupancy.
+        return SixZoneDailyParamsV2(
+            occupied_heating_f=base.occupied_heating_f,
+            unoccupied_heating_f=base.unoccupied_heating_f,
+            heating_setpoint_start_step=0,
+            heating_setpoint_end_step=0,
+            recovery_lead_minutes=base.recovery_lead_minutes,
+            recovery_ramp_minutes=base.recovery_lead_minutes,
+            zone_offsets=base.zone_offsets,
+            post_occupancy_extension_minutes=0,
+        )
+    fixed_end = int(frozen["heating_setpoint_end_step"])
+    eff_end = effective_occupied_end_step(frozen_end=fixed_end, extension_minutes=ext)
+    return SixZoneDailyParamsV2(
+        occupied_heating_f=base.occupied_heating_f,
+        unoccupied_heating_f=base.unoccupied_heating_f,
+        heating_setpoint_start_step=int(frozen["heating_setpoint_start_step"]),
+        heating_setpoint_end_step=int(eff_end),
+        recovery_lead_minutes=base.recovery_lead_minutes,
+        recovery_ramp_minutes=base.recovery_lead_minutes,
+        zone_offsets=base.zone_offsets,
+        post_occupancy_extension_minutes=int(ext),
+    )
+
+
+def encode_continuous_research_v3(params: SixZoneDailyParamsV2) -> np.ndarray:
+    v2 = encode_continuous_research_v2(params)
+    x_ext = _inv_affine(float(params.post_occupancy_extension_minutes or 0), EXT_LO_V3, EXT_HI_V3)
+    return np.concatenate([v2, np.asarray([x_ext], dtype=np.float32)])
+
+
+def _raw_discrete_v3() -> list[SixZoneDailyParamsV2]:
+    """Continuous 68/70 first; no fingerprint dedup. Extension grid × v2 setback table."""
+    out = [research_continuous_68(), research_continuous_70()]
+    frozen = frozen_school_occupancy_v2("2025-12-08") or {
+        "heating_setpoint_start_step": 30,
+        "heating_setpoint_end_step": 59,
+    }
+    for unocc in DQN_V2_UNOCC:
+        for rec in DQN_V2_REC:
+            for off in DQN_V2_OFFSET:
+                for ext in DQN_V3_EXTENSION:
+                    zo = {k: ZoneOffsetsV2(setback_offset_f=float(off)) for k in ACTION_KEYS}
+                    fixed_end = int(frozen["heating_setpoint_end_step"])
+                    eff_end = effective_occupied_end_step(frozen_end=fixed_end, extension_minutes=int(ext))
+                    out.append(
+                        SixZoneDailyParamsV2(
+                            occupied_heating_f=70.0,
+                            unoccupied_heating_f=float(unocc),
+                            heating_setpoint_start_step=frozen["heating_setpoint_start_step"],
+                            heating_setpoint_end_step=int(eff_end),
+                            recovery_lead_minutes=int(rec),
+                            recovery_ramp_minutes=int(rec),
+                            zone_offsets=zo,
+                            post_occupancy_extension_minutes=int(ext),
+                        )
+                    )
+    return out
+
+
+def discrete_n_research_v3() -> int:
+    return len(_raw_discrete_v3())
+
+
+def discrete_action_space_research_v3() -> gym.spaces.Discrete:
+    return gym.spaces.Discrete(discrete_n_research_v3())
+
+
+def decode_discrete_research_v3(index: int, *, day: str) -> SixZoneDailyParamsV2:
+    table = _raw_discrete_v3()
+    n = len(table)
+    idx = int(index)
+    if idx < 0 or idx >= n:
+        raise ValueError(f"DQN research v3 index {idx} wrap is forbidden; valid range [0, {n})")
+    params = table[idx]
+    if params.continuous_conditioning:
+        return params
+    frozen = frozen_school_occupancy_v2(day)
+    if frozen is None:
+        return SixZoneDailyParamsV2(
+            occupied_heating_f=params.occupied_heating_f,
+            unoccupied_heating_f=params.unoccupied_heating_f,
+            heating_setpoint_start_step=0,
+            heating_setpoint_end_step=0,
+            recovery_lead_minutes=params.recovery_lead_minutes,
+            recovery_ramp_minutes=params.recovery_lead_minutes,
+            zone_offsets=params.zone_offsets,
+            post_occupancy_extension_minutes=0,
+        )
+    fixed_end = int(frozen["heating_setpoint_end_step"])
+    ext = int(params.post_occupancy_extension_minutes or 0)
+    eff_end = effective_occupied_end_step(frozen_end=fixed_end, extension_minutes=ext)
+    return SixZoneDailyParamsV2(
+        occupied_heating_f=params.occupied_heating_f,
+        unoccupied_heating_f=params.unoccupied_heating_f,
+        heating_setpoint_start_step=int(frozen["heating_setpoint_start_step"]),
+        heating_setpoint_end_step=int(eff_end),
+        recovery_lead_minutes=params.recovery_lead_minutes,
+        recovery_ramp_minutes=params.recovery_lead_minutes,
+        zone_offsets=params.zone_offsets,
+        post_occupancy_extension_minutes=ext,
+    )
+
+
+def sample_random_params_v3(
+    rng: np.random.Generator | None = None,
+    *,
+    day: str,
+) -> SixZoneDailyParamsV2:
+    r = rng or np.random.default_rng()
+    x = r.uniform(-1.0, 1.0, size=N_CONT_V3).astype(np.float32)
+    return decode_continuous_research_v3(x, day=day)
+
+
+def cooling_schedule_f(day: str) -> dict[str, list[float]]:
+    """Fixed cooling (~74°F occupied / 85°F unoccupied). Not an RL action."""
+    win = school_windows(day)
+    start = win.get("school_occupied_start_step")
+    end = win.get("school_occupied_end_step")
+    series: list[float] = []
+    for t in range(96):
+        occupied = start is not None and end is not None and int(start) <= t < int(end)
+        series.append(CLG_OCC_F if occupied else CLG_UNOCC_F)
+    return {k: list(series) for k in ACTION_KEYS}
+
+
+def emit_schedule_proof(params: SixZoneDailyParamsV2, day: str) -> dict:
+    """Proof artifact for a selected action — school calendar remains immutable."""
+    from eplus_gym.rl.multiday_env import schedule_fingerprint
+
+    heating = research_build_six_schedules_f(params, day)
+    cooling = cooling_schedule_f(day)
+    win = school_windows(day)
+    frozen = frozen_school_occupancy_v2(day)
+    fixed_start = int(frozen["heating_setpoint_start_step"]) if frozen else None
+    fixed_end = int(frozen["heating_setpoint_end_step"]) if frozen else None
+    lead = max(0, int(round(params.recovery_lead_minutes / 15.0)))
+    start = int(params.heating_setpoint_start_step)
+    recovery_begin = max(0, start - lead) if not params.continuous_conditioning and frozen else None
+    return {
+        "schema": "vibe22.schedule_proof.v1",
+        "day": str(day)[:10],
+        "heating_setpoints_f": {k: [round(float(x), 4) for x in heating[k]] for k in ACTION_KEYS},
+        "cooling_setpoints_f": {k: [round(float(x), 4) for x in cooling[k]] for k in ACTION_KEYS},
+        "school_occupancy_window": {
+            "start_step": win.get("school_occupied_start_step"),
+            "end_step": win.get("school_occupied_end_step"),
+            "school_occupied": bool(win.get("school_occupied")),
+        },
+        "recovery_begin_step": recovery_begin,
+        "fixed_occupied_start_step": fixed_start,
+        "fixed_occupied_end_step": fixed_end,
+        "post_occupancy_extension_minutes": int(params.post_occupancy_extension_minutes or 0),
+        "continuous_conditioning": bool(params.continuous_conditioning),
+        "cooling_action_space": False,
+        "schedule_fingerprint": schedule_fingerprint(heating),
+    }

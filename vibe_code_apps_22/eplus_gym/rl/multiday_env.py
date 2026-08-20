@@ -253,7 +253,8 @@ class MultiDayDailyEnv(gym.Env):
         self._research_contract = str(cfg.get("action_contract_version") or "")
         self._research_v1 = self._research_contract == "research_action_contract_v1"
         self._research_v2 = self._research_contract == "research_action_contract_v2"
-        self._research = self._research_v1 or self._research_v2
+        self._research_v3 = self._research_contract == "research_action_contract_v3"
+        self._research = self._research_v1 or self._research_v2 or self._research_v3
         self._all_days = list(self.days)
         self._block_size = int(cfg.get("block_size") or 0)
         self._block_cursor = int(cfg.get("block_cursor") or 0)
@@ -289,7 +290,17 @@ class MultiDayDailyEnv(gym.Env):
         self._episode_return = 0.0
         self._closed = False
         self._quality_evidence: dict[str, Any] | None = None
-        if self._research_v2:
+        if self._research_v3:
+            from eplus_gym.rl.research_spaces import (
+                continuous_action_space_research_v3,
+                discrete_action_space_research_v3,
+            )
+
+            if self.algo_space == "discrete":
+                self.action_space = discrete_action_space_research_v3()
+            else:
+                self.action_space = continuous_action_space_research_v3()
+        elif self._research_v2:
             from eplus_gym.rl.research_spaces import (
                 continuous_action_space_research_v2,
                 discrete_action_space_research_v2,
@@ -425,6 +436,15 @@ class MultiDayDailyEnv(gym.Env):
 
     def _decode(self, action) -> SixZoneDailyParamsV2:
         day = self.days[min(self._day_i, len(self.days) - 1)]
+        if getattr(self, "_research_v3", False):
+            from eplus_gym.rl.research_spaces import (
+                decode_continuous_research_v3,
+                decode_discrete_research_v3,
+            )
+
+            if self.algo_space == "discrete":
+                return decode_discrete_research_v3(int(np.asarray(action).reshape(-1)[0]), day=day)
+            return decode_continuous_research_v3(action, day=day)
         if getattr(self, "_research_v2", False):
             from eplus_gym.rl.research_spaces import (
                 decode_continuous_research_v2,
@@ -484,12 +504,14 @@ class MultiDayDailyEnv(gym.Env):
             raise RuntimeError("episode already done")
         day = self.days[self._day_i]
         params = self._decode(action)
-        if getattr(self, "_research_v2", False):
-            from eplus_gym.rl.research_spaces import research_build_six_schedules_f
+        if getattr(self, "_research_v2", False) or getattr(self, "_research_v3", False):
+            from eplus_gym.rl.research_spaces import emit_schedule_proof, research_build_six_schedules_f
 
             schedules = research_build_six_schedules_f(params, day)
+            schedule_proof = emit_schedule_proof(params, day)
         else:
             schedules = build_six_schedules_f(params)
+            schedule_proof = None
         oat, _src = self._oat(day)
         try:
             payload = self.plant.simulate_day(schedules, oat_c=oat)
@@ -586,6 +608,7 @@ class MultiDayDailyEnv(gym.Env):
             "block_id": self.cfg.get("block_id") or f"{self.days[0]}:{self.days[-1]}",
             "action": action if not hasattr(action, "tolist") else np.asarray(action).tolist(),
             "decoded_schedule_fingerprint": schedule_fingerprint(schedules),
+            "schedule_proof": schedule_proof,
             "reward": reward,
             "occupied_low_DH": scored.extras.get("occupied_low_DH"),
             "occupied_high_DH": scored.extras.get("occupied_high_DH"),

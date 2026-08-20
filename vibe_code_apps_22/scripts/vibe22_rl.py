@@ -322,7 +322,11 @@ def cmd_research_long(args) -> int:
             heartbeat_path=Path(args.heartbeat) if getattr(args, "heartbeat", None) else None,
             seed=int(getattr(args, "seed", 0) or 0),
             obs_schema=str(getattr(args, "obs_schema", "v4") or "v4"),
-            tariff_mode=str(getattr(args, "tariff_mode", "flat_illustrative") or "flat_illustrative"),
+            tariff_mode=str(getattr(args, "tariff_mode", "FLAT_PLUS_DEMAND") or "FLAT_PLUS_DEMAND"),
+            action_contract_version=str(
+                getattr(args, "action_contract", "research_action_contract_v3")
+                or "research_action_contract_v3"
+            ),
             child_idf=Path(args.child_idf) if getattr(args, "child_idf", None) else None,
             campaign_labels=tuple(str(x) for x in (getattr(args, "campaign_labels", "") or "").split("|") if x) or None,
         )
@@ -798,7 +802,12 @@ def main(argv: list[str] | None = None) -> int:
     rl.add_argument("--execute-live", action="store_true")
     rl.add_argument("--heartbeat", default=None)
     rl.add_argument("--obs-schema", default="v4", choices=("v3", "v4"))
-    rl.add_argument("--tariff-mode", default="flat_illustrative")
+    rl.add_argument("--tariff-mode", default="FLAT_PLUS_DEMAND")
+    rl.add_argument(
+        "--action-contract",
+        default="research_action_contract_v3",
+        choices=("research_action_contract_v2", "research_action_contract_v3"),
+    )
     rl.add_argument("--child-idf", default=None)
     rl.add_argument("--campaign-labels", default="", help="pipe-separated terminal labels")
     rl.set_defaults(func=cmd_research_long)
