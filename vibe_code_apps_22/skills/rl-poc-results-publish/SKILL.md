@@ -117,8 +117,11 @@ python -m pytest tests/test_vibe22_rl_poc_results_publish.py -q
 Outputs: `docs/results/vibe22_rl_poc_results.{md,json}`,
 `vibe22_rl_poc_arm_scorecard.csv`, `vibe22_rl_poc_provenance.json`,
 `vibe22_rl_poc_10_slide_outline.md`,
-`vibe22_rl_poc_exhaustive_discrete_screen.json` (`status: NOT_RUN`),
+`vibe22_rl_poc_exhaustive_discrete_screen.json` (status updated by grid pack),
 `baseline_evidence_resolution.json`.
+
+For LIVE discrete grid vs RL leaders use skill `grid-search-comparator` /
+`scripts/vibe22_grid_search.py` → `docs/results/grid_search/`.
 
 Git: commit derived pack + publisher code only — not raw SITE_ROOT `eplus_out`
 or multi-MB untrimmed dumps. Cite SITE_ROOT run paths inside provenance JSON.

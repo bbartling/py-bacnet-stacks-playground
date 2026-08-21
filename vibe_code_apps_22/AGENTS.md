@@ -33,7 +33,8 @@ Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) �
 [`vibe22_agent_spec/RESULTS_PUBLICATION.md`](vibe22_agent_spec/RESULTS_PUBLICATION.md) ·
 [`vibe22_agent_spec/CONTRIBUTING_RL.md`](vibe22_agent_spec/CONTRIBUTING_RL.md) ·
 [`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md) ·
-[`skills/rl-poc-results-publish/SKILL.md`](skills/rl-poc-results-publish/SKILL.md)
+[`skills/rl-poc-results-publish/SKILL.md`](skills/rl-poc-results-publish/SKILL.md) ·
+[`skills/grid-search-comparator/SKILL.md`](skills/grid-search-comparator/SKILL.md)
 
 **Finished research-long (2026-08-20):** PRIMARY `FLAT_PLUS_DEMAND` + SECONDARY
 `ILLUSTRATIVE_TOU_PLUS_DEMAND` under `research_action_contract_v3`. Published pack:
@@ -41,6 +42,11 @@ Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) �
 Say **validation leader** (not winner); readiness only on checked school days;
 disclose Dec billing floor; never invent E+ process launches; never mix flat/TOU `$`.
 Regenerate with `python scripts/vibe22_publish_rl_poc_results.py --site-root $env:SITE_ROOT`.
+
+**Grid comparator (2026-08-21):** LIVE fixed-policy discrete v3 exhaustive screen in
+[`docs/results/grid_search/`](docs/results/grid_search/README.md). CLI:
+`python scripts/vibe22_grid_search.py --site-root $env:SITE_ROOT …`. Daily adaptive
+branching is `NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
 
 ```powershell
 $env:SITE_ROOT="<SITE_ROOT>"

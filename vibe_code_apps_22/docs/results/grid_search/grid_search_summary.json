@@ -1,0 +1,55 @@
+{
+  "schema": "vibe22.grid_search_summary.v1",
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "screen_status": "EXHAUSTIVE_FIXED_POLICY",
+  "declared_action_count": 146,
+  "n_unique_fixed_policies": 130,
+  "candidate_menu_sha256": "3f4e1437537e476db96f9a4a3a2e07a17eb5a8e8caa439a3a7f3e47b8921762f",
+  "candidate_days": 2210,
+  "n_process_starts": 131,
+  "valid_trajectory_days": 2210,
+  "failed_policies": 0,
+  "elapsed_s": 373.4664470999851,
+  "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+  "leaders": {
+    "FLAT_PLUS_DEMAND": {
+      "status": "OK",
+      "grid_validation_leader": "discrete_42",
+      "action_index": 42,
+      "total_cost": 7436.732132340096,
+      "peak_kw_max": 220.7992651884273,
+      "eligible_count": 98
+    },
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND": {
+      "status": "OK",
+      "grid_validation_leader": "discrete_43",
+      "action_index": 43,
+      "total_cost": 6890.836469558963,
+      "peak_kw_max": 219.88179038027437,
+      "eligible_count": 98
+    },
+    "ILLUSTRATIVE_DYNAMIC_HOURLY": {
+      "status": "OK",
+      "grid_validation_leader": "discrete_42",
+      "action_index": 42,
+      "total_cost": 7040.571211503896,
+      "peak_kw_max": 220.7992651884273,
+      "eligible_count": 98
+    }
+  },
+  "verdict_flat": "GRID_LOWER_COST_AND_READY",
+  "verdict_tou": "GRID_LOWER_COST_AND_READY",
+  "tariff_changed_selected_grid_strategy": true,
+  "DAILY_ADAPTIVE_GRID_STATUS": "NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT",
+  "december_billing_floor_disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges.",
+  "bacnet_commands": 0
+}

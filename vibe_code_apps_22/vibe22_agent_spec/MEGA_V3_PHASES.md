@@ -1,8 +1,9 @@
 # Vibe22 mega v3 program index
 
-**Status (2026-08-21):** Dual-tariff research-long **finished**. Published pack under
-`docs/results/` (draft PR [#114](https://github.com/bbartling/py-bacnet-stacks-playground/pull/114)).
-Still Terminal B — A04 is **not** a transient-validated physics champion;
+**Status (2026-08-21):** Dual-tariff research-long **finished**. RL pack under
+`docs/results/`. LIVE discrete grid-search comparator under
+`docs/results/grid_search/` (`EXHAUSTIVE_FIXED_POLICY`). Still Terminal B —
+A04 is **not** a transient-validated physics champion;
 `long_campaign_allowed` remains false.
 
 - Phase 2 W2A diagnosis: PR #111 — hypothesis-only with MCP evidence.
@@ -17,8 +18,11 @@ Still Terminal B — A04 is **not** a transient-validated physics champion;
     `trained_ppo_seed0` (≈ +$5.26, higher peak)
   - SECONDARY: `research_long_illustrative_tou_plus_demand_20260820T210304Z` →
     leader `trained_dqn_seed1` (≈ −$63.23 illustrative; energy down, demand/peak up)
+- **Grid comparator:** fixed-policy exhaustive discrete v3 screen; grid leaders
+  `discrete_42` (flat) / `discrete_43` (TOU) beat corresponding RL leaders on
+  modeled cost with 5/5 checked-school readiness. Daily adaptive NOT_RUN.
 - **Publication SoT:** [`RESULTS_PUBLICATION.md`](RESULTS_PUBLICATION.md) and
-  `docs/results/vibe22_rl_poc_results.md`.
+  `docs/results/`.
 - Audit: `docs/audits/2026-08-20-vibe22-action-space-tariff-experiments.md`.
 
 Do not retrain to “fix” publication. Disclose Dec billing floor; use

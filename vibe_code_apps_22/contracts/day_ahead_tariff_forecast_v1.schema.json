@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibe22.day_ahead_tariff_forecast.v1",
+  "title": "Day-ahead tariff forecast contract",
+  "type": "object",
+  "required": [
+    "schema",
+    "version",
+    "source",
+    "generated_at",
+    "timezone",
+    "effective_start",
+    "interval_minutes",
+    "currency",
+    "energy_price_unit",
+    "energy_prices",
+    "demand_rate_usd_per_kw",
+    "month_to_date_peak_kw",
+    "ratchet_floor_kw",
+    "contract_demand_floor_kw",
+    "verified_tariff",
+    "freshness_seconds",
+    "missing_interval_policy",
+    "provenance"
+  ],
+  "properties": {
+    "schema": { "const": "vibe22.day_ahead_tariff_forecast.v1" },
+    "version": { "type": "string" },
+    "source": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "timezone": { "type": "string" },
+    "effective_start": { "type": "string" },
+    "interval_minutes": { "type": "integer", "enum": [15, 60] },
+    "currency": { "const": "USD" },
+    "energy_price_unit": { "const": "USD_per_kWh" },
+    "energy_prices": {
+      "type": "array",
+      "items": { "type": "number" },
+      "description": "Length 24 (hourly, expanded x4) or 96 (15-min)"
+    },
+    "demand_rate_usd_per_kw": { "type": "number", "minimum": 0 },
+    "month_to_date_peak_kw": { "type": "number", "minimum": 0 },
+    "ratchet_floor_kw": { "type": "number", "minimum": 0 },
+    "contract_demand_floor_kw": { "type": "number", "minimum": 0 },
+    "verified_tariff": { "type": "boolean" },
+    "freshness_seconds": { "type": "integer", "minimum": 0 },
+    "missing_interval_policy": {
+      "type": "string",
+      "enum": ["reject", "fail_closed"]
+    },
+    "banner": { "type": "string" },
+    "provenance": {
+      "type": "object",
+      "required": ["hash"],
+      "properties": {
+        "hash": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

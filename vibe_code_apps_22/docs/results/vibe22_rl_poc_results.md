@@ -75,4 +75,6 @@ Original validation scores are retained; no offline re-score was possible withou
 
 ## Exhaustive discrete screen
 
-Status: **NOT_RUN** (no exhaustive DQN-table LIVE eval runner; would exceed 60-minute honesty bound).
+Status: see [`grid_search/`](grid_search/README.md) — LIVE fixed-policy discrete v3 screen
+executed (not the mega Phase 10 scaffold). Daily adaptive branching remains
+`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.

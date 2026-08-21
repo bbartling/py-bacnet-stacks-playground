@@ -1,0 +1,101 @@
+{
+  "schema": "vibe22.grid_search_experiment.v1",
+  "version": "1.0.0",
+  "frozen_at": "2026-08-21T13:41:00Z",
+  "claim_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY",
+    "GRID_VALIDATION_LEADER_ONLY_NOT_OPERATIONAL_WINNER",
+    "RETROSPECTIVE_VALIDATION_COMPARISON"
+  ],
+  "idf": {
+    "relative_path": "models/eplus/lakeside_w2a_a04_dual_champion.idf",
+    "sha256_note": "computed at freeze-check from app_root bytes; do not silently change"
+  },
+  "epw": {
+    "resolve": "site_root via resolve_site_epw",
+    "sha256_note": "computed at freeze-check from SITE_ROOT bytes"
+  },
+  "energyplus_version": "26.1.0",
+  "action_contract_version": "research_action_contract_v3",
+  "reward_contract": "reward_v2",
+  "paired_baseline": "observed_bas_incumbent_v2",
+  "validation_dates": {
+    "start": "2025-12-15",
+    "end": "2025-12-31",
+    "n_days": 17
+  },
+  "checked_school_days": [
+    "2025-12-15",
+    "2025-12-16",
+    "2025-12-17",
+    "2025-12-18",
+    "2025-12-19"
+  ],
+  "tariff_modes": [
+    "FLAT_PLUS_DEMAND",
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+    "ILLUSTRATIVE_DYNAMIC_HOURLY"
+  ],
+  "billing_floor_treatment": {
+    "opening_mtd_kw_on_2025_12_15": 0.0,
+    "disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges.",
+    "do_not_claim_corrected_billing": true,
+    "same_limitation_as_finished_rl_campaigns": true
+  },
+  "candidate_generation": {
+    "source": "decode_discrete_research_v3 indices 0 .. discrete_n_research_v3()-1",
+    "declared_n_note": "derive at runtime; expected 146",
+    "dedupe": "schedule_fingerprint on effective six-zone heating; fixed-policy episodes keyed by 17-day fingerprint sequence",
+    "continuous_68_index": 0,
+    "continuous_70_index": 1
+  },
+  "selection_rule": {
+    "eligibility": [
+      "valid_96_row_trajectory_every_evaluated_day",
+      "zero_severe_fatal",
+      "ready_on_5_of_5_checked_school_days"
+    ],
+    "objective": "minimum_deterministic_modeled_total_cost",
+    "tie_break": [
+      "lower_validation_maximum_peak_kw",
+      "lower_occupied_comfort_degree_hours",
+      "lower_schedule_movement",
+      "lexicographically_smaller_candidate_id"
+    ],
+    "do_not_select_on": ["training_reward", "display_paycheck"]
+  },
+  "wall_time_limit_hours": 6.0,
+  "daily_adaptive_grid_status": "NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT",
+  "preregistered_bounded_subset_indices": [0, 1, 2, 14, 26, 38, 50, 62, 98, 134],
+  "preregistered_bounded_subset_rationale": "Continuous 68/70 plus factorial corners across unocc/recovery/offset/extension before seeing results; used only if exhaustive projection exceeds wall_time_limit_hours",
+  "pilot_diversity_indices": [0, 1, 2, 14, 26, 50, 62, 98, 110, 134],
+  "rl_comparators": {
+    "PRIMARY": {
+      "tariff": "FLAT_PLUS_DEMAND",
+      "run_root": "reports/eplus_gym/rl/research_long_flat_plus_demand_20260820T132506Z",
+      "validation_leader": "trained_ppo_seed0",
+      "approx_total_usd": 7628.91,
+      "checked_school_readiness": "5/5",
+      "validation_max_peak_kw": 233.77
+    },
+    "SECONDARY": {
+      "tariff": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+      "run_root": "reports/eplus_gym/rl/research_long_illustrative_tou_plus_demand_20260820T210304Z",
+      "validation_leader": "trained_dqn_seed1",
+      "approx_total_usd": 7019.33,
+      "checked_school_readiness": "5/5",
+      "validation_max_peak_kw": 211.51
+    }
+  },
+  "output_paths": {
+    "site_run_root": "$SITE_ROOT/reports/eplus_gym/rl/grid_search_<stamp>/",
+    "docs_pack": "docs/results/grid_search/"
+  },
+  "mega_scaffold_note": "eplus_gym/mega/grid_search.py remains SCAFFOLD_ONLY and is not this experiment"
+}

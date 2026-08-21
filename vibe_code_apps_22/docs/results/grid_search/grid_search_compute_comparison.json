@@ -1,0 +1,54 @@
+{
+  "schema": "vibe22.grid_search_compute_comparison.v1",
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "grid": {
+    "declared_actions": 146,
+    "unique_fixed_policies": 130,
+    "n_process_starts": 131,
+    "candidate_days": 2210,
+    "valid_trajectory_days": 2210,
+    "failed_policies": 0,
+    "wall_clock_s": 373.4664470999851,
+    "tariff_rescore_note": "three tariffs scored from identical stored trajectories (no extra E+)"
+  },
+  "finished_rl": {
+    "models_per_campaign": 4,
+    "transitions_per_model": 8192,
+    "transitions_per_campaign": 32768,
+    "PRIMARY_elapsed_s": 27322.99,
+    "SECONDARY_elapsed_s": 19035.52,
+    "actual_energyplus_process_launches": null,
+    "note": "not recorded in historical campaign_manifest; do not invent",
+    "policy_inference_ms_estimate": "<10 ms typical SB3 predict (not re-benchmarked here)"
+  },
+  "views": {
+    "one_time_research": {
+      "rl_PRIMARY_s": 27322.99,
+      "rl_SECONDARY_s": 19035.52,
+      "grid_exhaustive_s": 373.4664470999851
+    },
+    "new_tariff": {
+      "rl": "may require re-eval or retrain depending on generalization",
+      "grid": "cheap re-score of stored facility/zone trajectories"
+    },
+    "daily_deployment": {
+      "rl": "fast policy inference",
+      "grid": "requires candidate E+ sims unless reusable lookup/cache applies",
+      "daily_adaptive_branching": "NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT"
+    }
+  },
+  "site_run_roots": {
+    "screen": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\grid_search_screen_20260821T135104Z",
+    "pilot": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\grid_search_pilot_20260821T135020Z",
+    "micro": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\grid_search_micro_20260821T134917Z"
+  },
+  "bacnet_commands": 0
+}

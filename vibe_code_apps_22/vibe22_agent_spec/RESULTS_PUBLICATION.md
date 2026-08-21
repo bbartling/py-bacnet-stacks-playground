@@ -119,14 +119,23 @@ Ten-slide outline: `docs/results/vibe22_rl_poc_10_slide_outline.md`.
 Slides covering results must use corrected readiness wording and Dec-floor
 disclosure.
 
-## Exhaustive discrete screen
+## Exhaustive discrete screen / grid comparator
 
-`docs/results/vibe22_rl_poc_exhaustive_discrete_screen.json` →
-`status: NOT_RUN`. Reason: no exhaustive DQN-table LIVE eval runner; building
-one + 17-day LIVE sweep exceeds the honesty bound for a reporting sprint.
+`docs/results/vibe22_rl_poc_exhaustive_discrete_screen.json` and
+`docs/results/grid_search/` document the LIVE fixed-policy discrete v3 screen
+(`EXHAUSTIVE_FIXED_POLICY`). Mega Phase 10 `eplus_gym/mega/grid_search.py`
+remains scaffold-only. Daily adaptive branching:
+`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
+
+Grid validation leaders (retrospective; Dec floor = 0 kW disclosure applies):
+
+- FLAT: `discrete_42` beat PPO validation leader on modeled cost while ready 5/5
+- TOU: `discrete_43` beat DQN validation leader on modeled cost while ready 5/5
+- Tariff change altered selected extension minutes (0 vs 60)
 
 ## Related
 
 - Skill: [`../skills/rl-poc-results-publish/SKILL.md`](../skills/rl-poc-results-publish/SKILL.md)
+- Grid skill: [`../skills/grid-search-comparator/SKILL.md`](../skills/grid-search-comparator/SKILL.md)
 - Training skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md)
 - Draft PR example: [#114](https://github.com/bbartling/py-bacnet-stacks-playground/pull/114)

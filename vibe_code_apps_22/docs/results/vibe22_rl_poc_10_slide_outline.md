@@ -113,3 +113,15 @@ Honesty: SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRIS
 - **Speaker notes:** End on boundaries: Terminal B A04 limits, Dec floor disclosure, baseline contract.
 - **Limitation / caveat:** SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRISTINE LOCKED TEST; A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION; TOU TARIFF IS ILLUSTRATIVE; CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2; NO BACNET COMMAND AUTHORITY
 - **Source / provenance:** SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRISTINE LOCKED TEST; A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION; TOU TARIFF IS ILLUSTRATIVE; CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2; NO BACNET COMMAND AUTHORITY
+
+## Slide addendum: Discrete grid comparator
+
+- **Primary claim:** Exhaustive fixed-policy discrete v3 screen found GRID_LOWER_COST_AND_READY leaders vs PPO (flat) and DQN (TOU) on the same validation window; tariff vector changed selected extension.
+- **Figure path:** `docs/results/grid_search/figures/grid_candidate_cost_landscape.png`
+- **Supporting artifacts:**
+  - `docs/results/grid_search/grid_search_verdict.json`
+  - `docs/results/grid_search/grid_search_compute_comparison.json`
+  - `contracts/grid_search_experiment_v1.json`
+- **Speaker notes:** Emphasize retrospective validation comparison; Dec floor disclosure; daily adaptive NOT_RUN.
+- **Limitation / caveat:** Not operational DSM; mega Phase 10 scaffold is not this experiment.
+- **Source / provenance:** LIVE ContinuityPlant screen under SITE_ROOT; compact pack only in git.

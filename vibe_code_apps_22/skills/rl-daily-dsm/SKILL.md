@@ -147,8 +147,8 @@ offline MTD repair without re-running EnergyPlus).
 
 Published pack: `docs/results/` via
 `scripts/vibe22_publish_rl_poc_results.py`. Exhaustive discrete DQN-table LIVE
-screen is **`NOT_RUN`**. See skill `rl-poc-results-publish` and
-[`../../vibe22_agent_spec/RESULTS_PUBLICATION.md`](../../vibe22_agent_spec/RESULTS_PUBLICATION.md).
+screen completed as fixed-policy grid comparator — see
+`docs/results/grid_search/` and skill `grid-search-comparator`.
 
 ## Commands
 
