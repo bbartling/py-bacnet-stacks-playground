@@ -1,0 +1,8 @@
+{
+  "schema": "vibe22.baseline_evidence_resolution.v1",
+  "status": "UNRESOLVED_FIELD_CONFLICT_NOTED",
+  "campaign_baseline_unchanged": "observed_bas_incumbent_v2",
+  "note": "Reported actual BAS configuration may instead use continuous thermostat limits of 68F heating and 74F cooling. That conflict was not resolved before these campaigns.",
+  "does_not_alter_historical_campaign_artifacts": true,
+  "does_not_claim_policies_evaluated_against_new_baseline": true
+}

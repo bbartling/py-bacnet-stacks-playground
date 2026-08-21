@@ -1,0 +1,15 @@
+{
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "figure": "representative_day_outcomes",
+  "day": "2025-12-15",
+  "series_kind": "AGGREGATE_FROM_EVAL_JSON_NOT_TIMESTEP_REPLAY",
+  "source": "eval.json daily fields + schedule_proof setpoints"
+}

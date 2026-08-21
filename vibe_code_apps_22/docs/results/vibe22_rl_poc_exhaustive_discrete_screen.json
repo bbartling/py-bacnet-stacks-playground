@@ -1,0 +1,6 @@
+{
+  "schema": "vibe22.exhaustive_discrete_action_screen.v1",
+  "status": "NOT_RUN",
+  "label_if_run": "EXHAUSTIVE_DISCRETE_ACTION_SCREEN",
+  "reason": "No exhaustive DQN discrete-table LIVE evaluation runner exists; building one and simulating the full menu on 17 validation days would exceed the 60-minute honesty bound. Marked NOT_RUN."
+}

@@ -1,0 +1,78 @@
+# Vibe22 RL PoC results (simulation-only)
+
+## Honesty
+
+- `SIMULATION-ONLY RL RESEARCH`
+- `NOT VALIDATED FOR OPERATIONAL DSM`
+- `NO PRISTINE LOCKED TEST`
+- `A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION`
+- `TOU TARIFF IS ILLUSTRATIVE`
+- `CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2`
+- `NO BACNET COMMAND AUTHORITY`
+
+## Baseline contract (historical — not retconned)
+
+Both campaigns used **`observed_bas_incumbent_v2`**:
+
+- Scheduled heating approximately **68°F occupied / 64°F unoccupied**
+- Scheduled DualSP transitions (not continuous conditioning)
+- Cooling approximately **74°F occupied / 85°F unoccupied**
+
+Reported actual BAS configuration may instead use continuous thermostat limits of 68F heating and 74F cooling. That conflict was not resolved before these campaigns.
+
+Do **not** claim the campaign compared against continuous 68°F/74°F.
+Do **not** present modeled deltas as verified savings versus actual BAS operation.
+
+## December billing floor disclosure
+
+> Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges.
+
+Original validation scores are retained; no offline re-score was possible without arm-specific Dec 1–14 facility series.
+
+## Experiment scale (do not conflate)
+
+| Counter | PRIMARY | SECONDARY |
+|---|---:|---:|
+| RL transitions per model (PPO/DQN seeds) | 8192 | 8192 |
+| Validation arm-days (rows) | 187 | 187 |
+| Train days | 44 | 44 |
+| Validation calendar days | 17 | 17 |
+| Actual EnergyPlus process launches | not recorded | not recorded |
+| Elapsed s | 27322.988413899962 | 19035.51828770002 |
+| Severe / fatal | 0 / 0 | 0 / 0 |
+| BACnet commands | 0 | 0 |
+
+## PRIMARY — FLAT_PLUS_DEMAND
+
+- Validation leader: **`trained_ppo_seed0`** (readiness-constrained; not training mean reward)
+- Incumbent total ≈ **$7623.65**
+- Leader total ≈ **$7628.91**
+- Delta versus incumbent ≈ **$+5.26**
+- Incumbent peak ≈ **201.88 kW**; leader peak ≈ **233.77 kW**
+- Leader **did not** reduce peak or total modeled cost versus the incumbent.
+- Readiness: Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.
+- Incumbent readiness: Ready on 0/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.
+
+## SECONDARY — ILLUSTRATIVE_TOU_PLUS_DEMAND
+
+- Validation leader: **`trained_dqn_seed1`**
+- Incumbent total ≈ **$7082.56**
+- Leader total ≈ **$7019.33**
+- Illustrative delta ≈ **$-63.23**
+- Incumbent peak ≈ **201.88 kW**; leader peak ≈ **211.51 kW**
+- Illustrative savings came from the **TOU energy** component; demand cost and peak **increased**.
+- TOU dollars are **illustrative** and **not** verified utility savings.
+- Readiness: Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.
+
+**Never compare absolute dollar totals between PRIMARY and SECONDARY as if they were the same tariff.**
+
+## Figures
+
+- `docs/results/figures/cost_decomposition_by_tariff.(png|svg)`
+- `docs/results/figures/peak_and_readiness_tradeoff.(png|svg)`
+- `docs/results/figures/representative_daily_control_plan.(png|svg)`
+- `docs/results/figures/representative_day_outcomes.(png|svg)` (aggregate-from-eval; timestep facility series not retained)
+
+## Exhaustive discrete screen
+
+Status: **NOT_RUN** (no exhaustive DQN-table LIVE eval runner; would exceed 60-minute honesty bound).
