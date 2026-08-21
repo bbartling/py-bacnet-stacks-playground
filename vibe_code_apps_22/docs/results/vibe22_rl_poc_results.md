@@ -1,5 +1,9 @@
 # Vibe22 RL PoC results (simulation-only)
 
+> The completed RL and exhaustive fixed-policy campaigns were internally paired EnergyPlus screening experiments over December validation weather using OBSERVED_BAS_INCUMBENT_V2. They did not test reduction of the approximately 285 kW January billed-demand event.
+
+Do **not** claim “DQN reduced 285→211 kW” or “grid reduced 285→220 kW”. Those mix January utility/A04-native peaks with December validation peaks under a different baseline contract. See [`docs/audits/2026-08-21-vibe22-baseline-contract-repair.md`](../audits/2026-08-21-vibe22-baseline-contract-repair.md) and the Jan 26 bridge pack under `docs/audits/figures/vibe22_cold_day_bridge/`.
+
 ## Honesty
 
 - `SIMULATION-ONLY RL RESEARCH`
@@ -9,6 +13,8 @@
 - `TOU TARIFF IS ILLUSTRATIVE`
 - `CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2`
 - `NO BACNET COMMAND AUTHORITY`
+- `NO VERIFIED 285 kW DEMAND REDUCTION CLAIM`
+- `RESEARCH POLICY SCREENING ONLY`
 
 ## Baseline contract (historical — not retconned)
 
@@ -78,3 +84,26 @@ Original validation scores are retained; no offline re-score was possible withou
 Status: see [`grid_search/`](grid_search/README.md) — LIVE fixed-policy discrete v3 screen
 executed (not the mega Phase 10 scaffold). Daily adaptive branching remains
 `NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
+
+## Baseline-contract repair (2026-08-21)
+
+- Audit: [`docs/audits/2026-08-21-vibe22-baseline-contract-repair.md`](../audits/2026-08-21-vibe22-baseline-contract-repair.md)
+- A05 decision: [`docs/audits/2026-08-21-vibe22-a05-decision.md`](../audits/2026-08-21-vibe22-a05-decision.md) — **A05 not opened**
+- Jan 26 diagnostic bridge: [`docs/audits/figures/vibe22_cold_day_bridge/`](../audits/figures/vibe22_cold_day_bridge/)
+- Cold challenge set: [`cold_weather_challenge_set_v1.json`](cold_weather_challenge_set_v1.json) — `RETROSPECTIVE_CONTAMINATED`
+- Terminology: `contracts/baseline_terminology_v1.json`; `VERIFIED_BAS_INCUMBENT` **UNRESOLVED**
+
+### Jan 26 bridge peaks (diagnostic, same IDF/EPW/day)
+
+| Arm | Peak kW | Δ vs native | Δ vs obs BAS v2 |
+| --- | ---: | ---: | ---: |
+| A04 native SCH_HtgSP | 288.15 | 0 | +55.87 |
+| observed_bas_incumbent_v2 | 232.29 | −55.87 | 0 |
+| continuous 68 heat (unverified sensitivity) | 226.13 | −62.03 | −6.16 |
+| grid flat discrete_42 | 238.77 | −49.38 | +6.48 |
+| grid TOU discrete_43 | 238.77 | −49.38 | +6.48 |
+| deep setback fixed rule | 251.51 | −36.64 | +19.23 |
+| frozen PPO (zero-obs probe) | 240.54 | −47.61 | +8.25 |
+| frozen DQN (zero-obs probe) | 250.47 | −37.69 | +18.18 |
+
+Deltas vs A04 native are **diagnostic**, not an operational BAS counterfactual. Frozen PPO/DQN actions used a zeroed observation vector (labeled diagnostic).

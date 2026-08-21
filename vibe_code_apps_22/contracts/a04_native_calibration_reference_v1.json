@@ -1,0 +1,15 @@
+{
+  "schema": "vibe22.a04_native_calibration_reference.v1",
+  "version": "1.0.0",
+  "label": "A04_NATIVE_CALIBRATION_REFERENCE",
+  "idf_name": "lakeside_w2a_a04_dual_champion.idf",
+  "heating_schedule": "SCH_HtgSP",
+  "overnight_setback_f_approx": 46.0,
+  "occupied_heating_f_approx": 70.0,
+  "optimum_start_recovery": true,
+  "jan26_peak_kw_from_scorecard": 287.4857,
+  "jan26_peak_kw_from_schedule_compare": 288.1601,
+  "utility_jan2026_billed_demand_kw": 284.82,
+  "status": "HISTORICAL_CALIBRATION_REFERENCE",
+  "do_not_use_as": "operational BAS counterfactual for RL/grid screening"
+}

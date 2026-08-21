@@ -75,6 +75,23 @@ transitions; cooling ~74/85). Possible field conflict: continuous 68/74.
 Document in `baseline_evidence_resolution.json` without altering historical
 campaign baselines or claiming policies were evaluated against a new baseline.
 
+`VERIFIED_BAS_INCUMBENT` remains **UNRESOLVED**
+(`contracts/verified_bas_incumbent_v1.json`). Terminology:
+`contracts/baseline_terminology_v1.json`.
+
+### Forbidden publication claims
+
+Never publish “DQN reduced 285 kW to 211 kW”, “grid reduced 285 kW to 220 kW”,
+or equivalents. Required corrective wording:
+
+> The completed RL and exhaustive fixed-policy campaigns were internally paired
+> EnergyPlus screening experiments over December validation weather using
+> OBSERVED_BAS_INCUMBENT_V2. They did not test reduction of the approximately
+> 285 kW January billed-demand event.
+
+Cross-arm peak deltas require `eplus_gym/rl/paired_comparison.py` compatibility.
+Jan 26 bridge study is diagnostic only (`docs/audits/figures/vibe22_cold_day_bridge/`).
+
 ## December billing floor
 
 All Dec 15 validation rows recorded `opening_mtd_kw = 0.0`.

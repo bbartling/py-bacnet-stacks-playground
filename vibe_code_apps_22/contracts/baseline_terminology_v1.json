@@ -1,0 +1,60 @@
+{
+  "schema": "vibe22.baseline_terminology.v1",
+  "version": "1.0.0",
+  "frozen_at": "2026-08-21T20:30:00Z",
+  "public_verdict_until_repair_complete": [
+    "RESEARCH POLICY SCREENING ONLY",
+    "NO VERIFIED 285 kW DEMAND REDUCTION CLAIM",
+    "NO OPERATIONAL DSM AUTHORITY"
+  ],
+  "concepts": {
+    "A04_NATIVE_CALIBRATION_REFERENCE": {
+      "definition": "Native IDF SCH_HtgSP schedules used when A04 produced calibrated monthly and January-peak evidence (~46F overnight setback, optimum-start recovery).",
+      "not": "Not the Gym DualSP schedule. Not observed_bas_incumbent_v2."
+    },
+    "VERIFIED_BAS_INCUMBENT": {
+      "definition": "Normal operating control proven from actual BAS evidence.",
+      "status": "UNRESOLVED — occupied 68/74 documented visually; continuous 24/7 not proven by exports"
+    },
+    "PAIRED_SIMULATION_BASELINE": {
+      "definition": "Real EnergyPlus run using the declared baseline contract under identical conditions as the candidate."
+    },
+    "POLICY_CANDIDATE": {
+      "definition": "PPO, DQN, fixed-rule, random, continuous-conditioning, or grid-search schedule under evaluation."
+    },
+    "REAL_WORLD_GROUND_TRUTH": {
+      "definition": "Utility bills, billed demand, BAS submeter/zone/schedule records."
+    },
+    "LIVE_FIELD_OUTCOME": {
+      "definition": "Reserved for future actual field measurements. Must never describe EnergyPlus output."
+    }
+  },
+  "forbidden_claims": [
+    "DQN reduced 285 kW to 211 kW",
+    "Grid search reduced 285 kW to 220 kW",
+    "December validation tested the January billed-demand event",
+    "observed_bas_incumbent_v2 is verified field truth",
+    "illustrative cost is a utility settlement"
+  ],
+  "required_scorecard_fields": [
+    "idf_path",
+    "idf_sha256",
+    "epw_path",
+    "epw_sha256",
+    "target_date",
+    "lookback_dates",
+    "baseline_contract_name",
+    "baseline_contract_version",
+    "baseline_contract_sha256",
+    "action_contract_name",
+    "action_contract_version",
+    "heating_schedule_fingerprint",
+    "occupancy_schedule_fingerprint",
+    "tariff_contract_hash",
+    "mtd_ratchet_contract_demand_floor",
+    "demand_interval",
+    "initial_state_provenance",
+    "energyplus_version",
+    "policy_bundle_hash"
+  ]
+}

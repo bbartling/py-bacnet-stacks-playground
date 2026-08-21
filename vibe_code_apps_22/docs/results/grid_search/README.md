@@ -1,6 +1,10 @@
 # Vibe22 discrete grid-search comparator
 
-Honesty: SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRISTINE LOCKED TEST; A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION; TOU TARIFF IS ILLUSTRATIVE; CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2; NO BACNET COMMAND AUTHORITY
+Honesty: SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRISTINE LOCKED TEST; A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION; TOU TARIFF IS ILLUSTRATIVE; CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2; NO BACNET COMMAND AUTHORITY; NO VERIFIED 285 kW DEMAND REDUCTION CLAIM
+
+> The completed RL and exhaustive fixed-policy campaigns were internally paired EnergyPlus screening experiments over December validation weather using OBSERVED_BAS_INCUMBENT_V2. They did not test reduction of the approximately 285 kW January billed-demand event.
+
+December grid peaks (~220–221 kW) are **not** comparable to January utility billed demand (284.82 kW) or A04 native Jan 26 (~288 kW).
 
 ## Status
 

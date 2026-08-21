@@ -68,6 +68,16 @@ That conflict was **not** resolved before the campaigns. Do **not** relabel
 historical baselines or claim modeled deltas as verified savings vs actual BAS.
 
 Contract: `contracts/observed_bas_incumbent_v2.json`.
+Terminology: `contracts/baseline_terminology_v1.json`.
+Verified BAS status: `contracts/verified_bas_incumbent_v1.json` (**UNRESOLVED**).
+
+### Forbidden cross-experiment claims
+
+Never claim “DQN/grid reduced 285 kW to 211/220 kW”. January ~285 kW is
+utility / A04 **native** calibration weather+schedule; December ~200–234 kW
+peaks used `observed_bas_incumbent_v2` on Dec 15–31. Use
+`eplus_gym/rl/paired_comparison.py` fail-closed gates. Jan 26 bridge:
+`scripts/vibe22_cold_day_bridge.py` (diagnostic, not holdout).
 
 ## Physics / Track status (scientific record)
 
