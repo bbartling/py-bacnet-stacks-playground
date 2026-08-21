@@ -30,8 +30,17 @@ See [`docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md`](docs/audits/
 (dated Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).
 
 Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) ·
+[`vibe22_agent_spec/RESULTS_PUBLICATION.md`](vibe22_agent_spec/RESULTS_PUBLICATION.md) ·
 [`vibe22_agent_spec/CONTRIBUTING_RL.md`](vibe22_agent_spec/CONTRIBUTING_RL.md) ·
-[`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md)
+[`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md) ·
+[`skills/rl-poc-results-publish/SKILL.md`](skills/rl-poc-results-publish/SKILL.md)
+
+**Finished research-long (2026-08-20):** PRIMARY `FLAT_PLUS_DEMAND` + SECONDARY
+`ILLUSTRATIVE_TOU_PLUS_DEMAND` under `research_action_contract_v3`. Published pack:
+[`docs/results/vibe22_rl_poc_results.md`](docs/results/vibe22_rl_poc_results.md).
+Say **validation leader** (not winner); readiness only on checked school days;
+disclose Dec billing floor; never invent E+ process launches; never mix flat/TOU `$`.
+Regenerate with `python scripts/vibe22_publish_rl_poc_results.py --site-root $env:SITE_ROOT`.
 
 ```powershell
 $env:SITE_ROOT="<SITE_ROOT>"
