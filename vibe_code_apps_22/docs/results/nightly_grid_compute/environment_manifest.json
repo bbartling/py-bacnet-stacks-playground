@@ -1,0 +1,48 @@
+{
+  "schema": "vibe22.nightly_grid_environment.v1",
+  "generated_at": "2026-08-22T19:09:48.055072+00:00",
+  "public_labels": [
+    "SIMULATION-ONLY RESEARCH",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "VERIFIED BAS INCUMBENT REMAINS UNRESOLVED",
+    "RETROSPECTIVE WEATHER BENCHMARK",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "idf": {
+    "path": "C:\\wt\\v22base\\vibe_code_apps_22\\models\\eplus\\lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+  },
+  "epw": {
+    "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\weather\\madison_amy_202508_202607.epw",
+    "sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3"
+  },
+  "energyplus_version": "26.1.0",
+  "candidate_menu_sha256": "96d4ae6d0e17d716515605e0465cc485cd3315bf77932b1551704057a5ec174d",
+  "declared_action_count": 146,
+  "n_unique_one_day": 130,
+  "reward_contract": "reward_v2",
+  "action_contract_version": "research_action_contract_v3",
+  "baseline_contract": "observed_bas_incumbent_v2",
+  "baseline_contract_sha256": "c0a1ed92357c10febd134f9e24f1bd2a5709bf0b05216490cc0772200a4b520a",
+  "tariff_fixtures": {
+    "flat_plus_demand.json": "7a750c29e53d87b32d1a376ec3e25e1b65cd010f809c8d9abcf90054ea276cd1",
+    "illustrative_dynamic_hourly.json": "3dc067e2deeb43b87d3c59b290b9842d556ab0590f43f124f2807c9a934dd2cf",
+    "illustrative_evening_tou.json": "aa7da48ef79d93100798e44df6c5f4ec4f7ac4de5c16a9e556f8b19bff6c1a22"
+  },
+  "os": {
+    "system": "Windows",
+    "release": "11",
+    "machine": "AMD64"
+  },
+  "cpu_model": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+  "physical_cores": 8,
+  "logical_cores": 8,
+  "installed_ram_bytes": 34131087360,
+  "python_version": "3.12.8",
+  "git_sha": "e623d9d5f3ffeb52746373206caf2f31e98c1fc5",
+  "dirty_tree": true,
+  "primary_benchmark_day": "2026-01-26",
+  "lookback_day": "2026-01-25",
+  "bacnet_command_authority": 0
+}

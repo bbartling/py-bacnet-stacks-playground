@@ -1,0 +1,65 @@
+{
+  "schema": "vibe22.nightly_grid_run_manifest.v1",
+  "generated_at": "2026-08-22T19:17:00.085570+00:00",
+  "site_run_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\nightly_grid_compute_20260822T190945Z",
+  "public_labels": [
+    "SIMULATION-ONLY RESEARCH",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "VERIFIED BAS INCUMBENT REMAINS UNRESOLVED",
+    "RETROSPECTIVE WEATHER BENCHMARK",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "selection_wording": "Grid search and RL share the same EnergyPlus trajectories, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
+  "feasibility_verdict": "NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN",
+  "recommended_nightly_budget": "25",
+  "anytime": {
+    "exhaustive_best_fully_ready_cost": 3315.0432438275475,
+    "points": [
+      {
+        "n": 10,
+        "best_fully_ready_cost": 3315.2918138099735,
+        "best_candidate_id": "discrete_0",
+        "regret": 0.24856998242603368
+      },
+      {
+        "n": 25,
+        "best_fully_ready_cost": 3315.2918138099735,
+        "best_candidate_id": "discrete_0",
+        "regret": 0.24856998242603368
+      },
+      {
+        "n": 50,
+        "best_fully_ready_cost": 3315.2918138099735,
+        "best_candidate_id": "discrete_0",
+        "regret": 0.24856998242603368
+      },
+      {
+        "n": 100,
+        "best_fully_ready_cost": 3315.2918138099735,
+        "best_candidate_id": "discrete_0",
+        "regret": 0.24856998242603368
+      },
+      {
+        "n": 130,
+        "best_fully_ready_cost": 3315.0432438275475,
+        "best_candidate_id": "discrete_114",
+        "regret": 0.0
+      }
+    ],
+    "candidates_within_1pct": 1,
+    "candidates_within_10_usd": 1,
+    "n_evaluated": 130
+  },
+  "tariff_winners": {
+    "FLAT_PLUS_DEMAND": "discrete_114",
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND": "discrete_114",
+    "ILLUSTRATIVE_DYNAMIC_HOURLY": "discrete_114"
+  },
+  "target_15min_pass": true,
+  "hard_30min_pass": true,
+  "exhaustive_wall_s": 320.8255178000072,
+  "n_unique_evaluated": 130,
+  "eplus_launches": 178,
+  "bacnet_commands": 0
+}

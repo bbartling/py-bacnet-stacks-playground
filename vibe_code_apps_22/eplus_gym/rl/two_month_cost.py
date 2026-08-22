@@ -32,29 +32,49 @@ def score_flat_plus_demand(
     cat = default_tariff_catalog()["flat_illustrative"]
     e_rate = float(cat.energy_rate_per_kwh)
     d_rate = float(cat.demand_rate_per_kw)
-    rows = []
-    for period in ("2025-12", "2026-01", "two_month"):
-        if period == "two_month":
-            intervals = [float(x) for x in facility_kw]
-        else:
-            intervals = _month_intervals(facility_kw, period)
+    monthly: dict[str, dict[str, float]] = {}
+    for period in ("2025-12", "2026-01"):
+        intervals = _month_intervals(facility_kw, period)
         kwh = sum(intervals) * INTERVAL_H
         peak = max(intervals) if intervals else 0.0
         billed_kw = max(peak, ratchet_floor_kw, contract_floor_kw)
         energy_usd = kwh * e_rate
         demand_usd = billed_kw * d_rate
+        monthly[period] = {
+            "total_kwh": kwh,
+            "peak_15min_kw": peak,
+            "billed_demand_kw": billed_kw,
+            "energy_charge_usd": energy_usd,
+            "demand_charge_usd": demand_usd,
+            "total_usd": energy_usd + demand_usd,
+        }
+    rows = []
+    for period, m in monthly.items():
         rows.append(
             {
                 "period": period,
-                "total_kwh": round(kwh, 4),
-                "peak_15min_kw": round(peak, 4),
-                "billed_demand_kw": round(billed_kw, 4),
-                "energy_charge_usd": round(energy_usd, 2),
-                "demand_charge_usd": round(demand_usd, 2),
-                "total_usd": round(energy_usd + demand_usd, 2),
+                "total_kwh": round(m["total_kwh"], 4),
+                "peak_15min_kw": round(m["peak_15min_kw"], 4),
+                "billed_demand_kw": round(m["billed_demand_kw"], 4),
+                "energy_charge_usd": round(m["energy_charge_usd"], 2),
+                "demand_charge_usd": round(m["demand_charge_usd"], 2),
+                "total_usd": round(m["total_usd"], 2),
                 "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND",
             }
         )
+    # two_month: sum monthly energy + sum monthly demand (never one cross-month peak)
+    rows.append(
+        {
+            "period": "two_month",
+            "total_kwh": round(sum(m["total_kwh"] for m in monthly.values()), 4),
+            "peak_15min_kw": round(max(m["peak_15min_kw"] for m in monthly.values()), 4),
+            "billed_demand_kw": round(sum(m["billed_demand_kw"] for m in monthly.values()), 4),
+            "energy_charge_usd": round(sum(m["energy_charge_usd"] for m in monthly.values()), 2),
+            "demand_charge_usd": round(sum(m["demand_charge_usd"] for m in monthly.values()), 2),
+            "total_usd": round(sum(m["total_usd"] for m in monthly.values()), 2),
+            "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND",
+        }
+    )
     return rows
 
 
@@ -67,29 +87,48 @@ def score_tou_plus_demand(
     cat = default_tariff_catalog()["tou_evening_peak_illustrative"]
     qtr = cat.quarter_hour_prices()
     d_rate = float(cat.demand_rate_per_kw)
-    rows = []
-    for period in ("2025-12", "2026-01", "two_month"):
-        if period == "two_month":
-            intervals = [float(x) for x in facility_kw]
-        else:
-            intervals = _month_intervals(facility_kw, period)
+    monthly: dict[str, dict[str, float]] = {}
+    for period in ("2025-12", "2026-01"):
+        intervals = _month_intervals(facility_kw, period)
         kwh = sum(intervals) * INTERVAL_H
         peak = max(intervals) if intervals else 0.0
         billed_kw = max(peak, ratchet_floor_kw, contract_floor_kw)
         energy_usd = sum(float(kw) * INTERVAL_H * float(qtr[i % 96]) for i, kw in enumerate(intervals))
         demand_usd = billed_kw * d_rate
+        monthly[period] = {
+            "total_kwh": kwh,
+            "peak_15min_kw": peak,
+            "billed_demand_kw": billed_kw,
+            "energy_charge_usd": energy_usd,
+            "demand_charge_usd": demand_usd,
+            "total_usd": energy_usd + demand_usd,
+        }
+    rows = []
+    for period, m in monthly.items():
         rows.append(
             {
                 "period": period,
-                "total_kwh": round(kwh, 4),
-                "peak_15min_kw": round(peak, 4),
-                "billed_demand_kw": round(billed_kw, 4),
-                "energy_charge_usd": round(energy_usd, 2),
-                "demand_charge_usd": round(demand_usd, 2),
-                "total_usd": round(energy_usd + demand_usd, 2),
+                "total_kwh": round(m["total_kwh"], 4),
+                "peak_15min_kw": round(m["peak_15min_kw"], 4),
+                "billed_demand_kw": round(m["billed_demand_kw"], 4),
+                "energy_charge_usd": round(m["energy_charge_usd"], 2),
+                "demand_charge_usd": round(m["demand_charge_usd"], 2),
+                "total_usd": round(m["total_usd"], 2),
                 "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
             }
         )
+    rows.append(
+        {
+            "period": "two_month",
+            "total_kwh": round(sum(m["total_kwh"] for m in monthly.values()), 4),
+            "peak_15min_kw": round(max(m["peak_15min_kw"] for m in monthly.values()), 4),
+            "billed_demand_kw": round(sum(m["billed_demand_kw"] for m in monthly.values()), 4),
+            "energy_charge_usd": round(sum(m["energy_charge_usd"] for m in monthly.values()), 2),
+            "demand_charge_usd": round(sum(m["demand_charge_usd"] for m in monthly.values()), 2),
+            "total_usd": round(sum(m["total_usd"] for m in monthly.values()), 2),
+            "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+        }
+    )
     return rows
 
 

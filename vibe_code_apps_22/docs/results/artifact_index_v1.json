@@ -50,18 +50,23 @@
     {
       "path": "contracts/verified_bas_incumbent_v1.json",
       "status": "ACTIVE",
-      "notes": "UNRESOLVED — do not promote continuous 68/74 as verified"
+      "notes": "UNRESOLVED \u2014 do not promote continuous 68/74 as verified"
     },
     {
       "path": "docs/results/two_month_policy_replay/",
       "status": "ACTIVE_RETROSPECTIVE_REPLAY",
-      "notes": "Dec 2025–Jan 2026 seven-strategy frozen-policy replay vs CS 351075 utility; illustrative tariffs separate from actual bill"
+      "notes": "Dec 2025\u2013Jan 2026 seven-strategy frozen-policy replay vs CS 351075 utility; illustrative tariffs separate from actual bill"
     },
     {
       "path": "eplus_gym/mega/grid_search.py",
       "status": "SUPERSEDED",
       "replacement": "eplus_gym/rl/grid_search_* + scripts/vibe22_grid_search.py",
       "notes": "Scaffold only"
+    },
+    {
+      "path": "docs/results/nightly_grid_compute/",
+      "status": "ACTIVE_COMPUTE_BENCHMARK",
+      "notes": "Identical-state nightly grid compute on 2026-01-26; not operational DSM"
     }
   ]
 }

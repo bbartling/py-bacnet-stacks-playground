@@ -1,0 +1,50 @@
+{
+  "schema": "vibe22.nightly_grid_compute.v1",
+  "version": "1.0.0",
+  "frozen_at": "2026-08-22T19:00:00Z",
+  "claim_labels": [
+    "SIMULATION-ONLY RESEARCH",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "VERIFIED BAS INCUMBENT REMAINS UNRESOLVED",
+    "RETROSPECTIVE WEATHER BENCHMARK",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "selection_wording": "Grid search and RL share the same EnergyPlus trajectories, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
+  "primary_benchmark_day": "2026-01-26",
+  "lookback_day": "2026-01-25",
+  "lookback_schedule": "observed_bas_incumbent_v2",
+  "weather_label": "RETROSPECTIVE_WEATHER_BENCHMARK",
+  "identical_state_temp_tol_f": 0.05,
+  "opening_mtd_kw": 0.0,
+  "ratchet_kw": 0.0,
+  "contract_kw": 0.0,
+  "billing_floor_disclosure": "Nightly demand accounting opens MTD/ratchet/contract floors at zero unless verified; incremental demand may overstate exposure.",
+  "a04_sha256_prefix_required": "212a2835eabb8b3a",
+  "a04_sha256_expected_full": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "energyplus_version": "26.1.0",
+  "action_contract_version": "research_action_contract_v3",
+  "reward_contract": "reward_v2",
+  "paired_baseline": "observed_bas_incumbent_v2",
+  "tariff_modes": [
+    "FLAT_PLUS_DEMAND",
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+    "ILLUSTRATIVE_DYNAMIC_HOURLY"
+  ],
+  "primary_tariff_for_selection": "FLAT_PLUS_DEMAND",
+  "deadline_target_s": 900,
+  "deadline_hard_s": 1800,
+  "micro_gate_indices": [0, 1, 42],
+  "pilot_diversity_indices": [0, 1, 2, 14, 26, 42, 43, 50, 62, 98],
+  "preregistered_anytime_seed_indices": [0, 1, 2, 14, 26, 38, 42, 43, 50, 62, 98, 134],
+  "budget_markers": [10, 25, 50, 100],
+  "max_workers": 4,
+  "worker_memory_fraction_cap": 0.7,
+  "optional_mild_day": "2025-12-15",
+  "optional_weekend_day": "2026-01-25",
+  "bacnet_command_authority": 0,
+  "output_paths": {
+    "site_run_root": "$SITE_ROOT/reports/eplus_gym/rl/nightly_grid_compute_<stamp>/",
+    "docs_pack": "docs/results/nightly_grid_compute/"
+  }
+}

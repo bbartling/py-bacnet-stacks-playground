@@ -1,0 +1,21 @@
+{
+  "winner": "discrete_114",
+  "runs": [
+    {
+      "trajectory_sha256": "6a34fb5651b086f854f4a56dba09fe3c40a6acb8888d0be748886c8169e95aa0",
+      "total_modeled_objective": 3315.0432438275475,
+      "peak_kw": 236.18214992180103
+    },
+    {
+      "trajectory_sha256": "6a34fb5651b086f854f4a56dba09fe3c40a6acb8888d0be748886c8169e95aa0",
+      "total_modeled_objective": 3315.0432438275475,
+      "peak_kw": 236.18214992180103
+    },
+    {
+      "trajectory_sha256": "6a34fb5651b086f854f4a56dba09fe3c40a6acb8888d0be748886c8169e95aa0",
+      "total_modeled_objective": 3315.0432438275475,
+      "peak_kw": 236.18214992180103
+    }
+  ],
+  "ok": true
+}
