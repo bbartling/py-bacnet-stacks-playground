@@ -100,10 +100,11 @@ def instrument_subprocess(cmd: list[str], *, cwd: str | None = None, poll_s: flo
     metrics.pid = int(popen.pid)
     ps = psutil.Process(popen.pid)
     peak_rss = 0
-    user0, sys0, _ = _tree_cpu_rss(ps)
+    last_user = last_sys = 0.0
     while popen.poll() is None:
         try:
-            _, _, rss = _tree_cpu_rss(ps)
+            user, system, rss = _tree_cpu_rss(ps)
+            last_user, last_sys = user, system
             peak_rss = max(peak_rss, rss)
         except Exception:  # noqa: BLE001
             pass
@@ -114,13 +115,26 @@ def instrument_subprocess(cmd: list[str], *, cwd: str | None = None, poll_s: flo
     try:
         user1, sys1, rss = _tree_cpu_rss(ps)
         peak_rss = max(peak_rss, rss)
-        metrics.child_user_cpu_s = max(0.0, user1 - user0)
-        metrics.child_system_cpu_s = max(0.0, sys1 - sys0)
+        # Prefer last live sample if post-exit times collapse to 0 on Windows.
+        if user1 + sys1 > 0:
+            metrics.child_user_cpu_s = float(user1)
+            metrics.child_system_cpu_s = float(sys1)
+        elif last_user + last_sys > 0:
+            metrics.child_user_cpu_s = float(last_user)
+            metrics.child_system_cpu_s = float(last_sys)
+        else:
+            metrics.child_user_cpu_s = None
+            metrics.child_system_cpu_s = None
+            metrics.notes["reason_null_cpu"] = "process-tree CPU unavailable after exit (Windows)"
     except Exception as exc:  # noqa: BLE001
-        metrics.notes["cpu_sample_error"] = str(exc)
-        metrics.child_user_cpu_s = None
-        metrics.child_system_cpu_s = None
-        metrics.notes["reason_null_cpu"] = str(exc)
+        if last_user + last_sys > 0:
+            metrics.child_user_cpu_s = float(last_user)
+            metrics.child_system_cpu_s = float(last_sys)
+        else:
+            metrics.notes["cpu_sample_error"] = str(exc)
+            metrics.child_user_cpu_s = None
+            metrics.child_system_cpu_s = None
+            metrics.notes["reason_null_cpu"] = str(exc)
     metrics.peak_rss_bytes = peak_rss or None
     metrics.utc_end = datetime.now(timezone.utc).isoformat()
     return int(popen.returncode), stdout or "", stderr or "", metrics
@@ -155,6 +169,11 @@ def aggregate_timing(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "n_candidates": n,
         "total_wall_s": total_wall,
         "total_child_cpu_s": float(sum(cpu)) if cpu else None,
+        "total_child_cpu_note": (
+            None
+            if cpu
+            else "null: process-tree CPU samples unavailable or collapsed after exit on this host"
+        ),
         "mean_latency_s": float(statistics.mean(walls)) if walls else None,
         "median_latency_s": float(statistics.median(walls)) if walls else None,
         "p95_latency_s": percentile(walls, 95),

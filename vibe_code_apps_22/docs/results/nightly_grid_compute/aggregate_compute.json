@@ -1,7 +1,7 @@
 {
   "n_candidates": 130,
   "total_wall_s": 320.8255178000072,
-  "total_child_cpu_s": 0.0,
+  "total_child_cpu_s": null,
   "mean_latency_s": 2.467888598461594,
   "median_latency_s": 2.561963799998921,
   "p95_latency_s": 2.60013366500134,
@@ -37,5 +37,6 @@
     "recommended_workers": 4,
     "scientific_reference_workers": 1
   },
-  "eplus_launches": 178
+  "eplus_launches": 178,
+  "total_child_cpu_note": "null: process-tree CPU samples collapsed to 0 after exit on Windows during this run; wall times remain authoritative"
 }
