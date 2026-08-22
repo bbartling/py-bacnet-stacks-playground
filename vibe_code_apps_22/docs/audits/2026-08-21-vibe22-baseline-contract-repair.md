@@ -99,3 +99,7 @@ Pack: `docs/audits/figures/vibe22_cold_day_bridge/` — **8** EnergyPlus process
 | frozen DQN (zero-obs probe) | 250.47 |
 
 A05: **not opened** — see `2026-08-21-vibe22-a05-decision.md`. Cold challenge set: `RETROSPECTIVE_CONTAMINATED`.
+
+## Two-month frozen-policy replay (Dec 2025 – Jan 2026)
+
+Cross-reference: [`docs/results/two_month_policy_replay/`](../results/two_month_policy_replay/) — seven frozen strategies vs actual CS 351075 utility bills; full obs v4 for PPO/DQN (no zero-obs shortcut); illustrative flat/TOU tariffs kept separate from actual bill totals.

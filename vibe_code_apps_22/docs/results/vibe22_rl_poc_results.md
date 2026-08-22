@@ -90,6 +90,7 @@ executed (not the mega Phase 10 scaffold). Daily adaptive branching remains
 - Audit: [`docs/audits/2026-08-21-vibe22-baseline-contract-repair.md`](../audits/2026-08-21-vibe22-baseline-contract-repair.md)
 - A05 decision: [`docs/audits/2026-08-21-vibe22-a05-decision.md`](../audits/2026-08-21-vibe22-a05-decision.md) — **A05 not opened**
 - Jan 26 diagnostic bridge: [`docs/audits/figures/vibe22_cold_day_bridge/`](../audits/figures/vibe22_cold_day_bridge/)
+- Two-month frozen-policy replay (Dec 2025–Jan 2026): [`two_month_policy_replay/`](two_month_policy_replay/)
 - Cold challenge set: [`cold_weather_challenge_set_v1.json`](cold_weather_challenge_set_v1.json) — `RETROSPECTIVE_CONTAMINATED`
 - Terminology: `contracts/baseline_terminology_v1.json`; `VERIFIED_BAS_INCUMBENT` **UNRESOLVED**
 

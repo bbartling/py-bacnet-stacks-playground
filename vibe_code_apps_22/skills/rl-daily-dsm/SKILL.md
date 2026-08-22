@@ -170,6 +170,7 @@ python scripts/vibe22_rl.py research-poc --confirm-simulation-only-physics-limit
 python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --micro-gate --site-root $env:SITE_ROOT
 python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --obs-schema v4 --tariff-mode FLAT_PLUS_DEMAND --action-contract research_action_contract_v3 --execute-live --heartbeat $env:SITE_ROOT/reports/eplus_gym/rl/research_long_flat_plus_demand_heartbeat.json --site-root $env:SITE_ROOT
 python scripts/vibe22_publish_rl_poc_results.py --site-root $env:SITE_ROOT
+py -3.12 scripts/vibe22_two_month_policy_replay.py --site-root $env:SITE_ROOT --resume
 ```
 
 Long `campaign --n-days 100` is prohibited.

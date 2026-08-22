@@ -127,3 +127,15 @@ Honesty: SIMULATION-ONLY RL RESEARCH; NOT VALIDATED FOR OPERATIONAL DSM; NO PRIS
 - **Speaker notes:** Emphasize retrospective validation comparison; Dec floor disclosure; daily adaptive NOT_RUN.
 - **Limitation / caveat:** Not operational DSM; mega Phase 10 scaffold is not this experiment.
 - **Source / provenance:** LIVE ContinuityPlant screen under SITE_ROOT; compact pack only in git.
+
+## Slide addendum: Two-month frozen-policy replay
+
+- **Primary claim:** Dec 2025–Jan 2026 retrospective replay compares seven frozen strategies against actual CS 351075 utility bills (kWh/peak physical table; illustrative flat/TOU costs kept separate).
+- **Figure path:** `docs/results/two_month_policy_replay/figures/fig06_pareto_kwh_peak.png`
+- **Supporting artifacts:**
+  - `docs/results/two_month_policy_replay/run_manifest.json`
+  - `docs/results/two_month_policy_replay/two_month_decision_table.csv`
+  - `vibe22_agent_spec/TWO_MONTH_POLICY_REPLAY.md`
+- **Speaker notes:** PPO/DQN use full obs v4 (not Jan 26 zero-obs probe). Do not rank actual bill against illustrative tariff totals.
+- **Limitation / caveat:** RETROSPECTIVE_CONTAMINATED; Dec overlaps training; continuous-68 is heating-only sensitivity.
+- **Source / provenance:** LIVE EnergyPlus subprocess-per-strategy; BACnet commands 0.

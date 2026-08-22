@@ -1,0 +1,112 @@
+{
+  "schema": "vibe22.two_month_provenance.v1",
+  "generated_at": "2026-08-22T16:05:15.135752+00:00",
+  "public_labels": [
+    "RETROSPECTIVE ENERGYPLUS POLICY SCREENING",
+    "A04 NOT TRANSIENT-VALIDATED",
+    "VERIFIED BAS INCUMBENT UNRESOLVED",
+    "ILLUSTRATIVE TARIFFS",
+    "NO OPERATIONAL DSM AUTHORITY",
+    "NO BACNET COMMAND AUTHORITY",
+    "RETROSPECTIVE_CONTAMINATED",
+    "NO PRISTINE LOCKED TEST"
+  ],
+  "calendar": {
+    "lookback_day": "2025-11-30",
+    "first_scored_day": "2025-12-01",
+    "last_scored_day": "2026-01-31",
+    "scored_days": 62,
+    "expected_intervals": 5952
+  },
+  "idf": {
+    "path": "C:\\wt\\v22base\\vibe_code_apps_22\\models\\eplus\\lakeside_w2a_a04_dual_champion.idf",
+    "sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683"
+  },
+  "epw": {
+    "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\weather\\madison_amy_202508_202607.epw",
+    "sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3"
+  },
+  "policies": {
+    "ppo_flat": {
+      "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_long_flat_plus_demand_20260820T132506Z\\ppo_seed0\\models\\ppo_final.zip",
+      "sha256": "8d548929eedea43eaf7dcfb883f1bb8d9b5b64606c5851e5b81fd8be3df02f23"
+    },
+    "dqn_tou": {
+      "path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_long_illustrative_tou_plus_demand_20260820T210304Z\\dqn_seed1\\models\\dqn_final.zip",
+      "sha256": "28508bb3490b193106044ee24b73014543372d72a8ad6de83fd577fa37e0eadf"
+    }
+  },
+  "obs_action": {
+    "obs_schema": "vibe22.obs.v4.mega",
+    "observation_dim": 206,
+    "action_contract_version": "research_action_contract_v3",
+    "forecast_source": "PERFECT_EPISODE_FORECAST_RETROSPECTIVE"
+  },
+  "contracts": {
+    "observed_bas_incumbent_v2": {
+      "path": "C:\\wt\\v22base\\vibe_code_apps_22\\contracts\\observed_bas_incumbent_v2.json",
+      "sha256": "c0a1ed92357c10febd134f9e24f1bd2a5709bf0b05216490cc0772200a4b520a"
+    },
+    "baseline_terminology_v1": {
+      "path": "C:\\wt\\v22base\\vibe_code_apps_22\\contracts\\baseline_terminology_v1.json",
+      "sha256": "e4a5245cfe0ec0d57e2f62b14c20606435f020856cf266c1494d2c81eef2ab58"
+    },
+    "verified_bas_incumbent_v1": {
+      "path": "C:\\wt\\v22base\\vibe_code_apps_22\\contracts\\verified_bas_incumbent_v1.json",
+      "sha256": "216b0a80719eb0b5fdb5829e038d048eda210000272b1d9658be8363c0cc0b9e"
+    }
+  },
+  "grid_policies": {
+    "discrete_42": {
+      "occupied_heating_f": 70.0,
+      "unoccupied_heating_f": 60.0,
+      "recovery_lead_minutes": 180,
+      "post_occupancy_extension_minutes": 0
+    },
+    "discrete_43": {
+      "occupied_heating_f": 70.0,
+      "unoccupied_heating_f": 60.0,
+      "recovery_lead_minutes": 180,
+      "post_occupancy_extension_minutes": 60
+    }
+  },
+  "tariffs": {
+    "ILLUSTRATIVE_FLAT_PLUS_DEMAND": {
+      "energy_rate_usd_per_kwh": 0.11,
+      "demand_rate_usd_per_kw": 12.0,
+      "ratchet_floor_kw": 0.0,
+      "contract_demand_floor_kw": 0.0,
+      "floor_disclosure": "Unverified ratchet/contract floors use zero for illustrative scenario."
+    },
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND": {
+      "demand_rate_usd_per_kw": 12.0,
+      "ratchet_floor_kw": 0.0,
+      "contract_demand_floor_kw": 0.0
+    }
+  },
+  "utility_evidence": {
+    "account": "CS 351075",
+    "source_path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\utilities\\utility_bills_raw.csv",
+    "dec_2025": {
+      "kwh": 67328.0,
+      "billed_demand_kw": 232.38,
+      "actual_total_bill_usd": 6683.62,
+      "actual_energy_charge_usd": "NOT_AVAILABLE_FROM_SOURCE_INVOICE",
+      "actual_demand_charge_usd": "NOT_AVAILABLE_FROM_SOURCE_INVOICE"
+    },
+    "jan_2026": {
+      "kwh": 81491.0,
+      "billed_demand_kw": 284.82,
+      "actual_total_bill_usd": 8269.37,
+      "actual_energy_charge_usd": "NOT_AVAILABLE_FROM_SOURCE_INVOICE",
+      "actual_demand_charge_usd": "NOT_AVAILABLE_FROM_SOURCE_INVOICE"
+    },
+    "two_month": {
+      "kwh": 148819.0,
+      "actual_total_bill_usd": 14952.990000000002
+    },
+    "invoice_line_item_note": "Verified invoice line-item energy/demand charge decomposition was not available. Actual total bill is shown without fabricating a component split."
+  },
+  "energyplus_version": "26.1.0",
+  "bacnet_commands": 0
+}

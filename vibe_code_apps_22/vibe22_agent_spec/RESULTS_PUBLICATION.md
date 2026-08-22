@@ -155,4 +155,5 @@ Grid validation leaders (retrospective; Dec floor = 0 kW disclosure applies):
 - Skill: [`../skills/rl-poc-results-publish/SKILL.md`](../skills/rl-poc-results-publish/SKILL.md)
 - Grid skill: [`../skills/grid-search-comparator/SKILL.md`](../skills/grid-search-comparator/SKILL.md)
 - Training skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md)
+- Two-month replay: [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH_POLICY_REPLAY.md) · [`../skills/two-month-policy-replay/SKILL.md`](../skills/two-month-policy-replay/SKILL.md)
 - Draft PR example: [#114](https://github.com/bbartling/py-bacnet-stacks-playground/pull/114)

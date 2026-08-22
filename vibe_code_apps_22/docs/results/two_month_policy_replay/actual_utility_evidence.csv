@@ -1,0 +1,4 @@
+account,period,kwh,billed_demand_kw,actual_total_bill_usd,actual_energy_charge_usd,actual_demand_charge_usd,source_path
+CS 351075,2025-12,67328.0,232.38,6683.62,NOT_AVAILABLE_FROM_SOURCE_INVOICE,NOT_AVAILABLE_FROM_SOURCE_INVOICE,C:\Users\ben\OneDrive\Desktop\testing\sp_creekside\utilities\utility_bills_raw.csv
+CS 351075,2026-01,81491.0,284.82,8269.37,NOT_AVAILABLE_FROM_SOURCE_INVOICE,NOT_AVAILABLE_FROM_SOURCE_INVOICE,C:\Users\ben\OneDrive\Desktop\testing\sp_creekside\utilities\utility_bills_raw.csv
+CS 351075,two_month,148819.0,NOT_AVAILABLE_FROM_SOURCE_INVOICE,14952.990000000002,NOT_AVAILABLE_FROM_SOURCE_INVOICE,NOT_AVAILABLE_FROM_SOURCE_INVOICE,C:\Users\ben\OneDrive\Desktop\testing\sp_creekside\utilities\utility_bills_raw.csv
