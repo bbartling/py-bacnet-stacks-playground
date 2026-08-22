@@ -10,7 +10,7 @@
     "NOT VALIDATED FOR OPERATIONAL DSM",
     "NO BACNET COMMAND AUTHORITY"
   ],
-  "selection_wording": "Grid search and RL share the same EnergyPlus trajectories, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
+  "selection_wording": "Grid search and RL share the same EnergyPlus model and scoring contracts, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
   "primary_benchmark_day": "2026-01-26",
   "lookback_day": "2026-01-25",
   "lookback_schedule": "observed_bas_incumbent_v2",

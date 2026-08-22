@@ -36,7 +36,8 @@ Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) �
 [`skills/rl-poc-results-publish/SKILL.md`](skills/rl-poc-results-publish/SKILL.md) ·
 [`skills/grid-search-comparator/SKILL.md`](skills/grid-search-comparator/SKILL.md) ·
 [`skills/two-month-policy-replay/SKILL.md`](skills/two-month-policy-replay/SKILL.md) ·
-[`skills/nightly-grid-compute/SKILL.md`](skills/nightly-grid-compute/SKILL.md)
+[`skills/nightly-grid-compute/SKILL.md`](skills/nightly-grid-compute/SKILL.md) ·
+[`skills/weather-trigger-replay/SKILL.md`](skills/weather-trigger-replay/SKILL.md)
 
 **Finished research-long (2026-08-20):** PRIMARY `FLAT_PLUS_DEMAND` + SECONDARY
 `ILLUSTRATIVE_TOU_PLUS_DEMAND` under `research_action_contract_v3`. Published pack:
@@ -60,6 +61,11 @@ one-day lookback branching on `2026-01-26`; verdict
 `NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN` (budget rec `25`). CLI:
 `py -3.12 scripts/vibe22_nightly_grid_compute.py --site-root $env:SITE_ROOT --stage all --resume`.
 Do not conflate with the Dec `grid_search/` pack.
+
+**Weather-trigger continuous (2026-08-22):** [`docs/results/weather_trigger_continuous/`](docs/results/weather_trigger_continuous/) —
+midnight-only cold-trigger vs continuous 68/74; verdict
+`WEATHER_TRIGGER_IMPROVES_PEAK_WITH_ENERGY_PENALTY`. CLI:
+`py -3.12 scripts/vibe22_weather_trigger_replay.py --site-root $env:SITE_ROOT --strategy all`.
 
 ```powershell
 $env:SITE_ROOT="<SITE_ROOT>"

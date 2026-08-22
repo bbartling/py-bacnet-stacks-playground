@@ -67,6 +67,11 @@
       "path": "docs/results/nightly_grid_compute/",
       "status": "ACTIVE_COMPUTE_BENCHMARK",
       "notes": "Identical-state nightly grid compute on 2026-01-26; not operational DSM"
+    },
+    {
+      "path": "docs/results/weather_trigger_continuous/",
+      "status": "ACTIVE_RESEARCH_SCREEN",
+      "notes": "Weather-triggered continuous 68/74 retrospective screen; not operational DSM"
     }
   ]
 }

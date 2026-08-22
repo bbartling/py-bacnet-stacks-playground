@@ -60,6 +60,10 @@ def anytime_curve(
     return {
         "exhaustive_best_fully_ready_cost": exhaustive,
         "points": points,
+        # First 1-based index in preregistered order where running best meets threshold.
+        "n_to_within_1pct": within_1pct,
+        "n_to_within_10_usd": within_10usd,
+        # Deprecated aliases (same values) for older readers.
         "candidates_within_1pct": within_1pct,
         "candidates_within_10_usd": within_10usd,
         "n_evaluated": len(ordered_results),

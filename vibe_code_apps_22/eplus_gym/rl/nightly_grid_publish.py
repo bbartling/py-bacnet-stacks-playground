@@ -14,13 +14,14 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np
 
 from eplus_gym.rl.nightly_grid_anytime import anytime_curve, recommend_budget
+from eplus_gym.rl.nightly_grid_branch import aggregate_w2a_stats
 from eplus_gym.rl.nightly_grid_freeze import PUBLIC_LABELS
 from eplus_gym.rl.nightly_grid_instrument import aggregate_timing
 
 SELECTION_WORDING = (
-    "Grid search and RL share the same EnergyPlus trajectories, tariff accounting, "
-    "and readiness criteria. RL trains on a shaped numerical reward, while grid search "
-    "selects the lowest-cost fully-ready candidate."
+    "Grid search and RL share the same EnergyPlus model and scoring contracts, "
+    "tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, "
+    "while grid search selects the lowest-cost fully-ready candidate."
 )
 
 
@@ -251,6 +252,8 @@ def publish_pack(
     baseline_sched: list[float] | None = None,
     winner_sched: list[float] | None = None,
     eplus_launches: int = 0,
+    artifact_hashes: Mapping[str, Any] | None = None,
+    sequential_exhaustive_candidate_compute_s: float | None = None,
 ) -> Path:
     out = Path(app_root) / "docs" / "results" / "nightly_grid_compute"
     out.mkdir(parents=True, exist_ok=True)
@@ -267,7 +270,11 @@ def publish_pack(
     budget_rec = recommend_budget(
         curve, wall_by_n=wall_by_n, hard_s=float(contract.get("deadline_hard_s") or 1800)
     )
-    exhaustive_wall = wall_by_n.get(len(timing_rows))
+    exhaustive_wall = (
+        float(sequential_exhaustive_candidate_compute_s)
+        if sequential_exhaustive_candidate_compute_s is not None
+        else wall_by_n.get(len(timing_rows))
+    )
     invalid = not bool(identical_state_proof.get("ok", True))
     verdict = feasibility_verdict(
         invalid=invalid,
@@ -299,6 +306,11 @@ def publish_pack(
     _write_csv(out / "candidate_ledger.csv", flat_ledger)
     _write_csv(out / "candidate_timing.csv", timing_rows)
     _write_csv(out / "quality_ledger.csv", quality_rows)
+
+    w2a_summary = aggregate_w2a_stats(quality_rows)
+    (out / "w2a_warning_summary.json").write_text(json.dumps(w2a_summary, indent=2), encoding="utf-8")
+    if artifact_hashes:
+        (out / "artifact_hashes.json").write_text(json.dumps(dict(artifact_hashes), indent=2), encoding="utf-8")
 
     compute_cmp = [
         {
@@ -348,6 +360,20 @@ def publish_pack(
     for mode, blob in (tariff_rescore.get("by_tariff") or {}).items():
         winners[mode] = blob.get("winner")
 
+    n_unique = len(ordered_results)
+    expected_exhaustive_night_launches = n_unique + 1  # baseline + candidates
+    expected_budget_25_launches = 25 + 1
+    optional_days = {
+        "optional_mild_day": {
+            "day": contract.get("optional_mild_day"),
+            "status": "NOT_RUN",
+        },
+        "optional_weekend_day": {
+            "day": contract.get("optional_weekend_day"),
+            "status": "NOT_RUN",
+        },
+    }
+
     manifest = {
         "schema": "vibe22.nightly_grid_run_manifest.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -358,12 +384,22 @@ def publish_pack(
         "recommended_nightly_budget": budget_rec,
         "anytime": curve,
         "tariff_winners": winners,
-        "target_15min_pass": bool(exhaustive_wall is not None and exhaustive_wall <= float(contract.get("deadline_target_s") or 900)),
-        "hard_30min_pass": bool(exhaustive_wall is not None and exhaustive_wall <= float(contract.get("deadline_hard_s") or 1800)),
+        "target_15min_pass": bool(
+            exhaustive_wall is not None and exhaustive_wall <= float(contract.get("deadline_target_s") or 900)
+        ),
+        "hard_30min_pass": bool(
+            exhaustive_wall is not None and exhaustive_wall <= float(contract.get("deadline_hard_s") or 1800)
+        ),
+        "sequential_exhaustive_candidate_compute_s": exhaustive_wall,
         "exhaustive_wall_s": exhaustive_wall,
-        "n_unique_evaluated": len(ordered_results),
+        "n_unique_evaluated": n_unique,
+        "eplus_launches_benchmark_development": eplus_launches,
         "eplus_launches": eplus_launches,
+        "expected_exhaustive_night_launches": expected_exhaustive_night_launches,
+        "expected_budget_25_night_launches": expected_budget_25_launches,
+        "optional_day_benchmarks": optional_days,
         "bacnet_commands": 0,
+        "w2a_warning_summary": w2a_summary,
     }
     (out / "run_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
@@ -380,6 +416,7 @@ def publish_pack(
     )
 
     labels = "\n".join(f"- `{x}`" for x in PUBLIC_LABELS)
+    scored = w2a_summary.get("scored_runtime_w2a") or {}
     readme = f"""# Nightly A04 grid-search compute benchmark
 
 > {SELECTION_WORDING}
@@ -397,17 +434,33 @@ Weather: `RETROSPECTIVE_WEATHER_BENCHMARK`. BACnet commands: **0**.
 
 ## Key numbers
 
-- Unique candidates evaluated: {len(ordered_results)}
-- EnergyPlus launches: {eplus_launches}
-- Exhaustive wall (s): {exhaustive_wall}
-- Candidates within 1% of exhaustive best: {curve.get("candidates_within_1pct")}
-- Candidates within $10: {curve.get("candidates_within_10_usd")}
+- Unique candidates evaluated: {n_unique}
+- Benchmark-development EnergyPlus launches: {eplus_launches}
+- Expected exhaustive night launches (baseline + candidates): {expected_exhaustive_night_launches}
+- Expected 25-policy night launches (baseline + 25): {expected_budget_25_launches}
+- Sequential exhaustive candidate compute time (s): {exhaustive_wall}
+- First preregistered index within 1% of exhaustive best (`n_to_within_1pct`): {curve.get("n_to_within_1pct")}
+- First preregistered index within $10 (`n_to_within_10_usd`): {curve.get("n_to_within_10_usd")}
+- Identical-state proof samples: {identical_state_proof.get("n_samples")} (require 131); max |Δ| °F: {identical_state_proof.get("max_abs_delta_f")}
 - 15-min target pass: {manifest["target_15min_pass"]}
 - 30-min hard pass: {manifest["hard_30min_pass"]}
 
+## W2A scored-runtime warnings (appendix)
+
+Recomputed from candidate quality artifacts (selection is comfort-readiness, not W2A=0):
+
+- Range: {scored.get("min")}–{scored.get("max")}
+- Median: {scored.get("median")}
+- Total across candidates: {scored.get("total")}
+
+## Optional day benchmarks
+
+- Mild weekday (`{contract.get("optional_mild_day")}`): **NOT_RUN**
+- Weekend (`{contract.get("optional_weekend_day")}`): **NOT_RUN**
+
 ## Artifacts
 
-See CSVs/JSON in this directory and `figures/` (9 PNG+SVG plots).
+See CSVs/JSON in this directory (`artifact_hashes.json`, `w2a_warning_summary.json`, `identical_state_proof.json`) and `figures/` (9 PNG+SVG plots).
 """
     (out / "README.md").write_text(readme, encoding="utf-8")
     return out

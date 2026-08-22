@@ -1,0 +1,9 @@
+{
+  "verdict": "WEATHER_TRIGGER_IMPROVES_PEAK_WITH_ENERGY_PENALTY",
+  "simulation_training_ready": false,
+  "operational_dsm_ready": false,
+  "operational_winner": null,
+  "best_weather_trigger": "COLD_TRIGGER_30F",
+  "best_economic_strategy": "ALWAYS_GRID_42",
+  "lowest_peak_strategy": "ALWAYS_CONTINUOUS_68_74"
+}

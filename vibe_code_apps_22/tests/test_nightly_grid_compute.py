@@ -61,6 +61,38 @@ def test_identical_state_proof():
         prove_identical_midnight([[70.0] * 6, [71.0] * 6], tol_f=0.05)
 
 
+def test_rebuild_identical_state_proof_requires_131():
+    from eplus_gym.rl.nightly_grid_branch import rebuild_identical_state_proof
+
+    baseline = [64.0] * 6
+    cands = [{"candidate_id": f"discrete_{i}", "midnight_zone_temps_f": [64.0] * 6} for i in range(130)]
+    proof = rebuild_identical_state_proof(baseline_midnight=baseline, candidate_results=cands, require_n=131)
+    assert proof["n_samples"] == 131
+    assert proof["ok"] is True
+    assert proof["max_abs_delta_f"] <= 0.05
+    with pytest.raises(IdenticalStateFailure):
+        rebuild_identical_state_proof(
+            baseline_midnight=baseline,
+            candidate_results=cands[:-1],
+            require_n=131,
+        )
+    with pytest.raises(IdenticalStateFailure):
+        bad = list(cands)
+        bad[0] = {"candidate_id": "discrete_0", "midnight_zone_temps_f": None}
+        rebuild_identical_state_proof(baseline_midnight=baseline, candidate_results=bad, require_n=131)
+
+
+def test_aggregate_w2a_stats():
+    from eplus_gym.rl.nightly_grid_branch import aggregate_w2a_stats
+
+    rows = [{"w2a_scored": 5520}, {"w2a_scored": 6456}, {"w2a_scored": 8310}, {"w2a_warmup": 100}]
+    s = aggregate_w2a_stats(rows)
+    assert s["scored_runtime_w2a"]["min"] == 5520
+    assert s["scored_runtime_w2a"]["max"] == 8310
+    assert s["scored_runtime_w2a"]["median"] == 6456
+    assert s["scored_runtime_w2a"]["total"] == 5520 + 6456 + 8310
+
+
 def test_percentile_and_aggregate_schema():
     assert percentile([1, 2, 3, 4, 5], 50) == pytest.approx(3)
     agg = aggregate_timing(
@@ -86,7 +118,9 @@ def test_regret_calculation():
     assert best_fully_ready_cost(rows) == pytest.approx(18.0)
     curve = anytime_curve(rows, markers=(2, 4, 5))
     assert curve["exhaustive_best_fully_ready_cost"] == pytest.approx(18.0)
-    assert curve["candidates_within_10_usd"] == 2
+    assert curve["n_to_within_10_usd"] == 2
+    assert curve["candidates_within_10_usd"] == 2  # alias
+    assert curve["n_to_within_1pct"] == 4
 
 
 def test_tariff_rescore_zero_launches_field():

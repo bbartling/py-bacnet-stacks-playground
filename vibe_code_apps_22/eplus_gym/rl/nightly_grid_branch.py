@@ -49,6 +49,95 @@ def prove_identical_midnight(
     return out
 
 
+def rebuild_identical_state_proof(
+    *,
+    baseline_midnight: Sequence[float] | None,
+    candidate_results: Sequence[Mapping[str, Any]],
+    require_n: int = 131,
+    tol_f: float = 0.05,
+) -> dict[str, Any]:
+    """Prove identical midnight state across baseline + all published candidates.
+
+    Fail closed if any candidate is missing its six-zone midnight state or if
+    ``n_samples`` would not equal ``require_n`` when baseline + candidates are present.
+    """
+    missing: list[str] = []
+    rows: list[list[float]] = []
+    if baseline_midnight is None or len(list(baseline_midnight)) != 6:
+        raise IdenticalStateFailure("baseline missing six-zone midnight state")
+    rows.append([float(x) for x in baseline_midnight])
+    for r in candidate_results:
+        cid = str(r.get("candidate_id") or "?")
+        mz = r.get("midnight_zone_temps_f")
+        if mz is None or len(list(mz)) != 6:
+            missing.append(cid)
+            continue
+        rows.append([float(x) for x in mz])
+    if missing:
+        raise IdenticalStateFailure(
+            f"missing six-zone midnight state for {len(missing)} candidates: {missing[:5]}"
+        )
+    if len(rows) != int(require_n):
+        raise IdenticalStateFailure(
+            f"identical_state_proof requires n_samples={require_n}, got {len(rows)} "
+            f"(baseline + {len(candidate_results)} candidates)"
+        )
+    proof = prove_identical_midnight(rows, tol_f=tol_f)
+    proof["require_n"] = int(require_n)
+    proof["includes_baseline"] = True
+    proof["n_candidates"] = len(candidate_results)
+    if float(proof["max_abs_delta_f"]) > float(tol_f):
+        raise IdenticalStateFailure(
+            f"max_abs_delta_f {proof['max_abs_delta_f']} > tol {tol_f}"
+        )
+    return proof
+
+
+def aggregate_w2a_stats(quality_rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Recompute scored-runtime / warmup W2A stats from quality ledger rows."""
+    scored: list[int] = []
+    warmup: list[int] = []
+    for r in quality_rows:
+        s = r.get("w2a_scored")
+        w = r.get("w2a_warmup")
+        if s is not None:
+            scored.append(int(s))
+        if w is not None:
+            warmup.append(int(w))
+    scored_sorted = sorted(scored)
+
+    def _median(xs: list[int]) -> float | None:
+        if not xs:
+            return None
+        n = len(xs)
+        mid = n // 2
+        if n % 2:
+            return float(xs[mid])
+        return (xs[mid - 1] + xs[mid]) / 2.0
+
+    return {
+        "schema": "vibe22.nightly_grid_w2a_warning_summary.v1",
+        "n_candidates_with_scored_w2a": len(scored),
+        "scored_runtime_w2a": {
+            "min": min(scored) if scored else None,
+            "max": max(scored) if scored else None,
+            "median": _median(scored_sorted),
+            "total": int(sum(scored)) if scored else None,
+            "range": [min(scored), max(scored)] if scored else None,
+        },
+        "warmup_w2a": {
+            "min": min(warmup) if warmup else None,
+            "max": max(warmup) if warmup else None,
+            "median": _median(sorted(warmup)),
+            "total": int(sum(warmup)) if warmup else None,
+        },
+        "note": (
+            "W2A is appendix disclosure for this benchmark; selection uses "
+            "comfort readiness, not W2A=0."
+        ),
+    }
+
+
 def run_identical_state_candidate(
     *,
     site: Path,

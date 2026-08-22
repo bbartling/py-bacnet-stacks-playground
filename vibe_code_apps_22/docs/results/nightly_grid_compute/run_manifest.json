@@ -1,6 +1,6 @@
 {
   "schema": "vibe22.nightly_grid_run_manifest.v1",
-  "generated_at": "2026-08-22T19:17:00.085570+00:00",
+  "generated_at": "2026-08-22T20:10:36.625452+00:00",
   "site_run_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\nightly_grid_compute_20260822T190945Z",
   "public_labels": [
     "SIMULATION-ONLY RESEARCH",
@@ -10,7 +10,7 @@
     "NOT VALIDATED FOR OPERATIONAL DSM",
     "NO BACNET COMMAND AUTHORITY"
   ],
-  "selection_wording": "Grid search and RL share the same EnergyPlus trajectories, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
+  "selection_wording": "Grid search and RL share the same EnergyPlus model and scoring contracts, tariff accounting, and readiness criteria. RL trains on a shaped numerical reward, while grid search selects the lowest-cost fully-ready candidate.",
   "feasibility_verdict": "NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN",
   "recommended_nightly_budget": "25",
   "anytime": {
@@ -47,6 +47,8 @@
         "regret": 0.0
       }
     ],
+    "n_to_within_1pct": 1,
+    "n_to_within_10_usd": 1,
     "candidates_within_1pct": 1,
     "candidates_within_10_usd": 1,
     "n_evaluated": 130
@@ -58,8 +60,43 @@
   },
   "target_15min_pass": true,
   "hard_30min_pass": true,
+  "sequential_exhaustive_candidate_compute_s": 320.8255178000072,
   "exhaustive_wall_s": 320.8255178000072,
   "n_unique_evaluated": 130,
+  "eplus_launches_benchmark_development": 178,
   "eplus_launches": 178,
-  "bacnet_commands": 0
+  "expected_exhaustive_night_launches": 131,
+  "expected_budget_25_night_launches": 26,
+  "optional_day_benchmarks": {
+    "optional_mild_day": {
+      "day": "2025-12-15",
+      "status": "NOT_RUN"
+    },
+    "optional_weekend_day": {
+      "day": "2026-01-25",
+      "status": "NOT_RUN"
+    }
+  },
+  "bacnet_commands": 0,
+  "w2a_warning_summary": {
+    "schema": "vibe22.nightly_grid_w2a_warning_summary.v1",
+    "n_candidates_with_scored_w2a": 130,
+    "scored_runtime_w2a": {
+      "min": 5520,
+      "max": 8310,
+      "median": 6456.0,
+      "total": 865260,
+      "range": [
+        5520,
+        8310
+      ]
+    },
+    "warmup_w2a": {
+      "min": 10470,
+      "max": 10470,
+      "median": 10470.0,
+      "total": 1361100
+    },
+    "note": "W2A is appendix disclosure for this benchmark; selection uses comfort readiness, not W2A=0."
+  }
 }

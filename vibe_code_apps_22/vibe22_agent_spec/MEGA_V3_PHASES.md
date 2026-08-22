@@ -29,9 +29,13 @@ A04 is **not** a transient-validated physics champion;
   130 uniques; winner `discrete_114`; see `NIGHTLY_GRID_COMPUTE.md`.
 - **Two-month replay:** Dec 2025–Jan 2026 seven strategies vs utility;
   see `TWO_MONTH_POLICY_REPLAY.md`.
+- **Weather trigger:** continuous 68/74 cold-trigger screen; verdict
+  `WEATHER_TRIGGER_IMPROVES_PEAK_WITH_ENERGY_PENALTY`; see
+  `WEATHER_TRIGGER_CONTINUOUS.md`.
 - **Publication SoT:** [`RESULTS_PUBLICATION.md`](RESULTS_PUBLICATION.md) and
   `docs/results/`.
 - Audit: `docs/audits/2026-08-20-vibe22-action-space-tariff-experiments.md`.
+  Weather-trigger audit: `docs/audits/2026-08-22-vibe22-weather-trigger-continuous.md`.
 
 Do not retrain to “fix” publication. Disclose Dec billing floor; use
 checked-school readiness wording; never mix flat/TOU dollars.

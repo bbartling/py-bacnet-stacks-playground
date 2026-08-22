@@ -10,5 +10,8 @@
     64.0009475078146,
     64.0011083193718
   ],
-  "n_samples": 3
+  "n_samples": 131,
+  "require_n": 131,
+  "includes_baseline": true,
+  "n_candidates": 130
 }

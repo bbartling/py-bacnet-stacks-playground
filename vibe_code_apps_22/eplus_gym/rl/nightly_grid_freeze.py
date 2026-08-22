@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from eplus_gym.a04_identity import A04_IDF_NAME, A04_SHA_CRLF
 from eplus_gym.rl.nightly_grid_menu import build_one_day_menu, load_nightly_contract, menu_sha256
@@ -155,4 +155,25 @@ def build_provenance(*, app_root: Path, site: Path, env: dict[str, Any] | None =
         "environment": env,
         "selection_wording": contract.get("selection_wording"),
         "public_labels": PUBLIC_LABELS,
+    }
+
+
+def build_artifact_hashes(*, app_root: Path, site: Path, env: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """SHA-256 pins for reward, action, baseline, menu, tariffs, IDF, EPW."""
+    app = Path(app_root)
+    env = env or build_environment_manifest(app_root=app, site=Path(site))
+    reward_py = app / "eplus_gym" / "rl" / "reward_v2.py"
+    reward_json = app / "contracts" / "reward_contract_v2.json"
+    action_py = app / "eplus_gym" / "rl" / "research_spaces.py"
+    return {
+        "schema": "vibe22.nightly_grid_artifact_hashes.v1",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "reward_v2_implementation_sha256": sha256_file(reward_py),
+        "reward_contract_v2_sha256": sha256_file(reward_json),
+        "research_action_contract_v3_implementation_sha256": sha256_file(action_py),
+        "baseline_contract_sha256": env.get("baseline_contract_sha256"),
+        "candidate_menu_sha256": env.get("candidate_menu_sha256"),
+        "tariff_fixtures": env.get("tariff_fixtures") or {},
+        "a04_idf_sha256": (env.get("idf") or {}).get("sha256"),
+        "epw_sha256": (env.get("epw") or {}).get("sha256"),
     }

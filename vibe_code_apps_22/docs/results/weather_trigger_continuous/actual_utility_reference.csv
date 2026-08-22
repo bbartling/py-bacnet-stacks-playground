@@ -1,0 +1,3 @@
+strategy,public_label,period,kwh,billed_demand_kw,actual_total_bill_usd,ranking_eligible,reference_only
+actual_utility_cs351075,ACTUAL_UTILITY_CS351075_REFERENCE,2025-12,67328.0,232.38,6683.62,False,True
+actual_utility_cs351075,ACTUAL_UTILITY_CS351075_REFERENCE,2026-01,81491.0,284.82,8269.37,False,True

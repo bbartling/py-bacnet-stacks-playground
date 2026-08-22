@@ -125,6 +125,11 @@ def main() -> int:
     p.add_argument("--site-run-dir", type=Path, default=None)
     p.add_argument("--stage", default="all", choices=["freeze", "micro", "pilot", "budgets", "publish", "all"])
     p.add_argument("--resume", action="store_true")
+    p.add_argument(
+        "--repair-pack",
+        action="store_true",
+        help="Rebuild docs pack from existing SITE_ROOT run (no new EnergyPlus launches)",
+    )
     p.add_argument("--worker-json", type=Path, default=None)
     p.add_argument("--result-json", type=Path, default=None)
     args = p.parse_args()
@@ -137,9 +142,17 @@ def main() -> int:
         return 0
 
     from eplus_gym.rl.day_ahead_tariff import rate_vector_from_mode_or_fixture
-    from eplus_gym.rl.nightly_grid_branch import IdenticalStateFailure, prove_identical_midnight
+    from eplus_gym.rl.nightly_grid_branch import (
+        IdenticalStateFailure,
+        prove_identical_midnight,
+        rebuild_identical_state_proof,
+    )
     from eplus_gym.rl.nightly_grid_cost import score_candidate_day
-    from eplus_gym.rl.nightly_grid_freeze import build_environment_manifest, build_provenance
+    from eplus_gym.rl.nightly_grid_freeze import (
+        build_artifact_hashes,
+        build_environment_manifest,
+        build_provenance,
+    )
     from eplus_gym.rl.nightly_grid_menu import (
         build_one_day_menu,
         load_nightly_contract,
@@ -156,10 +169,16 @@ def main() -> int:
     contract = load_nightly_contract(_APP)
     day = str(contract["primary_benchmark_day"])
     lookback_day = str(contract["lookback_day"])
+    if args.repair_pack:
+        if args.site_run_dir is None:
+            print("--repair-pack requires --site-run-dir", file=sys.stderr)
+            return 2
+        args.resume = True
+        args.stage = "publish"
     run_dir = args.site_run_dir or (site / "reports/eplus_gym/rl" / f"nightly_grid_compute_{_utc()}")
     run_dir.mkdir(parents=True, exist_ok=True)
     state_path = run_dir / "stage_state.json"
-    state = _load_json(state_path) if args.resume else {}
+    state = _load_json(state_path) if args.resume or args.repair_pack else {}
 
     def persist() -> None:
         _save_json(state_path, state)
@@ -186,8 +205,8 @@ def main() -> int:
     tariff = str(contract.get("primary_tariff_for_selection") or "FLAT_PLUS_DEMAND")
     mtd = float(contract.get("opening_mtd_kw") or 0.0)
 
-    # Baseline once
-    if "baseline" not in state:
+    # Baseline once (skip when repairing an existing pack)
+    if "baseline" not in state and not args.repair_pack:
         print("stage: baseline", flush=True)
         base = _run_sub(
             {
@@ -208,7 +227,10 @@ def main() -> int:
         state["baseline"] = base
         state["eplus_launches"] = int(state.get("eplus_launches") or 0) + 1
         persist()
-    baseline = state["baseline"]
+    baseline = state.get("baseline") or {}
+    if args.repair_pack and not baseline:
+        print("repair-pack: missing baseline in stage_state.json", file=sys.stderr)
+        return 1
 
     def eval_index(idx: int, *, tag: str) -> dict[str, Any]:
         cid = f"discrete_{idx}"
@@ -560,15 +582,23 @@ def main() -> int:
             )
             if r.get("midnight_zone_temps_f"):
                 midnights.append(r["midnight_zone_temps_f"])
-        proof = state.get("identical_state_proof")
-        if not proof and midnights:
-            try:
-                proof = prove_identical_midnight(
-                    midnights, tol_f=float(contract.get("identical_state_temp_tol_f") or 0.05)
-                )
-            except IdenticalStateFailure as exc:
-                proof = {"ok": False, "error": str(exc)}
-        proof = proof or {"ok": False, "error": "missing"}
+        # Always prefer exhaustive baseline+candidates proof over cached micro proof.
+        try:
+            bl_mid = (baseline or {}).get("midnight_zone_temps_f") or (state.get("baseline") or {}).get(
+                "midnight_zone_temps_f"
+            )
+            proof = rebuild_identical_state_proof(
+                baseline_midnight=bl_mid,
+                candidate_results=ordered_results,
+                require_n=len(ordered_results) + 1,
+                tol_f=float(contract.get("identical_state_temp_tol_f") or 0.05),
+            )
+        except IdenticalStateFailure as exc:
+            proof = {"ok": False, "error": str(exc), "n_samples": len(midnights)}
+        state["identical_state_proof"] = proof
+        persist()
+
+        hashes = build_artifact_hashes(app_root=_APP, site=site, env=env)
 
         rl_facts = import_recorded_rl_facts(_APP)
         ppo_zip = site / PPO_ZIP_REL
@@ -623,6 +653,7 @@ def main() -> int:
             baseline_sched=baseline_sched,
             winner_sched=winner_sched,
             eplus_launches=int(state.get("eplus_launches") or 0),
+            artifact_hashes=hashes,
         )
         # artifact index
         idx_path = _APP / "docs/results/artifact_index_v1.json"

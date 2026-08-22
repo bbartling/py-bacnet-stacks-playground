@@ -162,6 +162,13 @@ Finished verdict on test hardware: `NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN`
 `docs/results/two_month_policy_replay/` — Dec 2025–Jan 2026 seven-strategy
 retrospective vs CS 351075 utility. See [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH_POLICY_REPLAY.md).
 
+## Weather-triggered continuous-conditioning
+
+`docs/results/weather_trigger_continuous/` — midnight-only cold-trigger vs
+continuous 68/74 and grid-114/42/43 over the same two-month window
+(`RETROSPECTIVE_WEATHER_POLICY_SCREEN`). See
+[`WEATHER_TRIGGER_CONTINUOUS.md`](WEATHER_TRIGGER_CONTINUOUS.md).
+
 ## Related
 
 - Skill: [`../skills/rl-poc-results-publish/SKILL.md`](../skills/rl-poc-results-publish/SKILL.md)
@@ -169,4 +176,5 @@ retrospective vs CS 351075 utility. See [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH
 - Nightly compute: [`NIGHTLY_GRID_COMPUTE.md`](NIGHTLY_GRID_COMPUTE.md) · [`../skills/nightly-grid-compute/SKILL.md`](../skills/nightly-grid-compute/SKILL.md)
 - Training skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md)
 - Two-month replay: [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH_POLICY_REPLAY.md) · [`../skills/two-month-policy-replay/SKILL.md`](../skills/two-month-policy-replay/SKILL.md)
+- Weather trigger: [`WEATHER_TRIGGER_CONTINUOUS.md`](WEATHER_TRIGGER_CONTINUOUS.md) · [`../skills/weather-trigger-replay/SKILL.md`](../skills/weather-trigger-replay/SKILL.md)
 - Draft PR example: [#114](https://github.com/bbartling/py-bacnet-stacks-playground/pull/114)
