@@ -39,4 +39,5 @@ py -3.12 scripts/vibe22_two_month_policy_replay.py --site-root $env:SITE_ROOT --
 ## Related
 
 - [`../rl-daily-dsm/SKILL.md`](../rl-daily-dsm/SKILL.md)
+- [`../nightly-grid-compute/SKILL.md`](../nightly-grid-compute/SKILL.md) — identical-state compute (separate)
 - [`../../docs/results/two_month_policy_replay/README.md`](../../docs/results/two_month_policy_replay/README.md)

@@ -123,6 +123,12 @@ Outputs: `docs/results/vibe22_rl_poc_results.{md,json}`,
 For LIVE discrete grid vs RL leaders use skill `grid-search-comparator` /
 `scripts/vibe22_grid_search.py` → `docs/results/grid_search/`.
 
+For Dec–Jan frozen-policy replay vs utility: skill `two-month-policy-replay` →
+`docs/results/two_month_policy_replay/`.
+
+For identical-state nightly compute (15/30 min): skill `nightly-grid-compute` →
+`docs/results/nightly_grid_compute/` (do not conflate with Dec `grid_search/`).
+
 Git: commit derived pack + publisher code only — not raw SITE_ROOT `eplus_out`
 or multi-MB untrimmed dumps. Cite SITE_ROOT run paths inside provenance JSON.
 `docs/results/**/*.csv` is allowlisted in root `.gitignore`.

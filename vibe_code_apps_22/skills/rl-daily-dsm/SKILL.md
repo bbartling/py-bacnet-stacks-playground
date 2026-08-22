@@ -159,6 +159,10 @@ Published pack: `docs/results/` via
 `scripts/vibe22_publish_rl_poc_results.py`. Exhaustive discrete DQN-table LIVE
 screen completed as fixed-policy grid comparator — see
 `docs/results/grid_search/` and skill `grid-search-comparator`.
+Two-month replay: `docs/results/two_month_policy_replay/` + skill
+`two-month-policy-replay`. Nightly identical-state compute:
+`docs/results/nightly_grid_compute/` + skill `nightly-grid-compute`
+(verdict `NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN` on test hardware).
 
 ## Commands
 
@@ -171,6 +175,7 @@ python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limi
 python scripts/vibe22_rl.py research-long --confirm-simulation-only-physics-limits --confirm-a04-not-transient-validated --obs-schema v4 --tariff-mode FLAT_PLUS_DEMAND --action-contract research_action_contract_v3 --execute-live --heartbeat $env:SITE_ROOT/reports/eplus_gym/rl/research_long_flat_plus_demand_heartbeat.json --site-root $env:SITE_ROOT
 python scripts/vibe22_publish_rl_poc_results.py --site-root $env:SITE_ROOT
 py -3.12 scripts/vibe22_two_month_policy_replay.py --site-root $env:SITE_ROOT --resume
+py -3.12 scripts/vibe22_nightly_grid_compute.py --site-root $env:SITE_ROOT --stage all --resume
 ```
 
 Long `campaign --n-days 100` is prohibited.
@@ -192,6 +197,8 @@ Audits:
 
 [`../../vibe22_agent_spec/CONTRIBUTING_RL.md`](../../vibe22_agent_spec/CONTRIBUTING_RL.md) ·
 [`../../vibe22_agent_spec/MEGA_V3_PHASES.md`](../../vibe22_agent_spec/MEGA_V3_PHASES.md) ·
-[`../../vibe22_agent_spec/RESULTS_PUBLICATION.md`](../../vibe22_agent_spec/RESULTS_PUBLICATION.md)
+[`../../vibe22_agent_spec/RESULTS_PUBLICATION.md`](../../vibe22_agent_spec/RESULTS_PUBLICATION.md) ·
+[`../../vibe22_agent_spec/TWO_MONTH_POLICY_REPLAY.md`](../../vibe22_agent_spec/TWO_MONTH_POLICY_REPLAY.md) ·
+[`../../vibe22_agent_spec/NIGHTLY_GRID_COMPUTE.md`](../../vibe22_agent_spec/NIGHTLY_GRID_COMPUTE.md)
 
 Honor `NO_PRISTINE_LOCKED_TEST_AVAILABLE`.

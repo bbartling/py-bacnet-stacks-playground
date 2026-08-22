@@ -1,8 +1,11 @@
 # Vibe22 mega v3 program index
 
-**Status (2026-08-21):** Dual-tariff research-long **finished**. RL pack under
+**Status (2026-08-22):** Dual-tariff research-long **finished**. RL pack under
 `docs/results/`. LIVE discrete grid-search comparator under
-`docs/results/grid_search/` (`EXHAUSTIVE_FIXED_POLICY`). Still Terminal B —
+`docs/results/grid_search/` (`EXHAUSTIVE_FIXED_POLICY`). Nightly identical-state
+compute under `docs/results/nightly_grid_compute/`
+(`NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN`). Two-month frozen-policy replay under
+`docs/results/two_month_policy_replay/`. Still Terminal B —
 A04 is **not** a transient-validated physics champion;
 `long_campaign_allowed` remains false.
 
@@ -20,7 +23,12 @@ A04 is **not** a transient-validated physics champion;
     leader `trained_dqn_seed1` (≈ −$63.23 illustrative; energy down, demand/peak up)
 - **Grid comparator:** fixed-policy exhaustive discrete v3 screen; grid leaders
   `discrete_42` (flat) / `discrete_43` (TOU) beat corresponding RL leaders on
-  modeled cost with 5/5 checked-school readiness. Daily adaptive NOT_RUN.
+  modeled cost with 5/5 checked-school readiness. Daily adaptive NOT_RUN **in
+  that Dec multi-day pack**.
+- **Nightly compute:** identical-lookback one-day screen on `2026-01-26`;
+  130 uniques; winner `discrete_114`; see `NIGHTLY_GRID_COMPUTE.md`.
+- **Two-month replay:** Dec 2025–Jan 2026 seven strategies vs utility;
+  see `TWO_MONTH_POLICY_REPLAY.md`.
 - **Publication SoT:** [`RESULTS_PUBLICATION.md`](RESULTS_PUBLICATION.md) and
   `docs/results/`.
 - Audit: `docs/audits/2026-08-20-vibe22-action-space-tariff-experiments.md`.

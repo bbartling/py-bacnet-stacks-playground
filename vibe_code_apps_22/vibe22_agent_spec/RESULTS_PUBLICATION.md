@@ -140,9 +140,9 @@ disclosure.
 
 `docs/results/vibe22_rl_poc_exhaustive_discrete_screen.json` and
 `docs/results/grid_search/` document the LIVE fixed-policy discrete v3 screen
-(`EXHAUSTIVE_FIXED_POLICY`). Mega Phase 10 `eplus_gym/mega/grid_search.py`
-remains scaffold-only. Daily adaptive branching:
-`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
+(`EXHAUSTIVE_FIXED_POLICY`) over Dec 15–31. Mega Phase 10 `eplus_gym/mega/grid_search.py`
+remains scaffold-only. **In that Dec multi-day pack**, daily adaptive branching
+remains `NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
 
 Grid validation leaders (retrospective; Dec floor = 0 kW disclosure applies):
 
@@ -150,10 +150,23 @@ Grid validation leaders (retrospective; Dec floor = 0 kW disclosure applies):
 - TOU: `discrete_43` beat DQN validation leader on modeled cost while ready 5/5
 - Tariff change altered selected extension minutes (0 vs 60)
 
+## Nightly identical-state compute (separate experiment)
+
+`docs/results/nightly_grid_compute/` is the LIVE identical-lookback one-day
+compute benchmark (`2026-01-26`). It is **not** a re-label of the Dec screen.
+Finished verdict on test hardware: `NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN`
+(recommended budget `25`). See [`NIGHTLY_GRID_COMPUTE.md`](NIGHTLY_GRID_COMPUTE.md).
+
+## Two-month frozen-policy replay
+
+`docs/results/two_month_policy_replay/` — Dec 2025–Jan 2026 seven-strategy
+retrospective vs CS 351075 utility. See [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH_POLICY_REPLAY.md).
+
 ## Related
 
 - Skill: [`../skills/rl-poc-results-publish/SKILL.md`](../skills/rl-poc-results-publish/SKILL.md)
 - Grid skill: [`../skills/grid-search-comparator/SKILL.md`](../skills/grid-search-comparator/SKILL.md)
+- Nightly compute: [`NIGHTLY_GRID_COMPUTE.md`](NIGHTLY_GRID_COMPUTE.md) · [`../skills/nightly-grid-compute/SKILL.md`](../skills/nightly-grid-compute/SKILL.md)
 - Training skill: [`../skills/rl-daily-dsm/SKILL.md`](../skills/rl-daily-dsm/SKILL.md)
 - Two-month replay: [`TWO_MONTH_POLICY_REPLAY.md`](TWO_MONTH_POLICY_REPLAY.md) · [`../skills/two-month-policy-replay/SKILL.md`](../skills/two-month-policy-replay/SKILL.md)
 - Draft PR example: [#114](https://github.com/bbartling/py-bacnet-stacks-playground/pull/114)

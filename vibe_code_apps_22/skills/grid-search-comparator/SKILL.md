@@ -2,9 +2,11 @@
 name: grid-search-comparator
 description: >-
   LIVE EnergyPlus fixed-policy discrete grid search vs finished PPO/DQN
-  validation leaders on Lakeside A04. Use when running micro-gate/pilot/exhaustive
-  screens, tariff re-scoring, or publishing docs/results/grid_search. Not RL
-  training. Not mega Phase 10 scaffold. No BACnet. No daily-adaptive fake branching.
+  validation leaders on Lakeside A04 (Dec 15–31). Use when running
+  micro-gate/pilot/exhaustive screens, tariff re-scoring, or publishing
+  docs/results/grid_search. Not RL training. Not mega Phase 10 scaffold.
+  No BACnet. For identical-state nightly compute (single day, 15/30 min
+  deadlines) use skill nightly-grid-compute instead.
 ---
 
 # Grid-search comparator (A04 discrete v3)
@@ -16,11 +18,14 @@ May produce a **GRID VALIDATION LEADER**, never an operational winner.
 
 - Start PPO/DQN training
 - Call `eplus_gym/mega/grid_search.py` a completed experiment (scaffold-only)
-- Fake daily adaptive branching (`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`)
+- Fake daily adaptive branching inside **this** Dec multi-day screen
+  (`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT` still applies here)
 - Invent historical RL process-launch counts
 - Compare absolute `$` across flat vs TOU
 - Soften readiness to include non-school auto-pass
 - Commit raw `eplus_out` trees
+- Conflate this pack with `docs/results/nightly_grid_compute/` (that is the
+  identical-state nightly compute benchmark)
 
 ## Contract
 
@@ -42,4 +47,12 @@ Ladder: micro-gate → pilot → exhaustive if projected wall ≤ 6h else prereg
 
 `docs/results/grid_search/` — summary, scorecard, verdict, compute comparison, figures.
 
-Spec: [`../../vibe22_agent_spec/RESULTS_PUBLICATION.md`](../../vibe22_agent_spec/RESULTS_PUBLICATION.md)
+## Nightly identical-state compute (separate)
+
+For one-day identical-lookback branching + 15/30 min feasibility, use:
+
+- Skill: [`../nightly-grid-compute/SKILL.md`](../nightly-grid-compute/SKILL.md)
+- Pack: `docs/results/nightly_grid_compute/`
+- Spec: [`../../vibe22_agent_spec/NIGHTLY_GRID_COMPUTE.md`](../../vibe22_agent_spec/NIGHTLY_GRID_COMPUTE.md)
+
+Spec (publication honesty): [`../../vibe22_agent_spec/RESULTS_PUBLICATION.md`](../../vibe22_agent_spec/RESULTS_PUBLICATION.md)
