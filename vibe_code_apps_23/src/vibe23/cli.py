@@ -7,7 +7,14 @@ from typing import Any
 
 import pandas as pd
 
+from .charts import build_calibration_chart_pack, build_gl14_campaign_progress
 from .download import download_dataset
+from .energyplus import (
+    DEFAULT_DOCKER_IMAGE,
+    energyplus_capability,
+    inspect_energyplus_run,
+    run_energyplus_smoke,
+)
 from .grid import GridDimension, enumerate_grid, rllib_energyplus_adapter_provenance
 from .ingest import aggregate_power_kw, build_inventory, load_point_csv
 from .metrics import score_calibration
@@ -138,6 +145,63 @@ def _enumerate_grid(args: argparse.Namespace) -> None:
     _emit_json(result, args.out)
 
 
+def _energyplus_doctor(args: argparse.Namespace) -> None:
+    result = energyplus_capability(
+        docker_image=args.docker_image,
+        mcp_vendor_path=Path(args.mcp_vendor) if args.mcp_vendor else None,
+    )
+    _emit_json(result.to_dict(), args.out)
+
+
+def _run_eplus_smoke(args: argparse.Namespace) -> None:
+    result = run_energyplus_smoke(
+        Path(args.idf),
+        Path(args.epw),
+        Path(args.output_dir),
+        engine=args.engine,
+        docker_image=args.docker_image,
+        timeout_seconds=args.timeout_seconds,
+    )
+    _emit_json(result, args.out)
+
+
+def _inspect_eplus_run(args: argparse.Namespace) -> None:
+    result = inspect_energyplus_run(
+        Path(args.run_dir),
+        idf=Path(args.idf) if args.idf else None,
+        epw=Path(args.epw) if args.epw else None,
+        energyplus_version=args.energyplus_version,
+    )
+    _emit_json(result, args.out)
+
+
+def _plot_calibration(args: argparse.Namespace) -> None:
+    result = build_calibration_chart_pack(
+        Path(args.csv),
+        Path(args.output_dir),
+        timestamp_column=args.timestamp_column,
+        measured_column=args.measured_column,
+        simulated_column=args.simulated_column,
+        data_kind=args.data_kind,
+        unit=args.unit,
+        energy_unit=args.energy_unit,
+        interval_hours=args.interval_hours,
+        timezone=args.timezone,
+        title=args.title,
+        parameters=args.parameters,
+    )
+    _emit_json(result, args.out)
+
+
+def _plot_calibration_campaign(args: argparse.Namespace) -> None:
+    result = build_gl14_campaign_progress(
+        Path(args.campaign_log),
+        Path(args.output_dir),
+        title=args.title,
+    )
+    _emit_json(result, args.out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vibe23", description="LBNL Building 59 calibration utilities")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -209,6 +273,53 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--grid", required=True)
     p.add_argument("--out", help="Optional candidate manifest JSON")
     p.set_defaults(func=_enumerate_grid)
+
+    p = sub.add_parser("energyplus-doctor", help="Probe native, Docker, and EnergyPlus-MCP prerequisites")
+    p.add_argument("--docker-image", default=DEFAULT_DOCKER_IMAGE)
+    p.add_argument("--mcp-vendor", help="Optional LBNL EnergyPlus-MCP checkout to verify")
+    p.add_argument("--out", help="Optional capability report JSON")
+    p.set_defaults(func=_energyplus_doctor)
+
+    p = sub.add_parser("run-eplus-smoke", help="Run a hash-bearing EnergyPlus engine smoke test")
+    p.add_argument("--idf", required=True)
+    p.add_argument("--epw", required=True)
+    p.add_argument("--output-dir", required=True)
+    p.add_argument("--engine", choices=["auto", "native", "docker"], default="auto")
+    p.add_argument("--docker-image", default=DEFAULT_DOCKER_IMAGE)
+    p.add_argument("--timeout-seconds", type=int, default=3600)
+    p.add_argument("--out", help="Optional second copy of the run manifest JSON")
+    p.set_defaults(func=_run_eplus_smoke)
+
+    p = sub.add_parser("inspect-eplus-run", help="Validate existing eplusout artifacts without rerunning")
+    p.add_argument("--run-dir", required=True)
+    p.add_argument("--idf", help="Optional source IDF to hash")
+    p.add_argument("--epw", help="Optional source EPW to hash")
+    p.add_argument("--energyplus-version", help="Pinned/runtime version recorded for the run")
+    p.add_argument("--out", help="Optional inspection JSON")
+    p.set_defaults(func=_inspect_eplus_run)
+
+    p = sub.add_parser("plot-calibration", help="Publish hashed measured-vs-EnergyPlus chart diagnostics")
+    p.add_argument("--csv", required=True, help="Paired timestamp/measured/simulated CSV")
+    p.add_argument("--output-dir", required=True)
+    p.add_argument("--timestamp-column", default="timestamp")
+    p.add_argument("--measured-column", default="measured")
+    p.add_argument("--simulated-column", default="simulated")
+    p.add_argument("--data-kind", choices=["mean_power", "interval_energy"], default="mean_power")
+    p.add_argument("--unit", default="kW", help="Native paired-value unit")
+    p.add_argument("--energy-unit", default="kWh", help="Monthly integrated energy unit")
+    p.add_argument("--interval-hours", type=float, help="Override interval duration for mean-power integration")
+    p.add_argument("--timezone", help="Explicit IANA timezone for naive or mixed-DST-offset timestamps")
+    p.add_argument("--parameters", type=int, default=1, help="Fitted parameter count p used in metrics")
+    p.add_argument("--title", default="LBNL Building 59 calibration")
+    p.add_argument("--out", help="Optional second copy of chart manifest JSON")
+    p.set_defaults(func=_plot_calibration)
+
+    p = sub.add_parser("plot-calibration-campaign", help="Plot monthly GL14 metrics across hashed iterations")
+    p.add_argument("--campaign-log", required=True)
+    p.add_argument("--output-dir", required=True)
+    p.add_argument("--title", default="LBNL Building 59 monthly calibration campaign")
+    p.add_argument("--out", help="Optional second copy of campaign chart manifest JSON")
+    p.set_defaults(func=_plot_calibration_campaign)
     return parser
 
 

@@ -15,6 +15,11 @@ def test_parser_exposes_pipeline_commands():
         "inspect-rllib",
         "inspect-tariff",
         "enumerate-grid",
+        "energyplus-doctor",
+        "run-eplus-smoke",
+        "inspect-eplus-run",
+        "plot-calibration",
+        "plot-calibration-campaign",
     ):
         assert command in help_text
 

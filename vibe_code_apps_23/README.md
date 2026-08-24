@@ -12,7 +12,8 @@ Vibe 23 is the evidence-first path from the public LBNL Building 59 / Shyh Wang 
 | Building 59 evidence | Peer-reviewed/official source dossier, machine-readable source manifest, system/topology and regime-change evidence | Resolve geometry/meter scope from the actual package/drawings |
 | Data acquisition | Safe nested-ZIP extraction, hashes, API token/URL override, and manual-release fallback | Acquire all four Dryad release files and freeze the local manifest |
 | Open-FDD | Explicit point-mapping contract and tested `openfdd_package_v1` ZIP exporter | Bind real columns, run only supported rules, review findings |
-| EnergyPlus | Non-runnable seed template, parameter ledger, model/iteration hashing, GL14-style alignment and diagnostics | Author geometry/HVAC, build AMY EPW, run EnergyPlus, iterate and pass gates |
+| EnergyPlus | Non-runnable seed template, parameter ledger, native/Docker preflight, hash-bearing smoke runner/artifact gate, GL14-style alignment and diagnostics | Author geometry/HVAC, build AMY EPW, run EnergyPlus, iterate and pass gates |
+| Charts | Vibe 22-style PNG/SVG calibration pack with source/artifact hashes, monthly residuals, parity, load duration, typical profiles and residual heatmap | Publish against the real paired Building 59 targets and simulations |
 | Tariff/reward | Verified/candidate/illustrative evidence gate, incremental-demand billing, Vibe 22-compatible 2x/3x operator-pay semantics | Prove the account-period tariff or retain scenario-only dollars |
 | Grid search | Deterministic finite grid, identical-state contract, paired ranking, pinned upstream inspection | Implement the Building 59 simulator adapter after model/actuator bindings exist |
 
@@ -46,6 +47,9 @@ vibe23 inventory \
 
 # Validate the evidence blockers in the non-calibrated model ledger.
 vibe23 validate-model-ledger --ledger model/parameter_ledger.seed.json
+
+# Check whether this host can run native or Docker EnergyPlus (no pull/build).
+vibe23 energyplus-doctor --out reports/runtime/energyplus_capability.json
 
 # Inspect the researched upstream pin without installing Ray/EnergyPlus extras.
 git clone https://github.com/airboxlab/rllib-energyplus ../rllib-energyplus
@@ -88,6 +92,15 @@ vibe23 score \
   --interval monthly \
   --out reports/calibration/monthly_gl14.json
 
+vibe23 plot-calibration \
+  --csv reports/calibration/measured_vs_simulated_hourly.csv \
+  --data-kind mean_power --unit kW --energy-unit kWh \
+  --output-dir reports/calibration/baseline_001/figures
+
+vibe23 plot-calibration-campaign \
+  --campaign-log campaigns/calibration_log.csv \
+  --output-dir reports/calibration/campaign_progress
+
 vibe23 inspect-tariff --tariff config/examples/tariff.illustrative_zero.json
 vibe23 enumerate-grid \
   --grid config/examples/grid.bootstrap.json \
@@ -100,6 +113,10 @@ Monthly acceptance is `|NMBE| <= 5%` and `CV(RMSE) <= 15%`. Hourly acceptance is
 
 `vibe23 score` reports standalone numeric diagnostics and always marks the result ineligible for a calibration claim. Claim status comes only from the provenance-bearing scorecard path; monthly promotion also requires at least 12 complete paired months.
 
+EnergyPlus engine/MCP preparation, the non-overwriting smoke runner, existing-run
+inspection, and chart input semantics are documented in
+[`vibe23_agent_spec/ENERGYPLUS_VALIDATION.md`](vibe23_agent_spec/ENERGYPLUS_VALIDATION.md).
+
 ## Repository map
 
 | Path | Purpose |
@@ -109,6 +126,7 @@ Monthly acceptance is `|NMBE| <= 5%` and `CV(RMSE) <= 15%`. Hourly acceptance is
 | [`model/b59_seed.idf.template`](model/b59_seed.idf.template) | Intentionally non-runnable provenance template |
 | [`model/parameter_ledger.seed.json`](model/parameter_ledger.seed.json) | Explicit model-freeze blockers |
 | [`vibe23_agent_spec/OPENFDD_PIPELINE.md`](vibe23_agent_spec/OPENFDD_PIPELINE.md) | Open-FDD contract and handoff |
+| [`vibe23_agent_spec/ENERGYPLUS_VALIDATION.md`](vibe23_agent_spec/ENERGYPLUS_VALIDATION.md) | Native/Docker/MCP preflight, smoke/artifact gates, and chart publication |
 | [`vibe23_agent_spec/GRID_SEARCH.md`](vibe23_agent_spec/GRID_SEARCH.md) | Vibe 22 reward, tariff, paired-state, and upstream-adapter contract |
 | [`../agentic_ai/skills/migration_registry.json`](../agentic_ai/skills/migration_registry.json) | Complete Vibe 19–22 shared-skill migration map |
 
