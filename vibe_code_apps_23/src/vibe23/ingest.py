@@ -20,7 +20,10 @@ def infer_timestamp_column(frame: pd.DataFrame) -> str:
         if candidate in normalized:
             return normalized[candidate]
     for column in list(frame.columns)[:5]:
-        parsed = pd.to_datetime(frame[column], errors="coerce")
+        series = frame[column]
+        if pd.api.types.is_numeric_dtype(series):
+            continue
+        parsed = pd.to_datetime(series, errors="coerce")
         if len(parsed) and parsed.notna().mean() >= 0.9:
             return str(column)
     raise ValueError("Could not infer a timestamp column; bind it explicitly")
@@ -98,18 +101,28 @@ def aggregate_power_kw(power_kw: pd.Series, rule: str, max_gap_factor: float = 4
         raise ValueError("At least two power samples are required")
     if not isinstance(power_kw.index, pd.DatetimeIndex):
         raise TypeError("power_kw must use a DatetimeIndex")
+    if max_gap_factor <= 1.0:
+        raise ValueError("max_gap_factor must be greater than 1")
 
     power_kw = power_kw.sort_index().astype(float)
     deltas = power_kw.index.to_series().shift(-1) - power_kw.index.to_series()
     hours = deltas.iloc[:-1].dt.total_seconds() / 3600.0
     if (hours <= 0).any():
         raise ValueError("Timestamps must be strictly increasing")
-    median_hours = float(np.median(hours.to_numpy()))
-    if float(hours.max()) > median_hours * max_gap_factor:
-        raise ValueError(f"Telemetry gap exceeds fail-closed threshold: max={hours.max():.3f}h median={median_hours:.3f}h")
+
+    # Use the lower quartile rather than the raw median so one or two large gaps
+    # cannot redefine the nominal sample interval and hide missing telemetry.
+    typical_hours = float(np.quantile(hours.to_numpy(), 0.25))
+    if typical_hours <= 0:
+        raise ValueError("Could not determine a positive sample interval")
+    if float(hours.max()) > typical_hours * max_gap_factor:
+        raise ValueError(
+            "Telemetry gap exceeds fail-closed threshold: "
+            f"max={hours.max():.3f}h typical={typical_hours:.3f}h"
+        )
 
     delta_hours = deltas.dt.total_seconds() / 3600.0
-    delta_hours.iloc[-1] = median_hours
+    delta_hours.iloc[-1] = typical_hours
     interval_kwh = pd.Series(power_kw.to_numpy() * delta_hours.to_numpy(), index=power_kw.index)
     return pd.DataFrame({
         "energy_kwh": interval_kwh.resample(rule).sum(min_count=1),
