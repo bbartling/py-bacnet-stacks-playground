@@ -1,0 +1,15 @@
+{
+  "schema": "vibe23.grid_declaration.v1",
+  "claim_status": "BOOTSTRAP_ONLY_BLOCKED_UNTIL_DSM_RESEARCH_READY",
+  "purpose": "Exercise deterministic candidate enumeration; values are not authorized Building 59 controls.",
+  "dimensions": [
+    {
+      "name": "occupied_cooling_f",
+      "values": [72.0, 74.0]
+    },
+    {
+      "name": "recovery_minutes",
+      "values": [0, 30]
+    }
+  ]
+}

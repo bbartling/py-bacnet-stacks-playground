@@ -1,0 +1,195 @@
+{
+  "artifacts": [
+    {
+      "media_type": "image/png",
+      "path": "fig00_monthly_gl14_scorecard.png",
+      "sha256": "b5a9d6179349f3c8e5d82fc5632331ae6fecbee0960baadb84c7b7deacd4d6a0"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig00_monthly_gl14_scorecard.svg",
+      "sha256": "7369deb31aa98678cf259f43d648a40667942e467249676a2326c5d0d43a5bbb"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig01_monthly_measured_vs_energyplus.png",
+      "sha256": "fcc89ae8d5f0a9a61b270965e37e059a0d3cd943afb80b333aaded198ca6914f"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig01_monthly_measured_vs_energyplus.svg",
+      "sha256": "48ef10f3f19a60b089798e651f97449dea79fff97e94ef7ea6df4964342ac5f9"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig02_monthly_residual_percent.png",
+      "sha256": "14558272628237e674a931bf59fd9684d3050b651a6a75c63b03d46ef4145186"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig02_monthly_residual_percent.svg",
+      "sha256": "0e7ead8106571f7859769fed84ada39453d171524245cfeb50cb3c35d58eedf6"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig03_paired_interval_parity.png",
+      "sha256": "bee1dcbad91a56a4d3c752e60e1caff6f0905497ab022f849c99c5df1bab607e"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig03_paired_interval_parity.svg",
+      "sha256": "12a79d2d1b6235833a811aa9a55815441d7b9e455ecae3302b55a5d1f8d4797f"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig04_load_duration.png",
+      "sha256": "95c015e2c7cbdfcfafd9bf97a604760093758575a65128b79b7a006d169d7204"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig04_load_duration.svg",
+      "sha256": "14ae40ba4fe47eab4956158f533e2220568d0521ee62aebd4d637d2f0dcf3b2c"
+    },
+    {
+      "media_type": "text/csv",
+      "path": "monthly_comparison.csv",
+      "sha256": "8162b82331c81cc41b0ab0dc64738241aa18c0900a7d9480eabf0ebf36db3625"
+    }
+  ],
+  "claim_boundary": "Charts and standalone metrics are diagnostic. A Building 59 calibration claim additionally requires complete provenance, a runnable hashed model/AMY, at least 12 complete paired months for the monthly gate, repeatability, and the applicable peak/end-use/zone/control/transient gates.",
+  "claim_status": "DIAGNOSTIC_ONLY_NOT_A_CALIBRATION_CLAIM",
+  "hourly_gl14_style": {
+    "available": false,
+    "calibration_claim_eligible": false,
+    "interval": "hourly",
+    "n": 0,
+    "p": 1,
+    "reason": "native paired input is coarser than 1.5 hours",
+    "threshold_passes": false
+  },
+  "monthly_completeness": {
+    "complete_month_count": 12,
+    "definition": "at least 99% of expected paired intervals; direct monthly inputs expect one pair",
+    "months": [
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-01"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-02"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-03"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-04"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-05"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-06"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-07"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-08"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-09"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-10"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-11"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-12"
+      }
+    ]
+  },
+  "monthly_gl14_style": {
+    "available": true,
+    "calibration_claim_eligible": false,
+    "cvrmse_pct": 22.357263224973103,
+    "interval": "monthly",
+    "minimum_complete_month_count_passes": true,
+    "minimum_complete_months": 12,
+    "n": 12,
+    "nmbe_pct": -4.12775858657875,
+    "p": 1,
+    "threshold_passes": false
+  },
+  "schema": "vibe23.calibration_chart_pack.v1",
+  "semantics": {
+    "data_kind": "interval_energy",
+    "energy_integration": "elapsed_time_left_hold; final_sample_uses_median_native_interval",
+    "energy_interval_hours_max": 744.0,
+    "energy_interval_hours_min": 696.0,
+    "energy_unit": "kWh",
+    "interval_unit": "kWh",
+    "native_interval_hours_median": 744.0,
+    "residual_sign": "simulated_minus_measured",
+    "timezone": "UTC"
+  },
+  "source": {
+    "end": "2020-12-01T00:00:00+00:00",
+    "measured_column": "measured",
+    "paired_rows": 12,
+    "path": "scorecards/b59_2020_screening/champion_monthly_comparison.csv",
+    "sha256": "e3cb25e5956b16598930c9405f8a750370bc95d267431830d51694389edc5f5c",
+    "simulated_column": "simulated",
+    "start": "2020-01-01T00:00:00+00:00",
+    "timestamp_column": "timestamp"
+  },
+  "title": "LBNL B59 screening proxy \u2014 monthly GL14 numeric gate NOT MET"
+}

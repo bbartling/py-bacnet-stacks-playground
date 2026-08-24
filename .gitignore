@@ -21,6 +21,12 @@ __pycache__/
 !vibe_code_apps_23/utilities/**/*.csv
 !vibe_code_apps_23/scorecards/**/*.csv
 
+# Vibe 23 local EnergyPlus/Open-FDD campaign payloads. Commit only reviewed,
+# lightweight manifests/results outside these raw run directories.
+vibe_code_apps_23/weather/**/*.epw
+vibe_code_apps_23/campaigns/runs/
+vibe_code_apps_23/openfdd/packages/
+
 # Distribution / packaging
 .Python
 build/
@@ -365,4 +371,3 @@ vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v1/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v2/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/vibe22_reference_247/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/vibe22_three_day_pilot/**/eplus_out/
-

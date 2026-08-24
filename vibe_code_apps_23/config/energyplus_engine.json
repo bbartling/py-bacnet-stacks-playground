@@ -1,0 +1,11 @@
+{
+  "schema": "vibe23.energyplus_engine_pin.v1",
+  "docker_image": "energyplus-mcp-dev",
+  "energyplus_version": "26.1.0-6f2e40d102",
+  "mcp": {
+    "repository": "https://github.com/LBNL-ETA/EnergyPlus-MCP",
+    "commit": "5a7d3bb1d2e537ba329d3412c8b79d22cedd7c70"
+  },
+  "source": "Promoted from the Vibe 20 third_party/VERSION.txt execution contract",
+  "claim_boundary": "This pin identifies an execution environment; it does not establish calibration."
+}

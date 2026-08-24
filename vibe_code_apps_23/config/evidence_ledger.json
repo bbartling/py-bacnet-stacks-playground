@@ -1,0 +1,89 @@
+{
+  "schema": "vibe23.evidence_ledger.v1",
+  "entries": [
+    {
+      "id": "B59-DATASET",
+      "status": "SOURCE_FACT",
+      "claim": "Dryad DOI 10.7941/D1N33Q contains three years of Building 59 energy, HVAC, environmental and occupancy data from more than 300 sensors/meters.",
+      "source": "Dryad dataset and 2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-FLOORS",
+      "status": "SOURCE_FACT",
+      "claim": "Published building description: four floors and about 10,400 m2 conditioned space; office floors are third and fourth levels.",
+      "source": "2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-UFAD",
+      "status": "SOURCE_FACT",
+      "claim": "Office areas use raised-floor underfloor air distribution and four rooftop units.",
+      "source": "2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-AREA-DISCREPANCY",
+      "status": "UNRESOLVED",
+      "claim": "Dataset description reports two monitored office floors at 2,325 m2 each, while a later Building 59 field-control study reports approximately 6,038 m2 office HVAC study area.",
+      "action": "Resolve using source metadata/geometry before freezing EnergyPlus floor area."
+    },
+    {
+      "id": "B59-2020-CONTROLS",
+      "status": "SOURCE_FACT",
+      "claim": "2020 contains control-regime changes including MPC periods, so it should not be silently mixed into a stationary baseline calibration.",
+      "source": "Building 59 MPC publications/case-study documentation"
+    },
+    {
+      "id": "B59-RTU-UFAD-TOPOLOGY",
+      "status": "SOURCE_FACT",
+      "claim": "The monitored office HVAC system uses four water-cooled-DX RTUs supplying UFAD plenums, with 50 hydronic-reheat UFTs; the RTU fans operated at the same speed.",
+      "source": "SCI-DATA-2022"
+    },
+    {
+      "id": "B59-HEATPUMP-REGIME-CHANGE",
+      "status": "SOURCE_FACT",
+      "claim": "The nominal 117 kW UFT-heating heat pump was air-source before March 2019 and water-source afterward.",
+      "source": "SCI-DATA-2022",
+      "implication": "Do not fit one immutable plant model across this change."
+    },
+    {
+      "id": "B59-2018-WILDFIRE",
+      "status": "SOURCE_FACT",
+      "claim": "A wildfire event occurred from 2018-11-12 through 2018-11-20, and published operations documentation describes outdoor-air damper closure during wildfire events.",
+      "source": "SCI-DATA-2022",
+      "implication": "Exclude or explicitly model the event in a 2018 baseline calibration."
+    },
+    {
+      "id": "B59-MIXED-AIR-SENSOR",
+      "status": "SOURCE_FACT",
+      "claim": "The RTU mixed-air-temperature sensors were identified as inaccurate because of installation and were replaced in early 2021.",
+      "source": "SCI-DATA-2022",
+      "implication": "Do not use these points as calibration targets or control-truth signals."
+    },
+    {
+      "id": "B59-ELECTRIC-SCOPE",
+      "status": "UNRESOLVED",
+      "claim": "The first calibration target must bind office/HVAC panel measurements to the modeled scope, including an explicit disposition for unrecorded north-wing lighting.",
+      "source": "SCI-DATA-2022 / DRYAD-B59-2022",
+      "resolution_action": "Freeze real file, column, units, timezone, and meter-scope bindings."
+    },
+    {
+      "id": "B59-ACTUAL-YEAR-WEATHER",
+      "status": "SOURCE_FACT",
+      "claim": "A campus weather station approximately 300 m northeast of the building provides 15-minute weather measurements for the data period.",
+      "source": "SCI-DATA-2022",
+      "implication": "Use reconstructed measured-year weather rather than a TMY for actual-year scorecards."
+    },
+    {
+      "id": "B59-CAMPUS-ELECTRIC-SUPPLY",
+      "status": "SOURCE_FACT",
+      "claim": "Berkeley Lab is supplied from PG&E 115-kV transmission lines through the Grizzly substation and historically benefited from 115-kV transmission-line rates rather than ordinary 12-kV primary rates.",
+      "source": "Berkeley Lab Currents, April 4 2003, Grizzly Substation article",
+      "implication": "Do not assume Building 59 was billed as a standalone standard PG&E commercial retail account."
+    },
+    {
+      "id": "B59-TARIFF",
+      "status": "UNRESOLVED",
+      "claim": "The exact historical Building 59 cost allocation/rate assignment for 2018-2020 has not been proven from the Dryad dataset.",
+      "action": "Obtain campus procurement/rate evidence and a defensible Building 59 allocation method before tariff evidence VERIFIED. Standard PG&E B-19/E-20 may be useful only with evidence CANDIDATE unless proven applicable."
+    }
+  ]
+}

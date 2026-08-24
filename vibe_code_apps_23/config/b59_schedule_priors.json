@@ -1,0 +1,311 @@
+{
+  "schema": "vibe23.b59_schedule_priors.v1",
+  "building_id": "LBNL_B59",
+  "claim_status": "DIAGNOSTIC_BOUNDED_PRIORS_NOT_FROZEN",
+  "analysis_date_utc": "2026-08-24",
+  "allowed_use": "Bounded calibration inputs after point, scope, and time-basis review only. This artifact is not a frozen EnergyPlus schedule or calibration target.",
+  "source_release": {
+    "canonical_doi": "10.7941/D1N33Q",
+    "acquisition_transport": "Zenodo mirror staged as a manual release directory; mirror URL/version still requires reconciliation in the acquisition manifest",
+    "building_zip_sha256": "1e224dd7479bb196a8e0368fceb70aa6f699c1d39e1e895ceba7f3b25150b1b4",
+    "data_description_xlsx_sha256": "6cf5be4565afe60ab17500c0d65d769df14b61e0c6447a7ff6b161b9eac0e63a",
+    "metadata_docx_sha256": "104821176a2ff75a85259d5b0377e282ff00312b31e6521581725006a3295599",
+    "release_readme_sha256": "44c1b0834e087f2d277ffe11adca5141d260e2918facc746bba2a19cec0c77b2",
+    "inventory_sha256": "49d595848cc32cdba1a4b0205b27f6a0a94e231b8a60b0673c0a10aa1c47adce"
+  },
+  "primary_source_schedule_facts": [
+    {
+      "source_id": "SCI-DATA-2022",
+      "period": "2018-2020",
+      "fact": "The published load-shape discussion says MEL demand starts rising around 07:00, lighting around 05:00, and summer HVAC remains high during building operating hours until about 18:00.",
+      "use": "Cross-check only; these statements do not define an annual schedule."
+    },
+    {
+      "source_id": "LBNL-FLEX-MPC-2024",
+      "period": "2023 field tests",
+      "fact": "The later operator schedule was weekday occupied 05:00-22:00 all year; RTUs were otherwise off except for setback calls.",
+      "use": "Later-period sensitivity hypothesis only; not evidence that 2018-2020 used the same enable schedule."
+    }
+  ],
+  "analysis_method": {
+    "time_axis": "SOURCE_CLOCK_NAIVE_UNRESOLVED_PER_FILE",
+    "timestamp_parsing": "Each CSV used its observed exact format; no shared timezone was assigned or converted.",
+    "weekday_definition": "Monday-Friday by each file's parsed raw-naive date; holidays were not removed.",
+    "weekend_definition": "Saturday-Sunday by each file's parsed raw-naive date.",
+    "aggregation": "For each signal, arithmetic mean of observed native samples within source-clock date/hour, followed by the median across dates for each day type and hour.",
+    "missing_policy": "No new interpolation, forward fill, backward fill, timezone fill, or gap synthesis. Null values were dropped per signal. Every occurrence of an ambiguous duplicate timestamp was excluded from profile calculations.",
+    "upstream_curation_warning": "The published clean release was already gap-filled upstream using linear, KNN, and matrix-factorization methods. This analysis adds no imputation, but cannot reconstruct which individual clean values were imputed from the CSV alone.",
+    "normalization": "Lighting and MEL schedules are divided by the 2018 weekday maximum hourly median and retain standby load. Camera occupancy uses its observed zero-based fraction. Wi-Fi timing fraction subtracts its weekday minimum background before scaling; Wi-Fi remains a device proxy, not a people fraction. Fan speed is divided by 100, not rescaled to its daily peak.",
+    "active_hour_diagnostic": "An hour is active when the weekday hourly median is at least minimum plus 20 percent of the minimum-to-maximum range. This diagnostic is evaluated in source-clock hours and does not authorize a timezone conversion."
+  },
+  "timestamp_audit": {
+    "occ.csv": {
+      "sha256": "3733f1ee535ef35a34eaa8b0dc0e45ab92fe64a7927ad18b8694d2ad512a9c06",
+      "timestamp_format": "%Y-%m-%d %H:%M:%S",
+      "coverage_start": "2018-05-22 07:00:00",
+      "coverage_end": "2019-02-21 10:12:00",
+      "rows": 396193,
+      "parse_failures": 0,
+      "duplicate_timestamps": 0,
+      "explicit_timezone_or_offset": false,
+      "dominant_cadence_seconds": 60,
+      "raw_missing_rate_from_published_workbook": 0.0004,
+      "dst_test": "2018-11-04 contains 1,440 unique one-minute records and one copy of every source-clock hour; fall-back semantics are not represented as civil-time repeated timestamps.",
+      "time_basis_status": "UNRESOLVED; profile timing and zero-lag correlation with ele.csv support the same clock family as ele.csv, not Wi-Fi."
+    },
+    "wifi.csv": {
+      "sha256": "20185c346147642e0150d6dc6c5442a15437fdf2c0d4671387812c811b10804b",
+      "timestamp_format": "%Y/%m/%d %H:%M",
+      "coverage_segments": [
+        ["2018-05-22 00:00:00", "2018-07-11 23:50:00", 600],
+        ["2020-02-10 16:25:00", "2020-12-31 23:55:00", 300]
+      ],
+      "rows": 101047,
+      "parse_failures": 0,
+      "duplicate_timestamps": 12,
+      "explicit_timezone_or_offset": false,
+      "raw_missing_rate_from_published_workbook": 0.0,
+      "dst_test": "2020-03-08 contains 288 five-minute records including hour 02, while 2020-11-01 contains 300 rows, a repeated hour 01, and 12 duplicate timestamps. DST treatment is therefore source-specific and cannot be inferred as a single clean convention.",
+      "time_basis_status": "UNRESOLVED; 2018 Wi-Fi aligns to occupancy/MEL shape only after an approximately 6-7 hour shift."
+    },
+    "rtu_fan_spd.csv": {
+      "sha256": "ab98ebb6f62dbce868b3b1a93e64a660b766cfabed409cf5d96a560e09c88ffc",
+      "timestamp_format": "%Y-%m-%d %H:%M:%S",
+      "coverage_start": "2018-01-01 00:00:00",
+      "coverage_end": "2021-01-01 00:00:00",
+      "rows": 1382051,
+      "parse_failures": 0,
+      "duplicate_timestamps": 0,
+      "explicit_timezone_or_offset": false,
+      "dominant_cadence_seconds": 60,
+      "secondary_cadence_seconds": 900,
+      "delta_steps_greater_than_four_times_primary_cadence": 14089,
+      "raw_missing_rate_from_published_workbook": 0.14,
+      "dst_test": "Spring transition days retain 1,440 source-clock minutes. Fall dates vary because of missing/15-minute blocks rather than a consistent repeated-hour convention.",
+      "quality_flags": [
+        "The four-RTU median feedback is about 73-76 percent at every 2018 source-clock hour and is similar on weekends.",
+        "Negative supply-fan feedback values remain in 2019/early-2020 despite the clean-release label.",
+        "This point cannot establish an on/off availability schedule until feedback scaling, off-state encoding, and upstream imputation are reviewed."
+      ]
+    },
+    "ele.csv": {
+      "sha256": "f77a5462ad0d0ddd522fc5701f35e42b26d36888c35106ea940c55383e838411",
+      "timestamp_format": "%Y/%m/%d %H:%M",
+      "coverage_start": "2018-01-01 01:00:00",
+      "coverage_end": "2021-01-01 00:00:00",
+      "rows": 103048,
+      "parse_failures": 0,
+      "duplicate_timestamps": 0,
+      "explicit_timezone_or_offset": false,
+      "dominant_cadence_seconds": 900,
+      "other_observed_cadences_seconds": [300, 600],
+      "gaps_greater_than_one_day": 13,
+      "raw_missing_rates_from_published_workbook": {
+        "lig_S": 0.1816589694,
+        "mels_S": 0.3292065711,
+        "mels_N": 0.1968756444
+      },
+      "dst_test": "All six 2018-2020 US DST transition dates contain 96 unique quarter-hour records and every source-clock hour. The file does not encode civil-time skipped/repeated hours.",
+      "time_basis_status": "UNRESOLVED; profile timing and zero-lag correlation with occ.csv place them in the same clock family."
+    }
+  },
+  "cross_file_time_tests": {
+    "period": "2018-05-22 through 2018-07-11",
+    "method": "Spearman and Pearson correlation of separately aggregated observed hourly values over integer shifts from -12 to +12 hours; no interpolation.",
+    "results": [
+      {
+        "pair": "occ_south_sum versus MEL_north_plus_south",
+        "best_spearman_shift_hours_applied_to_first": 0,
+        "paired_hours": 1173,
+        "spearman": 0.7159,
+        "pearson": 0.8213
+      },
+      {
+        "pair": "occ_south_sum versus wifi_south_office_sum",
+        "best_spearman_shift_hours_applied_to_first": -6,
+        "paired_hours": 1223,
+        "spearman": 0.7798,
+        "pearson": 0.8775,
+        "near_tie": "-7 hours also gave Spearman 0.7757 and Pearson 0.8667"
+      },
+      {
+        "pair": "wifi_south_office_sum versus MEL_north_plus_south",
+        "best_spearman_shift_hours_applied_to_first": 6,
+        "paired_hours": 1174,
+        "spearman": 0.7165,
+        "pearson": 0.8640,
+        "near_tie": "+7 hours gave Spearman 0.7145 and Pearson 0.8710"
+      }
+    ],
+    "interpretation": "A candidate hypothesis is that occ.csv and ele.csv are UTC-naive while Wi-Fi is local-naive. This is not proven and no timezone conversion is authorized until metadata and BAS alignment resolve it."
+  },
+  "profiles_2018_source_clock": {
+    "hours": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+    "camera_south_office_sum": {
+      "columns": ["occ_third_south", "occ_fourth_south"],
+      "analysis_period": ["2018-05-22 07:00:00", "2018-12-31 23:59:00"],
+      "weekday_days": 160,
+      "weekend_days": 64,
+      "unit": "camera-derived people count for south halves only",
+      "weekday_hourly_median": [3.783, 1.217, 1.667, 2.317, 2.833, 2.0, 2.117, 1.008, 1.008, 1.05, 0.0, 0.0, 0.867, 2.983, 8.875, 21.033, 40.558, 47.275, 43.708, 34.817, 40.483, 41.167, 37.45, 23.033],
+      "weekend_hourly_median": [1.467, 1.0, 1.017, 1.642, 1.183, 1.383, 1.633, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "weekday_fraction": [0.08, 0.026, 0.035, 0.049, 0.06, 0.042, 0.045, 0.021, 0.021, 0.022, 0.0, 0.0, 0.018, 0.063, 0.188, 0.445, 0.858, 1.0, 0.925, 0.736, 0.856, 0.871, 0.792, 0.487],
+      "weekend_to_weekday_daily_mean_ratio": 0.041,
+      "weekday_daily_peak_count_p10_p50_p90": [23.598, 54.55, 75.693],
+      "source_clock_active_hours": [15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "scope_warning": "Not a whole-office occupant count; do not use count amplitude without a reviewed spatial expansion."
+    },
+    "wifi_south_office_sum": {
+      "columns": ["wifi_third_south", "wifi_fourth_south"],
+      "analysis_period": ["2018-05-22 00:00:00", "2018-07-11 23:50:00"],
+      "weekday_days": 37,
+      "weekend_days": 14,
+      "unit": "connected devices; not people",
+      "weekday_hourly_median": [62.167, 62.0, 61.667, 62.0, 61.667, 61.667, 65.167, 75.667, 97.833, 142.833, 182.167, 190.167, 190.0, 185.5, 182.167, 176.667, 144.5, 105.333, 79.667, 69.0, 66.833, 65.0, 63.0, 62.833],
+      "weekend_hourly_median": [60.833, 60.25, 60.417, 60.0, 59.917, 60.167, 59.167, 59.417, 59.5, 59.667, 60.167, 59.75, 60.0, 60.833, 60.583, 60.75, 61.083, 61.333, 60.75, 60.25, 60.083, 60.25, 60.25, 60.167],
+      "weekday_background_subtracted_fraction": [0.004, 0.003, 0.0, 0.003, 0.0, 0.0, 0.027, 0.109, 0.281, 0.632, 0.938, 1.0, 0.999, 0.964, 0.938, 0.895, 0.645, 0.34, 0.14, 0.057, 0.04, 0.026, 0.01, 0.009],
+      "absolute_weekend_to_weekday_daily_mean_ratio": 0.572,
+      "weekday_daily_peak_device_count_p10_p50_p90": [158.4, 200.833, 245.167],
+      "source_clock_active_hours": [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+      "scope_warning": "Large night/weekend device background and short summer-only 2018 coverage make amplitude unsuitable as a people schedule."
+    },
+    "rtu_common_supply_fan_feedback": {
+      "columns": ["rtu_001_sf_vfd_spd_fbk_tn", "rtu_002_sf_vfd_spd_fbk_tn", "rtu_003_sf_vfd_spd_fbk_tn", "rtu_004_sf_vfd_spd_fbk_tn"],
+      "aggregation_across_rtus": "row median",
+      "analysis_period": ["2018-01-01 00:00:00", "2018-12-31 23:59:00"],
+      "weekday_days": 261,
+      "weekend_days": 104,
+      "unit": "reported percent feedback",
+      "weekday_hourly_median_pct": [74.418, 74.805, 75.64, 75.319, 74.671, 74.587, 74.71, 75.746, 75.306, 75.35, 75.267, 75.417, 75.532, 75.976, 75.923, 75.343, 74.728, 74.023, 74.293, 73.562, 73.486, 73.427, 73.518, 73.583],
+      "weekend_hourly_median_pct": [73.875, 75.827, 77.621, 77.32, 77.23, 77.025, 76.292, 76.5, 76.012, 76.789, 75.967, 75.971, 75.751, 75.828, 76.15, 75.624, 75.575, 73.992, 73.734, 73.706, 73.926, 75.447, 74.743, 75.624],
+      "weekend_to_weekday_daily_mean_ratio": 0.999,
+      "weekday_daily_peak_pct_p10_p50_p90": [73.58, 79.469, 88.142],
+      "availability_interpretation": "UNRESOLVED; nonzero feedback at all hours does not prove intentional 24-hour enablement."
+    },
+    "lighting_south_kw": {
+      "column": "lig_S",
+      "analysis_period": ["2018-01-01 01:00:00", "2018-12-31 23:59:00"],
+      "weekday_days": 250,
+      "weekend_days": 98,
+      "weekday_hourly_median_kw": [3.685, 2.674, 1.755, 0.722, 0.213, 0.2, 0.2, 0.2, 0.2, 0.2, 0.194, 0.198, 0.663, 2.575, 3.829, 3.9, 4.0, 4.1, 4.168, 4.025, 4.05, 4.025, 4.027, 3.897],
+      "weekend_hourly_median_kw": [2.08, 1.2, 0.492, 0.2, 0.2, 0.2, 0.181, 0.2, 0.193, 0.175, 0.188, 0.2, 0.188, 0.101, 0.125, 0.106, 0.1, 0.105, 0.1, 0.1, 0.1, 0.1, 0.138, 0.15],
+      "weekday_fraction_of_peak": [0.884, 0.642, 0.421, 0.173, 0.051, 0.048, 0.048, 0.048, 0.048, 0.048, 0.047, 0.047, 0.159, 0.618, 0.919, 0.936, 0.96, 0.984, 1.0, 0.966, 0.972, 0.966, 0.966, 0.935],
+      "weekend_fraction_of_weekday_peak": [0.499, 0.288, 0.118, 0.048, 0.048, 0.048, 0.043, 0.048, 0.046, 0.042, 0.045, 0.048, 0.045, 0.024, 0.03, 0.025, 0.024, 0.025, 0.024, 0.024, 0.024, 0.024, 0.033, 0.036],
+      "weekend_to_weekday_daily_mean_ratio": 0.171,
+      "weekday_daily_peak_kw_p10_p50_p90": [3.907, 4.448, 5.133],
+      "source_clock_active_hours": [0, 1, 2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "scope_warning": "South-wing lighting only; north-wing lighting is absent."
+    },
+    "mels_south_kw": {
+      "column": "mels_S",
+      "weekday_hourly_median_kw": [4.025, 2.837, 2.445, 2.272, 2.129, 2.021, 1.987, 2.0, 2.0, 2.022, 2.0, 2.033, 2.065, 2.475, 3.307, 4.834, 6.9, 7.734, 7.974, 7.792, 7.483, 7.476, 7.107, 6.025],
+      "weekend_hourly_median_kw": [2.334, 2.1, 2.0, 1.918, 1.875, 1.85, 1.85, 1.8, 1.775, 1.8, 1.825, 1.8, 1.75, 1.756, 1.812, 1.825, 1.85, 1.919, 1.875, 1.85, 1.873, 1.864, 1.9, 1.875],
+      "weekday_fraction_of_peak": [0.505, 0.356, 0.307, 0.285, 0.267, 0.253, 0.249, 0.251, 0.251, 0.254, 0.251, 0.255, 0.259, 0.31, 0.415, 0.606, 0.865, 0.97, 1.0, 0.977, 0.938, 0.938, 0.891, 0.756],
+      "weekend_to_weekday_daily_mean_ratio": 0.459
+    },
+    "mels_north_kw": {
+      "column": "mels_N",
+      "weekday_hourly_median_kw": [12.969, 10.812, 10.01, 9.453, 9.1, 8.848, 8.672, 8.724, 8.705, 8.648, 9.005, 9.903, 9.386, 10.112, 10.793, 13.275, 16.525, 18.175, 19.91, 21.789, 20.123, 18.305, 16.625, 16.036],
+      "weekend_hourly_median_kw": [10.35, 10.0, 9.535, 9.072, 8.795, 8.65, 8.785, 8.7, 8.545, 8.475, 8.447, 8.352, 8.373, 8.618, 8.969, 9.493, 9.325, 9.498, 9.775, 9.95, 9.633, 9.595, 9.35, 9.316],
+      "weekday_fraction_of_peak": [0.595, 0.496, 0.459, 0.434, 0.418, 0.406, 0.398, 0.4, 0.4, 0.397, 0.413, 0.455, 0.431, 0.464, 0.495, 0.609, 0.758, 0.834, 0.914, 1.0, 0.924, 0.84, 0.763, 0.736],
+      "weekend_to_weekday_daily_mean_ratio": 0.71
+    },
+    "mels_total_kw": {
+      "columns": ["mels_S", "mels_N"],
+      "analysis_period": ["2018-01-01 01:00:00", "2018-12-31 23:59:00"],
+      "weekday_days": 250,
+      "weekend_days": 98,
+      "weekday_hourly_median_kw": [17.475, 14.112, 12.524, 11.822, 11.175, 10.875, 10.723, 10.68, 10.744, 10.647, 11.034, 11.81, 11.416, 12.716, 14.338, 17.975, 23.461, 26.047, 28.108, 29.709, 27.975, 25.772, 24.332, 21.961],
+      "weekend_hourly_median_kw": [12.775, 12.175, 11.532, 10.907, 10.619, 10.571, 10.551, 10.49, 10.395, 10.418, 10.339, 10.2, 10.223, 10.499, 10.785, 11.492, 11.323, 11.264, 11.558, 11.897, 11.425, 11.297, 11.198, 11.118],
+      "weekday_fraction_of_peak": [0.588, 0.475, 0.422, 0.398, 0.376, 0.366, 0.361, 0.359, 0.362, 0.358, 0.371, 0.398, 0.384, 0.428, 0.483, 0.605, 0.79, 0.877, 0.946, 1.0, 0.942, 0.867, 0.819, 0.739],
+      "weekend_fraction_of_weekday_peak": [0.43, 0.41, 0.388, 0.367, 0.357, 0.356, 0.355, 0.353, 0.35, 0.351, 0.348, 0.343, 0.344, 0.353, 0.363, 0.387, 0.381, 0.379, 0.389, 0.4, 0.385, 0.38, 0.377, 0.374],
+      "weekend_to_weekday_daily_mean_ratio": 0.653,
+      "weekday_daily_peak_kw_p10_p50_p90": [22.192, 31.771, 37.247],
+      "source_clock_active_hours": [0, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+    }
+  },
+  "regime_contrasts": {
+    "basis": "Median weekday daily mean in each source file's naive clock; no new imputation.",
+    "lighting_south_kw": {
+      "2018": 2.244,
+      "2019": 2.7,
+      "2020_pre_shelter_in_place_through_2020_03_17": 2.048,
+      "2020_shelter_in_place_from_2020_03_18": 0.561
+    },
+    "mels_total_kw": {
+      "2018": 17.368,
+      "2019": 17.929,
+      "2020_pre_shelter_in_place_through_2020_03_17": 9.054,
+      "2020_shelter_in_place_from_2020_03_18": 2.207
+    },
+    "rtu_common_supply_fan_feedback_pct": {
+      "2018": 74.919,
+      "2019": 75.461,
+      "2020_pre_shelter_in_place_through_2020_03_17": 78.766,
+      "2020_shelter_in_place_from_2020_03_18": 84.759
+    },
+    "interpretation": "2020 lighting and MEL profiles are pandemic/control-regime evidence, not normal-office schedule priors. Fan feedback did not fall with occupancy and must not be used as an occupancy proxy."
+  },
+  "bounded_calibration_priors": {
+    "time_basis_gate": "BLOCKED until source-clock semantics are frozen per file and transformed to the EnergyPlus calendar without unexplained phase shift.",
+    "people_schedule": {
+      "evidence_status": "BOUNDED_ASSUMPTION_FROM_CAMERA_WIFI_AND_MEL_TIMING",
+      "candidate_local_weekday_start_hour": 7,
+      "weekday_start_hour_bounds": [6, 9],
+      "candidate_local_weekday_end_hour": 18,
+      "weekday_end_hour_bounds": [16, 19],
+      "candidate_weekend_fraction": 0.04,
+      "weekend_fraction_bounds": [0.0, 0.15],
+      "amplitude_rule": "Do not convert south-wing camera counts or Wi-Fi devices to whole-office people without a reviewed spatial/count model."
+    },
+    "lighting_schedule_south": {
+      "evidence_status": "BOUNDED_ASSUMPTION_FROM_LIG_S_SHAPE_AND_PUBLISHED_TIMING",
+      "candidate_local_weekday_start_hour": 5,
+      "weekday_start_hour_bounds": [4, 7],
+      "candidate_local_weekday_end_hour": 18,
+      "weekday_end_hour_bounds": [17, 20],
+      "candidate_weekend_scale": 0.17,
+      "weekend_scale_bounds": [0.05, 0.3],
+      "peak_multiplier_bounds_around_2018_weekday_median": [0.85, 1.2],
+      "scope_rule": "South-wing only; north lighting remains unresolved."
+    },
+    "mels_schedule": {
+      "evidence_status": "BOUNDED_ASSUMPTION_FROM_MELS_S_PLUS_MELS_N_SHAPE_AND_PUBLISHED_TIMING",
+      "candidate_local_weekday_start_hour": 7,
+      "weekday_start_hour_bounds": [6, 9],
+      "candidate_local_weekday_end_hour": 17,
+      "weekday_end_hour_bounds": [16, 19],
+      "candidate_weekend_scale": 0.65,
+      "weekend_scale_bounds": [0.5, 0.8],
+      "peak_multiplier_bounds_around_2018_weekday_median": [0.7, 1.2]
+    },
+    "rtu_availability": {
+      "evidence_status": "UNRESOLVED_DISCRETE_HYPOTHESES",
+      "hypotheses": [
+        {
+          "id": "H1_2018_NONZERO_FEEDBACK_ALL_SOURCE_HOURS",
+          "weekday_window": [0, 24],
+          "weekend_window": [0, 24],
+          "warning": "Observed feedback is nonzero but may not encode enable state."
+        },
+        {
+          "id": "H2_LATER_2023_OPERATOR_SCHEDULE",
+          "weekday_window": [5, 22],
+          "weekend_window": null,
+          "warning": "Direct later-period source fact; not evidence for 2018-2020. Unoccupied setback calls still occur."
+        }
+      ],
+      "selection_rule": "Do not continuously optimize between these hypotheses. Resolve historical enable/off-state semantics from BAS points or carry both as explicitly named sensitivity cases before the calibration campaign."
+    }
+  },
+  "blocking_limitations": [
+    "No source CSV contains an explicit timezone or UTC offset.",
+    "Cross-file lag and DST tests show that one global timezone assumption is unsafe.",
+    "The clean release already contains substantial upstream imputation, especially electricity; this analysis adds none but cannot identify every imputed cell.",
+    "Camera occupancy covers only south halves and only 2018-05-22 through 2019-02-21.",
+    "2018 Wi-Fi covers only 51 summer days; the next segment begins in February 2020 and crosses the pandemic.",
+    "Fan feedback has mixed cadence, remaining negative values outside 2018, and no clear off-state.",
+    "Lighting is south-wing only; no north lighting schedule can be inferred as measured.",
+    "2020 pandemic, wildfire, RBC additions, and MPC periods are separate regimes and cannot define a normal-office prior."
+  ]
+}

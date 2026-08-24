@@ -1,0 +1,116 @@
+{
+  "schema": "vibe23.source_manifest.v1",
+  "purpose": "Authoritative sources used by the Building 59 calibration evidence dossier. URLs are intentionally retained so every modeled input can be traced to a stable public source or explicitly marked unresolved.",
+  "sources": [
+    {
+      "id": "SCI-DATA-2022",
+      "title": "A three-year dataset supporting research on building energy management and occupancy analytics",
+      "publisher": "Scientific Data / Nature Portfolio",
+      "publication_date": "2022-04-05",
+      "doi": "10.1038/s41597-022-01257-x",
+      "url": "https://doi.org/10.1038/s41597-022-01257-x",
+      "source_class": "peer_reviewed_open_access",
+      "use": ["building and HVAC description", "point inventory", "operational-change timeline", "weather provenance", "data-quality cautions"]
+    },
+    {
+      "id": "DRYAD-B59-2022",
+      "title": "A three-year building operational performance dataset for informing energy efficiency",
+      "publisher": "Dryad",
+      "publication_date": "2022-02-02",
+      "doi": "10.7941/D1N33Q",
+      "url": "https://doi.org/10.7941/D1N33Q",
+      "source_class": "official_research_dataset",
+      "use": ["source data", "metadata JSON", "Brick TTL", "data dictionary", "cleaned CSV files"]
+    },
+    {
+      "id": "BLUM-APPL-ENERGY-2022",
+      "title": "Field demonstration and implementation analysis of model predictive control in an office HVAC system",
+      "publisher": "Applied Energy",
+      "publication_date": "2022",
+      "doi": "10.1016/j.apenergy.2022.119104",
+      "url": "https://doi.org/10.1016/j.apenergy.2022.119104",
+      "author_manuscript_url": "https://eta-publications.lbl.gov/sites/default/files/field_demonstration_and_implementation_analysis_of_model_predictive_control_in_an_office_hvac_system.pdf",
+      "source_class": "peer_reviewed_with_lbnl_author_manuscript",
+      "use": ["MPC implementation context", "office-area discrepancy", "control topology cross-check"]
+    },
+    {
+      "id": "LBNL-FLEX-MPC-2024",
+      "title": "Field Performance of Commercial Building Load Flexibility Using Model Predictive Control",
+      "publisher": "Lawrence Berkeley National Laboratory / 8th International High Performance Buildings Conference at Purdue",
+      "publication_date": "2024-07",
+      "doi": "10.20357/B72310",
+      "url": "https://doi.org/10.20357/B72310",
+      "full_text_url": "https://eta-publications.lbl.gov/sites/default/files/2024-10/field_performance_of_building_load_flexibility_model_predictive_control.pdf",
+      "source_class": "government_laboratory_conference_paper",
+      "use": [
+        "later field-control observations",
+        "weekday occupancy/HVAC schedule evidence",
+        "RTU/UFT control bounds",
+        "office-study-area discrepancy"
+      ]
+    },
+    {
+      "id": "LBNL-SHYH-WANG-OPENING-2015",
+      "title": "Berkeley Lab Opens State-of-the-Art Facility for Computational Science",
+      "publisher": "Lawrence Berkeley National Laboratory",
+      "publication_date": "2015-11-12",
+      "url": "https://cs-newsarchive.lbl.gov/news/2015/berkeley-lab-opens-state-of-the-art-facility-for-computational-science/",
+      "source_class": "official_laboratory_announcement",
+      "use": [
+        "facility completion/use context",
+        "facility gross-area context",
+        "HPC and office coexistence",
+        "HPC heat-recovery/cooling context"
+      ]
+    },
+    {
+      "id": "CEC-T24-2013-ACCEPTANCE-TESTING",
+      "title": "Acceptance Testing and the 2013 Energy Standards",
+      "publisher": "California Energy Commission",
+      "publication_date": "2015-03-19",
+      "url": "https://www.energy.ca.gov/sites/default/files/2020-04/2013_ORC_ATTCP_Testing_presentation_ada.pdf",
+      "source_class": "official_state_energy_code_material",
+      "use": [
+        "2013 Title 24 effective-date and permit-trigger context only",
+        "bounded code-prior documentation; not as-built compliance evidence"
+      ]
+    },
+    {
+      "id": "USGBC-LEED-V4-MIN-ENERGY",
+      "title": "LEED v4 Minimum Energy Performance",
+      "publisher": "U.S. Green Building Council",
+      "url": "https://www.usgbc.org/credits/new-construction-core-and-shell-schools-new-construction-warehouse-and-distribution-centers",
+      "source_class": "official_rating_system_requirement",
+      "use": [
+        "ASHRAE 90.1-2010 LEED baseline context only",
+        "bounded comparison-prior documentation; not evidence of B59 design basis"
+      ]
+    },
+    {
+      "id": "LBNL-GRIZZLY-2003",
+      "title": "Berkeley Lab Currents — April 4, 2003",
+      "publisher": "Lawrence Berkeley National Laboratory",
+      "publication_date": "2003-04-04",
+      "url": "https://www2.lbl.gov/Publications/Currents/Archive/Apr-04-2003.html",
+      "source_class": "official_laboratory_history",
+      "use": ["campus electrical-supply context only; not a Building 59 bill or 2018–2020 tariff assignment"]
+    },
+    {
+      "id": "PGE-TARIFF-ARCHIVE",
+      "title": "PG&E electric-rate archive",
+      "publisher": "Pacific Gas and Electric Company",
+      "url": "https://www.pge.com/tariffs/en/rate-information/electric-rates.html",
+      "source_class": "official_utility_tariff_archive",
+      "use": ["retrieve a dated candidate tariff only after rate class, service voltage, account ownership, and allocation method are established"]
+    },
+    {
+      "id": "CPUC-E19-E20-2018",
+      "title": "PG&E Advice Letter 5470-E / eligibility context for E-19 and E-20",
+      "publisher": "Pacific Gas and Electric Company / California Public Utilities Commission filing",
+      "publication_date": "2019-02-08",
+      "url": "https://www.pge.com/tariffs/assets/pdf/adviceletter/ELEC_5470-E.pdf",
+      "source_class": "official_regulatory_filing",
+      "use": ["illustrative legacy rate-schedule eligibility context only; not evidence that Building 59 was served or charged under either schedule"]
+    }
+  ]
+}

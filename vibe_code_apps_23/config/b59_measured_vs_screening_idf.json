@@ -1,0 +1,289 @@
+{
+  "claim_status": "DISCREPANCY_AUDIT_NOT_CALIBRATED",
+  "comparison_rows": [
+    {
+      "difference_and_disposition": "Engine/syntax gate passes; this does not establish physical calibration.",
+      "domain": "EnergyPlus execution",
+      "measured_or_runtime_evidence": "Post-release champion validation",
+      "screening_idf_configuration": "EnergyPlus admitted=True; warnings=0; severe=0; fatal=0",
+      "severity": "PASS_ENGINE_ONLY"
+    },
+    {
+      "difference_and_disposition": "Not numerically comparable: camera excludes north office and source clock is unresolved. Replace generic schedule only after spatial/time mapping.",
+      "domain": "Occupancy count/schedule",
+      "measured_or_runtime_evidence": "South-office camera only: weekday source-clock peak 46.5 people; active hours [15, 16, 17, 18, 19, 20, 21, 22, 23]",
+      "screening_idf_configuration": "232.5 design people over 4,650 m\u00b2; local weekday 8.0\u201318.0; post-March multiplier 0.25",
+      "severity": "BLOCKING_SCOPE_TIME"
+    },
+    {
+      "difference_and_disposition": "Continuous operation is a hypothesis, not proven runtime. Build enable state from fan, airflow, pressure, SAT response, and panel power.",
+      "domain": "RTU supply-fan feedback/runtime proxy",
+      "measured_or_runtime_evidence": "Four BAS medians 78.30\u201379.40 %; >5% fractions 97.56\u201398.75 %",
+      "screening_idf_configuration": "Continuous availability, identical four-RTU schedule",
+      "severity": "BLOCKING_CONTROL"
+    },
+    {
+      "difference_and_disposition": "No measured fan-power/status binding; validate return tracking and power separately.",
+      "domain": "RTU return-fan feedback/runtime proxy",
+      "measured_or_runtime_evidence": "Four BAS medians 55.90\u201380.60 %; >5% fractions 97.56\u201398.75 %",
+      "screening_idf_configuration": "Continuous availability; 415 Pa return-fan pressure-rise proxy",
+      "severity": "MAJOR"
+    },
+    {
+      "difference_and_disposition": "IDF is 7.7\u201310.1\u00b0F below the four measured median setpoints. Replace it with dated measured replay for physics calibration, then infer a validated reset law.",
+      "domain": "RTU supply-air-temperature setpoint",
+      "measured_or_runtime_evidence": "Four point medians 65.62\u201368.00 \u00b0F; point p05 64.00\u201366.00 \u00b0F; p95 68.00\u201369.00 \u00b0F",
+      "screening_idf_configuration": "Fixed 14.4\u00b0C (57.9\u00b0F) SAT for all four RTUs",
+      "severity": "BLOCKING_CONTROL"
+    },
+    {
+      "difference_and_disposition": "Add per-RTU SAT bias/RMSE/tracking gate; monthly kWh cannot substitute.",
+      "domain": "Measured SAT tracking",
+      "measured_or_runtime_evidence": "Actual-minus-setpoint mean -0.1113\u00b0F; within \u00b12\u00b0F 89.6%",
+      "screening_idf_configuration": "No BAS tracking-error target in the 50-run objective",
+      "severity": "MAJOR"
+    },
+    {
+      "difference_and_disposition": "One thermostat erases measured zone diversity and regime changes; use zone/cluster schedules.",
+      "domain": "Zone cooling setpoints",
+      "measured_or_runtime_evidence": "41 BAS point medians 69.00\u201384.00 \u00b0F",
+      "screening_idf_configuration": "One occupied setpoint 23.2\u00b0C (73.8\u00b0F)",
+      "severity": "BLOCKING_CONTROL"
+    },
+    {
+      "difference_and_disposition": "Use measured zone/cluster setpoints; do not replace them with a generic code schedule.",
+      "domain": "Zone heating setpoints",
+      "measured_or_runtime_evidence": "41 BAS point medians 63.00\u201372.00 \u00b0F",
+      "screening_idf_configuration": "One occupied setpoint 21.8\u00b0C (71.2\u00b0F)",
+      "severity": "BLOCKING_CONTROL"
+    },
+    {
+      "difference_and_disposition": "Model minus measured median -0.48\u00b0F; preserve zone diversity.",
+      "domain": "Occupied thermostat deadband",
+      "measured_or_runtime_evidence": "Valid BAS cooling-minus-heating median 3.0\u00b0F",
+      "screening_idf_configuration": "2.52\u00b0F",
+      "severity": "MAJOR"
+    },
+    {
+      "difference_and_disposition": "Not directly comparable. Verify units and bind measured setpoint plus plenum-pressure response before tuning fan power.",
+      "domain": "Supply/static pressure setpoint",
+      "measured_or_runtime_evidence": "Four BAS medians 0.06\u20130.06 in publisher-labeled psi; unit/Brick semantics unresolved",
+      "screening_idf_configuration": "1,100 Pa supply-fan pressure rise; not a static-pressure control setpoint",
+      "severity": "BLOCKING_UNIT_BINDING"
+    },
+    {
+      "difference_and_disposition": "Plausible-row measured median is +11.4 percentage points above the IDF minimum ratio, but it is not a like-for-like minimum-OA test. Replay measured OA/control regimes and smoke modes.",
+      "domain": "Outdoor-air fraction/minimum",
+      "measured_or_runtime_evidence": "OA/SA ratio median 0.4846 during plausible active rows; useful OA data mainly Apr-Dec 2020",
+      "screening_idf_configuration": "Fixed minimum OA 2.360 m\u00b3/s versus 6.371 m\u00b3/s coil flow (37.0%)",
+      "severity": "BLOCKING_CONTROL"
+    },
+    {
+      "difference_and_disposition": "Topology mismatch: implement mapped fan-powered perimeter terminals.",
+      "domain": "UFT terminal fans",
+      "measured_or_runtime_evidence": "51 fan columns; point medians 0.00\u2013100.00 %",
+      "screening_idf_configuration": "No terminal fans; 24 conventional VAV terminal proxies",
+      "severity": "BLOCKING_TOPOLOGY"
+    },
+    {
+      "difference_and_disposition": "Nonphysical major mismatch: replace electric reheat with hydronic UFT coils and regime-correct plant.",
+      "domain": "UFT hydronic heating valves",
+      "measured_or_runtime_evidence": "44 valve columns; point medians 0.00\u2013100.00 %",
+      "screening_idf_configuration": "24 electric reheat coils; about 626 MWh/year excluded from the scored subtotal",
+      "severity": "BLOCKING_TOPOLOGY"
+    },
+    {
+      "difference_and_disposition": "Water-cooled topology is absent. Flow is continuously above the proxy threshold in this late-2020 slice, and the negative return-minus-supply median requires sensor/flow-direction review; it is not proven chiller runtime.",
+      "domain": "Chilled-water loop temperature/activity",
+      "measured_or_runtime_evidence": "Active-flow supply median 62.56\u00b0F; return 60.79\u00b0F; return-minus-supply median -0.12\u00b0F; flow-active fraction 100.0%",
+      "screening_idf_configuration": "No chilled/condenser-water plant; four air-cooled TwoSpeedDX coils",
+      "severity": "BLOCKING_TOPOLOGY"
+    },
+    {
+      "difference_and_disposition": "Implement dated hydronic plant/UFT configuration; do not infer compressor runtime from water flow alone.",
+      "domain": "Hot-water loop temperature/activity",
+      "measured_or_runtime_evidence": "Active-flow supply median 123.01\u00b0F; return 120.09\u00b0F; return-minus-supply median -2.7744\u00b0F; flow-active fraction 99.4%",
+      "screening_idf_configuration": "No hot-water loop or heat-pump plant; electric terminal reheat proxy",
+      "severity": "BLOCKING_TOPOLOGY"
+    },
+    {
+      "difference_and_disposition": "Use as a temperature/regime diagnostic only; temperature alone is not runtime or delivered heat.",
+      "domain": "Historical heat-pump HWS temperature",
+      "measured_or_runtime_evidence": "`hp_hws_temp` median 118.2\u00b0F; p05-p95 87.2\u2013123.6\u00b0F",
+      "screening_idf_configuration": "No hot-water supply-temperature schedule or plant",
+      "severity": "BLOCKING_TOPOLOGY"
+    },
+    {
+      "difference_and_disposition": "Resolve MBtu/h sign and asset scope; never compare this thermal-rate point directly with electrical kW.",
+      "domain": "Plant thermal-rate point",
+      "measured_or_runtime_evidence": "Publisher-named `aru_001_power_mbtuph` median 66.5569; nontrivial fraction 100.0%",
+      "screening_idf_configuration": "No corresponding plant output/meter binding",
+      "severity": "BLOCKING_UNIT_BINDING"
+    },
+    {
+      "difference_and_disposition": "Airflow -32.5%; capacity +35.0% versus published rating. Do not widen bounds to chase kWh.",
+      "domain": "RTU design airflow/cooling capacity",
+      "measured_or_runtime_evidence": "Published per RTU: 20,000 cfm and 105.5 kW (30 ton)",
+      "screening_idf_configuration": "13,500 cfm and 142.4 kW",
+      "severity": "MAJOR"
+    }
+  ],
+  "decision": "The screening IDF compiles/runs cleanly but is materially inconsistent with measured controls, terminal/plant topology, and several equipment/configuration values. It must not be tuned further as an as-operated model.",
+  "plant_evidence": {
+    "chilled_water": {
+      "active_flow_fraction_of_valid_rows": 1.0,
+      "active_flow_threshold_gpm": 1.0,
+      "coverage_source_clock": [
+        "2020-08-01T07:00:00",
+        "2020-12-31T23:50:00"
+      ],
+      "file": "ashp_cw.csv",
+      "flow_gpm": {
+        "count": 43979,
+        "max": 138.61,
+        "mean": 79.7413,
+        "median": 82.1486,
+        "min": 37.55,
+        "p05": 54.92,
+        "p95": 102.36
+      },
+      "return_minus_supply_delta_degF_when_flow_active": {
+        "count": 43979,
+        "max": 1.52,
+        "mean": -1.7994,
+        "median": -0.12,
+        "min": -13.24,
+        "p05": -5.55,
+        "p95": 0.01
+      },
+      "return_temperature_degF_when_flow_active": {
+        "count": 43979,
+        "max": 75.56,
+        "mean": 59.8653,
+        "median": 60.79,
+        "min": 38.18,
+        "p05": 48.859,
+        "p95": 67.54
+      },
+      "runtime_claim_boundary": "Flow >1 gpm is a water-loop activity proxy, not proof that a named chiller or heat pump compressor was enabled.",
+      "sha256": "12c903c13263e4afbe053d687ba9d4d67fd8055889bf2f8c40bf571eb60c56dd",
+      "supply_temperature_degF_when_flow_active": {
+        "count": 43979,
+        "max": 75.62,
+        "mean": 61.6646,
+        "median": 62.56,
+        "min": 47.27,
+        "p05": 53.28,
+        "p95": 67.69
+      }
+    },
+    "historical_hws_temperature": {
+      "claim_boundary": "Temperature alone does not prove water flow, heat delivery, or heat-pump compressor runtime.",
+      "coverage_source_clock": [
+        "2018-01-01T00:00:00",
+        "2020-05-02T11:57:00"
+      ],
+      "file": "hp_hws_temp.csv",
+      "hot_water_supply_temperature_degF": {
+        "count": 1048575,
+        "max": 129.3,
+        "mean": 109.332,
+        "median": 118.2,
+        "min": 0.0,
+        "p05": 87.2,
+        "p95": 123.6
+      },
+      "sha256": "3e59b9182eba1c1f0c213ae34b21ab16a863bbdf0b323f0c85b29af6f67704ce"
+    },
+    "hot_water": {
+      "active_flow_fraction_of_valid_rows": 0.993726,
+      "active_flow_threshold_gpm": 1.0,
+      "coverage_source_clock": [
+        "2019-10-26T18:05:00",
+        "2020-12-31T23:50:00"
+      ],
+      "file": "ashp_hw.csv",
+      "flow_gpm": {
+        "count": 124487,
+        "max": 68.0188,
+        "mean": 62.0244,
+        "median": 63.21,
+        "min": 0.15,
+        "p05": 58.12,
+        "p95": 64.11
+      },
+      "return_minus_supply_delta_degF_when_flow_active": {
+        "count": 123706,
+        "max": 3.85,
+        "mean": -2.8798,
+        "median": -2.7744,
+        "min": -18.21,
+        "p05": -7.47,
+        "p95": 0.5275
+      },
+      "return_temperature_degF_when_flow_active": {
+        "count": 123706,
+        "max": 128.69,
+        "mean": 119.4094,
+        "median": 120.09,
+        "min": 30.04,
+        "p05": 112.98,
+        "p95": 126.37
+      },
+      "runtime_claim_boundary": "Flow >1 gpm is a water-loop activity proxy, not proof that a named chiller or heat pump compressor was enabled.",
+      "sha256": "c1ec8bf602bf2d61339361b4fa8e4d88eb84b80bd7ff5bc1a8e5823d7166b49a",
+      "supply_temperature_degF_when_flow_active": {
+        "count": 123706,
+        "max": 130.59,
+        "mean": 122.2892,
+        "median": 123.01,
+        "min": 29.03,
+        "p05": 118.49,
+        "p95": 127.02
+      }
+    },
+    "thermal_rate": {
+      "claim_boundary": "The point name reports MBtu/h; it is not treated as electrical kW or compressor status.",
+      "coverage_source_clock": [
+        "2020-08-01T07:05:00",
+        "2020-12-31T23:50:00"
+      ],
+      "file": "ashp_meter.csv",
+      "nontrivial_fraction_abs_above_0_1": 0.999568,
+      "publisher_named_thermal_rate_mbtuph": {
+        "count": 43978,
+        "max": 425.1825,
+        "mean": 95.2979,
+        "median": 66.5569,
+        "min": 0.0,
+        "p05": 5.7198,
+        "p95": 242.1708
+      },
+      "sha256": "848aedecfe75a0cd9e0c9ad5908f1ad2e44e7b9f77b7f8f5eb6739c45b0d003a"
+    }
+  },
+  "schema": "vibe23.b59_measured_vs_screening_idf.v1",
+  "scope": "two monitored office floors; source clocks unresolved",
+  "sources": {
+    "champion_idf": {
+      "path": "model/b59_screening_champion.generated.idf",
+      "sha256": "7096c0ae7a749b800458b420d8936ed2e6146252178c998e9ba6f01b549fffa6"
+    },
+    "champion_parameters": {
+      "path": "scorecards/b59_2020_screening/champion_parameters.json",
+      "sha256": "de15ca86d63d1764aa184b5ab84ac6da34dd018ec83c1c297208d886dff9698b"
+    },
+    "energyplus_validation": {
+      "path": "scorecards/b59_2020_screening/postrelease_champion_validation.json",
+      "sha256": "39b97b8980c7537f2fe220f148f927f7934120d387e9aceecf4befd5516af5c9"
+    },
+    "hvac_evidence": {
+      "path": "config/b59_hvac_operating_evidence.json",
+      "sha256": "c99c87de906bbab30f158be937c939556d3f58b4d3cb9cc5617ae9803051d542"
+    },
+    "occupancy_evidence": {
+      "path": "config/b59_occupancy_load_evidence.json",
+      "sha256": "f5231434f45a5a458fea9599198b7cc161ec3fde2ae6d9b677d5010a59cc63bf"
+    }
+  }
+}

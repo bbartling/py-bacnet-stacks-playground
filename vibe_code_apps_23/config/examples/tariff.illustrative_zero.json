@@ -1,0 +1,9 @@
+{
+  "schema": "vibe23.tariff.v1",
+  "tariff_id": "ILLUSTRATIVE_ZERO_RATE_NOT_FOR_ECONOMICS",
+  "evidence": "ILLUSTRATIVE",
+  "energy_rate_per_kwh": 0.0,
+  "demand_rate_per_kw": 0.0,
+  "effective_period": "NOT_APPLICABLE",
+  "notes": "Executable contract fixture only. Replace with a sourced candidate or account-bound verified tariff before any economic analysis."
+}

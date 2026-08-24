@@ -1,0 +1,43 @@
+{
+  "schema": "vibe23.b59_point_bindings.v2",
+  "timezone": "America/Los_Angeles",
+  "electricity": {
+    "path": "ele.csv",
+    "timestamp_column": "date",
+    "source_timezone": "UTC",
+    "time_basis_status": "UTC-naive analyst hypothesis supported by fixed 24-hour grids and zero-lag occupancy correlation; publisher did not embed a timezone",
+    "columns": [
+      "mels_S",
+      "mels_N",
+      "lig_S",
+      "hvac_S",
+      "hvac_N"
+    ]
+  },
+  "occupancy": {
+    "path": "occ.csv",
+    "timestamp_column": "date",
+    "source_timezone": "UTC",
+    "time_basis_status": "UTC-naive analyst hypothesis supported by zero-lag electricity correlation; publisher did not embed a timezone",
+    "columns": [
+      "occ_third_south",
+      "occ_fourth_south"
+    ]
+  },
+  "rtu": {
+    "path": "rtu_fan_spd.csv",
+    "timestamp_column": "date",
+    "source_timezone": "UTC",
+    "time_basis_status": "UTC-naive bounded hypothesis; fixed 24-hour grids and BAS/weather alignment require independent confirmation",
+    "columns": [
+      "rtu_001_sf_vfd_spd_fbk_tn",
+      "rtu_002_sf_vfd_spd_fbk_tn",
+      "rtu_003_sf_vfd_spd_fbk_tn",
+      "rtu_004_sf_vfd_spd_fbk_tn",
+      "rtu_001_rf_vfd_spd_fbk_tn",
+      "rtu_002_rf_vfd_spd_fbk_tn",
+      "rtu_003_rf_vfd_spd_fbk_tn",
+      "rtu_004_rf_vfd_spd_fbk_tn"
+    ]
+  }
+}
