@@ -67,3 +67,12 @@ def test_mapping_rejects_another_dataset_doi(tmp_path):
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(MappingValidationError, match="10.7941/D1N33Q"):
         load_mapping(path)
+
+
+def test_mapping_requires_json_boolean_for_allow_nulls(tmp_path):
+    raw = _mapping()
+    raw["equipment"][0]["points"][0]["allow_nulls"] = "false"
+    path = tmp_path / "mapping.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(MappingValidationError, match="JSON boolean"):
+        load_mapping(path)

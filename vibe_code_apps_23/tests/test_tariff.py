@@ -60,3 +60,12 @@ def test_loader_refuses_schema_drift() -> None:
                 "energy_rate_per_kwh": 0.1,
             }
         )
+
+
+@pytest.mark.parametrize("dt_hours", [float("nan"), float("inf"), 0.0, -0.25])
+def test_billing_rejects_nonfinite_or_nonpositive_interval(dt_hours: float) -> None:
+    tariff = TariffScenario.flat(
+        tariff_id="fixture", evidence=TariffEvidence.ILLUSTRATIVE, energy_rate_per_kwh=0.1
+    )
+    with pytest.raises(ValueError, match="finite and positive"):
+        billing_cost([90.0] * 96, tariff=tariff, opening_state=BillingState(), dt_hours=dt_hours)

@@ -3,9 +3,9 @@
   "purpose": "Audit/provenance map for reusable Vibe 19-22 agent procedures. Historical source skills remain in place.",
   "audit": {
     "vibe_19_skill_files": 0,
-    "vibe_20_skill_files": 40,
+    "vibe_20_skill_files": 39,
     "vibe_21_skill_files": 2,
-    "vibe_22_skill_files": 14,
+    "vibe_22_skill_files": 15,
     "total_skill_files": 56,
     "supporting_artifacts_reviewed": [
       "vibe_code_apps_20/.agents/data_contract.md",

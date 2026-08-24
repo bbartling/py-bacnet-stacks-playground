@@ -6,6 +6,7 @@ import os
 import shutil
 import stat
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -97,6 +98,22 @@ def _extract_archive_atomic(zip_path: Path, destination: Path) -> None:
         _remove_generated_path(partial)
 
 
+def _url_origin(url: str) -> tuple[str, str | None, int | None]:
+    parsed = urllib.parse.urlsplit(url)
+    default_port = 443 if parsed.scheme.lower() == "https" else 80 if parsed.scheme.lower() == "http" else None
+    return parsed.scheme.lower(), parsed.hostname.lower() if parsed.hostname else None, parsed.port or default_port
+
+
+class _AuthorizationSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Retain bearer credentials only for redirects within the exact URL origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None and _url_origin(req.full_url) != _url_origin(newurl):
+            redirected.remove_header("Authorization")
+        return redirected
+
+
 def _download(url: str, destination: Path, *, bearer_token: str | None = None) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_suffix(destination.suffix + ".part")
@@ -104,9 +121,10 @@ def _download(url: str, destination: Path, *, bearer_token: str | None = None) -
     if bearer_token:
         headers["Authorization"] = f"Bearer {bearer_token}"
     request = urllib.request.Request(url, headers=headers)
+    opener = urllib.request.build_opener(_AuthorizationSafeRedirectHandler())
     try:
         try:
-            response = urllib.request.urlopen(request, timeout=120)
+            response = opener.open(request, timeout=120)
         except urllib.error.HTTPError as exc:
             if exc.code in {401, 403}:
                 raise RuntimeError(
@@ -189,6 +207,9 @@ def download_dataset(
         try:
             acquisition_mode = _stage_manual_release(source_release, staging)
             os.replace(staging, release_dir)
+            # The extracted telemetry belongs to the prior release and must not
+            # survive under the new Building_59.zip hash.
+            _remove_generated_path(telemetry_dir)
         finally:
             _remove_generated_path(staging)
     else:

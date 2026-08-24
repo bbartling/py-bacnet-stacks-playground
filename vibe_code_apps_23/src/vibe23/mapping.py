@@ -44,6 +44,14 @@ def _require_string(value: Any, field: str) -> str:
     return value.strip()
 
 
+def _require_bool(value: Any, field: str, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise MappingValidationError(f"{field} must be a JSON boolean")
+    return value
+
+
 def _safe_id(value: Any, field: str) -> str:
     result = _require_string(value, field)
     if not _SAFE_ID.fullmatch(result):
@@ -87,7 +95,7 @@ class PointBinding:
             source_column=_require_string(value.get("source_column"), f"{context}.source_column"),
             units=_require_string(value.get("units"), f"{context}.units"),
             evidence=_require_string(value.get("evidence"), f"{context}.evidence"),
-            allow_nulls=bool(value.get("allow_nulls", False)),
+            allow_nulls=_require_bool(value.get("allow_nulls"), f"{context}.allow_nulls"),
         )
 
 

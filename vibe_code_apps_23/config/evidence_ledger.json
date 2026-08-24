@@ -60,9 +60,10 @@
     },
     {
       "id": "B59-ELECTRIC-SCOPE",
-      "status": "DATA_BINDING_REQUIRED",
+      "status": "UNRESOLVED",
       "claim": "The first calibration target must bind office/HVAC panel measurements to the modeled scope, including an explicit disposition for unrecorded north-wing lighting.",
-      "source": "SCI-DATA-2022 / DRYAD-B59-2022"
+      "source": "SCI-DATA-2022 / DRYAD-B59-2022",
+      "resolution_action": "Freeze real file, column, units, timezone, and meter-scope bindings."
     },
     {
       "id": "B59-ACTUAL-YEAR-WEATHER",

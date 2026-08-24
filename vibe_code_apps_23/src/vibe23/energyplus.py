@@ -7,8 +7,10 @@ calibration campaign to decide whether the run is admissible.
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -31,6 +33,13 @@ _END_RE = re.compile(
 _WARNING_RE = re.compile(r"\*\*\s*Warning\s*\*\*", re.IGNORECASE)
 _SEVERE_RE = re.compile(r"\*\*\s*Severe\s*\*\*", re.IGNORECASE)
 _FATAL_RE = re.compile(r"\*\s*Fatal\s*\*", re.IGNORECASE)
+_FACILITY_HEADER_RE = re.compile(
+    r"^\s*Electricity:Facility\s+\[[^\]]+\]\([^)]+\)\s*$",
+    re.IGNORECASE,
+)
+_EPLUS_TIMESTAMP_RE = re.compile(
+    r"^\s*(\d{1,2})/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$"
+)
 
 
 class EnergyPlusUnavailable(RuntimeError):
@@ -47,6 +56,7 @@ class EnergyPlusCapability:
     docker_daemon_available: bool
     docker_image: str
     docker_image_present: bool
+    docker_image_id: str | None
     docker_energyplus_version: str | None
     mcp_vendor_path: str | None
     mcp_vendor_present: bool
@@ -97,6 +107,7 @@ def energyplus_capability(
     docker = shutil.which("docker")
     docker_daemon = False
     image_present = False
+    docker_image_id = None
     docker_version = None
     if docker:
         docker_daemon = _run_probe([docker, "info", "--format", "{{.ServerVersion}}"]).returncode == 0
@@ -105,6 +116,9 @@ def energyplus_capability(
                 _run_probe([docker, "image", "inspect", docker_image], timeout=120).returncode == 0
             )
             if image_present:
+                docker_image_id = _version_text(
+                    _run_probe([docker, "image", "inspect", "--format", "{{.Id}}", docker_image], timeout=120)
+                )
                 docker_version = _version_text(
                     _run_probe([docker, "run", "--rm", docker_image, "energyplus", "--version"], timeout=120)
                 )
@@ -133,6 +147,7 @@ def energyplus_capability(
         docker_daemon_available=docker_daemon,
         docker_image=docker_image,
         docker_image_present=image_present,
+        docker_image_id=docker_image_id,
         docker_energyplus_version=docker_version,
         mcp_vendor_path=str(vendor) if vendor else None,
         mcp_vendor_present=vendor_present,
@@ -154,36 +169,138 @@ def inspect_energyplus_run(
     idf: Path | None = None,
     epw: Path | None = None,
     energyplus_version: str | None = None,
+    process_returncode: int | None = None,
+    require_zero_warnings: bool = True,
 ) -> dict[str, Any]:
-    """Inspect standard EnergyPlus artifacts and fail closed on missing evidence."""
+    """Inspect standard EnergyPlus artifacts and fail closed on missing evidence.
+
+    The default policy implements the project's requested clean-run gate:
+    warnings, severe errors, fatal errors, a nonzero/unknown process return
+    code, missing input hashes, or a missing Facility electricity meter all
+    block a pass.
+    """
     root = Path(run_dir).resolve()
     err = root / "eplusout.err"
     end = root / "eplusout.end"
     csv_path = root / "eplusout.csv"
+    console = root / "console.log"
     err_text = _read(err)
     end_text = _read(end)
-    summary_text = end_text or err_text
-
-    match = _END_RE.search(summary_text)
-    warning_count = int(match.group(1)) if match else len(_WARNING_RE.findall(err_text))
-    severe_count = int(match.group(2)) if match else len(_SEVERE_RE.findall(err_text))
-    fatal_count = len(_FATAL_RE.findall(err_text))
-    completed = "EnergyPlus Completed Successfully" in summary_text
+    console_text = _read(console)
+    end_match = _END_RE.search(end_text)
+    err_match = _END_RE.search(err_text)
+    console_match = _END_RE.search(console_text)
+    summary_matches = [match for match in (end_match, err_match, console_match) if match is not None]
+    diagnostic_text = err_text + "\n" + end_text + "\n" + console_text
+    warning_count = max(
+        [
+            len(_WARNING_RE.findall(err_text)),
+            len(_WARNING_RE.findall(console_text)),
+            *(int(match.group(1)) for match in summary_matches),
+        ]
+    )
+    severe_count = max(
+        [
+            len(_SEVERE_RE.findall(err_text)),
+            len(_SEVERE_RE.findall(console_text)),
+            *(int(match.group(2)) for match in summary_matches),
+        ]
+    )
+    fatal_count = max(len(_FATAL_RE.findall(err_text)), len(_FATAL_RE.findall(console_text)))
+    completed = end_match is not None and "terminated--fatal error detected" not in diagnostic_text.casefold()
+    completion_documents = (
+        (end_text, end_match),
+        (err_text, err_match),
+        (console_text, console_match),
+    )
+    summary_consistent = end_match is not None and all(
+        match is not None and match.groups() == end_match.groups()
+        for text, match in completion_documents
+        if "energyplus completed successfully" in text.casefold()
+    )
     first_severe = next((line.strip() for line in err_text.splitlines() if _SEVERE_RE.search(line)), None)
     first_fatal = next((line.strip() for line in err_text.splitlines() if _FATAL_RE.search(line)), None)
 
-    required_artifacts = {
-        "eplusout.err": err.is_file(),
-        "eplusout.end": end.is_file(),
-        "eplusout.csv": csv_path.is_file() and csv_path.stat().st_size > 0,
-    }
-    engine_smoke_passed = (
-        all(required_artifacts.values())
-        and completed
-        and severe_count == 0
-        and fatal_count == 0
-    )
+    csv_header: list[str] = []
+    csv_data_rows = 0
+    csv_values_valid = False
+    csv_invalid_reason = "missing eplusout.csv"
+    if csv_path.is_file():
+        try:
+            with csv_path.open("r", encoding="utf-8", errors="replace", newline="") as stream:
+                reader = csv.reader(stream)
+                csv_header = next(reader, [])
+                facility_indexes = [index for index, value in enumerate(csv_header) if _FACILITY_HEADER_RE.fullmatch(value)]
+                if len(facility_indexes) != 1:
+                    csv_invalid_reason = (
+                        "CSV must contain exactly one canonical Electricity:Facility meter column"
+                    )
+                elif not csv_header or csv_header[0].strip().casefold() != "date/time":
+                    csv_invalid_reason = "first CSV column must be Date/Time"
+                else:
+                    facility_index = facility_indexes[0]
+                    csv_values_valid = True
+                    previous_timestamp: tuple[int, int, int, int, int] | None = None
+                    seen_timestamps: set[tuple[int, int, int, int, int]] = set()
+                    for row_number, row in enumerate(reader, start=2):
+                        if not any(value.strip() for value in row):
+                            continue
+                        csv_data_rows += 1
+                        if len(row) != len(csv_header):
+                            csv_values_valid = False
+                            csv_invalid_reason = f"row {row_number} has {len(row)} fields; expected {len(csv_header)}"
+                            break
+                        timestamp_match = _EPLUS_TIMESTAMP_RE.fullmatch(row[0])
+                        if timestamp_match is None:
+                            csv_values_valid = False
+                            csv_invalid_reason = f"row {row_number} has an invalid EnergyPlus timestamp"
+                            break
+                        month, day, hour, minute, second = (
+                            int(timestamp_match.group(1)),
+                            int(timestamp_match.group(2)),
+                            int(timestamp_match.group(3)),
+                            int(timestamp_match.group(4)),
+                            int(timestamp_match.group(5) or 0),
+                        )
+                        timestamp_key = (month, day, hour, minute, second)
+                        if (
+                            not 1 <= month <= 12
+                            or not 1 <= day <= 31
+                            or not 0 <= hour <= 24
+                            or not 0 <= minute <= 59
+                            or not 0 <= second <= 59
+                            or timestamp_key in seen_timestamps
+                            or (previous_timestamp is not None and timestamp_key <= previous_timestamp)
+                        ):
+                            csv_values_valid = False
+                            csv_invalid_reason = f"row {row_number} has a duplicate, invalid, or unordered timestamp"
+                            break
+                        seen_timestamps.add(timestamp_key)
+                        previous_timestamp = timestamp_key
+                        try:
+                            facility_value = float(row[facility_index])
+                        except ValueError:
+                            csv_values_valid = False
+                            csv_invalid_reason = f"row {row_number} has a nonnumeric Facility value"
+                            break
+                        if not math.isfinite(facility_value) or facility_value < 0.0:
+                            csv_values_valid = False
+                            csv_invalid_reason = f"row {row_number} has a nonfinite or negative Facility value"
+                            break
+                    if csv_values_valid and csv_data_rows == 0:
+                        csv_values_valid = False
+                        csv_invalid_reason = "CSV has no data rows"
+                    elif csv_values_valid:
+                        csv_invalid_reason = None
+        except (csv.Error, OSError) as exc:
+            csv_values_valid = False
+            csv_invalid_reason = f"CSV parse failed: {exc}"
+    facility_meter_present = sum(bool(_FACILITY_HEADER_RE.fullmatch(value)) for value in csv_header) == 1
 
+    input_hashes: dict[str, str | None] = {
+        "idf_sha256": sha256_file(Path(idf)) if idf and Path(idf).is_file() else None,
+        "epw_sha256": sha256_file(Path(epw)) if epw and Path(epw).is_file() else None,
+    }
     artifact_hashes: dict[str, str] = {}
     for name in (
         "eplusout.err",
@@ -191,15 +308,63 @@ def inspect_energyplus_run(
         "eplusout.csv",
         "eplusout.sql",
         "eplusout.eio",
+        "console.log",
     ):
         artifact = root / name
         if artifact.is_file():
             artifact_hashes[name] = sha256_file(artifact)
 
-    input_hashes: dict[str, str | None] = {
-        "idf_sha256": sha256_file(Path(idf)) if idf and Path(idf).is_file() else None,
-        "epw_sha256": sha256_file(Path(epw)) if epw and Path(epw).is_file() else None,
+    manifest_path = root / "run_manifest.json"
+    returncode_source = "explicit_current_process" if process_returncode is not None else None
+    manifest_binding_valid = False
+    if process_returncode is None and manifest_path.is_file():
+        try:
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            recorded_returncode = manifest_payload.get("process_returncode")
+            recorded_inputs = manifest_payload.get("input_hashes")
+            recorded_artifacts = manifest_payload.get("artifact_hashes")
+            required_artifact_names = {"eplusout.err", "eplusout.end", "eplusout.csv"}
+            manifest_binding_valid = (
+                manifest_payload.get("schema") == "vibe23.energyplus_smoke_manifest.v1"
+                and manifest_payload.get("energyplus_version") == energyplus_version
+                and manifest_payload.get("selected_engine") in {"native", "docker"}
+                and recorded_inputs == input_hashes
+                and isinstance(recorded_artifacts, dict)
+                and required_artifact_names.issubset(recorded_artifacts)
+                and all(recorded_artifacts.get(name) == artifact_hashes.get(name) for name in required_artifact_names)
+            )
+            if (
+                manifest_binding_valid
+                and isinstance(recorded_returncode, int)
+                and not isinstance(recorded_returncode, bool)
+            ):
+                process_returncode = recorded_returncode
+                returncode_source = "hash_bound_run_manifest"
+        except (json.JSONDecodeError, OSError):
+            pass
+    returncode_binding_valid = returncode_source == "explicit_current_process" or manifest_binding_valid
+    required_evidence = {
+        "eplusout.err": err.is_file(),
+        "eplusout.end": end.is_file(),
+        "eplusout.csv": csv_path.is_file() and csv_path.stat().st_size > 0 and csv_values_valid,
+        "facility_electricity_meter": facility_meter_present,
+        "idf_sha256": input_hashes["idf_sha256"] is not None,
+        "epw_sha256": input_hashes["epw_sha256"] is not None,
+        "energyplus_version": bool(energyplus_version and energyplus_version.strip()),
+        "process_returncode_zero": process_returncode == 0,
+        "process_returncode_bound_to_artifacts": returncode_binding_valid,
+        "end_summary_parseable": end_match is not None,
+        "summary_consistent": summary_consistent,
     }
+    warning_gate_passed = warning_count == 0 if require_zero_warnings else True
+    engine_smoke_passed = (
+        all(required_evidence.values())
+        and completed
+        and warning_gate_passed
+        and severe_count == 0
+        and fatal_count == 0
+    )
+
     return {
         "schema": "vibe23.energyplus_run_inspection.v1",
         "run_dir": str(root),
@@ -207,17 +372,28 @@ def inspect_energyplus_run(
         "engine_smoke_status": "ENGINE_SMOKE_PASS" if engine_smoke_passed else "ENGINE_SMOKE_FAIL",
         "engine_smoke_passed": engine_smoke_passed,
         "completed_successfully": completed,
+        "process_returncode": process_returncode,
+        "process_returncode_source": returncode_source,
+        "manifest_binding_valid": manifest_binding_valid,
+        "require_zero_warnings": require_zero_warnings,
+        "warning_gate_passed": warning_gate_passed,
         "warning_count": warning_count,
         "severe_count": severe_count,
         "fatal_count": fatal_count,
         "first_severe": first_severe,
         "first_fatal": first_fatal,
-        "required_artifacts": required_artifacts,
+        "summary_consistent": summary_consistent,
+        "facility_meter_present": facility_meter_present,
+        "csv_data_rows": csv_data_rows,
+        "csv_values_valid": csv_values_valid,
+        "csv_invalid_reason": csv_invalid_reason,
+        "required_evidence": required_evidence,
         "input_hashes": input_hashes,
         "artifact_hashes": artifact_hashes,
         "claim_status": "MODEL_SEED_EVIDENCE_ONLY" if engine_smoke_passed else "MODEL_RUN_FAILED",
         "claim_boundary": (
-            "A passing engine smoke inspection proves only successful execution with zero severe/fatal errors. "
+            "A passing engine smoke inspection proves only a hashed execution with return code zero, "
+            "the Facility electricity meter present, and the declared warning/error policy satisfied. "
             "It does not prove Guideline 14 calibration, physical fidelity, holdout validation, or DSM readiness."
         ),
     }
@@ -332,7 +508,14 @@ def run_energyplus_smoke(
         (completed.stdout or "") + ("\n" + completed.stderr if completed.stderr else ""),
         encoding="utf-8",
     )
-    inspection = inspect_energyplus_run(output_dir, idf=idf, epw=epw, energyplus_version=version)
+    inspection = inspect_energyplus_run(
+        output_dir,
+        idf=idf,
+        epw=epw,
+        energyplus_version=version,
+        process_returncode=completed.returncode,
+        require_zero_warnings=True,
+    )
     inspection.update(
         {
             "schema": "vibe23.energyplus_smoke_manifest.v1",

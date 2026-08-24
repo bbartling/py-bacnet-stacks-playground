@@ -33,7 +33,7 @@ wattlab energyplus-ensure
 That command requires Docker plus a daemon/socket and builds the pinned
 `energyplus-mcp-dev` image when needed.
 
-## 2. Engine smoke gate
+## 2. Building 59 calibration-ready smoke gate
 
 Only run this after the Building 59 seed is runnable and the actual-year EPW is
 frozen:
@@ -52,6 +52,10 @@ and writes `run_manifest.json`. `ENGINE_SMOKE_PASS` requires:
 
 - `eplusout.err`, `eplusout.end`, and non-empty `eplusout.csv`;
 - the EnergyPlus successful-completion marker;
+- process return code zero and consistent totals across `.err`, `.end`, and `console.log`;
+- hashed IDF and EPW inputs plus a recorded EnergyPlus version;
+- a non-empty `Electricity:Facility` meter column;
+- zero warnings under the default strict policy;
 - zero severe errors; and
 - zero fatal errors.
 
@@ -65,6 +69,19 @@ vibe23 inspect-eplus-run \
   --energyplus-version 26.1.0-6f2e40d102 \
   --out reports/runtime/smoke_001_inspection.json
 ```
+
+An inspection of a separately produced output folder also needs a
+`run_manifest.json` whose return code, input hashes, and required output hashes
+bind to the artifacts being inspected, and whose EnergyPlus version/engine
+identity matches the inspection, or it fails closed because the process outcome
+is unknown. The Facility meter must be canonical and unambiguous; values must be
+finite/nonnegative and timestamps syntactically valid, unique, and ordered. The gate
+records row count but does not claim an annual run period; a GL14 campaign must
+separately prove the intended annual coverage, monthly completeness, and
+required output intervals. This Facility-meter requirement is a Building 59
+calibration gate, not a universal definition of EnergyPlus model validity.
+Local hashes provide integrity/repeatability evidence, not third-party
+authenticity against an operator who can rewrite both outputs and manifests.
 
 A passing smoke gate is `MODEL_SEED_EVIDENCE_ONLY`. It is not a Guideline 14
 result.
@@ -101,6 +118,12 @@ publisher writes PNG and SVG versions of:
 - load-duration curves;
 - weekday/weekend hourly profiles (hourly inputs); and
 - weekday/hour residual heatmap (hourly inputs).
+
+For `mean_power`, monthly energy uses elapsed-time left-hold integration and
+the final sample uses the median native interval. Inputs with a gap greater
+than four times the shortest paired interval fail closed; quality-control and
+document gaps before plotting. `--interval-hours` is an explicit constant-width
+override and is recorded in the manifest.
 
 It also writes `monthly_comparison.csv` and `chart_manifest.json`, including the
 input/artifact hashes, units, timezone, interval semantics, metric values, and

@@ -46,7 +46,7 @@ def cvrmse(measured, simulated, p: int = 1) -> float:
     if not 0 <= p < n:
         raise ValueError("p must satisfy 0 <= p < n")
     rmse = np.sqrt(np.sum((measured - simulated) ** 2) / (n - p))
-    return float(100.0 * rmse / measured.mean())
+    return float(100.0 * rmse / abs(measured.mean()))
 
 
 def score_calibration(measured, simulated, interval: str, p: int = 1) -> CalibrationScore:

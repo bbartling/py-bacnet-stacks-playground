@@ -1,6 +1,7 @@
 """Vibe 23's explicit Vibe 22 operator-pay/reward compatibility contract."""
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Sequence
 
@@ -142,8 +143,8 @@ def action_smoothness(schedules: Mapping[str, Sequence[float]] | None) -> float:
     changes: list[float] = []
     for name, values in schedules.items():
         row = tuple(float(v) for v in values)
-        if len(row) != N_INTERVALS:
-            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} values")
+        if len(row) != N_INTERVALS or any(not math.isfinite(value) for value in row):
+            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} finite values")
         changes.extend(abs(b - a) for a, b in zip(row, row[1:], strict=False))
     return float(sum(changes) / len(changes)) if changes else 0.0
 
@@ -159,8 +160,12 @@ def between_day_action_delta(
     for name in common:
         previous = tuple(float(v) for v in previous_schedules[name])
         candidate = tuple(float(v) for v in candidate_schedules[name])
-        if len(previous) != N_INTERVALS or len(candidate) != N_INTERVALS:
-            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} values")
+        if (
+            len(previous) != N_INTERVALS
+            or len(candidate) != N_INTERVALS
+            or any(not math.isfinite(value) for value in (*previous, *candidate))
+        ):
+            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} finite values")
         deltas.append(abs(candidate[0] - previous[-1]))
     return float(sum(deltas) / len(deltas)) if deltas else 0.0
 

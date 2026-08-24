@@ -68,3 +68,16 @@ def test_readiness_failure_zeroes_paycheck_and_forbids_missing_baseline() -> Non
             tariff=_tariff(),
             opening_billing_state=BillingState(),
         )
+
+
+def test_nonfinite_schedule_values_are_rejected() -> None:
+    with pytest.raises(ValueError, match="finite values"):
+        score_operator_pay_day(
+            candidate_kw=[90.0] * 96,
+            baseline_kw=[100.0] * 96,
+            candidate_zone_temperatures_f=_zones(70.0),
+            comfort=_comfort(),
+            tariff=_tariff(),
+            opening_billing_state=BillingState(),
+            candidate_schedules={"heating": [68.0] * 95 + [float("nan")]},
+        )

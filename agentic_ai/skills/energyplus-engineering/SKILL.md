@@ -17,7 +17,7 @@ Provide one reusable engineering entry point for EnergyPlus work across the Vibe
 - EnergyPlus MCP operations → `../energyplus-mcp/SKILL.md`
 - Output extraction and simulation QA → `../energyplus-results/SKILL.md`
 - Rates, TOU, demand charges → `../utility-tariff/SKILL.md`
-- Demand-side-management experiments → `../dsm-experiment-design/SKILL.md`
+- Demand-side-management experiments → `../energyplus-demand-management/SKILL.md` (use `../dsm-experiment-design/SKILL.md` for the comparison contract)
 
 ## Core rules
 1. Separate source facts, inferred parameters, assumptions, and optimization decisions.
@@ -27,7 +27,7 @@ Provide one reusable engineering entry point for EnergyPlus work across the Vibe
 5. Use the simplest topology that still preserves the physical/control behavior required by the study.
 6. Keep actual-year calibration weather distinct from TMY screening weather.
 7. Change small, named parameter families per calibration iteration.
-8. Never publish savings without a frozen baseline and identical-condition candidate comparison.
+8. Never publish DSM savings without a calibrated/validated baseline, a frozen experiment contract, and an identical-condition candidate comparison.
 9. Never present illustrative pricing as a utility bill.
 
 ## Companion GPT

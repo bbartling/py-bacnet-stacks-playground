@@ -11,7 +11,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-LEDGER_STATUSES = {"SOURCE_FACT", "DATA_BOUND", "ASSUMPTION", "UNRESOLVED"}
+PARAMETER_LEDGER_STATUSES = {"SOURCE_FACT", "DATA_BOUND", "ASSUMPTION", "UNRESOLVED"}
+EVIDENCE_LEDGER_STATUSES = {
+    "SOURCE_FACT",
+    "DERIVED",
+    "BOUNDED_ASSUMPTION",
+    "UNRESOLVED",
+    "REJECTED",
+}
 _REQUIRED_LEDGER_FIELDS = {"id", "parameter_family", "status", "value", "units", "source_ref", "rationale"}
 
 
@@ -65,7 +72,7 @@ def validate_parameter_ledger(ledger: Mapping[str, Any]) -> dict[str, Any]:
             raise ModelEvidenceError(f"duplicate parameter ledger id: {identifier}")
         ids.add(identifier)
         status = entry["status"]
-        if status not in LEDGER_STATUSES:
+        if status not in PARAMETER_LEDGER_STATUSES:
             raise ModelEvidenceError(f"unknown parameter ledger status: {status}")
         families.add(str(entry["parameter_family"]))
         if status == "UNRESOLVED":
@@ -76,6 +83,34 @@ def validate_parameter_ledger(ledger: Mapping[str, Any]) -> dict[str, Any]:
         "unresolved_ids": sorted(unresolved),
         "model_freeze_eligible": not unresolved,
     }
+
+
+def validate_evidence_ledger(ledger: Mapping[str, Any]) -> dict[str, Any]:
+    """Enforce the canonical evidence vocabulary independently of model parameters."""
+    if ledger.get("schema") != "vibe23.evidence_ledger.v1":
+        raise ModelEvidenceError("evidence ledger schema must be vibe23.evidence_ledger.v1")
+    entries = ledger.get("entries")
+    if not isinstance(entries, list) or not entries:
+        raise ModelEvidenceError("evidence ledger must contain a non-empty entries list")
+    ids: set[str] = set()
+    statuses: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            raise ModelEvidenceError("each evidence ledger entry must be an object")
+        missing = {"id", "status", "claim"} - set(entry)
+        if missing:
+            raise ModelEvidenceError(f"evidence ledger entry missing fields: {sorted(missing)}")
+        identifier = str(entry["id"]).strip()
+        if not identifier or identifier in ids:
+            raise ModelEvidenceError(f"blank or duplicate evidence ledger id: {identifier!r}")
+        ids.add(identifier)
+        status = str(entry["status"])
+        if status not in EVIDENCE_LEDGER_STATUSES:
+            raise ModelEvidenceError(f"unknown evidence ledger status: {status}")
+        if status == "UNRESOLVED" and not (entry.get("action") or entry.get("resolution_action")):
+            raise ModelEvidenceError(f"unresolved evidence entry requires an action: {identifier}")
+        statuses.add(status)
+    return {"entries": len(entries), "statuses": sorted(statuses), "valid": True}
 
 
 def create_iteration_manifest(
@@ -123,7 +158,7 @@ def create_iteration_manifest(
         "claim_status": "CALIBRATION_IN_PROGRESS",
         "hypothesis": hypothesis,
         "changed_parameter_families": changed,
-        "parameter_ledger_sha256": canonical_json_sha256(ledger),
+        "parameter_ledger_canonical_json_sha256": canonical_json_sha256(ledger),
         "ledger_summary": summary,
         "model_input_hashes": dict(sorted(model_input_hashes.items())),
         "result": "NOT_RUN",
@@ -156,9 +191,11 @@ def build_model_manifest(
     ledger_summary = validate_parameter_ledger(ledger)
     run_evidence = dict(energyplus_run_evidence or {})
     run_gate_passed = (
-        run_evidence.get("exit_code") == 0
-        and run_evidence.get("fatal_errors") == 0
-        and run_evidence.get("severe_errors") == 0
+        run_evidence.get("process_returncode") == 0
+        and run_evidence.get("fatal_count") == 0
+        and run_evidence.get("severe_count") == 0
+        and run_evidence.get("warning_count") == 0
+        and run_evidence.get("engine_smoke_passed") is True
         and run_evidence.get("deterministic_repeat_passed") is True
         and isinstance(run_evidence.get("run_manifest_sha256"), str)
         and len(run_evidence["run_manifest_sha256"]) == 64

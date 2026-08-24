@@ -1,7 +1,10 @@
 import json
+import tomllib
+from pathlib import Path
 
 import pytest
 
+import vibe23
 from vibe23.cli import _enumerate_grid, _parse_replacements, _score, build_parser
 
 
@@ -65,3 +68,18 @@ def test_standalone_monthly_score_never_claims_calibration_from_two_rows(tmp_pat
     assert result["minimum_complete_month_count_passes"] is False
     assert result["calibration_claim_eligible"] is False
     assert "passes" not in result
+
+
+def test_cli_rejects_source_output_collision(tmp_path):
+    source = tmp_path / "comparison.csv"
+    source.write_text("measured,simulated\n100,100\n100,100\n", encoding="utf-8")
+    args = build_parser().parse_args(
+        ["score", "--csv", str(source), "--interval", "monthly", "--out", str(source)]
+    )
+    with pytest.raises(ValueError, match="must not overwrite"):
+        _score(args)
+
+
+def test_public_package_version_matches_project_metadata():
+    project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+    assert vibe23.__version__ == project["project"]["version"]

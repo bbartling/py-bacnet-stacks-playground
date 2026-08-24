@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +8,7 @@ from vibe23.model import (
     build_model_manifest,
     create_iteration_manifest,
     render_idf_seed,
+    validate_evidence_ledger,
     validate_parameter_ledger,
 )
 
@@ -51,6 +53,8 @@ def test_iteration_is_narrow_and_needs_all_hashes():
         model_input_hashes=hashes,
     )
     assert manifest["claim_status"] == "CALIBRATION_IN_PROGRESS"
+    assert "parameter_ledger_canonical_json_sha256" in manifest
+    assert "parameter_ledger_sha256" not in manifest
     with pytest.raises(ModelEvidenceError, match="one or two"):
         create_iteration_manifest(
             iteration_id="I02", parent_iteration_id="I01", changed_parameter_families=[], hypothesis="x", ledger=_ledger(), model_input_hashes=hashes
@@ -83,3 +87,20 @@ def test_model_manifest_hashes_all_required_inputs(tmp_path):
     assert set(manifest["input_hashes"]) == {"idf_sha256", "epw_sha256", "source_data_sha256", "point_map_sha256", "parameter_ledger_sha256"}
     assert manifest["claim_status"] == "CALIBRATION_BOOTSTRAP"
     assert manifest["energyplus_seed_gate"]["passes"] is False
+
+
+def test_repository_evidence_ledger_uses_canonical_vocabulary():
+    ledger = json.loads((Path(__file__).parents[1] / "config/evidence_ledger.json").read_text(encoding="utf-8"))
+    result = validate_evidence_ledger(ledger)
+    assert result["valid"] is True
+    assert "DATA_BINDING_REQUIRED" not in result["statuses"]
+
+
+def test_evidence_ledger_rejects_legacy_status():
+    with pytest.raises(ModelEvidenceError, match="unknown evidence ledger status"):
+        validate_evidence_ledger(
+            {
+                "schema": "vibe23.evidence_ledger.v1",
+                "entries": [{"id": "X", "status": "DATA_BINDING_REQUIRED", "claim": "legacy"}],
+            }
+        )

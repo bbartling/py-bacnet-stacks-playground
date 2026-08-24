@@ -17,6 +17,18 @@ def main() -> int:
     expected = registry.get("audit", {}).get("total_skill_files")
     if len(migrations) != expected:
         errors.append(f"registry has {len(migrations)} entries; expected {expected}")
+    audit = registry.get("audit", {})
+    for vibe in range(19, 23):
+        prefix = f"vibe_code_apps_{vibe}/"
+        actual_count = sum(
+            isinstance(item.get("source"), str) and item["source"].startswith(prefix)
+            for item in migrations
+        )
+        declared_count = audit.get(f"vibe_{vibe}_skill_files")
+        if actual_count != declared_count:
+            errors.append(
+                f"Vibe {vibe} registry count is {actual_count}; declared {declared_count!r}"
+            )
     seen: set[str] = set()
     for item in migrations:
         source = item.get("source")

@@ -24,6 +24,35 @@ from .rllib_adapter import inspect_rllib_energyplus_checkout
 from .tariff import load_tariff
 
 
+def _resolved(path: str | Path) -> Path:
+    return Path(path).expanduser().resolve()
+
+
+def _reject_same_path(output: str | Path | None, *inputs: str | Path | None) -> None:
+    if output is None:
+        return
+    target = _resolved(output)
+    for source in inputs:
+        if source is not None and target == _resolved(source):
+            raise ValueError(f"output must not overwrite input artifact: {target}")
+
+
+def _reject_within(output: str | Path | None, protected_root: str | Path, *, label: str) -> None:
+    if output is None:
+        return
+    target = _resolved(output)
+    root = _resolved(protected_root)
+    if target == root or root in target.parents:
+        raise ValueError(f"output must be outside {label}: {root}")
+
+
+def _reject_input_inside_output(input_path: str | Path, output_root: str | Path, *, label: str) -> None:
+    source = _resolved(input_path)
+    root = _resolved(output_root)
+    if source == root or root in source.parents:
+        raise ValueError(f"{label} must not contain the input artifact: {source}")
+
+
 def _emit_json(value: Any, output: str | None = None) -> None:
     body = json.dumps(value, indent=2, sort_keys=True) + "\n"
     if output:
@@ -36,6 +65,7 @@ def _emit_json(value: Any, output: str | None = None) -> None:
 
 
 def _download(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.source_release)
     result = download_dataset(
         Path(args.data_dir),
         force=args.force,
@@ -46,6 +76,7 @@ def _download(args: argparse.Namespace) -> None:
 
 
 def _inventory(args: argparse.Namespace) -> None:
+    _reject_within(args.out, args.root, label="the inventory source root")
     frame = build_inventory(Path(args.root))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +85,7 @@ def _inventory(args: argparse.Namespace) -> None:
 
 
 def _aggregate(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.csv)
     series = load_point_csv(Path(args.csv), args.timestamp_column, args.value_column)
     frame = aggregate_power_kw(series, args.rule, max_gap_factor=args.max_gap_factor)
     out = Path(args.out)
@@ -63,6 +95,7 @@ def _aggregate(args: argparse.Namespace) -> None:
 
 
 def _score(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.csv)
     frame = pd.read_csv(args.csv)
     result = score_calibration(
         frame[args.measured_column], frame[args.simulated_column], args.interval, p=args.parameters
@@ -82,11 +115,16 @@ def _score(args: argparse.Namespace) -> None:
 
 
 def _export_openfdd(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.mapping)
+    _reject_same_path(args.report, args.mapping, args.out)
+    _reject_within(args.out, args.raw_root, label="the immutable raw-data root")
+    _reject_within(args.report, args.raw_root, label="the immutable raw-data root")
     result = build_openfdd_package(Path(args.mapping), Path(args.raw_root), Path(args.out))
     _emit_json(result, args.report)
 
 
 def _validate_ledger(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.ledger)
     result = validate_parameter_ledger(read_parameter_ledger(Path(args.ledger)))
     result["claim_boundary"] = "Ledger validation does not prove that an EnergyPlus model runs or is calibrated."
     _emit_json(result, args.out)
@@ -108,11 +146,13 @@ def _parse_replacements(values: list[str]) -> dict[str, str]:
 
 
 def _render_seed(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.template)
     destination = render_idf_seed(Path(args.template), Path(args.out), _parse_replacements(args.set))
     print(f"rendered CALIBRATION_BOOTSTRAP seed -> {destination}")
 
 
 def _inspect_rllib(args: argparse.Namespace) -> None:
+    _reject_within(args.out, args.root, label="the inspected RLlib checkout")
     _emit_json(inspect_rllib_energyplus_checkout(Path(args.root)), args.out)
 
 
@@ -121,10 +161,12 @@ def _rllib_provenance(args: argparse.Namespace) -> None:
 
 
 def _inspect_tariff(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.tariff)
     _emit_json(load_tariff(Path(args.tariff)).to_dict(), args.out)
 
 
 def _enumerate_grid(args: argparse.Namespace) -> None:
+    _reject_same_path(args.out, args.grid)
     raw = json.loads(Path(args.grid).read_text(encoding="utf-8"))
     if raw.get("schema") != "vibe23.grid_declaration.v1":
         raise ValueError("grid schema must be vibe23.grid_declaration.v1")
@@ -154,6 +196,8 @@ def _energyplus_doctor(args: argparse.Namespace) -> None:
 
 
 def _run_eplus_smoke(args: argparse.Namespace) -> None:
+    _reject_within(args.out, args.output_dir, label="the EnergyPlus run directory")
+    _reject_same_path(args.out, args.idf, args.epw)
     result = run_energyplus_smoke(
         Path(args.idf),
         Path(args.epw),
@@ -166,6 +210,8 @@ def _run_eplus_smoke(args: argparse.Namespace) -> None:
 
 
 def _inspect_eplus_run(args: argparse.Namespace) -> None:
+    _reject_within(args.out, args.run_dir, label="the EnergyPlus evidence directory")
+    _reject_same_path(args.out, args.idf, args.epw)
     result = inspect_energyplus_run(
         Path(args.run_dir),
         idf=Path(args.idf) if args.idf else None,
@@ -176,6 +222,9 @@ def _inspect_eplus_run(args: argparse.Namespace) -> None:
 
 
 def _plot_calibration(args: argparse.Namespace) -> None:
+    _reject_input_inside_output(args.csv, args.output_dir, label="the chart output directory")
+    _reject_within(args.out, args.output_dir, label="the chart output directory")
+    _reject_same_path(args.out, args.csv)
     result = build_calibration_chart_pack(
         Path(args.csv),
         Path(args.output_dir),
@@ -194,6 +243,11 @@ def _plot_calibration(args: argparse.Namespace) -> None:
 
 
 def _plot_calibration_campaign(args: argparse.Namespace) -> None:
+    _reject_input_inside_output(
+        args.campaign_log, args.output_dir, label="the campaign chart output directory"
+    )
+    _reject_within(args.out, args.output_dir, label="the campaign chart output directory")
+    _reject_same_path(args.out, args.campaign_log)
     result = build_gl14_campaign_progress(
         Path(args.campaign_log),
         Path(args.output_dir),
@@ -290,7 +344,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="Optional second copy of the run manifest JSON")
     p.set_defaults(func=_run_eplus_smoke)
 
-    p = sub.add_parser("inspect-eplus-run", help="Validate existing eplusout artifacts without rerunning")
+    p = sub.add_parser(
+        "inspect-eplus-run",
+        help="Apply the hash-bound Building 59 calibration-ready evidence gate without rerunning",
+    )
     p.add_argument("--run-dir", required=True)
     p.add_argument("--idf", help="Optional source IDF to hash")
     p.add_argument("--epw", help="Optional source EPW to hash")

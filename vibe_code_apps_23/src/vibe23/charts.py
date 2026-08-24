@@ -111,14 +111,38 @@ def _native_interval_hours(index: pd.DatetimeIndex) -> float:
     return float(np.median(diffs))
 
 
+def _integration_hours(
+    index: pd.DatetimeIndex,
+    *,
+    interval_hours_override: float | None,
+    max_gap_factor: float = 4.0,
+) -> np.ndarray:
+    """Return left-hold elapsed hours, failing closed across excessive gaps."""
+    native = _native_interval_hours(index)
+    if interval_hours_override is not None:
+        override = float(interval_hours_override)
+        if not np.isfinite(override) or override <= 0.0:
+            raise ValueError("interval_hours must be finite and positive")
+        return np.full(len(index), override, dtype=float)
+    elapsed = np.diff(index.asi8.astype(np.float64)) / 3.6e12
+    if np.any(~np.isfinite(elapsed)) or np.any(elapsed <= 0.0):
+        raise ValueError("timestamps must be strictly increasing")
+    if float(np.max(elapsed)) > max_gap_factor * float(np.min(elapsed)):
+        raise ValueError(
+            "mean-power chart input contains an excessive timestamp gap; "
+            "quality-control the paired series before integration"
+        )
+    return np.append(elapsed, native)
+
+
 def _monthly_energy(
     paired: pd.DataFrame,
     *,
     data_kind: DataKind,
-    interval_hours: float,
+    interval_hours: np.ndarray,
 ) -> tuple[pd.DataFrame, pd.Series]:
     if data_kind == "mean_power":
-        energy = paired * interval_hours
+        energy = paired.mul(interval_hours, axis=0)
     else:
         energy = paired.copy()
     monthly = energy.resample("MS").sum(min_count=1).dropna()
@@ -406,15 +430,16 @@ def build_calibration_chart_pack(
         timezone=timezone,
     )
     native_interval = _native_interval_hours(paired.index)
-    effective_interval = native_interval if interval_hours is None else float(interval_hours)
-    if effective_interval <= 0:
-        raise ValueError("interval_hours must be positive")
+    integration_hours = _integration_hours(
+        paired.index,
+        interval_hours_override=interval_hours,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     monthly, counts = _monthly_energy(
         paired,
         data_kind=data_kind,
-        interval_hours=effective_interval,
+        interval_hours=integration_hours,
     )
     completeness = _complete_months(monthly, counts, native_interval_hours=native_interval)
     complete_month_names = {row["month"] for row in completeness["months"] if row["complete"]}
@@ -490,7 +515,13 @@ def build_calibration_chart_pack(
             "interval_unit": interval_unit,
             "energy_unit": energy_unit,
             "native_interval_hours_median": native_interval,
-            "energy_interval_hours": effective_interval,
+            "energy_integration": (
+                "constant_interval_override"
+                if interval_hours is not None
+                else "elapsed_time_left_hold; final_sample_uses_median_native_interval"
+            ),
+            "energy_interval_hours_min": float(np.min(integration_hours)),
+            "energy_interval_hours_max": float(np.max(integration_hours)),
             "timezone": str(paired.index.tz) if paired.index.tz is not None else None,
             "residual_sign": "simulated_minus_measured",
         },

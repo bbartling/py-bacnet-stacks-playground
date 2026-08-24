@@ -10,11 +10,11 @@ Version, {{ENERGYPLUS_VERSION}};
 
 Building,
   {{BUILDING_NAME}},          !- Name
-  0.0,                        !- North Axis {deg}
-  City,                       !- Terrain
+  0.0,                        !- North Axis {deg} (UNRESOLVED bootstrap placeholder)
+  City,                       !- Terrain (BOUNDED ASSUMPTION required before executable use)
   0.04,                       !- Loads Convergence Tolerance Value
   0.4,                        !- Temperature Convergence Tolerance Value {deltaC}
-  FullExterior,               !- Solar Distribution
+  FullExterior,               !- Solar Distribution (BOUNDED ASSUMPTION required before executable use)
   25,                         !- Maximum Number of Warmup Days
   6;                          !- Minimum Number of Warmup Days
 
@@ -32,12 +32,14 @@ RunPeriod,
   {{BEGIN_MONTH}}, {{BEGIN_DAY}}, {{END_MONTH}}, {{END_DAY}},
   UseWeatherFile, UseWeatherFile, No, Yes, Yes, No;
 
-! SOURCE FACT (B59-FLOORS): calibration scope is the third/fourth office floors.
+! SOURCE FACT (B59-FLOORS): the physical office floors are the third/fourth levels.
+! CANDIDATE SCOPE ONLY: meter-bound calibration scope is UNRESOLVED until the electrical boundary is frozen.
 ! UNRESOLVED (B59-OFFICE-AREA): floor area and geometry must be reconciled before
 ! detailed Zone, BuildingSurface:Detailed, and FenestrationSurface:Detailed objects are added.
 ! UNRESOLVED (B59-ZONE-MAP): do not add zones before sensor/thermal-zone mapping is evidenced.
 ! SOURCE FACT (B59-UFAD): model must eventually represent UFAD and four RTU service groups.
-! UNRESOLVED: RTU capacities, OA controls, UFT behavior, envelope, schedules, and setpoints.
+! SOURCE FACT: published RTU design/nameplate values exist; their exact per-unit applicability is unresolved.
+! UNRESOLVED: RTU performance curves/hard-sizing, OA controls, UFT behavior, envelope, schedules, and setpoints.
 ! This template intentionally contains no HVAC/geometry objects and will not produce a useful load result.
 
 Output:Meter, Electricity:Facility, Hourly;

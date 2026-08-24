@@ -40,13 +40,28 @@
       "rationale": "Published building description; capacities and service areas remain open."
     },
     {
-      "id": "B59-RTU-CAPACITIES",
+      "id": "B59-RTU-PUBLISHED-DESIGN-VALUES",
+      "parameter_family": "hvac_capacity",
+      "status": "SOURCE_FACT",
+      "value": {
+        "reported_per_rtu_airflow_cfm": 20000,
+        "reported_per_rtu_minimum_outdoor_air_cfm": 5000,
+        "reported_per_rtu_cooling_tons": 30,
+        "reported_supply_fan_motor_hp": 20,
+        "reported_return_fan_motor_hp": 7.5
+      },
+      "units": "mixed published design/nameplate values",
+      "source_ref": "SCI-DATA-2022",
+      "rationale": "Retain the published values as source evidence; they do not prove installed performance or authorize hard-sizing."
+    },
+    {
+      "id": "B59-RTU-MODEL-PERFORMANCE",
       "parameter_family": "hvac_capacity",
       "status": "UNRESOLVED",
       "value": null,
-      "units": "W",
-      "source_ref": "dataset metadata / equipment schedules",
-      "rationale": "Bind actual capacities or defensible sizing evidence before use."
+      "units": "EnergyPlus equipment objects and performance curves",
+      "source_ref": "equipment schedules, submittals, telemetry, or bounded calibration evidence",
+      "rationale": "Resolve per-unit applicability, efficiencies, curves, degradation, and hard-sizing/autosizing choice before use."
     },
     {
       "id": "B59-ENVELOPE",

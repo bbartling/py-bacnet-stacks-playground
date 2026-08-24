@@ -277,7 +277,7 @@ Monthly GL14 success alone is insufficient for grid flexibility.
 
 | Domain | Gate |
 | --- | --- |
-| Hourly whole-building electricity | `|NMBE| <= 10%`, `CV(RMSE) <= 30%` on quality-controlled overlapping hours |
+| Hourly whole-building electricity | `\|NMBE\| <= 10%`, `CV(RMSE) <= 30%` on quality-controlled overlapping hours |
 | Peak demand | Monthly observed vs simulated peak table; median absolute peak error and peak-time error reported; project-specific acceptance threshold preregistered before viewing candidate results |
 | Load shape | Weekday/weekend and occupied/unoccupied normalized profiles; no unexplained systematic phase shift |
 | End uses | Mapped HVAC/RTU/fan end-use bias and shape reported; acceptance bands based on meter uncertainty/coverage and frozen before final selection |

@@ -10,14 +10,22 @@ The curated public data can support a professional model-development workflow, b
 
 The machine-readable source registry is [`../../config/sources/building59_primary_sources.json`](../../config/sources/building59_primary_sources.json). The primary technical basis is the peer-reviewed data descriptor by Luo et al. (2022), with the Dryad dataset as the source of record. The published field-MPC paper is a cross-check, not a substitute for point bindings from the downloaded data.
 
-Evidence labels used below:
+Canonical `vibe23.evidence_ledger.v1` labels used below:
 
 | Label | Meaning | Permitted model use |
 | --- | --- | --- |
 | `SOURCE_FACT` | Directly supported by a cited official or peer-reviewed source. | Represent after recording the source and scope. |
-| `DATA_BINDING_REQUIRED` | Expected to be available, but the real file/column/units/timezone mapping has not yet been frozen. | Do not compare or control against it yet. |
-| `ASSUMPTION` | A transparent engineering choice, not a fact about Building 59. | Sensitivity only; never silently calibrate against it. |
+| `DERIVED` | Reproducibly computed from source evidence with the transform and source hashes recorded. | Use only within the declared derivation scope. |
+| `BOUNDED_ASSUMPTION` | A transparent engineering choice with a declared range and sensitivity test, not a fact about Building 59. | Sensitivity only; never silently calibrate against it. |
 | `UNRESOLVED` | Material information is missing or conflicts. | Block the affected model or economic claim. |
+| `REJECTED` | Reviewed evidence or a proposed binding was found unsuitable. | Exclude it and retain the rejection reason. |
+
+`DATA_BINDING_REQUIRED` from early notes maps to canonical `UNRESOLVED` plus a
+`resolution_action`; unbounded `ASSUMPTION` is invalid and must become a
+`BOUNDED_ASSUMPTION` with a range/sensitivity plan. These evidence-ledger
+labels are deliberately separate from `vibe23.parameter_ledger.v1`, whose
+model-authoring statuses are `SOURCE_FACT`, `DATA_BOUND`, `ASSUMPTION`, and
+`UNRESOLVED`.
 
 ## What the public record establishes
 
@@ -87,7 +95,7 @@ The source is clear that operating conditions change; the correct response is se
 1. Use the published 15-minute `site_weather` record as the preferred measurement source, rather than a typical meteorological year.
 2. Freeze raw timestamp interpretation, timezone, unit conversions, quality flags, gap treatment, and hourly aggregation in a versioned weather-processing manifest.
 3. Generate one annual EPW-compatible file per selected calendar year and retain a reconciliation report against raw values.
-4. Do not fill a long weather gap with generic weather without an evidence entry. Any non-measured substitution must be labeled `ASSUMPTION` and separately sensitivity-tested.
+4. Do not fill a long weather gap with generic weather without an evidence entry. Any non-measured substitution must be labeled `BOUNDED_ASSUMPTION` and separately sensitivity-tested.
 
 ## Measured-data binding plan
 
@@ -170,9 +178,10 @@ The following source-backed records were reviewed during the Vibe 23 integration
   },
   {
     "id": "B59-ELECTRIC-SCOPE",
-    "status": "DATA_BINDING_REQUIRED",
+    "status": "UNRESOLVED",
     "claim": "The first calibration target must bind the office/HVAC panel measurements to the modeled scope, including an explicit disposition for unrecorded north-wing lighting.",
-    "source": "SCI-DATA-2022 / DRYAD-B59-2022"
+    "source": "SCI-DATA-2022 / DRYAD-B59-2022",
+    "resolution_action": "Freeze real file, column, units, timezone, and meter-scope bindings."
   },
   {
     "id": "B59-ACTUAL-YEAR-WEATHER",

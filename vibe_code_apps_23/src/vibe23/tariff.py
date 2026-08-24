@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -205,12 +206,13 @@ def billing_cost(
 
     if len(facility_kw) != INTERVALS_PER_DAY:
         raise ValueError(f"facility_kw must have {INTERVALS_PER_DAY} values")
-    if dt_hours <= 0.0:
-        raise ValueError("dt_hours must be positive")
+    dt_hours = float(dt_hours)
+    if not math.isfinite(dt_hours) or dt_hours <= 0.0:
+        raise ValueError("dt_hours must be finite and positive")
     values = tuple(_finite_nonnegative(v, "facility kW") for v in facility_kw)
-    energy_kwh = sum(v * float(dt_hours) for v in values)
+    energy_kwh = sum(v * dt_hours for v in values)
     energy_cost = sum(
-        kw * float(dt_hours) * rate for kw, rate in zip(values, tariff.energy_rates_per_kwh, strict=True)
+        kw * dt_hours * rate for kw, rate in zip(values, tariff.energy_rates_per_kwh, strict=True)
     )
     day_peak_kw = max(values)
     old_floor_kw = opening_state.billing_floor_kw

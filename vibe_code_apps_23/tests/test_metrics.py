@@ -22,3 +22,9 @@ def test_bad_fit_fails_monthly():
     score = score_calibration([100.0, 100.0, 100.0], [70.0, 70.0, 70.0], "monthly")
     assert cvrmse([100.0, 100.0, 100.0], [70.0, 70.0, 70.0]) > 15
     assert score.passes is False
+
+
+def test_cvrmse_is_nonnegative_for_signed_series():
+    value = cvrmse([-10.0, -10.0], [10.0, -30.0])
+    assert value > 0.0
+    assert score_calibration([-10.0, -10.0], [10.0, -30.0], "monthly").passes is False

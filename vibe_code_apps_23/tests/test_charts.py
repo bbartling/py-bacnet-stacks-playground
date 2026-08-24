@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from vibe23.charts import build_calibration_chart_pack, build_gl14_campaign_progress
 
@@ -79,3 +80,35 @@ def test_campaign_progress_requires_hashes_and_marks_numeric_gate_provisional(tm
     assert manifest["best_iteration_by_gate_distance"] == 3
     assert (output / "monthly_gl14_progress_by_iteration.png").is_file()
     assert (output / "campaign_chart_manifest.json").is_file()
+
+
+def test_mean_power_monthly_energy_uses_elapsed_time_and_rejects_large_gaps(tmp_path):
+    source = tmp_path / "irregular.csv"
+    pd.DataFrame(
+        {
+            "timestamp": [
+                "2019-01-01T00:00:00Z",
+                "2019-01-01T01:00:00Z",
+                "2019-01-01T03:00:00Z",
+                "2019-01-01T04:00:00Z",
+            ],
+            "measured": [10.0] * 4,
+            "simulated": [10.0] * 4,
+        }
+    ).to_csv(source, index=False)
+    output = tmp_path / "figures"
+    manifest = build_calibration_chart_pack(source, output, data_kind="mean_power")
+    monthly = pd.read_csv(output / "monthly_comparison.csv")
+    assert monthly.loc[0, "measured"] == pytest.approx(50.0)
+    assert manifest["semantics"]["energy_interval_hours_max"] == 2.0
+
+    gapped = tmp_path / "gapped.csv"
+    pd.DataFrame(
+        {
+            "timestamp": ["2019-01-01T00:00:00Z", "2019-01-01T01:00:00Z", "2019-01-02T00:00:00Z"],
+            "measured": [10.0] * 3,
+            "simulated": [10.0] * 3,
+        }
+    ).to_csv(gapped, index=False)
+    with pytest.raises(ValueError, match="excessive timestamp gap"):
+        build_calibration_chart_pack(gapped, tmp_path / "gapped_figures", data_kind="mean_power")
