@@ -1,0 +1,25 @@
+{
+  "schema_version": "vibe23_openfdd_mapping_v1",
+  "building_id": "LBNL_B59",
+  "grid_minutes": 5,
+  "dataset_doi": "10.7941/D1N33Q",
+  "acquisition_manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "mapping_evidence": "TEMPLATE ONLY: replace every placeholder after reviewing the extracted Dryad metadata and inventory.",
+  "equipment": [
+    {
+      "equipment_id": "EXAMPLE_RTU_REPLACE_ME",
+      "equip_type": "ahu",
+      "source_file": "REPLACE_WITH_VERIFIED_RELATIVE_SOURCE.csv",
+      "timestamp_column": "REPLACE_WITH_VERIFIED_TIMESTAMP_COLUMN",
+      "source_timezone": "America/Los_Angeles",
+      "points": [
+        {
+          "haystack_point": "replace-with-verified-role",
+          "source_column": "REPLACE_WITH_VERIFIED_SOURCE_COLUMN",
+          "units": "REPLACE_WITH_VERIFIED_UNITS",
+          "evidence": "TEMPLATE ONLY: cite metadata workbook sheet/row and reviewer."
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,8 @@
 2. [`vibe23_agent_spec/SPEC.md`](vibe23_agent_spec/SPEC.md).
 3. [`vibe23_agent_spec/DATA_CONTRACT.md`](vibe23_agent_spec/DATA_CONTRACT.md).
 4. [`../agentic_ai/skills/energyplus-engineering/SKILL.md`](../agentic_ai/skills/energyplus-engineering/SKILL.md).
-5. Then the routed shared skill for dataset, calibration, tariff or DSM work.
+5. [`docs/VIBE23_CALIBRATED_MODEL_AND_GRID_FLEX_PLAN.md`](docs/VIBE23_CALIBRATED_MODEL_AND_GRID_FLEX_PLAN.md) for campaign sequencing.
+6. Then the routed shared skill: `dataset-provenance`, `openfdd-evidence-bridge`, `energyplus-model-authoring`, `energyplus-weather`, `energyplus-calibration`, `utility-tariff`, or `grid-search-dsm`.
 
 ## Hard rules
 - Never commit the 263 MB source archive or extracted multi-GB telemetry.
@@ -18,6 +19,8 @@
 - Never label a PG&E tariff as Building 59's actual tariff without evidence tying the rate to this building/account and period.
 - Never tune aggregate kWh while ignoring peak kW, end-use shape, HVAC operation or zone temperatures when those measurements are available.
 - Never call the model calibrated merely because EnergyPlus runs.
+- Never run an Open-FDD rule with invented roles or treat a rule hit as an IDF parameter.
+- Never use an unverified tariff to select a monetary winner; candidate/illustrative tariffs require physical ranking.
 - Preserve model, weather, source-data, parameter-ledger and output hashes for published calibration runs.
 - Change a small named parameter family per calibration iteration.
 - DSM work is simulation-only until a calibrated/validated baseline and frozen experiment contract exist.

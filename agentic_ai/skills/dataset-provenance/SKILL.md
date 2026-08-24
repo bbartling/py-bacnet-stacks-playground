@@ -1,4 +1,9 @@
-# Skill — Public Dataset Provenance
+---
+name: dataset-provenance
+description: Acquire and retain public building datasets reproducibly, with source hashes, safe extraction, and a strict raw-versus-derived boundary.
+---
+
+# Public dataset provenance
 
 ## Goal
 Acquire public building datasets reproducibly without committing huge archives or losing source provenance.

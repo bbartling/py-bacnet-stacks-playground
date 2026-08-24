@@ -1,0 +1,88 @@
+{
+  "schema": "vibe23.parameter_ledger.v1",
+  "building": "LBNL Building 59 / Shyh Wang Hall",
+  "purpose": "Seed ledger only. Values are not calibrated and must not be used for DSM claims.",
+  "entries": [
+    {
+      "id": "B59-FLOOR-SCOPE",
+      "parameter_family": "geometry_scope",
+      "status": "SOURCE_FACT",
+      "value": "third and fourth office floors",
+      "units": "description",
+      "source_ref": "B59-FLOORS",
+      "rationale": "Dataset publication identifies the office-floor monitoring scope."
+    },
+    {
+      "id": "B59-OFFICE-AREA",
+      "parameter_family": "geometry_scope",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "m2",
+      "source_ref": "B59-AREA-DISCREPANCY",
+      "rationale": "Reconcile monitored-area and later field-study area figures before geometry freeze."
+    },
+    {
+      "id": "B59-ZONE-MAP",
+      "parameter_family": "thermal_zoning",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "zone map",
+      "source_ref": "dataset inventory and metadata",
+      "rationale": "Do not invent zone-to-sensor or perimeter/core mappings."
+    },
+    {
+      "id": "B59-UFAD-RTU-TOPOLOGY",
+      "parameter_family": "hvac_topology",
+      "status": "SOURCE_FACT",
+      "value": "UFAD served by four rooftop units",
+      "units": "description",
+      "source_ref": "B59-UFAD",
+      "rationale": "Published building description; capacities and service areas remain open."
+    },
+    {
+      "id": "B59-RTU-CAPACITIES",
+      "parameter_family": "hvac_capacity",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "W",
+      "source_ref": "dataset metadata / equipment schedules",
+      "rationale": "Bind actual capacities or defensible sizing evidence before use."
+    },
+    {
+      "id": "B59-ENVELOPE",
+      "parameter_family": "envelope",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "construction set",
+      "source_ref": "drawings or source metadata",
+      "rationale": "Wall, roof, glazing and infiltration must not be guessed as calibrated facts."
+    },
+    {
+      "id": "B59-OCCUPANCY-SCHEDULE",
+      "parameter_family": "internal_loads_schedules",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "fraction schedule",
+      "source_ref": "occupancy telemetry binding",
+      "rationale": "Build from positively identified data after time-basis checks."
+    },
+    {
+      "id": "B59-ACTUAL-WEATHER",
+      "parameter_family": "weather",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "EPW",
+      "source_ref": "actual-year Berkeley weather source",
+      "rationale": "Use a documented AMY/observed year consistent with measured timestamps."
+    },
+    {
+      "id": "B59-CONTROL-SETPOINTS",
+      "parameter_family": "controls",
+      "status": "UNRESOLVED",
+      "value": null,
+      "units": "C and schedule",
+      "source_ref": "RTU/UFT/zone point binding",
+      "rationale": "2020 control changes must not be mixed into a baseline calibration."
+    }
+  ]
+}

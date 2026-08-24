@@ -11,6 +11,8 @@ Expected Dryad release files:
 
 The full Dryad download may wrap these files in another ZIP. The downloader safely extracts the wrapper, finds exactly one `Building_59.zip`, then safely extracts the nested telemetry archive.
 
+The public endpoint may return HTTP 401/403 to an automated client. Use an authorized `VIBE23_DRYAD_BEARER_TOKEN`, an authorized URL override, or download all four release files manually and pass their directory with `vibe23 download --source-release <DIR>`. The manifest records acquisition mode and hashes, never credentials.
+
 ## Derived data
 `data/processed/` holds inventory tables, explicit point bindings, aligned measured targets and measured-vs-sim comparison tables. Large derived telemetry remains local.
 

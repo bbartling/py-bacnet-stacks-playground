@@ -1,11 +1,16 @@
-# Skill — EnergyPlus Existing-Building Calibration
+---
+name: energyplus-calibration
+description: Calibrate an existing-building EnergyPlus model against measured energy and operational evidence using auditable Guideline-14-style scorecards.
+---
+
+# EnergyPlus existing-building calibration
 
 ## Goal
 Build an auditable EnergyPlus model aligned to measured energy, demand and operating behavior before DSM claims are made.
 
 ## Calibration ladder
 1. Freeze measured-data period, timezone, interval semantics and weather source.
-2. Inventory known geometry, envelope, occupancy, HVAC topology, capacities, controls and meters.
+2. Inventory known geometry, envelope, occupancy, HVAC topology, capacities, controls and meters; reconcile meter scope with modeled scope.
 3. Record source facts vs assumptions in a parameter/evidence ledger.
 4. Build the simplest model that preserves the real behavior required by the study.
 5. Match schedules and base loads before tuning efficiencies.
@@ -13,6 +18,8 @@ Build an auditable EnergyPlus model aligned to measured energy, demand and opera
 7. Compare monthly and, where available, hourly/sub-hourly load shape and peak demand.
 8. Change a small documented parameter group per iteration; persist hashes and scorecards.
 9. Hold out a period when enough data exist.
+
+For a sparse-data seed, use a transparent defaults hierarchy and label every default. Do not use a passing monthly score to erase unsupported geometry, controls, fuel, or meter-allocation assumptions. A conventional tuning order is: meter scope/schedules and internal loads, geometry/envelope/infiltration, ventilation/fan/runtime, then plant/equipment performance and control behavior. If a change improves one fuel while materially degrading another, record the tradeoff rather than silently selecting by annual total.
 
 ## Default ASHRAE Guideline 14-style gates
 - Monthly: `|NMBE| <= 5%`, `CV(RMSE) <= 15%`.

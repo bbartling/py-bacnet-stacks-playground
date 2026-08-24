@@ -26,6 +26,7 @@ Dryad DOI/API
   -> safe download + hashes
   -> immutable raw telemetry + metadata
   -> inventory / Brick + point binding / timezone contract
+  -> strict Open-FDD package + reviewed operational evidence
   -> measured hourly/monthly targets + evidence ledger
   -> EnergyPlus seed + actual-year weather
   -> measured/sim alignment
@@ -65,7 +66,7 @@ Also inspect peak kW/time, load shape, HVAC end uses, equipment runtime and occu
 Hold out a period when data quality permits. A failed holdout sends the model back to calibration; do not tune on the holdout and still call it validation.
 
 ### Phase 5 — tariff
-Research archived rates for the selected period. Until Building 59 account/rate assignment is proven, pricing remains `CANDIDATE_HISTORICAL_TARIFF` or `ILLUSTRATIVE_TARIFF`.
+Research archived rates for the selected period. Until Building 59 account/rate assignment is proven, tariff evidence remains `CANDIDATE` or `ILLUSTRATIVE`; only account/period-bound evidence may be `VERIFIED`.
 
 ### Phase 6 — DSM
 Transparent grid search and weather-trigger strategies first, then demand-limit/reset strategies, then MPC/RL only if justified.
@@ -77,6 +78,7 @@ Do not choose a year only for convenience. Review missingness and controls first
 - Python 3.12 tooling.
 - Pandas/Numpy for telemetry and metrics.
 - EnergyPlus remains an external engine.
+- Open-FDD and `airboxlab/rllib-energyplus` are external, pinned integration targets; the lightweight Vibe 23 contracts do not install their full stacks in CI.
 - Large data stay local, not in git.
 - CI does not download the full 263 MB package.
 

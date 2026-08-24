@@ -1,4 +1,9 @@
-# Skill — DSM Experiment Design
+---
+name: dsm-experiment-design
+description: Define reproducible demand-side-management comparisons with frozen baselines, controls, comfort constraints, weather, and tariff semantics.
+---
+
+# DSM experiment design
 
 ## Goal
 Compare DSM strategies against a reproducible baseline without changing weather, initial state, occupancy, tariff semantics or unrelated model parameters between arms.
@@ -12,6 +17,8 @@ Compare DSM strategies against a reproducible baseline without changing weather,
 - comfort limits and violation metrics;
 - kWh and peak-kW metrics;
 - tariff status/hash when reporting dollars.
+
+If using a shaped RL reward, version it separately from physical/economic evaluation. A reward may include readiness, comfort, energy, demand, and action-smoothness terms, but it must not replace the published readiness constraint or tariff accounting. Preserve incumbent and candidate baseline definitions; do not relabel a modeled baseline as verified BAS behavior without source evidence.
 
 ## Recommended progression
 1. Fixed schedule/setpoint grid search.

@@ -1,4 +1,9 @@
-# Skill — Utility Tariff Evidence
+---
+name: utility-tariff
+description: Establish historical electricity tariff evidence and label verified, candidate, and illustrative cost models correctly.
+---
+
+# Utility tariff evidence
 
 ## Goal
 Model electricity cost without confusing an illustrative tariff with the building's actual historical billing arrangement.
@@ -12,8 +17,8 @@ Model electricity cost without confusing an illustrative tariff with the buildin
 6. Use the same timezone and interval convention as the measured meter.
 
 ## Required labels
-- `VERIFIED_HISTORICAL_TARIFF`
-- `CANDIDATE_HISTORICAL_TARIFF`
-- `ILLUSTRATIVE_TARIFF`
+- `VERIFIED`: account, meter boundary, source document, and effective period are proven.
+- `CANDIDATE`: authentic schedule/scenario, but account-period binding is not proven.
+- `ILLUSTRATIVE`: synthetic research scenario.
 
 Never present candidate or illustrative cost as a reconstructed utility invoice.

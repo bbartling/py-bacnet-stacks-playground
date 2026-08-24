@@ -1,11 +1,21 @@
-# Skill — EnergyPlus Engineering Router
+---
+name: energyplus-engineering
+description: Route shared EnergyPlus work to the right intake, authoring, calibration, tariff, results, or DSM procedure.
+---
+
+# EnergyPlus engineering router
 
 ## Goal
 Provide one reusable engineering entry point for EnergyPlus work across the Vibe series.
 
 ## Route by task
 - Public measured data intake → `../dataset-provenance/SKILL.md`
-- Existing-building model creation/calibration → `../energyplus-calibration/SKILL.md`
+- Building profile, privacy, or source facts → `../building-intake/SKILL.md`
+- Seed IDF, geometry, schedules, or HVAC representation → `../energyplus-model-authoring/SKILL.md`
+- Existing-building calibration → `../energyplus-calibration/SKILL.md`
+- Actual-year/typical weather → `../energyplus-weather/SKILL.md`
+- EnergyPlus MCP operations → `../energyplus-mcp/SKILL.md`
+- Output extraction and simulation QA → `../energyplus-results/SKILL.md`
 - Rates, TOU, demand charges → `../utility-tariff/SKILL.md`
 - Demand-side-management experiments → `../dsm-experiment-design/SKILL.md`
 

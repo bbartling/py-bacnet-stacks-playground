@@ -1,0 +1,63 @@
+{
+  "schema": "vibe23.source_manifest.v1",
+  "purpose": "Authoritative sources used by the Building 59 calibration evidence dossier. URLs are intentionally retained so every modeled input can be traced to a stable public source or explicitly marked unresolved.",
+  "sources": [
+    {
+      "id": "SCI-DATA-2022",
+      "title": "A three-year dataset supporting research on building energy management and occupancy analytics",
+      "publisher": "Scientific Data / Nature Portfolio",
+      "publication_date": "2022-04-05",
+      "doi": "10.1038/s41597-022-01257-x",
+      "url": "https://doi.org/10.1038/s41597-022-01257-x",
+      "source_class": "peer_reviewed_open_access",
+      "use": ["building and HVAC description", "point inventory", "operational-change timeline", "weather provenance", "data-quality cautions"]
+    },
+    {
+      "id": "DRYAD-B59-2022",
+      "title": "A three-year building operational performance dataset for informing energy efficiency",
+      "publisher": "Dryad",
+      "publication_date": "2022-02-02",
+      "doi": "10.7941/D1N33Q",
+      "url": "https://doi.org/10.7941/D1N33Q",
+      "source_class": "official_research_dataset",
+      "use": ["source data", "metadata JSON", "Brick TTL", "data dictionary", "cleaned CSV files"]
+    },
+    {
+      "id": "BLUM-APPL-ENERGY-2022",
+      "title": "Field demonstration and implementation analysis of model predictive control in an office HVAC system",
+      "publisher": "Applied Energy",
+      "publication_date": "2022",
+      "doi": "10.1016/j.apenergy.2022.119104",
+      "url": "https://doi.org/10.1016/j.apenergy.2022.119104",
+      "author_manuscript_url": "https://eta-publications.lbl.gov/sites/default/files/field_demonstration_and_implementation_analysis_of_model_predictive_control_in_an_office_hvac_system.pdf",
+      "source_class": "peer_reviewed_with_lbnl_author_manuscript",
+      "use": ["MPC implementation context", "office-area discrepancy", "control topology cross-check"]
+    },
+    {
+      "id": "LBNL-GRIZZLY-2003",
+      "title": "Berkeley Lab Currents — April 4, 2003",
+      "publisher": "Lawrence Berkeley National Laboratory",
+      "publication_date": "2003-04-04",
+      "url": "https://www2.lbl.gov/Publications/Currents/Archive/Apr-04-2003.html",
+      "source_class": "official_laboratory_history",
+      "use": ["campus electrical-supply context only; not a Building 59 bill or 2018–2020 tariff assignment"]
+    },
+    {
+      "id": "PGE-TARIFF-ARCHIVE",
+      "title": "PG&E electric-rate archive",
+      "publisher": "Pacific Gas and Electric Company",
+      "url": "https://www.pge.com/tariffs/en/rate-information/electric-rates.html",
+      "source_class": "official_utility_tariff_archive",
+      "use": ["retrieve a dated candidate tariff only after rate class, service voltage, account ownership, and allocation method are established"]
+    },
+    {
+      "id": "CPUC-E19-E20-2018",
+      "title": "PG&E Advice Letter 5470-E / eligibility context for E-19 and E-20",
+      "publisher": "Pacific Gas and Electric Company / California Public Utilities Commission filing",
+      "publication_date": "2019-02-08",
+      "url": "https://www.pge.com/tariffs/assets/pdf/adviceletter/ELEC_5470-E.pdf",
+      "source_class": "official_regulatory_filing",
+      "use": ["illustrative legacy rate-schedule eligibility context only; not evidence that Building 59 was served or charged under either schedule"]
+    }
+  ]
+}

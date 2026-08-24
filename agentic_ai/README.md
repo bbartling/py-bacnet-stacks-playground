@@ -11,4 +11,4 @@ https://chatgpt.com/g/g-6a8b47125fa48191b2afe16c24e5a9e7-energyplus-engineer-wiz
 
 That GPT can be a useful interactive front end or source of ideas, but this repository is the auditable source of truth. Any instruction that becomes important to repeatability, CI, calibration claims, or engineering safety should be promoted into a version-controlled `SKILL.md` here.
 
-See [`skills/README.md`](skills/README.md).
+See [`skills/README.md`](skills/README.md). The shared registry includes a machine-readable Vibe 19–22 migration map and validator, while historical app-local skills remain unchanged for auditability.

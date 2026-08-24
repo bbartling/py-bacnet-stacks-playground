@@ -31,3 +31,10 @@ jobs:
           pip install -e ".[dev]"
       - name: Pytest
         run: python -m pytest
+      - name: Ruff
+        run: python -m ruff check src tests
+      - name: Compile package
+        run: python -m compileall -q src/vibe23
+      - name: Validate Vibe 19-22 shared-skill migration
+        working-directory: .
+        run: python agentic_ai/skills/scripts/validate_registry.py

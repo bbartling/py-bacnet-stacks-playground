@@ -1,0 +1,10 @@
+{
+  "schema": "vibe23.rllib_energyplus_pin.v1",
+  "repository": "https://github.com/airboxlab/rllib-energyplus",
+  "commit": "a8993f0d87e7d1fbcff0c2593274de2d472aef75",
+  "package_version": "0.11.0",
+  "inspected_at_utc": "2026-08-24T00:00:00Z",
+  "grid_search_support": "Vibe 23 owns deterministic enumeration; no upstream grid-search claim.",
+  "building59_runtime_status": "BLOCKED_UNTIL_MODEL_AND_ACTUATOR_BINDINGS_EXIST",
+  "reviewed_limitation": "The pinned upstream runner applies only the first configured actuator."
+}

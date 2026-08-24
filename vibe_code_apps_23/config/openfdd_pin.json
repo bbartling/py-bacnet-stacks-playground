@@ -1,0 +1,9 @@
+{
+  "schema": "vibe23.openfdd_pin.v1",
+  "repository": "https://github.com/bbartling/open-fdd",
+  "commit": "83a93de38fb9dda3a4545644bcb9b950c145c2d4",
+  "inspected_at_utc": "2026-08-24T00:00:00Z",
+  "package_contract": "openfdd_package_v1",
+  "use": "Local import/analytics compatibility target for Vibe 23 evidence packages.",
+  "claim_boundary": "Pinning a compatible Open-FDD revision does not prove that Building 59 analytics have run or that an EnergyPlus model is calibrated."
+}
