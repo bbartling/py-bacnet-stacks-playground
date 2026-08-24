@@ -4,7 +4,7 @@
 
 **Dataset:** Dryad DOI `10.7941/D1N33Q`
 
-**Current authorized status:** `CALIBRATION_BOOTSTRAP`
+**Current authorized status:** `CALIBRATION_IN_PROGRESS_BEST_EFFORT`
 **Primary outcome:** a reproducible, evidence-backed EnergyPlus baseline that passes the declared calibration and validation gates before it is used for transparent grid-flexibility experiments.
 
 This is an execution plan, not evidence that the model is calibrated. No monthly Guideline 14 result, hourly result, tariff savings, peak reduction, or DSM readiness claim is authorized until the corresponding campaign has run and its artifacts pass the gates below.
@@ -31,14 +31,14 @@ If only the monthly gate passes, the allowed status is `MONTHLY_CALIBRATED`, not
 
 | Phase | Starting status | Exit status | Primary shared skill routing | State |
 | --- | --- | --- | --- | --- |
-| 0. Evidence freeze and acquisition | `CALIBRATION_BOOTSTRAP` | acquisition frozen | `dataset-provenance` | Bootstrap code exists; full campaign not yet run |
-| 1. Point mapping and data-quality audit | acquisition frozen | `DATA_MAPPED` | `dataset-provenance` | Not complete |
-| 2. Open-FDD operational analytics | `DATA_MAPPED` | analytics evidence frozen | `openfdd-evidence-bridge` | Strict exporter implemented; real mapping/analytics not run |
-| 3. Modeling basis and IDF seed | analytics evidence frozen | `MODEL_SEED` | `energyplus-model-authoring` | Evidence ledger/template implemented; runnable IDF not built |
-| 4. AMY and measured-target freeze | `MODEL_SEED` | calibration inputs frozen | `energyplus-calibration` | Not built |
-| 5. Monthly calibration campaign | inputs frozen | `MONTHLY_CALIBRATED` | `energyplus-calibration` | Not run |
+| 0. Evidence freeze and acquisition | `CALIBRATION_BOOTSTRAP` | acquisition frozen | `dataset-provenance` | Package acquired and hashed; mirror transport/current-BBD version reconciliation remains open |
+| 1. Point mapping and data-quality audit | acquisition frozen | `DATA_MAPPED` | `dataset-provenance` | All 27 CSVs have audited roles; complete executable point/unit/time binding remains blocked |
+| 2. Open-FDD operational analytics | `DATA_MAPPED` | analytics evidence frozen | `openfdd-evidence-bridge` | Strict exporter plus direct occupancy/HVAC evidence scripts exist; reviewed real Open-FDD packages remain open |
+| 3. Modeling basis and IDF seed | analytics evidence frozen | `MODEL_SEED` | `energyplus-model-authoring` | Runnable proxy seed exists; as-operated four-RTU/UFAD/UFT/plant model not built |
+| 4. AMY and measured-target freeze | `MODEL_SEED` | calibration inputs frozen | `energyplus-calibration` | 2020 derived subtotal and bounded-hybrid AMY published; source clock, scope, and auxiliary weather gaps remain open |
+| 5. Monthly calibration campaign | inputs frozen | `MONTHLY_CALIBRATED` | `energyplus-calibration` | 50-run screening complete; monthly gate failed, so no promotion |
 | 6. Hourly/physics validation | `MONTHLY_CALIBRATED` | `HOURLY_CALIBRATED` | `energyplus-calibration` | Not run |
-| 7. Chronological holdout | `HOURLY_CALIBRATED` | `VALIDATED_HOLDOUT` | `energyplus-calibration` | Not run |
+| 7. Chronological holdout | `HOURLY_CALIBRATED` | `VALIDATED_HOLDOUT` | `energyplus-calibration` | Not run; the screening's Oct-Dec metrics were exposed for every candidate and were not a blind holdout |
 | 8. Historical tariff proof | data mapped | tariff label frozen | `utility-tariff` | Unproven |
 | 9. Grid-search laboratory | holdout + tariff label frozen | `DSM_RESEARCH_READY` | `dsm-experiment-design` | Not authorized |
 | 10. Publication and handoff | all applicable gates pass | reproducible research release | all routed skills | Not started |

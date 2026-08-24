@@ -26,6 +26,7 @@ def test_existing_energyplus_run_passes_only_with_clean_complete_hashed_artifact
         encoding="utf-8",
     )
     (tmp_path / "eplusout.csv").write_text("Date/Time,Electricity:Facility [J](Hourly)\n1/1 01:00,1\n", encoding="utf-8")
+    (tmp_path / "console.log").write_text("EnergyPlus Completed Successfully.\n", encoding="utf-8")
 
     report = inspect_energyplus_run(
         tmp_path, idf=idf, epw=epw, energyplus_version="26.1", process_returncode=0

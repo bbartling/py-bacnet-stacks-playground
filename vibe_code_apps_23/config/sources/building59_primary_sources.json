@@ -34,6 +34,59 @@
       "use": ["MPC implementation context", "office-area discrepancy", "control topology cross-check"]
     },
     {
+      "id": "LBNL-FLEX-MPC-2024",
+      "title": "Field Performance of Commercial Building Load Flexibility Using Model Predictive Control",
+      "publisher": "Lawrence Berkeley National Laboratory / 8th International High Performance Buildings Conference at Purdue",
+      "publication_date": "2024-07",
+      "doi": "10.20357/B72310",
+      "url": "https://doi.org/10.20357/B72310",
+      "full_text_url": "https://eta-publications.lbl.gov/sites/default/files/2024-10/field_performance_of_building_load_flexibility_model_predictive_control.pdf",
+      "source_class": "government_laboratory_conference_paper",
+      "use": [
+        "later field-control observations",
+        "weekday occupancy/HVAC schedule evidence",
+        "RTU/UFT control bounds",
+        "office-study-area discrepancy"
+      ]
+    },
+    {
+      "id": "LBNL-SHYH-WANG-OPENING-2015",
+      "title": "Berkeley Lab Opens State-of-the-Art Facility for Computational Science",
+      "publisher": "Lawrence Berkeley National Laboratory",
+      "publication_date": "2015-11-12",
+      "url": "https://cs-newsarchive.lbl.gov/news/2015/berkeley-lab-opens-state-of-the-art-facility-for-computational-science/",
+      "source_class": "official_laboratory_announcement",
+      "use": [
+        "facility completion/use context",
+        "facility gross-area context",
+        "HPC and office coexistence",
+        "HPC heat-recovery/cooling context"
+      ]
+    },
+    {
+      "id": "CEC-T24-2013-ACCEPTANCE-TESTING",
+      "title": "Acceptance Testing and the 2013 Energy Standards",
+      "publisher": "California Energy Commission",
+      "publication_date": "2015-03-19",
+      "url": "https://www.energy.ca.gov/sites/default/files/2020-04/2013_ORC_ATTCP_Testing_presentation_ada.pdf",
+      "source_class": "official_state_energy_code_material",
+      "use": [
+        "2013 Title 24 effective-date and permit-trigger context only",
+        "bounded code-prior documentation; not as-built compliance evidence"
+      ]
+    },
+    {
+      "id": "USGBC-LEED-V4-MIN-ENERGY",
+      "title": "LEED v4 Minimum Energy Performance",
+      "publisher": "U.S. Green Building Council",
+      "url": "https://www.usgbc.org/credits/new-construction-core-and-shell-schools-new-construction-warehouse-and-distribution-centers",
+      "source_class": "official_rating_system_requirement",
+      "use": [
+        "ASHRAE 90.1-2010 LEED baseline context only",
+        "bounded comparison-prior documentation; not evidence of B59 design basis"
+      ]
+    },
+    {
       "id": "LBNL-GRIZZLY-2003",
       "title": "Berkeley Lab Currents — April 4, 2003",
       "publisher": "Lawrence Berkeley National Laboratory",

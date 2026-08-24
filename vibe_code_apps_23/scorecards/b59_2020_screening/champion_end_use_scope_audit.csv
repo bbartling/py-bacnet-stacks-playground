@@ -1,0 +1,8 @@
+category,measured_kwh,simulated_kwh,sim_minus_measured_pct,model_meter,disposition
+meter_bound_mels,28547.736654018503,89576.26118127674,213.7771034771949,B59:MeterBound:MELsSouthPlusNorth,matched only by provisional model load category
+meter_bound_south_lighting,6420.75057720625,34789.03679076705,441.821962595286,B59:MeterBound:LightingSouth,north lighting absent from telemetry
+hvac_panels_scope_gap,307950.87164985726,231529.37058352167,-24.81613403362192,B59:MappedRTU:FansPlusCooling,panels include unresolved elevator/plant loads
+derived_office_subtotal,342919.35888108204,355894.66855556547,3.7837787043638516,B59:ScopeAudit:PartialMeterBoundProxy,aggregate screening proxy only
+unmetered_north_lighting,,34789.03679076705,,B59:Unmetered:LightingNorth,no measured lig_N channel
+unresolved_terminal_reheat,,626219.745023938,,B59:Unresolved:ElectricTerminalReheat,proxy is not documented hydronic UFT plant
+facility_total_not_comparable,,1016903.4503702708,,Electricity:Facility,must never be scored against office subtotal

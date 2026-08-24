@@ -13,4 +13,12 @@ Use this to create a seed/baseline IDF or a controlled model variant.
 4. Establish the baseline and hash the IDF, weather, inputs, and EnergyPlus version. Autosizing is not evidence of installed capacity.
 5. Apply small named patches with pre/post values, units, source evidence, and an output diff. Validate the IDF and retain artifacts before simulation.
 
+For an as-operated retrofit of a runnable proxy model, replace structural
+mismatches before numerical tuning: real air-loop/terminal/plant topology,
+fuel and heat-source type, measured operating schedules and setpoints, then
+equipment performance. Treat BAS fan speed, valve position, flow, and thermal
+rate as distinct evidence—not interchangeable proof of equipment runtime or
+electrical power. Preserve the old proxy and its hashes rather than silently
+rewriting a published campaign artifact.
+
 Use `energyplus-calibration` for measured-data tuning, `energyplus-weather` for EPW selection, and `energyplus-mcp` only when that integration is available.

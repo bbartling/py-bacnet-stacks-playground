@@ -1,0 +1,62 @@
+{
+  "schema": "vibe23.b59_amy_epw.v1",
+  "year": 2020,
+  "timezone_semantics": "fixed PST (UTC-8) EPW local standard time",
+  "site": {
+    "name": "LBNL Building 59 / Shyh Wang Hall",
+    "requested_coordinates": [37.876, -122.249],
+    "elevation_m": 270.1668,
+    "elevation_source": "USGS EPQS"
+  },
+  "measured_source": {
+    "path": "data/raw/building_59/Bldg59_clean data/site_weather.csv",
+    "sha256": "4c261470206f1a75aa306dc6407c0f34b853ba8b0c2d87de91679b2a977de0b4",
+    "raw_timestamp_timezone": "UTC",
+    "columns": {
+      "timestamp": "date",
+      "dry_bulb_c": "air_temp_set_1",
+      "dew_point_c": "dew_point_temperature_set_1d",
+      "relative_humidity_pct": "relative_humidity_set_1",
+      "ghi_w_m2": "solar_radiation_set_1"
+    },
+    "observed_hourly_rows": 8776,
+    "expected_hourly_rows": 8784
+  },
+  "bounded_substitution": {
+    "policy": "Only the final eight fixed-PST hours use an explicit, hashed Open-Meteo substitution",
+    "hours_local_standard": [
+      "2020-12-31T16:00:00-08:00",
+      "2020-12-31T17:00:00-08:00",
+      "2020-12-31T18:00:00-08:00",
+      "2020-12-31T19:00:00-08:00",
+      "2020-12-31T20:00:00-08:00",
+      "2020-12-31T21:00:00-08:00",
+      "2020-12-31T22:00:00-08:00",
+      "2020-12-31T23:00:00-08:00"
+    ],
+    "substitution_csv_sha256": "fec93e529f53027bd3a652ff6ab87e85f082db2b6cb15ac8092e094e826b4237"
+  },
+  "auxiliary_source": {
+    "provider": "Open-Meteo Historical Weather API reanalysis",
+    "documentation": "https://open-meteo.com/en/docs/historical-weather-api",
+    "raw_2020_json_sha256": "8bb83db590ea0f61b22fee460421d556a309f9b268ff7800e6864776a6b9f578",
+    "raw_tail_json_sha256": "e89e96a0510d43a87fc891ccc733a4d1a50470758a1a75c88201121323877210",
+    "returned_coordinates": [37.855885, -122.21181],
+    "fields": [
+      "pressure",
+      "wind direction",
+      "wind speed",
+      "direct normal irradiance",
+      "diffuse horizontal irradiance",
+      "precipitation",
+      "cloud cover"
+    ]
+  },
+  "output_epw": {
+    "path": "weather/b59_2020_bounded_hybrid_amy.epw",
+    "sha256": "8ab9ce9094a76a5c70ffaf0136388137ddeb0ba7caa20e824d09888daa3197de",
+    "hourly_rows": 8784,
+    "leap_year_observed": true
+  },
+  "claim_boundary": "Bounded hybrid actual-year weather for screening; not a pure measured AMY and not sufficient for a calibration claim."
+}

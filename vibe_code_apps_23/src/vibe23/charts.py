@@ -37,6 +37,15 @@ RESIDUAL = "#f0a04b"
 FAIL = "#ff6b6b"
 
 
+def _portable_path(path: Path) -> str:
+    """Prefer a repository-relative manifest label when the source is local."""
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
 def _style(ax: plt.Axes) -> None:
     ax.set_facecolor(PANEL)
     ax.tick_params(colors=MUTED)
@@ -501,7 +510,7 @@ def build_calibration_chart_pack(
         "claim_status": "DIAGNOSTIC_ONLY_NOT_A_CALIBRATION_CLAIM",
         "title": title,
         "source": {
-            "path": str(comparison_csv),
+            "path": _portable_path(comparison_csv),
             "sha256": sha256_file(comparison_csv),
             "timestamp_column": timestamp_column,
             "measured_column": measured_column,
@@ -638,7 +647,7 @@ def build_gl14_campaign_progress(
             if bool(frame["numeric_gate_met"].any())
             else "CALIBRATION_IN_PROGRESS_NUMERIC_GATE_NOT_MET"
         ),
-        "source": {"path": str(campaign_log_csv), "sha256": sha256_file(campaign_log_csv)},
+        "source": {"path": _portable_path(campaign_log_csv), "sha256": sha256_file(campaign_log_csv)},
         "iteration_count": len(frame),
         "best_iteration_by_gate_distance": int(best["iteration"]),
         "first_numeric_gate_iteration": None if first_gate.empty else int(first_gate.iloc[0]["iteration"]),

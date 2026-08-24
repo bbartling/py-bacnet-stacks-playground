@@ -208,15 +208,13 @@ def inspect_energyplus_run(
     )
     fatal_count = max(len(_FATAL_RE.findall(err_text)), len(_FATAL_RE.findall(console_text)))
     completed = end_match is not None and "terminated--fatal error detected" not in diagnostic_text.casefold()
-    completion_documents = (
-        (end_text, end_match),
-        (err_text, err_match),
-        (console_text, console_match),
-    )
+    # EnergyPlus's console normally ends with the bare phrase ``EnergyPlus
+    # Completed Successfully.`` while eplusout.end/err carry the counted
+    # warning/severe summary.  Compare every *parseable counted* summary and
+    # require eplusout.end; a bare console success line is not contradictory.
+    counted_summaries = [match for match in (err_match, console_match) if match is not None]
     summary_consistent = end_match is not None and all(
-        match is not None and match.groups() == end_match.groups()
-        for text, match in completion_documents
-        if "energyplus completed successfully" in text.casefold()
+        match.groups() == end_match.groups() for match in counted_summaries
     )
     first_severe = next((line.strip() for line in err_text.splitlines() if _SEVERE_RE.search(line)), None)
     first_fatal = next((line.strip() for line in err_text.splitlines() if _FATAL_RE.search(line)), None)
@@ -459,6 +457,7 @@ def run_energyplus_smoke(
         assert capability.native_executable
         command = [
             capability.native_executable,
+            "-x",
             "-w",
             str(staged_epw),
             "-d",
@@ -488,6 +487,7 @@ def run_energyplus_smoke(
             f"{output_dir}:/work/out",
             docker_image,
             "energyplus",
+            "-x",
             "-w",
             f"/work/in/{staged_epw.name}",
             "-d",
@@ -524,7 +524,7 @@ def run_energyplus_smoke(
             "docker_image": docker_image if selected == "docker" else None,
             "process_returncode": completed.returncode,
             "capability": capability.to_dict(),
-            "command_contract": "energyplus -w <EPW> -d <OUTPUT> -r <IDF>",
+            "command_contract": "energyplus -x -w <EPW> -d <OUTPUT> -r <IDF>",
         }
     )
     manifest = output_dir / "run_manifest.json"

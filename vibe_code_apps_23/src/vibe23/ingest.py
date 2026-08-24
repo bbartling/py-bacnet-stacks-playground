@@ -11,7 +11,17 @@ _VALUE_HINT = re.compile(r"(power|kw|electric|energy|kwh|meter|demand)", re.I)
 
 
 def iter_csv_files(root: Path):
-    yield from sorted(path for path in root.rglob("*.csv") if path.is_file())
+    root = Path(root)
+    def is_extraction_artifact(path: Path) -> bool:
+        relative = path.relative_to(root)
+        return any(
+            part == "__MACOSX" or part.startswith("._") or part.startswith(".")
+            for part in relative.parts
+        )
+
+    yield from sorted(
+        path for path in root.rglob("*.csv") if path.is_file() and not is_extraction_artifact(path)
+    )
 
 
 def infer_timestamp_column(frame: pd.DataFrame) -> str:

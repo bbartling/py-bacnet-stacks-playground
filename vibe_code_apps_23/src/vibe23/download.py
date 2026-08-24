@@ -14,11 +14,24 @@ from pathlib import Path
 
 DATASET_DOI = "10.7941/D1N33Q"
 DRYAD_DOWNLOAD_URL = "https://datadryad.org/api/v2/datasets/doi%3A10.7941%2FD1N33Q/download"
+ZENODO_RECORD_ID = "5951008"
+ZENODO_RECORD_URL = f"https://zenodo.org/records/{ZENODO_RECORD_ID}"
+ZENODO_FILE_URL = f"{ZENODO_RECORD_URL}/files/{{name}}?download=1"
 EXPECTED_RELEASE_FILES = {
     "Building_59.zip",
     "data_description_table_3year_clean_data.xlsx",
     "metadata_Dryad_Bldg59.docx",
     "README_Dryad_Bldg59.txt",
+}
+# Zenodo record 5951008 is the publisher-hosted mirror of the Dryad DOI
+# release.  These values are the record's published MD5 checksums, retained
+# separately from the local SHA-256 manifest so a mirror download can be
+# authenticated against the publisher's file listing before extraction.
+ZENODO_PUBLISHED_MD5 = {
+    "Building_59.zip": "0026b63b5602d3b44743c466e08a19b5",
+    "data_description_table_3year_clean_data.xlsx": "d8ee3630a8f041a561582ec7cad76826",
+    "metadata_Dryad_Bldg59.docx": "e5e34de7c8a8631e256259891f82bc65",
+    "README_Dryad_Bldg59.txt": "e5b7f34f2f3a7f3f94bfd6d9220c3178",
 }
 MAX_ARCHIVE_ENTRIES = 10_000
 MAX_EXPANDED_BYTES = 4 * 1024**3
@@ -26,6 +39,14 @@ MAX_EXPANDED_BYTES = 4 * 1024**3
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def md5_file(path: Path) -> str:
+    digest = hashlib.md5()  # noqa: S324 - publisher-supplied Zenodo integrity checksum, not security crypto
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
@@ -128,9 +149,9 @@ def _download(url: str, destination: Path, *, bearer_token: str | None = None) -
         except urllib.error.HTTPError as exc:
             if exc.code in {401, 403}:
                 raise RuntimeError(
-                    "Dryad rejected the automated download. Set VIBE23_DRYAD_BEARER_TOKEN for an "
-                    "authorized API request, or download the published release manually and use "
-                    "--source-release. No credentials are stored in the manifest."
+                    "The automated download was rejected. Set VIBE23_DRYAD_BEARER_TOKEN for an "
+                    "authorized Dryad API request, or use the publisher-hosted Zenodo mirror/manual "
+                    "release. No credentials are stored in the manifest."
                 ) from exc
             raise
         with response, partial.open("wb") as out:
@@ -178,6 +199,28 @@ def _stage_manual_release(source: Path, release_dir: Path) -> str:
     return "manual_individual_release_files"
 
 
+def _stage_zenodo_mirror(release_dir: Path) -> dict[str, str]:
+    """Download and validate the official Zenodo mirror before publication.
+
+    Dryad remains the canonical DOI/source.  Zenodo is only an availability
+    fallback, and every mirrored file must match its checksum published on
+    record 5951008 before it may enter the raw release directory.
+    """
+    if set(ZENODO_PUBLISHED_MD5) != EXPECTED_RELEASE_FILES:
+        raise RuntimeError("Zenodo checksum manifest does not cover the expected published release")
+    checksums: dict[str, str] = {}
+    for name in sorted(EXPECTED_RELEASE_FILES):
+        _download(ZENODO_FILE_URL.format(name=urllib.parse.quote(name)), release_dir / name)
+        observed = md5_file(release_dir / name)
+        expected = ZENODO_PUBLISHED_MD5[name]
+        if observed != expected:
+            raise ValueError(
+                f"Zenodo mirror checksum mismatch for {name}: expected {expected}, observed {observed}"
+            )
+        checksums[name] = observed
+    return checksums
+
+
 def download_dataset(
     data_dir: Path,
     force: bool = False,
@@ -195,6 +238,7 @@ def download_dataset(
             _remove_generated_path(path)
 
     acquisition_mode = "cached"
+    zenodo_checksums: dict[str, str] | None = None
     if source_release is not None:
         source_release = Path(source_release).resolve()
         release_root = release_dir.resolve()
@@ -214,12 +258,20 @@ def download_dataset(
             _remove_generated_path(staging)
     else:
         if not package.exists():
-            _download(
-                download_url or os.environ.get("VIBE23_DRYAD_DOWNLOAD_URL", DRYAD_DOWNLOAD_URL),
-                package,
-                bearer_token=os.environ.get("VIBE23_DRYAD_BEARER_TOKEN"),
-            )
-            acquisition_mode = "dryad_api"
+            canonical_url = download_url or os.environ.get("VIBE23_DRYAD_DOWNLOAD_URL", DRYAD_DOWNLOAD_URL)
+            try:
+                _download(canonical_url, package, bearer_token=os.environ.get("VIBE23_DRYAD_BEARER_TOKEN"))
+                acquisition_mode = "dryad_api"
+            except RuntimeError:
+                staging = release_dir.with_name(release_dir.name + ".partial")
+                _remove_generated_path(staging)
+                staging.mkdir(parents=True)
+                try:
+                    zenodo_checksums = _stage_zenodo_mirror(staging)
+                    os.replace(staging, release_dir)
+                    acquisition_mode = "zenodo_mirror_fallback"
+                finally:
+                    _remove_generated_path(staging)
         if not release_dir.exists():
             _extract_archive_atomic(package, release_dir)
             acquisition_mode = "dryad_api"
@@ -235,6 +287,17 @@ def download_dataset(
 
     manifest = {
         "schema": "vibe23.dataset_acquisition.v1",
+        "canonical_source": {"doi": DATASET_DOI, "url": DRYAD_DOWNLOAD_URL},
+        "mirror_source": (
+            {
+                "record_id": ZENODO_RECORD_ID,
+                "record_url": ZENODO_RECORD_URL,
+                "published_md5": dict(sorted((zenodo_checksums or ZENODO_PUBLISHED_MD5).items())),
+                "md5_validation": "passed" if acquisition_mode == "zenodo_mirror_fallback" else "not_used",
+            }
+            if acquisition_mode == "zenodo_mirror_fallback"
+            else None
+        ),
         "doi": DATASET_DOI,
         "url": download_url or os.environ.get("VIBE23_DRYAD_DOWNLOAD_URL", DRYAD_DOWNLOAD_URL),
         "acquisition_mode": acquisition_mode,

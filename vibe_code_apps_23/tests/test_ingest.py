@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from vibe23.ingest import aggregate_power_kw
+from vibe23.ingest import aggregate_power_kw, build_inventory, iter_csv_files
 
 
 def test_aggregate_power_regular_15_minute_samples():
@@ -18,3 +18,20 @@ def test_aggregate_power_fails_on_large_gap():
     power = pd.Series([1.0, 1.0, 1.0], index=index)
     with pytest.raises(ValueError, match="gap exceeds"):
         aggregate_power_kw(power, "1h")
+
+
+def test_inventory_ignores_macos_appledouble_and_hidden_extraction_artifacts(tmp_path):
+    (tmp_path / "real").mkdir()
+    (tmp_path / "__MACOSX").mkdir()
+    (tmp_path / ".partial").mkdir()
+    for path in (
+        tmp_path / "real" / "signal.csv",
+        tmp_path / "real" / "._signal.csv",
+        tmp_path / "__MACOSX" / "signal.csv",
+        tmp_path / ".partial" / "signal.csv",
+        tmp_path / ".hidden.csv",
+    ):
+        path.write_text("timestamp,power_kw\n2019-01-01,1\n", encoding="utf-8")
+
+    assert [path.relative_to(tmp_path).as_posix() for path in iter_csv_files(tmp_path)] == ["real/signal.csv"]
+    assert build_inventory(tmp_path)["path"].tolist() == ["real/signal.csv"]

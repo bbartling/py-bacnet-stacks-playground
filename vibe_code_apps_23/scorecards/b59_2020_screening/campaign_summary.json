@@ -1,0 +1,791 @@
+{
+  "all_runs_admitted_zero_warning": true,
+  "champion": {
+    "idf": {
+      "path": "model/b59_screening_champion.generated.idf",
+      "sha256": "7096c0ae7a749b800458b420d8936ed2e6146252178c998e9ba6f01b549fffa6"
+    },
+    "parameters": {
+      "path": "champion_parameters.json",
+      "sha256": "de15ca86d63d1764aa184b5ab84ac6da34dd018ec83c1c297208d886dff9698b"
+    },
+    "seed_summary": {
+      "calibration_parameters": {
+        "coil_airflow_m3_s": {
+          "lower": 4.9554482250000005,
+          "units": "m3/s",
+          "upper": 6.371290575,
+          "value": 6.371290575
+        },
+        "cooling_capacity_w": {
+          "lower": 94955.02668000001,
+          "units": "W",
+          "upper": 158258.37780000002,
+          "value": 142432.54002000001
+        },
+        "cooling_cop": {
+          "lower": 2.5,
+          "units": "W/W",
+          "upper": 4.5,
+          "value": 4.1
+        },
+        "cooling_shr": {
+          "lower": 0.65,
+          "units": "fraction",
+          "upper": 0.85,
+          "value": 0.7
+        },
+        "equipment_w_m2": {
+          "lower": 5.0,
+          "units": "W/m2",
+          "upper": 20.0,
+          "value": 15.0
+        },
+        "glazing_shgc": {
+          "lower": 0.2,
+          "units": "fraction",
+          "upper": 0.55,
+          "value": 0.35
+        },
+        "glazing_u_w_m2_k": {
+          "lower": 1.2,
+          "units": "W/m2-K",
+          "upper": 3.5,
+          "value": 2.0
+        },
+        "hvac_availability_mode": {
+          "choices": [
+            "weekday_window",
+            "continuous"
+          ],
+          "kind": "discrete_hypothesis",
+          "value": "continuous"
+        },
+        "infiltration_m3_s_m2": {
+          "lower": 0.0001,
+          "units": "m3/s-m2",
+          "upper": 0.001,
+          "value": 0.0003
+        },
+        "lighting_w_m2": {
+          "lower": 4.0,
+          "units": "W/m2",
+          "upper": 14.0,
+          "value": 11.0
+        },
+        "measured_south_lighting_fraction": {
+          "lower": 0.25,
+          "units": "fraction",
+          "upper": 0.75,
+          "value": 0.5
+        },
+        "minimum_outdoor_air_m3_s": {
+          "lower": 1.7698029375000002,
+          "units": "m3/s",
+          "upper": 2.5957109750000003,
+          "value": 2.3597372500000002
+        },
+        "occupancy_calendar_mode": {
+          "choices": [
+            "generic",
+            "pandemic_2020"
+          ],
+          "kind": "discrete_hypothesis",
+          "value": "pandemic_2020"
+        },
+        "occupied_cooling_setpoint_c": {
+          "lower": 23.0,
+          "units": "C",
+          "upper": 27.0,
+          "value": 23.2
+        },
+        "occupied_heating_setpoint_c": {
+          "lower": 19.0,
+          "units": "C",
+          "upper": 22.0,
+          "value": 21.8
+        },
+        "people_area_per_person_m2": {
+          "lower": 10.0,
+          "units": "m2/person",
+          "upper": 35.0,
+          "value": 20.0
+        },
+        "post_march17_equipment_multiplier": {
+          "lower": 0.15,
+          "units": "fraction",
+          "upper": 0.4,
+          "value": 0.2437596642368014
+        },
+        "post_march17_lighting_multiplier": {
+          "lower": 0.2,
+          "units": "fraction",
+          "upper": 0.4,
+          "value": 0.27392578125
+        },
+        "post_march17_people_multiplier": {
+          "lower": 0.1,
+          "units": "fraction",
+          "upper": 0.5,
+          "value": 0.25
+        },
+        "return_fan_pressure_pa": {
+          "lower": 200.0,
+          "units": "Pa",
+          "upper": 700.0,
+          "value": 415.0
+        },
+        "return_fan_total_efficiency": {
+          "lower": 0.55,
+          "units": "fraction",
+          "upper": 0.82,
+          "value": 0.7
+        },
+        "roof_thermal_resistance_m2_k_w": {
+          "lower": 3.5,
+          "units": "m2-K/W",
+          "upper": 8.0,
+          "value": 5.3
+        },
+        "supply_fan_pressure_pa": {
+          "lower": 600.0,
+          "units": "Pa",
+          "upper": 1500.0,
+          "value": 1100.0
+        },
+        "supply_fan_total_efficiency": {
+          "lower": 0.55,
+          "units": "fraction",
+          "upper": 0.82,
+          "value": 0.7
+        },
+        "unoccupied_cooling_setpoint_c": {
+          "lower": 27.0,
+          "units": "C",
+          "upper": 32.0,
+          "value": 29.4
+        },
+        "unoccupied_heating_setpoint_c": {
+          "lower": 12.0,
+          "units": "C",
+          "upper": 18.0,
+          "value": 15.6
+        },
+        "wall_thermal_resistance_m2_k_w": {
+          "lower": 1.5,
+          "units": "m2-K/W",
+          "upper": 5.0,
+          "value": 2.5
+        },
+        "weekday_hvac_end_hour": {
+          "lower": 17.0,
+          "units": "hour",
+          "upper": 23.0,
+          "value": 23.0
+        },
+        "weekday_hvac_start_hour": {
+          "lower": 4.0,
+          "units": "hour",
+          "upper": 8.0,
+          "value": 4.5
+        },
+        "weekday_occupancy_end_hour": {
+          "lower": 15.0,
+          "units": "hour",
+          "upper": 21.0,
+          "value": 18.0
+        },
+        "weekday_occupancy_start_hour": {
+          "lower": 6.0,
+          "units": "hour",
+          "upper": 10.0,
+          "value": 8.0
+        }
+      },
+      "claim_label": "OFFICE_SCREENING_SEED_UNCALIBRATED",
+      "energyplus_version": "26.1",
+      "immutable_geometry_scope": {
+        "floor_depth_m": 25.0,
+        "floor_length_m": 93.0,
+        "office_floors": [
+          3,
+          4
+        ],
+        "rtu_groups": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "segments": [
+          "SOUTH_PERIMETER",
+          "CORE",
+          "NORTH_PERIMETER"
+        ]
+      },
+      "meter_scope": {
+        "dispositions": {
+          "ashp_wshp": "ASHP/WSHP electricity may be separately metered and its inclusion in the target is unresolved; fail the claim until panel mapping is proven.",
+          "elevators": "The measured HVAC panels include elevators; this seed has no elevator load. Subtract measured elevator energy or add a bound elevator model before a claim.",
+          "north_lighting": "Retained as a separately metered simulation heat gain but excluded from the measured-target proxy because lig_N is absent.",
+          "terminal_heat": "Electric VAV terminal reheat is reported separately and excluded from the target proxy; the documented UFT/heat-pump topology is hydronic and the ASHP meter is separate."
+        },
+        "facility_total_comparison_allowed": false,
+        "guideline14_claim_eligible": false,
+        "measured_target_formula": "mels_S + mels_N + lig_S + hvac_S + hvac_N",
+        "model_output_mapping": {
+          "lig_N_unmetered_heat_gain": "B59:Unmetered:LightingNorth",
+          "lig_S_proxy": "B59:MeterBound:LightingSouth",
+          "mapped_rtu_fans_plus_cooling": "B59:MappedRTU:FansPlusCooling",
+          "mels_S_plus_mels_N": "B59:MeterBound:MELsSouthPlusNorth",
+          "partial_target_proxy": "B59:ScopeAudit:PartialMeterBoundProxy",
+          "unresolved_terminal_heat": "B59:Unresolved:ElectricTerminalReheat"
+        }
+      },
+      "modeled_scope": "two monitored office floors only",
+      "occupied_zone_count": 24,
+      "office_floor_area_each_m2": 2325.0,
+      "office_floor_area_total_m2": 4650.0,
+      "office_floor_count": 2,
+      "rtu_published_seed_values": {
+        "cooling_capacity_w": 105505.5852,
+        "cooling_tons": 30.0,
+        "minimum_outdoor_air_cfm": 5000.0,
+        "minimum_outdoor_air_m3_s": 2.3597372500000002,
+        "return_fan_motor_hp": 7.5,
+        "supply_fan_motor_hp": 20.0,
+        "supply_flow_cfm": 20000.0,
+        "supply_flow_m3_s": 9.438949000000001
+      },
+      "rtu_service_group_count": 4,
+      "rtu_simulation_proxy": {
+        "coil_airflow_cfm": 13500.0,
+        "coil_airflow_m3_s": 6.371290575,
+        "cooling_capacity_w": 142432.54002000001,
+        "cooling_shr": 0.7,
+        "minimum_outdoor_air_m3_s": 2.3597372500000002,
+        "rationale": "Packaged TwoSpeedDX uses a bounded nominal coil airflow near 400 cfm/ton; the published 20,000 cfm remains an immutable fan-system rating because forcing 667 cfm/ton through the proxy coil violates its performance domain. Fan pressures and efficiencies remain calibratable proxies because published motor hp does not establish coincident shaft power or system pressure rise.",
+        "return_fan_pressure_pa": 415.0,
+        "return_fan_total_efficiency": 0.7,
+        "supply_fan_pressure_pa": 1100.0,
+        "supply_fan_total_efficiency": 0.7
+      },
+      "schema": "vibe23.b59_screening_seed.v1",
+      "segments_per_rtu_per_floor": [
+        "SOUTH_PERIMETER",
+        "CORE",
+        "NORTH_PERIMETER"
+      ],
+      "simulation_year": 2020,
+      "ufad_plenum_zone_count": 24,
+      "unmatched_topology": [
+        "The rectangular 93 m by 25 m footprint, orientation, zoning, windows, and constructions are screening assumptions.",
+        "Each RTU service group is represented by six aggregate occupied zones, not the documented 57-zone/50-UFT map.",
+        "Segmented supply plenums approximate UFAD delivery; stratification, diffuser induction, leakage, and raised-floor details are not resolved.",
+        "PackagedVAV TwoSpeedDX is air-cooled; the documented water-cooled DX condenser loop and shared HPC cooling towers are not represented.",
+        "Electric terminal reheat is an all-electric load proxy, not the documented hydronic UFT and heat-pump plant.",
+        "The four template air loops use identical schedules and curves but do not reproduce the documented common fan-speed controller.",
+        "The published 20,000 cfm fan rating exceeds the packaged-DX airflow domain at 30 tons; the proxy uses 12,000 cfm coil airflow and retains 20,000 cfm as immutable evidence.",
+        "The weekday schedule and all internal-load, envelope, glazing, infiltration, thermostat, COP, and fan-pressure values require data binding.",
+        "No NERSC floor, mechanical floor, shared heat rejection, tariff, actual-year weather, or historical control-regime transition is modeled."
+      ],
+      "zone_specs": [
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU1_SOUTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 1,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 3,
+          "name": "F3_RTU1_CORE",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 1,
+          "segment": "CORE",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU1_NORTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 1,
+          "segment": "NORTH_PERIMETER",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU2_SOUTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 2,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 3,
+          "name": "F3_RTU2_CORE",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 2,
+          "segment": "CORE",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU2_NORTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 2,
+          "segment": "NORTH_PERIMETER",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU3_SOUTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 3,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 3,
+          "name": "F3_RTU3_CORE",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 3,
+          "segment": "CORE",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU3_NORTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 3,
+          "segment": "NORTH_PERIMETER",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU4_SOUTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 4,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 3,
+          "name": "F3_RTU4_CORE",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 4,
+          "segment": "CORE",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 3,
+          "name": "F3_RTU4_NORTH_PERIMETER",
+          "occupied_z0": 0.6,
+          "occupied_z1": 4.0,
+          "plenum_z0": 0.0,
+          "rtu_group": 4,
+          "segment": "NORTH_PERIMETER",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU1_SOUTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 1,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 4,
+          "name": "F4_RTU1_CORE",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 1,
+          "segment": "CORE",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU1_NORTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 1,
+          "segment": "NORTH_PERIMETER",
+          "x0": 0.0,
+          "x1": 23.25,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU2_SOUTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 2,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 4,
+          "name": "F4_RTU2_CORE",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 2,
+          "segment": "CORE",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU2_NORTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 2,
+          "segment": "NORTH_PERIMETER",
+          "x0": 23.25,
+          "x1": 46.5,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU3_SOUTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 3,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 4,
+          "name": "F4_RTU3_CORE",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 3,
+          "segment": "CORE",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU3_NORTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 3,
+          "segment": "NORTH_PERIMETER",
+          "x0": 46.5,
+          "x1": 69.75,
+          "y0": 20.0,
+          "y1": 25.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU4_SOUTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 4,
+          "segment": "SOUTH_PERIMETER",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 0.0,
+          "y1": 5.0
+        },
+        {
+          "area_m2": 348.75,
+          "floor": 4,
+          "name": "F4_RTU4_CORE",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 4,
+          "segment": "CORE",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 5.0,
+          "y1": 20.0
+        },
+        {
+          "area_m2": 116.25,
+          "floor": 4,
+          "name": "F4_RTU4_NORTH_PERIMETER",
+          "occupied_z0": 4.6,
+          "occupied_z1": 8.0,
+          "plenum_z0": 4.0,
+          "rtu_group": 4,
+          "segment": "NORTH_PERIMETER",
+          "x0": 69.75,
+          "x1": 93.0,
+          "y0": 20.0,
+          "y1": 25.0
+        }
+      ]
+    }
+  },
+  "champion_scores": {
+    "claim_status": "SCREENING_ONLY_NOT_A_CALIBRATION_CLAIM",
+    "comparison_labels": [
+      "PARTIAL_METER_BOUND_PROXY_VS_DERIVED_OFFICE_SUBTOTAL_SCOPE_GAPS",
+      "SOURCE_CLOCK_MONTHS_VS_LOCAL_STANDARD_MONTHS_TIME_BASIS_MISMATCH"
+    ],
+    "full_year_gl14": {
+      "cvrmse_pct": 22.357263224973106,
+      "interval": "monthly",
+      "n": 12,
+      "nmbe_pct": -4.127758586578749,
+      "p": 1,
+      "passes": false
+    },
+    "holdout_gl14": {
+      "cvrmse_pct": 43.62708633135749,
+      "interval": "monthly",
+      "n": 3,
+      "nmbe_pct": -33.88053207685663,
+      "p": 1,
+      "passes": false
+    },
+    "holdout_months": [
+      10,
+      11,
+      12
+    ],
+    "monthly_kwh": [
+      {
+        "measured_kwh": 29983.86071470325,
+        "month": 1,
+        "simulated_kwh": 36105.64916084951
+      },
+      {
+        "measured_kwh": 31304.200529846,
+        "month": 2,
+        "simulated_kwh": 31735.54869812777
+      },
+      {
+        "measured_kwh": 28715.1939967645,
+        "month": 3,
+        "simulated_kwh": 32865.92184621954
+      },
+      {
+        "measured_kwh": 26328.64875505275,
+        "month": 4,
+        "simulated_kwh": 30779.5526865472
+      },
+      {
+        "measured_kwh": 30400.9894439275,
+        "month": 5,
+        "simulated_kwh": 28111.42766057835
+      },
+      {
+        "measured_kwh": 27765.65509772675,
+        "month": 6,
+        "simulated_kwh": 26983.670326262436
+      },
+      {
+        "measured_kwh": 29295.87609852225,
+        "month": 7,
+        "simulated_kwh": 30264.2301200652
+      },
+      {
+        "measured_kwh": 36525.4946475485,
+        "month": 8,
+        "simulated_kwh": 25401.1765891599
+      },
+      {
+        "measured_kwh": 30919.37897605825,
+        "month": 9,
+        "simulated_kwh": 25777.040225899793
+      },
+      {
+        "measured_kwh": 29326.304170576,
+        "month": 10,
+        "simulated_kwh": 25593.33902683095
+      },
+      {
+        "measured_kwh": 20918.76629411825,
+        "month": 11,
+        "simulated_kwh": 29313.060098155172
+      },
+      {
+        "measured_kwh": 21434.990156238,
+        "month": 12,
+        "simulated_kwh": 32964.052116869614
+      }
+    ],
+    "objective": 1.48825514973699,
+    "simulation_meter": "B59:ScopeAudit:PartialMeterBoundProxy",
+    "tuning_gl14": {
+      "cvrmse_pct": 17.856469324474034,
+      "interval": "monthly",
+      "n": 9,
+      "nmbe_pct": 1.3334963214939328,
+      "p": 1,
+      "passes": false
+    },
+    "tuning_months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "claim_status": "SCREENING_ONLY_NOT_A_CALIBRATION_CLAIM",
+  "energyplus": {
+    "executable_name": "energyplus",
+    "version": "EnergyPlus, Version 26.1.0-6f2e40d102"
+  },
+  "frozen_evaluation_runs": [
+    "R47",
+    "R48",
+    "R49",
+    "R50"
+  ],
+  "frozen_incumbent_source_run": "R42",
+  "inputs": {
+    "epw": {
+      "name": "b59_2020_bounded_hybrid_amy.epw",
+      "sha256": "8ab9ce9094a76a5c70ffaf0136388137ddeb0ba7caa20e824d09888daa3197de"
+    },
+    "measured_monthly": {
+      "name": "b59_2020_monthly_records.csv",
+      "sha256": "8c23c338f19e638f459c409ad8d1ea766b0c5a1a6c095d70eb849ea2ef5a2897"
+    }
+  },
+  "numeric_full_year_gl14_style_gate_met": false,
+  "published_artifacts": {
+    "campaign_log": {
+      "path": "campaign_log.csv",
+      "sha256": "8d08ce9b441045009211d8350715f6d851f8e34c6fc5ad4f8361fec4320077c0"
+    },
+    "campaign_results": {
+      "path": "campaign_results.jsonl",
+      "sha256": "0cd5deb59d8b098af87b118145540f1d8d3ca8daf8c60445013d5fd01a032ae1"
+    },
+    "monthly_comparison": {
+      "path": "champion_monthly_comparison.csv",
+      "sha256": "e3cb25e5956b16598930c9405f8a750370bc95d267431830d51694389edc5f5c"
+    }
+  },
+  "published_run_count": 50,
+  "reason_not_claimable": [
+    "derived office subtotal is not a utility bill and includes unresolved panel loads",
+    "source-clock monthly records are not yet reconciled to EnergyPlus local-standard time",
+    "screening HVAC/geometry topology is not the reviewed as-built Building 59 model",
+    "p=1 is a campaign diagnostic and is not a defensible count of all fitted degrees of freedom",
+    "October-December metrics were stored for every run, so the reserved slice was not blind"
+  ],
+  "schema": "vibe23.b59_50_run_screening_campaign.v1",
+  "selection_rule": "minimum January-September preregistered objective; October-December not used by code",
+  "validation_slice_blinding_status": "NOT_BLIND_METRICS_WERE_COMPUTED_AND_STORED_FOR_EVERY_RUN; NO HOLDOUT CLAIM"
+}

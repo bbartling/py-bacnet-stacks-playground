@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from vibe23.download import _AuthorizationSafeRedirectHandler, download_dataset, safe_extract, sha256_file
+from vibe23 import download
+from vibe23.download import _AuthorizationSafeRedirectHandler, download_dataset, md5_file, safe_extract, sha256_file
 
 
 def test_safe_extract_rejects_path_traversal(tmp_path: Path):
@@ -20,6 +21,7 @@ def test_sha256_file_is_stable(tmp_path: Path):
     path = tmp_path / "x.txt"
     path.write_text("abc", encoding="utf-8")
     assert sha256_file(path) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    assert md5_file(path) == "900150983cd24fb0d6963f7d28e17f72"
 
 
 def test_safe_extract_rejects_symlink(tmp_path: Path):
@@ -100,3 +102,34 @@ def test_manual_restage_rebuilds_telemetry_from_new_release(tmp_path: Path):
     download_dataset(data, source_release=first)
     download_dataset(data, source_release=second)
     assert (data / "raw/building_59/energy.csv").read_text(encoding="utf-8").endswith(",2\n")
+
+
+def test_zenodo_mirror_fallback_validates_published_md5_and_records_provenance(tmp_path: Path, monkeypatch):
+    payloads = {
+        "Building_59.zip": None,
+        "data_description_table_3year_clean_data.xlsx": b"workbook",
+        "metadata_Dryad_Bldg59.docx": b"metadata",
+        "README_Dryad_Bldg59.txt": b"readme",
+    }
+    building_zip = tmp_path / "fixture-building.zip"
+    with zipfile.ZipFile(building_zip, "w") as archive:
+        archive.writestr("energy.csv", "timestamp,power_kw\n2019-01-01,1\n")
+    payloads["Building_59.zip"] = building_zip.read_bytes()
+    checksums = {name: __import__("hashlib").md5(body).hexdigest() for name, body in payloads.items()}
+    monkeypatch.setattr(download, "ZENODO_PUBLISHED_MD5", checksums)
+
+    def fake_download(url: str, destination: Path, *, bearer_token=None):
+        if "datadryad.org" in url:
+            raise RuntimeError("rejected")
+        name = destination.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(payloads[name])
+
+    monkeypatch.setattr(download, "_download", fake_download)
+    manifest = download_dataset(tmp_path / "data")
+
+    assert manifest["acquisition_mode"] == "zenodo_mirror_fallback"
+    assert manifest["canonical_source"]["doi"] == "10.7941/D1N33Q"
+    assert manifest["mirror_source"]["record_id"] == "5951008"
+    assert manifest["mirror_source"]["md5_validation"] == "passed"
+    assert manifest["mirror_source"]["published_md5"] == checksums
