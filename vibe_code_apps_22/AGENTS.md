@@ -30,8 +30,42 @@ See [`docs/audits/2026-08-17-vibe22-trackb-physics-validity-v2.md`](docs/audits/
 (dated Stage A snapshot) and [`docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md`](docs/audits/2026-08-17-vibe22-a04v2-model-development-continues.md).
 
 Read: [`vibe22_agent_spec/RL_DAILY_DSM.md`](vibe22_agent_spec/RL_DAILY_DSM.md) ·
+[`vibe22_agent_spec/RESULTS_PUBLICATION.md`](vibe22_agent_spec/RESULTS_PUBLICATION.md) ·
 [`vibe22_agent_spec/CONTRIBUTING_RL.md`](vibe22_agent_spec/CONTRIBUTING_RL.md) ·
-[`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md)
+[`skills/rl-daily-dsm/SKILL.md`](skills/rl-daily-dsm/SKILL.md) ·
+[`skills/rl-poc-results-publish/SKILL.md`](skills/rl-poc-results-publish/SKILL.md) ·
+[`skills/grid-search-comparator/SKILL.md`](skills/grid-search-comparator/SKILL.md) ·
+[`skills/two-month-policy-replay/SKILL.md`](skills/two-month-policy-replay/SKILL.md) ·
+[`skills/nightly-grid-compute/SKILL.md`](skills/nightly-grid-compute/SKILL.md) ·
+[`skills/weather-trigger-replay/SKILL.md`](skills/weather-trigger-replay/SKILL.md)
+
+**Finished research-long (2026-08-20):** PRIMARY `FLAT_PLUS_DEMAND` + SECONDARY
+`ILLUSTRATIVE_TOU_PLUS_DEMAND` under `research_action_contract_v3`. Published pack:
+[`docs/results/vibe22_rl_poc_results.md`](docs/results/vibe22_rl_poc_results.md).
+Say **validation leader** (not winner); readiness only on checked school days;
+disclose Dec billing floor; never invent E+ process launches; never mix flat/TOU `$`.
+Regenerate with `python scripts/vibe22_publish_rl_poc_results.py --site-root $env:SITE_ROOT`.
+
+**Grid comparator (2026-08-21):** LIVE fixed-policy discrete v3 exhaustive screen in
+[`docs/results/grid_search/`](docs/results/grid_search/README.md). CLI:
+`python scripts/vibe22_grid_search.py --site-root $env:SITE_ROOT …`. In **that**
+Dec multi-day pack, daily adaptive branching is
+`NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT`.
+
+**Two-month replay (2026-08-22):** [`docs/results/two_month_policy_replay/`](docs/results/two_month_policy_replay/) —
+Dec 2025–Jan 2026 seven frozen strategies vs CS 351075. CLI:
+`py -3.12 scripts/vibe22_two_month_policy_replay.py --site-root $env:SITE_ROOT --resume`.
+
+**Nightly identical-state compute (2026-08-22):** [`docs/results/nightly_grid_compute/`](docs/results/nightly_grid_compute/) —
+one-day lookback branching on `2026-01-26`; verdict
+`NIGHTLY_GRID_FEASIBLE_WITHIN_15_MIN` (budget rec `25`). CLI:
+`py -3.12 scripts/vibe22_nightly_grid_compute.py --site-root $env:SITE_ROOT --stage all --resume`.
+Do not conflate with the Dec `grid_search/` pack.
+
+**Weather-trigger continuous (2026-08-22):** [`docs/results/weather_trigger_continuous/`](docs/results/weather_trigger_continuous/) —
+midnight-only cold-trigger vs continuous 68/74; verdict
+`WEATHER_TRIGGER_IMPROVES_PEAK_WITH_ENERGY_PENALTY`. CLI:
+`py -3.12 scripts/vibe22_weather_trigger_replay.py --site-root $env:SITE_ROOT --strategy all`.
 
 ```powershell
 $env:SITE_ROOT="<SITE_ROOT>"

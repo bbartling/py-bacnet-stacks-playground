@@ -1,0 +1,9 @@
+label,hours
+"RL PRIMARY
+train+val",7.5897194444444445
+"RL SECONDARY
+train+val",5.287644444444444
+"Grid exhaustive
+screen",0.10374067974999586
+"Tariff
+re-score≈0",0.01

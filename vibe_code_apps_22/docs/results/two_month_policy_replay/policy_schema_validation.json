@@ -1,0 +1,10 @@
+{
+  "obs_schema": "vibe22.obs.v4.mega",
+  "observation_dim": 206,
+  "zero_obs_forbidden": true,
+  "forecast_source": "PERFECT_EPISODE_FORECAST_RETROSPECTIVE",
+  "strategies_with_full_obs": [
+    "frozen_ppo_flat_seed0",
+    "frozen_dqn_tou_seed1"
+  ]
+}

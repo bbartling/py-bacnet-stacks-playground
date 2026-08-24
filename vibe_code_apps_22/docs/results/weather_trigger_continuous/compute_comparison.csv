@@ -1,0 +1,5 @@
+category,wall_s,note
+weather_trigger_replay_wall,53.91708870000366,sum of LIVE weather-policy walls
+nightly_exhaustive_candidate_compute,320.8255178000072,sequential exhaustive candidate compute time
+rl_offline_train_primary,,recorded PRIMARY training wall
+rl_inference_ppo_p50,,p50 predict

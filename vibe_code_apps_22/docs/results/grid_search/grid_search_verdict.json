@@ -1,0 +1,57 @@
+{
+  "schema": "vibe22.grid_search_verdict.v1",
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "screen_status": "EXHAUSTIVE_FIXED_POLICY",
+  "DAILY_ADAPTIVE_GRID_STATUS": "NOT_RUN_NO_IDENTICAL_STATE_BRANCHING_CONTRACT",
+  "december_billing_floor_disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges.",
+  "FLAT_PLUS_DEMAND": {
+    "verdict": "GRID_LOWER_COST_AND_READY",
+    "grid_validation_leader": "discrete_42",
+    "grid_total_cost": 7436.732132340096,
+    "grid_peak_kw": 220.7992651884273,
+    "rl_validation_leader": "trained_ppo_seed0",
+    "rl_total_cost": 7628.91,
+    "rl_peak_kw": 233.77,
+    "delta_cost_grid_minus_rl": -192.17786765990422,
+    "delta_peak_grid_minus_rl": -12.970734811572697,
+    "params": {
+      "action_index": 42,
+      "continuous_conditioning": false,
+      "occupied_heating_f": 70.0,
+      "unoccupied_heating_f": 60.0,
+      "recovery_lead_minutes": 180,
+      "post_occupancy_extension_minutes": 0,
+      "setback_offset_f": 0.0
+    }
+  },
+  "ILLUSTRATIVE_TOU_PLUS_DEMAND": {
+    "verdict": "GRID_LOWER_COST_AND_READY",
+    "grid_validation_leader": "discrete_43",
+    "grid_total_cost": 6890.836469558963,
+    "grid_peak_kw": 219.88179038027437,
+    "rl_validation_leader": "trained_dqn_seed1",
+    "rl_total_cost": 7019.33,
+    "rl_peak_kw": 211.51,
+    "delta_cost_grid_minus_rl": -128.49353044103736,
+    "delta_peak_grid_minus_rl": 8.371790380274376,
+    "params": {
+      "action_index": 43,
+      "continuous_conditioning": false,
+      "occupied_heating_f": 70.0,
+      "unoccupied_heating_f": 60.0,
+      "recovery_lead_minutes": 180,
+      "post_occupancy_extension_minutes": 60,
+      "setback_offset_f": 0.0
+    }
+  },
+  "tariff_changed_selected_grid_strategy": true,
+  "never_compare_absolute_dollars_across_tariffs": true
+}

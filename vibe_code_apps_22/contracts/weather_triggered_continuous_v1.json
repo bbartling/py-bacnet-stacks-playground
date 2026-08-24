@@ -1,0 +1,106 @@
+{
+  "schema": "vibe22.weather_triggered_continuous.v1",
+  "version": "1.0.0",
+  "frozen_at": "2026-08-22T20:00:00Z",
+  "claim_labels": [
+    "SIMULATION-ONLY RESEARCH",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "ILLUSTRATIVE COSTS",
+    "RETROSPECTIVE_WEATHER_POLICY_SCREEN",
+    "NO BACNET COMMAND AUTHORITY",
+    "NOT VALIDATED FOR OPERATIONAL DSM"
+  ],
+  "weather_label": "RETROSPECTIVE_WEATHER_POLICY_SCREEN",
+  "weather_honesty": "Uses realized EPW outdoor temperatures for retrospective daily decisions. Do not call realized weather a forecast.",
+  "calendar": {
+    "lookback_day": "2025-11-30",
+    "first_scored_day": "2025-12-01",
+    "last_scored_day": "2026-01-31",
+    "expected_scored_days": 62,
+    "expected_intervals_per_strategy": 5952
+  },
+  "action_contract_version": "research_action_contract_v3",
+  "reward_contract": "reward_v2",
+  "paired_baseline": "observed_bas_incumbent_v2",
+  "continuous_68_74_disclosure": "Heating actuated at continuous 68F via continuous_params(68.0); cooling remains fixed cooling_schedule_f (~74F occupied / 85F unoccupied). Not a dual-setpoint RL action.",
+  "policy_ids": [
+    "ALWAYS_GRID_114",
+    "ALWAYS_GRID_42",
+    "ALWAYS_GRID_43",
+    "ALWAYS_CONTINUOUS_68_74",
+    "COLD_TRIGGER_10F",
+    "COLD_TRIGGER_20F",
+    "COLD_TRIGGER_30F",
+    "COLD_TRIGGER_20F_4H",
+    "COLD_TRIGGER_20F_8H"
+  ],
+  "policies": {
+    "ALWAYS_GRID_114": {
+      "kind": "always_discrete",
+      "discrete_index": 114,
+      "note": "occ70/unocc66/rec60/ext0"
+    },
+    "ALWAYS_GRID_42": {
+      "kind": "always_discrete",
+      "discrete_index": 42,
+      "note": "occ70/unocc60/rec180/ext0"
+    },
+    "ALWAYS_GRID_43": {
+      "kind": "always_discrete",
+      "discrete_index": 43,
+      "note": "occ70/unocc60/rec180/ext60"
+    },
+    "ALWAYS_CONTINUOUS_68_74": {
+      "kind": "always_continuous_68_74"
+    },
+    "COLD_TRIGGER_10F": {
+      "kind": "cold_trigger_min",
+      "threshold_f": 10.0,
+      "else_discrete_index": 114
+    },
+    "COLD_TRIGGER_20F": {
+      "kind": "cold_trigger_min",
+      "threshold_f": 20.0,
+      "else_discrete_index": 114
+    },
+    "COLD_TRIGGER_30F": {
+      "kind": "cold_trigger_min",
+      "threshold_f": 30.0,
+      "else_discrete_index": 114
+    },
+    "COLD_TRIGGER_20F_4H": {
+      "kind": "cold_trigger_duration",
+      "threshold_f": 20.0,
+      "min_hours": 4,
+      "else_discrete_index": 114
+    },
+    "COLD_TRIGGER_20F_8H": {
+      "kind": "cold_trigger_duration",
+      "threshold_f": 20.0,
+      "min_hours": 8,
+      "else_discrete_index": 114
+    }
+  },
+  "midnight_only_selection": true,
+  "intraday_switching_forbidden": true,
+  "primary_tariff": "FLAT_PLUS_DEMAND",
+  "secondary_tariff": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+  "peak_caps_kw": [260, 250, 240, 230],
+  "peak_first_tie_kw": 1.0,
+  "bacnet_command_authority": 0,
+  "simulation_training_ready": false,
+  "operational_dsm_ready": false,
+  "reference_strategies_import": [
+    "a04_native_sch_htgsp",
+    "observed_bas_incumbent_v2",
+    "continuous_68_heat_sensitivity",
+    "frozen_ppo_flat_seed0",
+    "frozen_dqn_tou_seed1",
+    "grid_flat_discrete_42",
+    "grid_tou_discrete_43"
+  ],
+  "output_paths": {
+    "site_run_root": "$SITE_ROOT/reports/eplus_gym/rl/weather_trigger_<stamp>/",
+    "docs_pack": "docs/results/weather_trigger_continuous/"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "schema": "vibe22.cold_weather_challenge_set.v1",
+  "generated_at": "2026-08-21T21:00:00Z",
+  "label": "RETROSPECTIVE_CONTAMINATED",
+  "holdout_status": "NOT_A_HOLDOUT",
+  "rationale": "January 26 and other cold Madison days in the AMY EPW were used for A04 calibration/smoke and/or sit inside the same weather file used for research-long training/validation. No pristine locked cold holdout remains for this repair sprint.",
+  "primary_diagnostic_day": {
+    "date": "2026-01-26",
+    "role": "INSPECTED_DIAGNOSTIC_BRIDGE",
+    "bridge_pack": "docs/audits/figures/vibe22_cold_day_bridge/",
+    "not": "pristine holdout"
+  },
+  "candidate_cold_days_retrospective": [
+    {
+      "date": "2026-01-12",
+      "note": "Appears in A04 stage artifacts; contaminated for policy claims"
+    },
+    {
+      "date": "2026-01-26",
+      "note": "Calibration/smoke + bridge study day"
+    },
+    {
+      "date": "2025-12-15",
+      "note": "Validation window start; used in finished RL/grid screens"
+    },
+    {
+      "date": "2025-12-19",
+      "note": "Checked school day inside Dec validation"
+    }
+  ],
+  "reevaluation_status": "BRIDGE_ONLY_THIS_SPRINT",
+  "reevaluation_notes": [
+    "Frozen PPO/DQN/grid policies were re-run on Jan 26 bridge only (same IDF/EPW/day).",
+    "Full multi-day cold challenge reevaluation without retraining is deferred; any later run must keep RETROSPECTIVE_CONTAMINATED labeling.",
+    "Do not claim operational superiority from retrospective evidence alone."
+  ],
+  "winner_requirements": [
+    "Same baseline and weather per paired comparison",
+    "100% required school-readiness checks",
+    "No severe/fatal EnergyPlus errors",
+    "Honest W2A/warning disclosure",
+    "Report both cost and peak",
+    "Stability across several cold days",
+    "At least two seeds for learned-policy claims",
+    "No operational superiority from retrospective evidence alone"
+  ],
+  "SIMULATION_TRAINING_READY": false,
+  "RESEARCH_POLICY_SCREENING_READY": true,
+  "OPERATIONAL_DSM_READY": false
+}

@@ -163,6 +163,7 @@ def test_day_ahead_optimizer_occupied_bounds():
 
 
 def test_day_ahead_optimizer_runs_with_stub_in_tests():
+    pytest.importorskip("scipy")
     opt = DayAheadOptimizerArm(bounds=[(68.0, 72.0), (60.0, 68.0)])
     res = opt.optimize(opt.stub_objective())
     assert res.n_evals > 0

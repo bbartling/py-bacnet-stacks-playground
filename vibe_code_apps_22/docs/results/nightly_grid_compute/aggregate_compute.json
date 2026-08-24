@@ -1,0 +1,42 @@
+{
+  "n_candidates": 130,
+  "total_wall_s": 320.8255178000072,
+  "total_child_cpu_s": 0.0,
+  "total_child_cpu_note": null,
+  "mean_latency_s": 2.467888598461594,
+  "median_latency_s": 2.561963799998921,
+  "p95_latency_s": 2.60013366500134,
+  "max_latency_s": 3.61966670000038,
+  "candidates_per_minute": 24.31228056136819,
+  "intervals_per_second": 38.899648898189106,
+  "failure_rate": 0.0,
+  "peak_aggregate_rss_bytes": 299540480,
+  "parallel": {
+    "runs": {
+      "1": {
+        "wall_s": 25.897230099999433,
+        "n_tasks": 10,
+        "skipped": false,
+        "speedup": 1.0,
+        "parallel_efficiency": 1.0
+      },
+      "2": {
+        "wall_s": 14.626819200002501,
+        "n_tasks": 10,
+        "skipped": false,
+        "speedup": 1.7705305402281177,
+        "parallel_efficiency": 0.8852652701140589
+      },
+      "4": {
+        "wall_s": 7.787400599998364,
+        "n_tasks": 10,
+        "skipped": false,
+        "speedup": 3.3255294584440507,
+        "parallel_efficiency": 0.8313823646110127
+      }
+    },
+    "recommended_workers": 4,
+    "scientific_reference_workers": 1
+  },
+  "eplus_launches": 178
+}

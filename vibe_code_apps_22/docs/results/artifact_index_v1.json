@@ -1,0 +1,77 @@
+{
+  "schema": "vibe22.artifact_index.v1",
+  "generated_at": "2026-08-21T20:30:00Z",
+  "items": [
+    {
+      "path": "docs/results/vibe22_rl_poc_results.md",
+      "status": "ACTIVE_WITH_CORRECTED_CLAIMS",
+      "notes": "December screening under observed_bas_incumbent_v2; not Jan 285 kW event"
+    },
+    {
+      "path": "docs/results/grid_search/",
+      "status": "ACTIVE_WITH_CORRECTED_CLAIMS",
+      "notes": "Exhaustive fixed-policy Dec screen; peaks not comparable to Jan utility 284.82"
+    },
+    {
+      "path": "docs/audits/figures/a04v2/incumbent_schedule_compare/compare.json",
+      "status": "DIAGNOSTIC_ONLY",
+      "notes": "Same-day Jan 26 native vs Gym 70/65; not operational BAS"
+    },
+    {
+      "path": "models/eplus/best_scorecard_a04_dual.json",
+      "status": "HISTORICAL",
+      "notes": "A04 native calibration evidence (~287 kW Jan 26)"
+    },
+    {
+      "path": "contracts/observed_bas_incumbent_v2.json",
+      "status": "ACTIVE_AS_HISTORICAL_CAMPAIGN_BASELINE",
+      "notes": "Paired simulation baseline for finished campaigns; not VERIFIED_BAS_INCUMBENT"
+    },
+    {
+      "path": "docs/results/baseline_evidence_resolution.json",
+      "status": "ACTIVE",
+      "notes": "UNRESOLVED continuous 68/74 field conflict"
+    },
+    {
+      "path": "docs/audits/figures/vibe22_cold_day_bridge/",
+      "status": "DIAGNOSTIC_ONLY",
+      "notes": "Jan 26 same-IDF schedule bridge; inspected diagnostic, not holdout"
+    },
+    {
+      "path": "docs/results/cold_weather_challenge_set_v1.json",
+      "status": "ACTIVE",
+      "notes": "RETROSPECTIVE_CONTAMINATED; not a pristine holdout"
+    },
+    {
+      "path": "contracts/baseline_terminology_v1.json",
+      "status": "ACTIVE",
+      "notes": "Canonical concept names for baseline vs candidate vs field truth"
+    },
+    {
+      "path": "contracts/verified_bas_incumbent_v1.json",
+      "status": "ACTIVE",
+      "notes": "UNRESOLVED \u2014 do not promote continuous 68/74 as verified"
+    },
+    {
+      "path": "docs/results/two_month_policy_replay/",
+      "status": "ACTIVE_RETROSPECTIVE_REPLAY",
+      "notes": "Dec 2025\u2013Jan 2026 seven-strategy frozen-policy replay vs CS 351075 utility; illustrative tariffs separate from actual bill"
+    },
+    {
+      "path": "eplus_gym/mega/grid_search.py",
+      "status": "SUPERSEDED",
+      "replacement": "eplus_gym/rl/grid_search_* + scripts/vibe22_grid_search.py",
+      "notes": "Scaffold only"
+    },
+    {
+      "path": "docs/results/nightly_grid_compute/",
+      "status": "ACTIVE_COMPUTE_BENCHMARK",
+      "notes": "Identical-state nightly grid compute on 2026-01-26; not operational DSM"
+    },
+    {
+      "path": "docs/results/weather_trigger_continuous/",
+      "status": "ACTIVE_RESEARCH_SCREEN",
+      "notes": "Weather-triggered continuous 68/74 retrospective screen; not operational DSM"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+category,wall_s,note
+one_time_offline_rl_training_PRIMARY,27322.988413899962,4 models × 8192 transitions
+one_time_offline_rl_training_SECONDARY,19035.51828770002,4 models × 8192 transitions
+historical_grid_17day_screen,373.4664470999851,130 policies × 17 days
+nightly_identical_state_grid,320.8255178000072,130 candidate-days on 2026-01-26
+once_per_day_rl_inference_ppo_p50,0.0002386999985901639,p50 single predict
+once_per_day_rl_inference_dqn_p50,0.00016319999849656597,p50 single predict

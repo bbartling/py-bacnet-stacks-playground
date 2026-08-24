@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "tol_f": 0.05,
+  "max_abs_delta_f": 0.0,
+  "reference_zone_temps_f": [
+    64.00138721793935,
+    64.00140561540815,
+    64.00139798712804,
+    64.00132853911114,
+    64.0009475078146,
+    64.0011083193718
+  ],
+  "n_samples": 131,
+  "require_n": 131,
+  "includes_baseline": true,
+  "n_candidates": 130
+}

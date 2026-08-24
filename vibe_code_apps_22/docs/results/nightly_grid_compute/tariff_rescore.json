@@ -1,0 +1,23 @@
+{
+  "by_tariff": {
+    "FLAT_PLUS_DEMAND": {
+      "winner": "discrete_114",
+      "winner_cost": 3315.0432438275475,
+      "n_rescored": 130,
+      "additional_eplus_launches": 0
+    },
+    "ILLUSTRATIVE_TOU_PLUS_DEMAND": {
+      "winner": "discrete_114",
+      "winner_cost": 3263.720317020948,
+      "n_rescored": 130,
+      "additional_eplus_launches": 0
+    },
+    "ILLUSTRATIVE_DYNAMIC_HOURLY": {
+      "winner": "discrete_114",
+      "winner_cost": 3275.8895780106263,
+      "n_rescored": 130,
+      "additional_eplus_launches": 0
+    }
+  },
+  "additional_eplus_launches": 0
+}

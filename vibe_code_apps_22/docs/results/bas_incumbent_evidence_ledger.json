@@ -1,0 +1,51 @@
+{
+  "schema": "vibe22.bas_incumbent_evidence_ledger.v1",
+  "generated_at": "2026-08-21T20:30:00Z",
+  "site_root": "C:/Users/ben/OneDrive/Desktop/testing/sp_creekside",
+  "entries": [
+    {
+      "claim": "Occupied heating setpoint 68F",
+      "value": 68.0,
+      "confidence": "MEDIUM",
+      "source_path": "bas_screenshots/hp.png",
+      "timestamp_note": "BAS graphics screenshot A201 HP22 Occupied",
+      "extracted": "heat 68.00 / cool 74.00"
+    },
+    {
+      "claim": "Occupied cooling setpoint 74F",
+      "value": 74.0,
+      "confidence": "MEDIUM",
+      "source_path": "bas_screenshots/hp.png",
+      "extracted": "cool 74.00"
+    },
+    {
+      "claim": "Calibration targets encode occ 68/74",
+      "value": {"heat_occ": 68.0, "cool_occ": 74.0, "cool_unocc": 85.0},
+      "confidence": "MEDIUM",
+      "source_path": "eplus/assumptions/bas_calibration_targets.json",
+      "note": "Derived from screenshots; also reports winter unocc zone avg ~64.6F"
+    },
+    {
+      "claim": "Continuous 68/74 thermostat limits 24/7",
+      "value": null,
+      "confidence": "UNRESOLVED",
+      "source_path": "vibe_code_apps_22/docs/results/baseline_evidence_resolution.json",
+      "note": "Field conflict noted; no SITE_ROOT setpoint trend export proves continuous limits"
+    },
+    {
+      "claim": "A04 46F overnight setback is actual BAS operation",
+      "value": false,
+      "confidence": "HIGH",
+      "source_path": "contracts/observed_bas_incumbent_v2.json rejected_baselines.a04_sch_htgsp",
+      "note": "Explicitly rejected as calibration schedule, not operations"
+    },
+    {
+      "claim": "Jan 2026 utility billed demand",
+      "value": 284.82,
+      "confidence": "HIGH",
+      "source_path": "utilities/electricity_utility_demand.csv",
+      "unit": "kW"
+    }
+  ],
+  "determination": "VERIFIED_BAS_INCUMBENT remains UNRESOLVED. Do not create CONTINUOUS_DUALSP_68_74_BAS_REFERENCE as verified. Run only labeled unverified sensitivities."
+}

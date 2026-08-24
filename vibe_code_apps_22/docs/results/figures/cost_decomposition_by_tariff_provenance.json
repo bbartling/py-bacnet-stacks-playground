@@ -1,0 +1,13 @@
+{
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "figure": "cost_decomposition_by_tariff",
+  "source": "eval.json arm aggregates via poc_results_publish"
+}

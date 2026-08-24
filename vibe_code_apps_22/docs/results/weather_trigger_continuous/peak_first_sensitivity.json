@@ -1,0 +1,127 @@
+{
+  "label": "PEAK_FIRST_RESEARCH_SENSITIVITY",
+  "selected": "COLD_TRIGGER_10F",
+  "min_peak_kw": 248.1616661535861,
+  "tie_kw": 1.0,
+  "selected_row": {
+    "strategy": "COLD_TRIGGER_10F",
+    "public_label": "COLD_TRIGGER_10F",
+    "dec_kwh": 99325.11342101528,
+    "dec_peak_15min_kw": 214.4170654386881,
+    "jan_kwh": 106763.09645689114,
+    "jan_peak_15min_kw": 248.37420676076823,
+    "two_month_kwh": 206088.20987790643,
+    "two_month_peak_15min_kw": 248.37420676076823,
+    "illustrative_energy_charge_usd": 22669.7,
+    "illustrative_dec_demand_charge_usd": 2573.0,
+    "illustrative_jan_demand_charge_usd": 2980.49,
+    "illustrative_total_cost_usd": 28223.2,
+    "illustrative_tou_total_cost_usd": 25979.3,
+    "checked_school_days": 34,
+    "ready_checked_school_days": 34,
+    "occupied_comfort_degree_hours": 0.0,
+    "n_continuous_conditioning_days": 32,
+    "trigger_dates": "2025-12-01;2025-12-03;2025-12-04;2025-12-05;2025-12-07;2025-12-08;2025-12-12;2025-12-13;2025-12-14;2025-12-15;2025-12-16;2025-12-19;2025-12-21;2025-12-30;2025-12-31;2026-01-01;2026-01-02;2026-01-04;2026-01-15;2026-01-18;2026-01-19;2026-01-20;2026-01-22;2026-01-23;2026-01-24;2026-01-25;2026-01-26;2026-01-27;2026-01-28;2026-01-29;2026-01-30;2026-01-31",
+    "severe_count": 0,
+    "fatal_count": 0,
+    "w2a_scored_runtime": 362340,
+    "w2a_warmup": 35334,
+    "n_process_starts": 1,
+    "wall_s": 6.769027199999982,
+    "trajectory_sha256": "c1a536c1fc3371552c8e3eff0564f53d5580523de38c25882c5025dc456c8ffe",
+    "passes_checked_readiness": true,
+    "n_intervals": 5952
+  },
+  "candidates": [
+    {
+      "strategy": "ALWAYS_CONTINUOUS_68_74",
+      "two_month_peak_15min_kw": 248.1616661535861,
+      "illustrative_total_cost_usd": 28527.73,
+      "two_month_kwh": 208933.53771913695
+    },
+    {
+      "strategy": "continuous_68_heat_sensitivity",
+      "two_month_peak_15min_kw": 248.1616661535861,
+      "illustrative_total_cost_usd": 28527.73,
+      "two_month_kwh": 208933.53771913695
+    },
+    {
+      "strategy": "COLD_TRIGGER_30F",
+      "two_month_peak_15min_kw": 248.16166626077745,
+      "illustrative_total_cost_usd": 28457.17,
+      "two_month_kwh": 208292.09145884277
+    },
+    {
+      "strategy": "COLD_TRIGGER_20F",
+      "two_month_peak_15min_kw": 248.1616662830314,
+      "illustrative_total_cost_usd": 28381.45,
+      "two_month_kwh": 207603.74818259574
+    },
+    {
+      "strategy": "COLD_TRIGGER_20F_4H",
+      "two_month_peak_15min_kw": 248.16168821768366,
+      "illustrative_total_cost_usd": 28310.67,
+      "two_month_kwh": 206960.25952446953
+    },
+    {
+      "strategy": "COLD_TRIGGER_20F_8H",
+      "two_month_peak_15min_kw": 248.16168821768377,
+      "illustrative_total_cost_usd": 28273.31,
+      "two_month_kwh": 206556.36924150088
+    },
+    {
+      "strategy": "COLD_TRIGGER_10F",
+      "two_month_peak_15min_kw": 248.37420676076823,
+      "illustrative_total_cost_usd": 28223.2,
+      "two_month_kwh": 206088.20987790643
+    },
+    {
+      "strategy": "ALWAYS_GRID_114",
+      "two_month_peak_15min_kw": 250.16576542541185,
+      "illustrative_total_cost_usd": 27959.99,
+      "two_month_kwh": 202894.4397391434
+    },
+    {
+      "strategy": "observed_bas_incumbent_v2",
+      "two_month_peak_15min_kw": 257.22844895109415,
+      "illustrative_total_cost_usd": 27341.75,
+      "two_month_kwh": 195630.51959107406
+    },
+    {
+      "strategy": "frozen_dqn_tou_seed1",
+      "two_month_peak_15min_kw": 261.1952504408998,
+      "illustrative_total_cost_usd": 26977.76,
+      "two_month_kwh": 191581.77687769753
+    },
+    {
+      "strategy": "ALWAYS_GRID_43",
+      "two_month_peak_15min_kw": 265.45658579281786,
+      "illustrative_total_cost_usd": 26325.21,
+      "two_month_kwh": 183884.33054582943
+    },
+    {
+      "strategy": "grid_tou_discrete_43",
+      "two_month_peak_15min_kw": 265.45658579281786,
+      "illustrative_total_cost_usd": 26325.21,
+      "two_month_kwh": 183884.33054582943
+    },
+    {
+      "strategy": "ALWAYS_GRID_42",
+      "two_month_peak_15min_kw": 265.92185679216874,
+      "illustrative_total_cost_usd": 26234.15,
+      "two_month_kwh": 183002.3335920775
+    },
+    {
+      "strategy": "grid_flat_discrete_42",
+      "two_month_peak_15min_kw": 265.92185679216874,
+      "illustrative_total_cost_usd": 26234.15,
+      "two_month_kwh": 183002.3335920775
+    },
+    {
+      "strategy": "frozen_ppo_flat_seed0",
+      "two_month_peak_15min_kw": 272.95779067686334,
+      "illustrative_total_cost_usd": 26650.53,
+      "two_month_kwh": 184875.24956160624
+    }
+  ]
+}

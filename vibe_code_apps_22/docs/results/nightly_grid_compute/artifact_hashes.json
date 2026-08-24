@@ -1,0 +1,16 @@
+{
+  "schema": "vibe22.nightly_grid_artifact_hashes.v1",
+  "generated_at": "2026-08-22T20:10:31.367915+00:00",
+  "reward_v2_implementation_sha256": "a8d371cfc545abc4066e15aa267ff511b8cfc43851cbd45c3a723aa2b9b06fca",
+  "reward_contract_v2_sha256": "a2733baaba67635b64838522abbb45029805276ed7f786669635081bba5e44e5",
+  "research_action_contract_v3_implementation_sha256": "57f9ba29f056c3eac9eadfa95604769a45fce1d6b5a3a2d23beabb6fcb2bc153",
+  "baseline_contract_sha256": "c0a1ed92357c10febd134f9e24f1bd2a5709bf0b05216490cc0772200a4b520a",
+  "candidate_menu_sha256": "96d4ae6d0e17d716515605e0465cc485cd3315bf77932b1551704057a5ec174d",
+  "tariff_fixtures": {
+    "flat_plus_demand.json": "7a750c29e53d87b32d1a376ec3e25e1b65cd010f809c8d9abcf90054ea276cd1",
+    "illustrative_dynamic_hourly.json": "3dc067e2deeb43b87d3c59b290b9842d556ab0590f43f124f2807c9a934dd2cf",
+    "illustrative_evening_tou.json": "aa7da48ef79d93100798e44df6c5f4ec4f7ac4de5c16a9e556f8b19bff6c1a22"
+  },
+  "a04_idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+  "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3"
+}

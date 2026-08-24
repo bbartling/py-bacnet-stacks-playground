@@ -13,4 +13,11 @@
 
 **Ramp gate:** compare 15-min gym-step zone ΔT to real BAS p99.9 × 3. Do not use messy `ep_hour`/`ep_minute` as the interval index. Long training is NO-GO while A04 evening DualSP steps still exceed that threshold ([`../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md`](../docs/audits/2026-08-16-vibe22-physics-ramp-nogo.md)).
 
+**Research-long exports:** finished campaigns retain daily eval rows +
+`schedule_proof`, not full timestep `eplusout.csv` inventories under eval arms.
+Do not claim facility/zone MAT 15-min replay from those exports. December
+validation MTD opened at `opening_mtd_kw=0` — see
+[`RESULTS_PUBLICATION.md`](RESULTS_PUBLICATION.md). Process-launch counters were
+not recorded in `campaign_manifest` for those runs; publish `null`, do not invent.
+
 Six DualSP actuators require a **local patch** on his runner (he sends one float). Meter index 0 (`Electricity:Facility`) also patched. Deterministic default DualSP — never `action_space.sample()`.

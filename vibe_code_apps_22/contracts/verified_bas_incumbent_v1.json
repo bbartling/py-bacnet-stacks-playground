@@ -1,0 +1,42 @@
+{
+  "schema": "vibe22.verified_bas_incumbent.v1",
+  "version": "1.0.0",
+  "label": "VERIFIED_BAS_INCUMBENT",
+  "status": "UNRESOLVED",
+  "confidence": "LOW_TO_MEDIUM",
+  "evidence_summary": {
+    "occupied_heating_f": {
+      "value": 68.0,
+      "confidence": "MEDIUM",
+      "sources": [
+        "SITE_ROOT/bas_screenshots/hp.png (A201 HP22 Occupied heat 68.00)",
+        "SITE_ROOT/eplus/assumptions/bas_calibration_targets.json bas_heat_setpoint_occ_f=68.0"
+      ]
+    },
+    "occupied_cooling_f": {
+      "value": 74.0,
+      "confidence": "MEDIUM",
+      "sources": [
+        "SITE_ROOT/bas_screenshots/hp.png (A201 HP22 Occupied cool 74.00)",
+        "SITE_ROOT/eplus/assumptions/bas_calibration_targets.json bas_cool_setpoint_occ_f=74.0"
+      ]
+    },
+    "unoccupied_heating_f": {
+      "value": null,
+      "approx_from_zone_temps": 64.0,
+      "confidence": "LOW",
+      "note": "Winter zone unocc avg ~64.6F in bas_calibration_targets; not a proven DualSP setpoint"
+    },
+    "continuous_68_74_thermostat_limits": {
+      "proven": false,
+      "status": "UNRESOLVED_FIELD_CONFLICT",
+      "note": "Asserted as possible field conflict in campaign docs; not confirmed by BAS trend exports. Zone temps show cooler unoccupied winter conditions."
+    }
+  },
+  "promoted_contract": null,
+  "sensitivities_allowed": [
+    "OBSERVED_BAS_INCUMBENT_V2_HISTORICAL",
+    "CONTINUOUS_DUALSP_68_74_SENSITIVITY_UNVERIFIED"
+  ],
+  "do_not_promote_as_reality_until_resolved": true
+}

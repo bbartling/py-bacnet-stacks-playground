@@ -1,0 +1,273 @@
+{
+  "schema": "vibe22.two_month_replay_manifest.v1",
+  "generated_at": "2026-08-22T16:05:15.849924+00:00",
+  "site_run_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\two_month_replay_20260822T140831Z",
+  "strategies_attempted": [
+    "a04_native_sch_htgsp",
+    "continuous_68_heat_sensitivity",
+    "frozen_dqn_tou_seed1",
+    "frozen_ppo_flat_seed0",
+    "grid_flat_discrete_42",
+    "grid_tou_discrete_43",
+    "observed_bas_incumbent_v2"
+  ],
+  "n_strategies_ok": 7,
+  "trajectory_hashes": {
+    "a04_native_sch_htgsp": "2fd021c7cd1ca724eab77bd1c41758dc74ce2260c9d6ff3c04b3e69c10ca7c0a",
+    "observed_bas_incumbent_v2": "1543ecfbb379b32db73e4c6f96fcde1d67a0ec38d30a9a7d8922da29173f7494",
+    "continuous_68_heat_sensitivity": "c9f71bc7337a7e0da7605ff9ccf039af6c1a699da76a4777f9c39bff3ae53db9",
+    "frozen_ppo_flat_seed0": "57e90464ebd45c400de292aa167945777dffce86360595a7a889a411b3671fde",
+    "frozen_dqn_tou_seed1": "8e0fd4b6b0d2c82439b70f81bdeeee4f4afa4e73b05fa25f73970ff156a350b5",
+    "grid_flat_discrete_42": "10626863fdd676dd76a2d6ffe088d6c7608eec1527cf6e0b8363de993ee283ba",
+    "grid_tou_discrete_43": "8b49926ad2106845612bdcfd9be2f58ec33234fe364e3d97850cd19039452ab9"
+  },
+  "tariff_rescore_note": "Flat and TOU re-scoring reused identical trajectory hashes; no new EnergyPlus.",
+  "flat_rank_two_month": [
+    {
+      "strategy": "a04_native_sch_htgsp",
+      "public_label": "A04_NATIVE_CALIBRATION_REFERENCE",
+      "trajectory_hash": "2fd021c7cd1ca724eab77bd1c41758dc74ce2260c9d6ff3c04b3e69c10ca7c0a",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 155114.6915,
+      "peak_15min_kw": 287.882,
+      "billed_demand_kw": 287.882,
+      "energy_charge_usd": 17062.62,
+      "demand_charge_usd": 3454.58,
+      "total_usd": 20517.2,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "grid_flat_discrete_42",
+      "public_label": "POLICY_CANDIDATE_GRID_FLAT_DISCRETE_42",
+      "trajectory_hash": "10626863fdd676dd76a2d6ffe088d6c7608eec1527cf6e0b8363de993ee283ba",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 183002.3336,
+      "peak_15min_kw": 265.9219,
+      "billed_demand_kw": 265.9219,
+      "energy_charge_usd": 20130.26,
+      "demand_charge_usd": 3191.06,
+      "total_usd": 23321.32,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "grid_tou_discrete_43",
+      "public_label": "POLICY_CANDIDATE_GRID_TOU_DISCRETE_43",
+      "trajectory_hash": "8b49926ad2106845612bdcfd9be2f58ec33234fe364e3d97850cd19039452ab9",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 183884.3305,
+      "peak_15min_kw": 265.4566,
+      "billed_demand_kw": 265.4566,
+      "energy_charge_usd": 20227.28,
+      "demand_charge_usd": 3185.48,
+      "total_usd": 23412.76,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "frozen_ppo_flat_seed0",
+      "public_label": "POLICY_CANDIDATE_FROZEN_PPO_FLAT",
+      "trajectory_hash": "57e90464ebd45c400de292aa167945777dffce86360595a7a889a411b3671fde",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 184875.2496,
+      "peak_15min_kw": 272.9578,
+      "billed_demand_kw": 272.9578,
+      "energy_charge_usd": 20336.28,
+      "demand_charge_usd": 3275.49,
+      "total_usd": 23611.77,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "frozen_dqn_tou_seed1",
+      "public_label": "POLICY_CANDIDATE_FROZEN_DQN_TOU",
+      "trajectory_hash": "8e0fd4b6b0d2c82439b70f81bdeeee4f4afa4e73b05fa25f73970ff156a350b5",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 191581.7769,
+      "peak_15min_kw": 261.1953,
+      "billed_demand_kw": 261.1953,
+      "energy_charge_usd": 21074.0,
+      "demand_charge_usd": 3134.34,
+      "total_usd": 24208.34,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "observed_bas_incumbent_v2",
+      "public_label": "OBSERVED_BAS_INCUMBENT_V2_HISTORICAL",
+      "trajectory_hash": "1543ecfbb379b32db73e4c6f96fcde1d67a0ec38d30a9a7d8922da29173f7494",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 195630.5196,
+      "peak_15min_kw": 257.2284,
+      "billed_demand_kw": 257.2284,
+      "energy_charge_usd": 21519.36,
+      "demand_charge_usd": 3086.74,
+      "total_usd": 24606.1,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    },
+    {
+      "strategy": "continuous_68_heat_sensitivity",
+      "public_label": "CONTINUOUS_DUALSP_68_74_SENSITIVITY_UNVERIFIED",
+      "trajectory_hash": "c9f71bc7337a7e0da7605ff9ccf039af6c1a699da76a4777f9c39bff3ae53db9",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 208933.5377,
+      "peak_15min_kw": 248.1617,
+      "billed_demand_kw": 248.1617,
+      "energy_charge_usd": 22982.69,
+      "demand_charge_usd": 2977.94,
+      "total_usd": 25960.63,
+      "tariff_mode": "ILLUSTRATIVE_FLAT_PLUS_DEMAND"
+    }
+  ],
+  "tou_rank_two_month": [
+    {
+      "strategy": "a04_native_sch_htgsp",
+      "public_label": "A04_NATIVE_CALIBRATION_REFERENCE",
+      "trajectory_hash": "2fd021c7cd1ca724eab77bd1c41758dc74ce2260c9d6ff3c04b3e69c10ca7c0a",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 155114.6915,
+      "peak_15min_kw": 287.882,
+      "billed_demand_kw": 287.882,
+      "energy_charge_usd": 13961.19,
+      "demand_charge_usd": 3454.58,
+      "total_usd": 17415.77,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "grid_flat_discrete_42",
+      "public_label": "POLICY_CANDIDATE_GRID_FLAT_DISCRETE_42",
+      "trajectory_hash": "10626863fdd676dd76a2d6ffe088d6c7608eec1527cf6e0b8363de993ee283ba",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 183002.3336,
+      "peak_15min_kw": 265.9219,
+      "billed_demand_kw": 265.9219,
+      "energy_charge_usd": 17825.7,
+      "demand_charge_usd": 3191.06,
+      "total_usd": 21016.76,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "grid_tou_discrete_43",
+      "public_label": "POLICY_CANDIDATE_GRID_TOU_DISCRETE_43",
+      "trajectory_hash": "8b49926ad2106845612bdcfd9be2f58ec33234fe364e3d97850cd19039452ab9",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 183884.3305,
+      "peak_15min_kw": 265.4566,
+      "billed_demand_kw": 265.4566,
+      "energy_charge_usd": 17832.71,
+      "demand_charge_usd": 3185.48,
+      "total_usd": 21018.19,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "frozen_ppo_flat_seed0",
+      "public_label": "POLICY_CANDIDATE_FROZEN_PPO_FLAT",
+      "trajectory_hash": "57e90464ebd45c400de292aa167945777dffce86360595a7a889a411b3671fde",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 184875.2496,
+      "peak_15min_kw": 272.9578,
+      "billed_demand_kw": 272.9578,
+      "energy_charge_usd": 17967.28,
+      "demand_charge_usd": 3275.49,
+      "total_usd": 21242.77,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "frozen_dqn_tou_seed1",
+      "public_label": "POLICY_CANDIDATE_FROZEN_DQN_TOU",
+      "trajectory_hash": "8e0fd4b6b0d2c82439b70f81bdeeee4f4afa4e73b05fa25f73970ff156a350b5",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 191581.7769,
+      "peak_15min_kw": 261.1953,
+      "billed_demand_kw": 261.1953,
+      "energy_charge_usd": 18736.89,
+      "demand_charge_usd": 3134.34,
+      "total_usd": 21871.24,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "observed_bas_incumbent_v2",
+      "public_label": "OBSERVED_BAS_INCUMBENT_V2_HISTORICAL",
+      "trajectory_hash": "1543ecfbb379b32db73e4c6f96fcde1d67a0ec38d30a9a7d8922da29173f7494",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 195630.5196,
+      "peak_15min_kw": 257.2284,
+      "billed_demand_kw": 257.2284,
+      "energy_charge_usd": 19313.93,
+      "demand_charge_usd": 3086.74,
+      "total_usd": 22400.67,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    },
+    {
+      "strategy": "continuous_68_heat_sensitivity",
+      "public_label": "CONTINUOUS_DUALSP_68_74_SENSITIVITY_UNVERIFIED",
+      "trajectory_hash": "c9f71bc7337a7e0da7605ff9ccf039af6c1a699da76a4777f9c39bff3ae53db9",
+      "ranking_eligible": true,
+      "period": "two_month",
+      "total_kwh": 208933.5377,
+      "peak_15min_kw": 248.1617,
+      "billed_demand_kw": 248.1617,
+      "energy_charge_usd": 20768.18,
+      "demand_charge_usd": 2977.94,
+      "total_usd": 23746.12,
+      "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND"
+    }
+  ],
+  "vs_continuous_68": {
+    "reference": "continuous_68_heat_sensitivity",
+    "comparisons": [
+      {
+        "strategy": "a04_native_sch_htgsp",
+        "days_lower_peak": 17,
+        "days_lower_kwh": 62,
+        "days_both": 17,
+        "n_days": 62
+      },
+      {
+        "strategy": "observed_bas_incumbent_v2",
+        "days_lower_peak": 29,
+        "days_lower_kwh": 62,
+        "days_both": 29,
+        "n_days": 62
+      },
+      {
+        "strategy": "frozen_ppo_flat_seed0",
+        "days_lower_peak": 28,
+        "days_lower_kwh": 62,
+        "days_both": 28,
+        "n_days": 62
+      },
+      {
+        "strategy": "frozen_dqn_tou_seed1",
+        "days_lower_peak": 27,
+        "days_lower_kwh": 57,
+        "days_both": 27,
+        "n_days": 62
+      },
+      {
+        "strategy": "grid_flat_discrete_42",
+        "days_lower_peak": 28,
+        "days_lower_kwh": 62,
+        "days_both": 28,
+        "n_days": 62
+      },
+      {
+        "strategy": "grid_tou_discrete_43",
+        "days_lower_peak": 28,
+        "days_lower_kwh": 62,
+        "days_both": 28,
+        "n_days": 62
+      }
+    ]
+  },
+  "bacnet_commands": 0
+}

@@ -1,0 +1,1213 @@
+{
+  "schema": "vibe22.rl_poc_results.v1",
+  "honesty_labels": [
+    "SIMULATION-ONLY RL RESEARCH",
+    "NOT VALIDATED FOR OPERATIONAL DSM",
+    "NO PRISTINE LOCKED TEST",
+    "A04 IS NOT A TRANSIENT-VALIDATED PHYSICS CHAMPION",
+    "TOU TARIFF IS ILLUSTRATIVE",
+    "CURRENT CAMPAIGNS USED OBSERVED_BAS_INCUMBENT_V2",
+    "NO BACNET COMMAND AUTHORITY"
+  ],
+  "baseline_contract": {
+    "campaign_baseline_id": "observed_bas_incumbent_v2",
+    "replay_params": {
+      "occupied_heating_f": 68.0,
+      "unoccupied_heating_f": 64.0,
+      "heating_setpoint_start_step": 28,
+      "heating_setpoint_end_step": 68,
+      "recovery_lead_minutes": 60,
+      "continuous_conditioning": false,
+      "cooling_occupied_f_approx": 74.0,
+      "cooling_unoccupied_f_approx": 85.0
+    },
+    "do_not_claim": [
+      "Campaign did not compare against continuous 68F heating / 74F cooling thermostat limits.",
+      "Modeled cost deltas are not verified savings versus actual BAS operation.",
+      "Do not retroactively relabel the historical campaign baseline."
+    ],
+    "possible_field_conflict_note": "Reported actual BAS configuration may instead use continuous thermostat limits of 68F heating and 74F cooling. That conflict was not resolved before these campaigns."
+  },
+  "december_billing_floor_disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges.",
+  "summary": {
+    "primary": {
+      "experiment_id": "FLAT_PLUS_DEMAND",
+      "validation_leader": "trained_ppo_seed0",
+      "incumbent_total_cost": 7623.651771701227,
+      "leader_total_cost": 7628.908662185499,
+      "delta_vs_incumbent": 5.256890484272844,
+      "incumbent_peak_kw": 201.8788298579719,
+      "leader_peak_kw": 233.76998678972194,
+      "leader_reduced_peak": false,
+      "leader_reduced_total_cost": false,
+      "readiness_wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+      "incumbent_readiness_wording": "Ready on 0/5 checked school days; 12 non-school days were not subject to the school-start readiness gate."
+    },
+    "secondary": {
+      "experiment_id": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+      "validation_leader": "trained_dqn_seed1",
+      "incumbent_total_cost": 7082.559940353891,
+      "leader_total_cost": 7019.333518896495,
+      "illustrative_delta_vs_incumbent": -63.2264214573961,
+      "incumbent_peak_kw": 201.8788298579719,
+      "leader_peak_kw": 211.51151467732987,
+      "leader_energy_cost": 4481.195342768537,
+      "incumbent_energy_cost": 4660.013982058227,
+      "leader_demand_cost": 2538.138176127958,
+      "incumbent_demand_cost": 2422.5459582956632,
+      "savings_from_illustrative_tou_energy": true,
+      "demand_cost_increased": true,
+      "peak_increased": true,
+      "readiness_wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+      "tou_dollars_illustrative_not_verified": true
+    },
+    "never_compare_absolute_dollars_across_tariffs": true
+  },
+  "primary": {
+    "experiment_id": "FLAT_PLUS_DEMAND",
+    "tariff_mode": "FLAT_PLUS_DEMAND",
+    "tariff_banner": "ILLUSTRATIVE FLAT + DEMAND \u2014 NOT VERIFIED UTILITY PRICING",
+    "run_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_long_flat_plus_demand_20260820T132506Z",
+    "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+    "action_contract_version": "research_action_contract_v3",
+    "obs_schema": "v4",
+    "observation_dim": 206,
+    "observation_contract": "vibe22.obs.v4.mega",
+    "train_days": [
+      "2025-11-01",
+      "2025-11-02",
+      "2025-11-03",
+      "2025-11-04",
+      "2025-11-05",
+      "2025-11-06",
+      "2025-11-07",
+      "2025-11-08",
+      "2025-11-09",
+      "2025-11-10",
+      "2025-11-11",
+      "2025-11-12",
+      "2025-11-13",
+      "2025-11-14",
+      "2025-11-15",
+      "2025-11-16",
+      "2025-11-17",
+      "2025-11-18",
+      "2025-11-19",
+      "2025-11-20",
+      "2025-11-21",
+      "2025-11-22",
+      "2025-11-23",
+      "2025-11-24",
+      "2025-11-25",
+      "2025-11-26",
+      "2025-11-27",
+      "2025-11-28",
+      "2025-11-29",
+      "2025-11-30",
+      "2025-12-01",
+      "2025-12-02",
+      "2025-12-03",
+      "2025-12-04",
+      "2025-12-05",
+      "2025-12-06",
+      "2025-12-07",
+      "2025-12-08",
+      "2025-12-09",
+      "2025-12-10",
+      "2025-12-11",
+      "2025-12-12",
+      "2025-12-13",
+      "2025-12-14"
+    ],
+    "validation_days": [
+      "2025-12-15",
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-20",
+      "2025-12-21",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-25",
+      "2025-12-26",
+      "2025-12-27",
+      "2025-12-28",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "n_train_days": 44,
+    "n_validation_days": 17,
+    "target_transitions": 8192,
+    "rl_transitions_by_model": {
+      "PPO_0": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": -0.11039966123102207
+      },
+      "PPO_1": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": -0.2498572915085724
+      },
+      "DQN_0": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": 0.3220317759285436
+      },
+      "DQN_1": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": 0.34091527716910264
+      }
+    },
+    "validation_arm_days": 187,
+    "n_eval_arms": 11,
+    "eval_arms": [
+      "continuous_68",
+      "continuous_70",
+      "incumbent",
+      "random",
+      "shallow_setback",
+      "trained_dqn_seed0",
+      "trained_dqn_seed1",
+      "trained_ppo_seed0",
+      "trained_ppo_seed1",
+      "untrained_dqn",
+      "untrained_ppo"
+    ],
+    "elapsed_s": 27322.988413899962,
+    "energyplus_severe": 0,
+    "energyplus_fatal": 0,
+    "bacnet_commands": 0,
+    "actual_energyplus_process_launches": null,
+    "actual_energyplus_process_launches_note": "not recorded in campaign_manifest; do not invent",
+    "raw_eval_winner_field": "trained_ppo_seed0",
+    "validation_leader": "trained_ppo_seed0",
+    "winner_rule": "deterministic_validation_plus_readiness_multi_seed; never training mean_reward; never mix tariffs",
+    "failures": [],
+    "claim_labels": [
+      "RESEARCH_POC_ALLOWED",
+      "KNOWN_TRANSIENT_PHYSICS_LIMITATIONS",
+      "NOT_SIMULATION_TRAINING_READY",
+      "NOT_OPERATIONAL_DSM_READY",
+      "NO_BACNET_COMMAND_AUTHORITY",
+      "NO_PRISTINE_LOCKED_TEST_AVAILABLE"
+    ],
+    "SIMULATION_TRAINING_READY": false,
+    "OPERATIONAL_DSM_READY": false,
+    "arm_totals": {
+      "continuous_68": {
+        "days": 17,
+        "energy_cost": 5674.309453414389,
+        "incremental_demand_cost": 2334.462447097441,
+        "peak_kw_max": 194.53853725812007,
+        "daily_kwh_sum": 51584.63139467625,
+        "total_cost": 8008.771900511831,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "continuous_70": {
+        "days": 17,
+        "energy_cost": 5937.613664378227,
+        "incremental_demand_cost": 2426.2771581213124,
+        "peak_kw_max": 202.18976317677604,
+        "daily_kwh_sum": 53978.30603980206,
+        "total_cost": 8363.89082249954,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "incumbent": {
+        "days": 17,
+        "energy_cost": 5201.105813405564,
+        "incremental_demand_cost": 2422.5459582956632,
+        "peak_kw_max": 201.8788298579719,
+        "daily_kwh_sum": 47282.78012186876,
+        "total_cost": 7623.651771701227,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 0,
+          "readiness_rate_checked_school_days": 0.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 0/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 12
+        }
+      },
+      "random": {
+        "days": 17,
+        "energy_cost": 5290.724470864789,
+        "incremental_demand_cost": 2774.291570195392,
+        "peak_kw_max": 231.19096418294933,
+        "daily_kwh_sum": 48097.49518967989,
+        "total_cost": 8065.01604106018,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 4,
+          "readiness_rate_checked_school_days": 0.8,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 4/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 16
+        }
+      },
+      "shallow_setback": {
+        "days": 17,
+        "energy_cost": 5455.99871919553,
+        "incremental_demand_cost": 2487.0198327723633,
+        "peak_kw_max": 207.25165273103028,
+        "daily_kwh_sum": 49599.98835632299,
+        "total_cost": 7943.018551967893,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_dqn_seed0": {
+        "days": 17,
+        "energy_cost": 5358.950986328586,
+        "incremental_demand_cost": 2541.2030338451477,
+        "peak_kw_max": 211.76691948709563,
+        "daily_kwh_sum": 48717.73623935078,
+        "total_cost": 7900.154020173733,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_dqn_seed1": {
+        "days": 17,
+        "energy_cost": 4994.343077330548,
+        "incremental_demand_cost": 2649.2099145571538,
+        "peak_kw_max": 220.7674928797628,
+        "daily_kwh_sum": 45403.118884823154,
+        "total_cost": 7643.552991887702,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_ppo_seed0": {
+        "days": 17,
+        "energy_cost": 4823.668820708836,
+        "incremental_demand_cost": 2805.239841476663,
+        "peak_kw_max": 233.76998678972194,
+        "daily_kwh_sum": 43851.5347337167,
+        "total_cost": 7628.908662185499,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_ppo_seed1": {
+        "days": 17,
+        "energy_cost": 4886.947896183681,
+        "incremental_demand_cost": 2752.2095791105726,
+        "peak_kw_max": 229.35079825921437,
+        "daily_kwh_sum": 44426.79905621527,
+        "total_cost": 7639.157475294254,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "untrained_dqn": {
+        "days": 17,
+        "energy_cost": 5217.496260311702,
+        "incremental_demand_cost": 2824.994609954364,
+        "peak_kw_max": 235.41621749619702,
+        "daily_kwh_sum": 47431.78418465184,
+        "total_cost": 8042.490870266066,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 3,
+          "readiness_rate_checked_school_days": 0.6,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 3/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 15
+        }
+      },
+      "untrained_ppo": {
+        "days": 17,
+        "energy_cost": 5352.156701598201,
+        "incremental_demand_cost": 2497.658268921455,
+        "peak_kw_max": 208.13818907678794,
+        "daily_kwh_sum": 48655.97001452911,
+        "total_cost": 7849.814970519656,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      }
+    },
+    "december_billing_floor": {
+      "representative_day": "2025-12-15",
+      "n_arms_on_dec15": 11,
+      "all_opening_mtd_kw_zero": true,
+      "opening_mtd_kw_by_arm": {
+        "incumbent": 0.0,
+        "continuous_68": 0.0,
+        "continuous_70": 0.0,
+        "shallow_setback": 0.0,
+        "random": 0.0,
+        "untrained_ppo": 0.0,
+        "untrained_dqn": 0.0,
+        "trained_ppo_seed0": 0.0,
+        "trained_ppo_seed1": 0.0,
+        "trained_dqn_seed0": 0.0,
+        "trained_dqn_seed1": 0.0
+      },
+      "corrected_scores_published": false,
+      "reason_no_rescore": "Campaign exports lack arm-specific 2025-12-01..14 facility/peak series required to reconstruct the December MTD floor without re-running EnergyPlus.",
+      "disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges."
+    }
+  },
+  "secondary": {
+    "experiment_id": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+    "tariff_mode": "ILLUSTRATIVE_TOU_PLUS_DEMAND",
+    "tariff_banner": "ILLUSTRATIVE TARIFF \u2014 NOT VERIFIED UTILITY PRICING",
+    "run_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus_gym\\rl\\research_long_illustrative_tou_plus_demand_20260820T210304Z",
+    "idf_sha256": "212a2835eabb8b3a316150815a61bc996bf1fda4191df655dbf74f1126132683",
+    "epw_sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+    "action_contract_version": "research_action_contract_v3",
+    "obs_schema": "v4",
+    "observation_dim": 206,
+    "observation_contract": "vibe22.obs.v4.mega",
+    "train_days": [
+      "2025-11-01",
+      "2025-11-02",
+      "2025-11-03",
+      "2025-11-04",
+      "2025-11-05",
+      "2025-11-06",
+      "2025-11-07",
+      "2025-11-08",
+      "2025-11-09",
+      "2025-11-10",
+      "2025-11-11",
+      "2025-11-12",
+      "2025-11-13",
+      "2025-11-14",
+      "2025-11-15",
+      "2025-11-16",
+      "2025-11-17",
+      "2025-11-18",
+      "2025-11-19",
+      "2025-11-20",
+      "2025-11-21",
+      "2025-11-22",
+      "2025-11-23",
+      "2025-11-24",
+      "2025-11-25",
+      "2025-11-26",
+      "2025-11-27",
+      "2025-11-28",
+      "2025-11-29",
+      "2025-11-30",
+      "2025-12-01",
+      "2025-12-02",
+      "2025-12-03",
+      "2025-12-04",
+      "2025-12-05",
+      "2025-12-06",
+      "2025-12-07",
+      "2025-12-08",
+      "2025-12-09",
+      "2025-12-10",
+      "2025-12-11",
+      "2025-12-12",
+      "2025-12-13",
+      "2025-12-14"
+    ],
+    "validation_days": [
+      "2025-12-15",
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-20",
+      "2025-12-21",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-25",
+      "2025-12-26",
+      "2025-12-27",
+      "2025-12-28",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "n_train_days": 44,
+    "n_validation_days": 17,
+    "target_transitions": 8192,
+    "rl_transitions_by_model": {
+      "PPO_0": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": -0.23478583973437672
+      },
+      "PPO_1": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": 0.29050410842868857
+      },
+      "DQN_0": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": 0.2732160353420845
+      },
+      "DQN_1": {
+        "timesteps": 8192,
+        "mean_reward_NOT_used_for_leader": 0.3126108013466542
+      }
+    },
+    "validation_arm_days": 187,
+    "n_eval_arms": 11,
+    "eval_arms": [
+      "continuous_68",
+      "continuous_70",
+      "incumbent",
+      "random",
+      "shallow_setback",
+      "trained_dqn_seed0",
+      "trained_dqn_seed1",
+      "trained_ppo_seed0",
+      "trained_ppo_seed1",
+      "untrained_dqn",
+      "untrained_ppo"
+    ],
+    "elapsed_s": 19035.51828770002,
+    "energyplus_severe": 0,
+    "energyplus_fatal": 0,
+    "bacnet_commands": 0,
+    "actual_energyplus_process_launches": null,
+    "actual_energyplus_process_launches_note": "not recorded in campaign_manifest; do not invent",
+    "raw_eval_winner_field": "trained_dqn_seed1",
+    "validation_leader": "trained_dqn_seed1",
+    "winner_rule": "deterministic_validation_plus_readiness_multi_seed; never training mean_reward; never mix tariffs",
+    "failures": [],
+    "claim_labels": [
+      "SIMULATION_ONLY_RL_RESEARCH",
+      "A04_RESEARCH_POC_NOT_TRANSIENT_VALIDATED",
+      "RESEARCH_LONG_ALLOWED",
+      "NO_BACNET_COMMAND_AUTHORITY"
+    ],
+    "SIMULATION_TRAINING_READY": false,
+    "OPERATIONAL_DSM_READY": false,
+    "arm_totals": {
+      "continuous_68": {
+        "days": 17,
+        "energy_cost": 5111.231177220174,
+        "incremental_demand_cost": 2334.462447097441,
+        "peak_kw_max": 194.53853725812007,
+        "daily_kwh_sum": 51584.63139467625,
+        "total_cost": 7445.693624317615,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "continuous_70": {
+        "days": 17,
+        "energy_cost": 5353.23112294491,
+        "incremental_demand_cost": 2426.2771581213124,
+        "peak_kw_max": 202.18976317677604,
+        "daily_kwh_sum": 53978.30603980206,
+        "total_cost": 7779.5082810662225,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "incumbent": {
+        "days": 17,
+        "energy_cost": 4660.013982058227,
+        "incremental_demand_cost": 2422.5459582956632,
+        "peak_kw_max": 201.8788298579719,
+        "daily_kwh_sum": 47282.78012186876,
+        "total_cost": 7082.559940353891,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 0,
+          "readiness_rate_checked_school_days": 0.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 0/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 12
+        }
+      },
+      "random": {
+        "days": 17,
+        "energy_cost": 4726.642911321196,
+        "incremental_demand_cost": 2774.291570195392,
+        "peak_kw_max": 231.19096418294933,
+        "daily_kwh_sum": 48097.49518967989,
+        "total_cost": 7500.934481516588,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 4,
+          "readiness_rate_checked_school_days": 0.8,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 4/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 16
+        }
+      },
+      "shallow_setback": {
+        "days": 17,
+        "energy_cost": 4893.756873598177,
+        "incremental_demand_cost": 2487.0198327723633,
+        "peak_kw_max": 207.25165273103028,
+        "daily_kwh_sum": 49599.98835632299,
+        "total_cost": 7380.77670637054,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_dqn_seed0": {
+        "days": 17,
+        "energy_cost": 4515.379449614307,
+        "incremental_demand_cost": 2553.7558333233396,
+        "peak_kw_max": 212.8129861102783,
+        "daily_kwh_sum": 46055.52363737684,
+        "total_cost": 7069.1352829376465,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_dqn_seed1": {
+        "days": 17,
+        "energy_cost": 4481.195342768537,
+        "incremental_demand_cost": 2538.138176127958,
+        "peak_kw_max": 211.51151467732987,
+        "daily_kwh_sum": 45663.900120207734,
+        "total_cost": 7019.333518896495,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_ppo_seed0": {
+        "days": 17,
+        "energy_cost": 4788.189269053706,
+        "incremental_demand_cost": 2359.758068586443,
+        "peak_kw_max": 196.64650571553696,
+        "daily_kwh_sum": 48464.987594507795,
+        "total_cost": 7147.947337640149,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "trained_ppo_seed1": {
+        "days": 17,
+        "energy_cost": 4305.692253935202,
+        "incremental_demand_cost": 2786.714610167121,
+        "peak_kw_max": 232.2262175139267,
+        "daily_kwh_sum": 44146.528465066214,
+        "total_cost": 7092.406864102322,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      },
+      "untrained_dqn": {
+        "days": 17,
+        "energy_cost": 4665.555682289932,
+        "incremental_demand_cost": 2824.994609954364,
+        "peak_kw_max": 235.41621749619702,
+        "daily_kwh_sum": 47431.78418465184,
+        "total_cost": 7490.550292244296,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 3,
+          "readiness_rate_checked_school_days": 0.6,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 3/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 15
+        }
+      },
+      "untrained_ppo": {
+        "days": 17,
+        "energy_cost": 4790.3132261841365,
+        "incremental_demand_cost": 2497.679456504187,
+        "peak_kw_max": 208.13995470868224,
+        "daily_kwh_sum": 48658.50148385271,
+        "total_cost": 7287.992682688324,
+        "readiness": {
+          "checked_school_days": 5,
+          "ready_checked_school_days": 5,
+          "readiness_rate_checked_school_days": 1.0,
+          "unchecked_non_school_days": 12,
+          "all_validation_rows": 17,
+          "checked_school_day_isos": [
+            "2025-12-15",
+            "2025-12-16",
+            "2025-12-17",
+            "2025-12-18",
+            "2025-12-19"
+          ],
+          "unchecked_day_isos": [
+            "2025-12-20",
+            "2025-12-21",
+            "2025-12-22",
+            "2025-12-23",
+            "2025-12-24",
+            "2025-12-25",
+            "2025-12-26",
+            "2025-12-27",
+            "2025-12-28",
+            "2025-12-29",
+            "2025-12-30",
+            "2025-12-31"
+          ],
+          "wording": "Ready on 5/5 checked school days; 12 non-school days were not subject to the school-start readiness gate.",
+          "legacy_misleading_readiness_ok_rows": 17
+        }
+      }
+    },
+    "december_billing_floor": {
+      "representative_day": "2025-12-15",
+      "n_arms_on_dec15": 11,
+      "all_opening_mtd_kw_zero": true,
+      "opening_mtd_kw_by_arm": {
+        "incumbent": 0.0,
+        "continuous_68": 0.0,
+        "continuous_70": 0.0,
+        "shallow_setback": 0.0,
+        "random": 0.0,
+        "untrained_ppo": 0.0,
+        "untrained_dqn": 0.0,
+        "trained_ppo_seed0": 0.0,
+        "trained_ppo_seed1": 0.0,
+        "trained_dqn_seed0": 0.0,
+        "trained_dqn_seed1": 0.0
+      },
+      "corrected_scores_published": false,
+      "reason_no_rescore": "Campaign exports lack arm-specific 2025-12-01..14 facility/peak series required to reconstruct the December MTD floor without re-running EnergyPlus.",
+      "disclosure": "Validation demand-cost accounting initialized the December billing floor at zero and may overstate incremental candidate demand charges."
+    }
+  },
+  "never_compare_absolute_dollars_across_tariffs": true
+}

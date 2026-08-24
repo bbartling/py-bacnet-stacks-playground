@@ -84,7 +84,10 @@ def test_a04_bytes_immutable_line_endings():
 
 
 def test_trackb_research_child_hash_and_labels():
-    digest = hashlib.sha256(TRACK_B_RESEARCH.read_bytes()).hexdigest()
+    # Filename embeds the LF digest; Windows checkouts may present CRLF bytes.
+    raw = TRACK_B_RESEARCH.read_bytes()
+    lf = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    digest = hashlib.sha256(lf).hexdigest()
     assert digest == TRACK_B_SHA
     card = json.loads(
         (APP / "models" / "eplus" / "research" / "a04_trackb_40fb33e8_model_card.json").read_text(
