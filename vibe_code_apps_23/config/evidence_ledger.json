@@ -32,10 +32,17 @@
       "source": "Building 59 MPC publications/case-study documentation"
     },
     {
+      "id": "B59-CAMPUS-ELECTRIC-SUPPLY",
+      "status": "SOURCE_FACT",
+      "claim": "Berkeley Lab is supplied from PG&E 115-kV transmission lines through the Grizzly substation and historically benefited from 115-kV transmission-line rates rather than ordinary 12-kV primary rates.",
+      "source": "Berkeley Lab Currents, April 4 2003, Grizzly Substation article",
+      "implication": "Do not assume Building 59 was billed as a standalone standard PG&E commercial retail account."
+    },
+    {
       "id": "B59-TARIFF",
       "status": "UNRESOLVED",
-      "claim": "The exact historical Building 59 electricity rate assignment has not been proven from the Dryad dataset.",
-      "action": "Obtain rate/account evidence before VERIFIED_HISTORICAL_TARIFF."
+      "claim": "The exact historical Building 59 cost allocation/rate assignment for 2018-2020 has not been proven from the Dryad dataset.",
+      "action": "Obtain campus procurement/rate evidence and a defensible Building 59 allocation method before VERIFIED_HISTORICAL_TARIFF. Standard PG&E B-19/E-20 may be useful only as labeled counterfactual scenarios unless proven applicable."
     }
   ]
 }
