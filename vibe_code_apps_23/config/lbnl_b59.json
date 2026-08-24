@@ -1,0 +1,34 @@
+{
+  "schema": "vibe23.lbnl_b59_seed.v1",
+  "dataset": {
+    "doi": "10.7941/D1N33Q",
+    "dryad_landing_page": "https://datadryad.org/dataset/doi%3A10.7941/D1N33Q",
+    "dryad_download_api": "https://datadryad.org/api/v2/datasets/doi%3A10.7941%2FD1N33Q/download",
+    "release_date": "2022-02-02",
+    "measurement_years": [2018, 2019, 2020],
+    "reported_clean_csv_files": 27,
+    "reported_data_points": 337
+  },
+  "building": {
+    "name": "LBNL Building 59 / Shyh Wang Hall",
+    "location": "Berkeley, California",
+    "constructed_year": 2015,
+    "published_conditioned_area_m2": 10400,
+    "dataset_monitored_floor_area_m2_each": 2325,
+    "dataset_monitored_floors": 2,
+    "later_field_study_office_area_m2": 6038,
+    "area_resolution_status": "UNRESOLVED_BEFORE_MODEL_GEOMETRY_FREEZE",
+    "office_hvac": "UFAD served by four rooftop units"
+  },
+  "calibration": {
+    "year_status": "SELECT_2018_OR_2019_AFTER_COMPLETENESS_REVIEW",
+    "monthly_nmbe_abs_max_pct": 5.0,
+    "monthly_cvrmse_max_pct": 15.0,
+    "hourly_nmbe_abs_max_pct": 10.0,
+    "hourly_cvrmse_max_pct": 30.0
+  },
+  "tariff": {
+    "status": "UNVERIFIED_BUILDING_RATE_ASSIGNMENT",
+    "rule": "Do not encode an actual Building 59 tariff until account/rate evidence is found."
+  }
+}

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibe23-lbnl-b59"
+version = "0.1.0"
+description = "LBNL Building 59 EnergyPlus calibration and DSM research lab"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0", "pandas>=2.2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+vibe23 = "vibe23.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"

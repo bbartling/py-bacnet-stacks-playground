@@ -1,0 +1,41 @@
+{
+  "schema": "vibe23.evidence_ledger.v1",
+  "entries": [
+    {
+      "id": "B59-DATASET",
+      "status": "SOURCE_FACT",
+      "claim": "Dryad DOI 10.7941/D1N33Q contains three years of Building 59 energy, HVAC, environmental and occupancy data from more than 300 sensors/meters.",
+      "source": "Dryad dataset and 2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-FLOORS",
+      "status": "SOURCE_FACT",
+      "claim": "Published building description: four floors and about 10,400 m2 conditioned space; office floors are third and fourth levels.",
+      "source": "2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-UFAD",
+      "status": "SOURCE_FACT",
+      "claim": "Office areas use raised-floor underfloor air distribution and four rooftop units.",
+      "source": "2022 Scientific Data publication"
+    },
+    {
+      "id": "B59-AREA-DISCREPANCY",
+      "status": "UNRESOLVED",
+      "claim": "Dataset description reports two monitored office floors at 2,325 m2 each, while a later Building 59 field-control study reports approximately 6,038 m2 office HVAC study area.",
+      "action": "Resolve using source metadata/geometry before freezing EnergyPlus floor area."
+    },
+    {
+      "id": "B59-2020-CONTROLS",
+      "status": "SOURCE_FACT",
+      "claim": "2020 contains control-regime changes including MPC periods, so it should not be silently mixed into a stationary baseline calibration.",
+      "source": "Building 59 MPC publications/case-study documentation"
+    },
+    {
+      "id": "B59-TARIFF",
+      "status": "UNRESOLVED",
+      "claim": "The exact historical Building 59 electricity rate assignment has not been proven from the Dryad dataset.",
+      "action": "Obtain rate/account evidence before VERIFIED_HISTORICAL_TARIFF."
+    }
+  ]
+}
