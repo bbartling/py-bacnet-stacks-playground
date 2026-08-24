@@ -110,9 +110,10 @@ def aggregate_power_kw(power_kw: pd.Series, rule: str, max_gap_factor: float = 4
     if (hours <= 0).any():
         raise ValueError("Timestamps must be strictly increasing")
 
-    # Use the lower quartile rather than the raw median so one or two large gaps
-    # cannot redefine the nominal sample interval and hide missing telemetry.
-    typical_hours = float(np.quantile(hours.to_numpy(), 0.25))
+    # Select an observed lower-quartile cadence rather than an interpolated
+    # quantile. With sparse data, interpolation between one normal interval and
+    # one large gap can make the gap look like the nominal cadence.
+    typical_hours = float(np.quantile(hours.to_numpy(), 0.25, method="lower"))
     if typical_hours <= 0:
         raise ValueError("Could not determine a positive sample interval")
     if float(hours.max()) > typical_hours * max_gap_factor:
