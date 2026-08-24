@@ -124,7 +124,7 @@ def _integration_hours(
         if not np.isfinite(override) or override <= 0.0:
             raise ValueError("interval_hours must be finite and positive")
         return np.full(len(index), override, dtype=float)
-    elapsed = np.diff(index.asi8.astype(np.float64)) / 3.6e12
+    elapsed = index.to_series().diff().dropna().dt.total_seconds().to_numpy(dtype=float) / 3600.0
     if np.any(~np.isfinite(elapsed)) or np.any(elapsed <= 0.0):
         raise ValueError("timestamps must be strictly increasing")
     if float(np.max(elapsed)) > max_gap_factor * float(np.min(elapsed)):
