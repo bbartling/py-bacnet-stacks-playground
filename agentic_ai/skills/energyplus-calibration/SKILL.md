@@ -53,11 +53,21 @@ Before another envelope/load kWh sweep on a failed screening seed:
    the proxy; do not pretend the proxy UFAD topology matches the BAS.
 7. Never overwrite a hash-bound historical champion IDF; publish a new lineage
    path and scorecard directory.
+8. After control replay, a separate **LOAD_SCHEDULE** dial-in may move MEL /
+   lighting W/m² and measured weekend/standby fractions from schedule priors.
+   Raise standby/weekend **only together with** density cuts — high standby at
+   champion W/m² inflates annual MEL. Label
+   `LOAD_SCHEDULE_DIALIN_SCREENING_NOT_CALIBRATED`. A full-year monthly GL14
+   numeric pass on a PackagedVAV proxy can still fail tuning/holdout and does
+   **not** authorize topology or DSM claims. Fan-pressure cuts that help CV(RMSE)
+   need measured fan-power binding before they become calibrated inputs.
 
 Vibe 23 artifacts for this pattern:
 - `config/b59_measured_vs_screening_idf.json`
 - `scorecards/b59_2020_screening/figures/measured_vs_idf/`
 - `scripts/run_b59_control_replay_30.py` / `vibe23.b59_control_replay`
+- `scripts/run_b59_load_schedule_dialin_24.py` / `vibe23.b59_load_schedule_dialin`
+- `config/b59_schedule_priors.json` / `docs/B59_LOAD_SCHEDULE_DIALIN_24_RESULTS.md`
 
 ## Default ASHRAE Guideline 14-style gates
 - Monthly: `|NMBE| <= 5%`, `CV(RMSE) <= 15%`.
@@ -72,7 +82,8 @@ Do not call a repeatedly inspected period a blind holdout; label it a reserved
 diagnostic slice and establish a new untouched period for validation.
 
 ## Status ladder
-`MODEL_SEED` · `CALIBRATION_IN_PROGRESS` · `CONTROL_REPLAY_SCREENING` · `MONTHLY_CALIBRATED` · `HOURLY_CALIBRATED` · `VALIDATED_HOLDOUT`
+`MODEL_SEED` · `CALIBRATION_IN_PROGRESS` · `CONTROL_REPLAY_SCREENING` · `LOAD_SCHEDULE_DIALIN_SCREENING` · `MONTHLY_CALIBRATED` · `HOURLY_CALIBRATED` · `VALIDATED_HOLDOUT`
 
-`CONTROL_REPLAY_SCREENING` means discrepancy-driven knobs moved on an otherwise
-uncalibrated topology. It is **not** a calibration claim and does not unlock DSM.
+`CONTROL_REPLAY_SCREENING` / `LOAD_SCHEDULE_DIALIN_SCREENING` mean discrepancy-
+or evidence-driven knobs moved on an otherwise uncalibrated topology. They are
+**not** calibration claims and do not unlock DSM.

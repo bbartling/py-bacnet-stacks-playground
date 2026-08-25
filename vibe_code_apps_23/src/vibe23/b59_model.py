@@ -105,6 +105,15 @@ class B59CalibrationParameters:
     post_march17_people_multiplier: float = 0.25
     post_march17_lighting_multiplier: float = 0.561 / 2.048
     post_march17_equipment_multiplier: float = 2.207 / 9.054
+    # Compact schedule fractions. Defaults preserve historical screening (0.05).
+    # Measured 2018 weekday/weekend medians support higher MEL standby/weekend
+    # and ~0.17 lighting weekend scale (see config/b59_schedule_priors.json).
+    people_standby_fraction: float = 0.05
+    people_weekend_fraction: float = 0.05
+    lights_standby_fraction: float = 0.05
+    lights_weekend_fraction: float = 0.05
+    mel_standby_fraction: float = 0.05
+    mel_weekend_fraction: float = 0.05
     occupied_heating_setpoint_c: float = 21.0
     occupied_cooling_setpoint_c: float = 24.0
     unoccupied_heating_setpoint_c: float = 15.6
@@ -124,8 +133,10 @@ class B59CalibrationParameters:
 
     BOUNDS: ClassVar[dict[str, tuple[float, float, str]]] = {
         "people_area_per_person_m2": (10.0, 35.0, "m2/person"),
-        "lighting_w_m2": (4.0, 14.0, "W/m2"),
-        "equipment_w_m2": (5.0, 20.0, "W/m2"),
+        # Lower floor opened for evidence-backed dial-in toward measured lig_S /
+        # MEL annual kWh (screening champion over-predicted both end uses).
+        "lighting_w_m2": (2.5, 14.0, "W/m2"),
+        "equipment_w_m2": (4.0, 20.0, "W/m2"),
         "wall_thermal_resistance_m2_k_w": (1.5, 5.0, "m2-K/W"),
         "roof_thermal_resistance_m2_k_w": (3.5, 8.0, "m2-K/W"),
         "glazing_u_w_m2_k": (1.2, 3.5, "W/m2-K"),
@@ -139,6 +150,12 @@ class B59CalibrationParameters:
         "post_march17_people_multiplier": (0.10, 0.50, "fraction"),
         "post_march17_lighting_multiplier": (0.20, 0.40, "fraction"),
         "post_march17_equipment_multiplier": (0.15, 0.40, "fraction"),
+        "people_standby_fraction": (0.0, 0.20, "fraction"),
+        "people_weekend_fraction": (0.0, 0.20, "fraction"),
+        "lights_standby_fraction": (0.02, 0.30, "fraction"),
+        "lights_weekend_fraction": (0.05, 0.30, "fraction"),
+        "mel_standby_fraction": (0.05, 0.55, "fraction"),
+        "mel_weekend_fraction": (0.05, 0.80, "fraction"),
         "occupied_heating_setpoint_c": (19.0, 22.0, "C"),
         "occupied_cooling_setpoint_c": (23.0, 27.0, "C"),
         "unoccupied_heating_setpoint_c": (12.0, 18.0, "C"),
@@ -542,28 +559,35 @@ def _schedules(parameters: B59CalibrationParameters) -> list[str]:
     hvac_start = _schedule_time(parameters.weekday_hvac_start_hour)
     hvac_end = _schedule_time(parameters.weekday_hvac_end_hour)
 
-    def load_schedule(name: str, post_multiplier: float) -> str:
+    def load_schedule(
+        name: str,
+        post_multiplier: float,
+        *,
+        standby: float,
+        weekend: float,
+        shoulder: float = 0.25,
+    ) -> str:
         def period(through: str, multiplier: float) -> list[object]:
             return [
                 through,
                 "For: SummerDesignDay WinterDesignDay",
                 "Until: 24:00",
-                0.05,
+                standby,
                 "For: Weekdays",
                 occupancy_start,
-                0.05 * multiplier,
+                standby * multiplier,
                 occupancy_end,
                 1.0 * multiplier,
                 hvac_end,
-                0.25 * multiplier,
+                shoulder * multiplier,
                 "Until: 24:00",
-                0.05 * multiplier,
+                standby * multiplier,
                 "For: Weekends Holidays",
                 "Until: 24:00",
-                0.05 * multiplier,
+                weekend * multiplier,
                 "For: AllOtherDays",
                 "Until: 24:00",
-                0.05 * multiplier,
+                weekend * multiplier,
             ]
 
         fields: list[object] = [name, "FRACTION"]
@@ -605,9 +629,26 @@ def _schedules(parameters: B59CalibrationParameters) -> list[str]:
         _object("ScheduleTypeLimits", ["ANY_NUMBER"]),
         _object("Schedule:Constant", ["SCREENING_ACTIVITY", "ANY_NUMBER", 120]),
         _object("Schedule:Constant", ["SCREENING_ALWAYS_ON", "FRACTION", 1]),
-        load_schedule("SCREENING_PEOPLE_FRACTION", parameters.post_march17_people_multiplier),
-        load_schedule("SCREENING_LIGHTS_FRACTION", parameters.post_march17_lighting_multiplier),
-        load_schedule("SCREENING_MEL_FRACTION", parameters.post_march17_equipment_multiplier),
+        load_schedule(
+            "SCREENING_PEOPLE_FRACTION",
+            parameters.post_march17_people_multiplier,
+            standby=parameters.people_standby_fraction,
+            weekend=parameters.people_weekend_fraction,
+            shoulder=0.10,
+        ),
+        load_schedule(
+            "SCREENING_LIGHTS_FRACTION",
+            parameters.post_march17_lighting_multiplier,
+            standby=parameters.lights_standby_fraction,
+            weekend=parameters.lights_weekend_fraction,
+        ),
+        load_schedule(
+            "SCREENING_MEL_FRACTION",
+            parameters.post_march17_equipment_multiplier,
+            standby=parameters.mel_standby_fraction,
+            weekend=parameters.mel_weekend_fraction,
+            shoulder=0.55,
+        ),
         hvac_availability,
         _object(
             "Schedule:Compact",
