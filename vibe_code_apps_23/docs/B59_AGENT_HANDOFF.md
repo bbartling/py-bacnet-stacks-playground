@@ -182,6 +182,11 @@ hash-bound campaign evidence. Create a new as-operated model lineage.
 
 ## Exact next work
 
+0. Optional discrepancy-driven **CONTROL_REPLAY** (30 runs): dial SAT / zone
+   setpoints / OA / DX capacity+airflow only. Claim status stays
+   `CONTROL_REPLAY_SCREENING_NOT_CALIBRATED`. Runner:
+   `scripts/run_b59_control_replay_30.py`. Do not treat a GL14 improvement as
+   topology calibration.
 1. Freeze/reconcile the current BBD release, timestamps, units, and meter scope.
 2. Map Brick equipment and points into four RTU loops, 50 UFTs/controlled zones,
    plant loops, and meter boundaries; document every unresolved identifier.

@@ -118,6 +118,9 @@ class B59CalibrationParameters:
     cooling_shr: float = 0.75
     coil_airflow_m3_s: float = 12_000.0 * CFM_TO_M3_S
     minimum_outdoor_air_m3_s: float = RTU_MINIMUM_OA_M3_S
+    # PackagedVAV cooling supply-air setpoint. Historical screening used a
+    # hard-coded 14.4 C (57.9 F); measured RTU SAT SP medians are ~18.7–20 C.
+    supply_air_temperature_setpoint_c: float = 14.4
 
     BOUNDS: ClassVar[dict[str, tuple[float, float, str]]] = {
         "people_area_per_person_m2": (10.0, 35.0, "m2/person"),
@@ -149,6 +152,7 @@ class B59CalibrationParameters:
         "cooling_shr": (0.65, 0.85, "fraction"),
         "coil_airflow_m3_s": (10_500.0 * CFM_TO_M3_S, 13_500.0 * CFM_TO_M3_S, "m3/s"),
         "minimum_outdoor_air_m3_s": (0.75 * RTU_MINIMUM_OA_M3_S, 1.10 * RTU_MINIMUM_OA_M3_S, "m3/s"),
+        "supply_air_temperature_setpoint_c": (12.0, 22.0, "C"),
     }
     HVAC_AVAILABILITY_MODES: ClassVar[tuple[str, ...]] = ("weekday_window", "continuous")
     OCCUPANCY_CALENDAR_MODES: ClassVar[tuple[str, ...]] = ("generic", "pandemic_2020")
@@ -975,7 +979,7 @@ def _rtu_templates(parameters: B59CalibrationParameters) -> list[str]:
                     "TwoSpeedDX",
                     "SCREENING_HVAC_AVAILABILITY",
                     "",
-                    14.4,
+                    parameters.supply_air_temperature_setpoint_c,
                     parameters.cooling_capacity_w,
                     parameters.cooling_shr,
                     parameters.cooling_cop,
