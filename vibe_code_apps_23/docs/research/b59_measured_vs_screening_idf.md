@@ -4,6 +4,28 @@
 
 The EnergyPlus seed compiles and runs cleanly, but clean execution is not physical calibration. Values below preserve source-clock, partial-scope, command/response, and runtime-proxy caveats.
 
+**Where the data live (from handoff):** public release DOI [10.7941/D1N33Q](https://doi.org/10.7941/D1N33Q); after `vibe23 download`, clean CSVs are under `data/raw/building_59/Bldg59_clean data` (never commit the archive). Frozen analytics used here are already in `config/b59_hvac_operating_evidence.json` and `config/b59_measured_vs_screening_idf.json`.
+
+## Figures (measured HVAC vs screening IDF)
+
+Regenerate without re-downloading telemetry:
+
+```bash
+cd vibe_code_apps_23
+python scripts/plot_b59_measured_vs_idf.py
+```
+
+| Figure | File |
+| --- | --- |
+| Severity counts | [`figures/measured_vs_idf/fig01_severity_counts.png`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/fig01_severity_counts.png) |
+| RTU SAT setpoint vs IDF | [`fig02_rtu_sat_setpoint_vs_idf.png`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/fig02_rtu_sat_setpoint_vs_idf.png) |
+| Airflow / capacity delta | [`fig03_rtu_airflow_capacity_delta.png`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/fig03_rtu_airflow_capacity_delta.png) |
+| Zone setpoint diversity | [`fig04_zone_setpoint_diversity_vs_idf.png`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/fig04_zone_setpoint_diversity_vs_idf.png) |
+| OA fraction proxy | [`fig05_oa_fraction_vs_idf.png`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/fig05_oa_fraction_vs_idf.png) |
+| CSV table | [`measured_vs_idf_discrepancy_table.csv`](../../scorecards/b59_2020_screening/figures/measured_vs_idf/measured_vs_idf_discrepancy_table.csv) |
+
+## Comparison table
+
 | Domain | Downloaded-data analytics | Current screening IDF | Difference / required action |
 | --- | --- | --- | --- |
 | EnergyPlus execution | Post-release champion validation | EnergyPlus admitted=True; warnings=0; severe=0; fatal=0 | **PASS_ENGINE_ONLY** — Engine/syntax gate passes; this does not establish physical calibration. |
