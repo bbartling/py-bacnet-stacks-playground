@@ -131,7 +131,14 @@ python scripts/compare_b59_measured_to_idf.py \
 
 The human-readable comparison table is
 `docs/research/b59_measured_vs_screening_idf.md`; the JSON is the machine
-handoff. The strongest mismatches are:
+handoff. Plot pack (CSV + PNG/SVG) from frozen evidence only:
+
+```bash
+python scripts/plot_b59_measured_vs_idf.py
+# → scorecards/b59_2020_screening/figures/measured_vs_idf/
+```
+
+The strongest mismatches are:
 
 Percentiles in the HVAC evidence use deterministic row-stride samples, and
 regime summaries pool point samples; they are not equipment- or floor-weighted

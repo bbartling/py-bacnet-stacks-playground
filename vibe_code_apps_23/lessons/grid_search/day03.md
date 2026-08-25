@@ -19,12 +19,24 @@ Model: `1ZoneUncontrolled.idf` — the simplest stock zone. We inject timestep o
 
 ## How to Use It
 
+### 1. Test that EnergyPlus is installed locally
+
 ```bash
 cd vibe_code_apps_23/lessons/grid_search/scripts
-python day03_first_eplus_run.py
+python check_energyplus_install.py
 ```
 
-Optional: `set ENERGYPLUS_ROOT=C:\EnergyPlusV26-1-0`
+You want `RESULT: PASS`. If it fails:
+
+- Install EnergyPlus 26.1 from https://energyplus.net/downloads
+- Or point at an existing install: `set ENERGYPLUS_ROOT=C:\EnergyPlusV26-1-0` (PowerShell: `$env:ENERGYPLUS_ROOT=...`)
+- Optional deeper probe from `vibe_code_apps_23`: `vibe23 energyplus-doctor --out reports/runtime/energyplus_capability.json`
+
+### 2. Run the first stock simulation
+
+```bash
+python day03_first_eplus_run.py
+```
 
 Inspect `../outputs/day03_first_eplus/summary.json` and the run folder’s `eplusout.csv` / `eplusout.err`.
 
@@ -43,9 +55,10 @@ Look for columns like `Environment:Site Outdoor Air Drybulb Temperature` and `ZO
 
 ## Micro Exercises
 
-1. Run Day 03; write down runtime seconds and CSV row count.
-2. Open `eplusout.err` — count `** Severe **` / `** Fatal **` (should be zero fatals).
-3. Change the script’s run day from Jan 14 to Jan 21 and re-run; confirm OAT stats move.
+1. Run `check_energyplus_install.py` and paste the PASS/FAIL lines into your notes.
+2. Run Day 03; write down runtime seconds and CSV row count.
+3. Open `eplusout.err` — count `** Severe **` / `** Fatal **` (should be zero fatals).
+4. Change the script’s run day from Jan 14 to Jan 21 and re-run; confirm OAT stats move.
 
 ## Key Takeaway
 

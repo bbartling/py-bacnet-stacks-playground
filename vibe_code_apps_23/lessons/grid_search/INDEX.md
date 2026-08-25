@@ -12,10 +12,26 @@ Ten progressive lessons that teach **bounded grid search for demand-side managem
 
 **Prerequisites:** Python 3.10+, EnergyPlus 26.1 at `C:\EnergyPlusV26-1-0` (or set `ENERGYPLUS_ROOT`). Companion scripts live in [`scripts/`](./scripts/).
 
+### Test whether EnergyPlus is installed locally
+
+Run this **before Day 03** (Days 01–02 need no EnergyPlus):
+
+```bash
+cd vibe_code_apps_23/lessons/grid_search/scripts
+python check_energyplus_install.py
+```
+
+Expect every line marked `[PASS]` and `RESULT: PASS`. Optionally, from `vibe_code_apps_23`:
+
+```bash
+vibe23 energyplus-doctor --out reports/runtime/energyplus_capability.json
+```
+
 | Day | Lesson | Companion |
 | --- | --- | --- |
 | 01 | [Grid-search pseudocode](./day01.md) | (markdown only) |
 | 02 | [Fake-data grid search](./day02.md) | [`day02_fake_data_grid_search.py`](./scripts/day02_fake_data_grid_search.py) |
+| — | Install check | [`check_energyplus_install.py`](./scripts/check_energyplus_install.py) |
 | 03 | [First EnergyPlus run](./day03.md) | [`day03_first_eplus_run.py`](./scripts/day03_first_eplus_run.py) |
 | 04 | [Tiny thermostat grid](./day04.md) | [`day04_tiny_thermostat_grid.py`](./scripts/day04_tiny_thermostat_grid.py) |
 | 05 | [Expand the menu](./day05.md) | [`day05_expand_menu.py`](./scripts/day05_expand_menu.py) |

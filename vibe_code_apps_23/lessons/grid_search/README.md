@@ -14,6 +14,9 @@ cd vibe_code_apps_23/lessons/grid_search/scripts
 # Day 02 — no EnergyPlus required
 python day02_fake_data_grid_search.py
 
+# Before Day 03 — prove EnergyPlus is installed locally
+python check_energyplus_install.py
+
 # Day 03 — first stock EnergyPlus run (needs EnergyPlus 26.1)
 python day03_first_eplus_run.py
 
@@ -24,7 +27,7 @@ python day04_tiny_thermostat_grid.py
 python day05_expand_menu.py --quick
 ```
 
-Set `ENERGYPLUS_ROOT` if EnergyPlus is not installed at `C:\EnergyPlusV26-1-0`.
+Set `ENERGYPLUS_ROOT` if EnergyPlus is not installed at `C:\EnergyPlusV26-1-0`. The install check verifies the root, executable, Chicago TMY3, a stock ExampleFile, and `energyplus --version`. For the fuller Vibe23 probe: `vibe23 energyplus-doctor --out reports/runtime/energyplus_capability.json`.
 
 ## Lesson map
 
