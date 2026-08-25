@@ -18,6 +18,7 @@ Vibe 23 is the evidence-first path from the public LBNL Building 59 / Shyh Wang 
 | Charts | Published hash-bearing 50-run progress, GL14 scorecard, measured-vs-E+ monthly, residual, parity, and scope/end-use evidence | Add hourly, peak, zone, control, and transient plots after timestamp/point binding |
 | Tariff/reward | Verified/candidate/illustrative evidence gate, incremental-demand billing, Vibe 22-compatible 2x/3x operator-pay semantics | Prove the account-period tariff or retain scenario-only dollars |
 | Grid search | Deterministic finite grid, identical-state contract, paired ranking, pinned upstream inspection | Implement the Building 59 simulator adapter after model/actuator bindings exist |
+| Grid-search **lessons** (ExampleFiles) | Progressive 10-day tutorial under [`lessons/grid_search/`](lessons/grid_search/INDEX.md): pseudocode → fake data → stock E+ models → BESS bonus | Keep educational-only; do not treat as B59 calibration or BACnet authority |
 
 The executed result is in [`docs/B59_50_RUN_SCREENING_RESULTS.md`](docs/B59_50_RUN_SCREENING_RESULTS.md). The full execution and acceptance sequence is in [`docs/VIBE23_CALIBRATED_MODEL_AND_GRID_FLEX_PLAN.md`](docs/VIBE23_CALIBRATED_MODEL_AND_GRID_FLEX_PLAN.md).
 
