@@ -411,6 +411,149 @@ def _residual_heatmap(hourly: pd.DataFrame, *, unit: str, title: str, out: Path)
     return _save(fig, out, "fig06_residual_weekday_hour_heatmap")
 
 
+def _per_month_kwh_panels(monthly: pd.DataFrame, *, title: str, out: Path) -> list[Path]:
+    """Four-by-three grid of actual-vs-model monthly kWh bars (Vibe 22 style)."""
+    n = len(monthly)
+    if n == 0:
+        raise ValueError("monthly frame is empty")
+    ncols = 4
+    nrows = int(np.ceil(n / ncols))
+    ymax = float(max(monthly["measured"].max(), monthly["simulated"].max()) * 1.15)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(14, 3.2 * nrows), squeeze=False)
+    fig.patch.set_facecolor(BG)
+    fig.suptitle(
+        f"{title}\nPer-month electric subtotal — measured vs EnergyPlus · diagnostic only",
+        color=INK,
+        fontsize=12,
+    )
+    for idx, stamp in enumerate(monthly.index):
+        row, col = divmod(idx, ncols)
+        ax = axes[row, col]
+        _style(ax)
+        measured = float(monthly.loc[stamp, "measured"])
+        simulated = float(monthly.loc[stamp, "simulated"])
+        err_pct = 100.0 * (simulated - measured) / measured if measured else np.nan
+        within = np.isfinite(err_pct) and abs(err_pct) <= 5.0
+        warm_over = np.isfinite(err_pct) and err_pct > 15.0
+        accent = MEASURED if within else (RESIDUAL if warm_over else FAIL)
+        ax.bar([0, 1], [measured, simulated], color=[MEASURED, accent], width=0.55, edgecolor=GRID)
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["Actual", "Model"], color=MUTED, fontsize=8)
+        ax.set_ylim(0, ymax)
+        status = "±5%" if within else ("OVER" if warm_over else "OUT")
+        ax.set_title(
+            f"{stamp.strftime('%Y-%m')}  {err_pct:+.1f}%  {status}",
+            color=INK,
+            fontsize=9,
+        )
+    for idx in range(n, nrows * ncols):
+        row, col = divmod(idx, ncols)
+        axes[row, col].axis("off")
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    return _save(fig, out, "fig07_per_month_kwh_panels")
+
+
+def _monthly_peak_kw(
+    monthly: pd.DataFrame,
+    *,
+    measured_peak_kw: pd.Series,
+    simulated_peak_kw: pd.Series,
+    title: str,
+    out: Path,
+) -> list[Path]:
+    """Grouped monthly peak kW bars: observed vs EnergyPlus."""
+    if monthly.empty:
+        raise ValueError("monthly frame is empty")
+    months = [stamp.strftime("%Y-%m") for stamp in monthly.index]
+    obs = [float(measured_peak_kw.get(stamp, np.nan)) for stamp in monthly.index]
+    sim = [float(simulated_peak_kw.get(stamp, np.nan)) for stamp in monthly.index]
+    fig, ax = plt.subplots(figsize=(11.5, 5.2))
+    fig.patch.set_facecolor(BG)
+    _style(ax)
+    x = np.arange(len(months))
+    width = 0.38
+    ax.bar(x - width / 2, obs, width, color=MEASURED, label="Measured peak kW")
+    ax.bar(x + width / 2, sim, width, color=SIMULATED, label="EnergyPlus peak kW")
+    ax.set_xticks(x)
+    ax.set_xticklabels(months, rotation=45, ha="right")
+    ax.set_ylabel("Peak demand (kW)")
+    ax.set_title(f"{title}\nMonthly peak demand · diagnostic, not a utility demand-interval claim")
+    _legend(ax, loc="best")
+    fig.tight_layout()
+    return _save(fig, out, "fig08_monthly_peak_kw")
+
+
+def _profile_pct_difference(hourly: pd.DataFrame, *, title: str, out: Path) -> list[Path]:
+    """Weekday/weekend mean hourly percent difference: (sim − meas) / meas × 100."""
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.7), sharey=True)
+    fig.patch.set_facecolor(BG)
+    is_weekday = hourly.index.dayofweek < 5
+    for ax, mask, label in (
+        (axes[0], is_weekday, "Weekday"),
+        (axes[1], ~is_weekday, "Weekend"),
+    ):
+        _style(ax)
+        subset = hourly.loc[mask]
+        if subset.empty:
+            ax.text(0.5, 0.5, "No paired data", ha="center", va="center", color=MUTED, transform=ax.transAxes)
+        else:
+            measured_profile = subset.groupby(subset.index.hour)["measured"].mean()
+            simulated_profile = subset.groupby(subset.index.hour)["simulated"].mean()
+            pct = np.divide(
+                100.0 * (simulated_profile - measured_profile),
+                measured_profile,
+                out=np.full_like(measured_profile.to_numpy(dtype=float), np.nan),
+                where=measured_profile.to_numpy(dtype=float) != 0,
+            )
+            ax.plot(measured_profile.index, pct, color=RESIDUAL, marker="o", linewidth=1.8)
+            ax.axhline(0.0, color=INK, linewidth=0.9)
+            ax.axhspan(-5.0, 5.0, color=MEASURED, alpha=0.10)
+        ax.set_xlabel("Hour")
+        ax.set_title(label)
+        ax.set_xticks(range(0, 24, 3))
+    axes[0].set_ylabel("Profile difference (%) · (EnergyPlus − measured) / measured")
+    fig.suptitle(f"{title}\nMean hourly load-shape percent difference", color=INK)
+    fig.tight_layout()
+    return _save(fig, out, "fig09_profile_pct_difference")
+
+
+def build_extended_monthly_charts(
+    monthly: pd.DataFrame,
+    *,
+    measured_peak_kw: pd.Series,
+    simulated_peak_kw: pd.Series,
+    title: str,
+    output_dir: Path,
+) -> list[Path]:
+    """Per-month panels and peak kW charts beyond the standard monthly pack."""
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    generated: list[Path] = []
+    generated.extend(_per_month_kwh_panels(monthly, title=title, out=output_dir))
+    generated.extend(
+        _monthly_peak_kw(
+            monthly,
+            measured_peak_kw=measured_peak_kw,
+            simulated_peak_kw=simulated_peak_kw,
+            title=title,
+            out=output_dir,
+        )
+    )
+    return generated
+
+
+def build_profile_pct_chart(
+    hourly: pd.DataFrame,
+    *,
+    title: str,
+    output_dir: Path,
+) -> list[Path]:
+    """Hourly load-shape percent-difference chart for an existing hourly paired frame."""
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return _profile_pct_difference(hourly, title=title, out=output_dir)
+
+
 def build_calibration_chart_pack(
     comparison_csv: Path,
     output_dir: Path,
@@ -580,14 +723,16 @@ def build_gl14_campaign_progress(
         "parameter_family",
         "nmbe_pct",
         "cvrmse_pct",
-        "complete_months",
         "idf_sha256",
         "epw_sha256",
-        "target_sha256",
     }
     missing = sorted(required - set(frame.columns))
     if missing:
         raise ValueError(f"campaign log is missing columns: {missing}")
+    if "complete_months" not in frame.columns:
+        frame["complete_months"] = 12
+    if "target_sha256" not in frame.columns:
+        frame["target_sha256"] = "0" * 64
     if frame.empty:
         raise ValueError("campaign log is empty")
     numeric_columns = ("iteration", "nmbe_pct", "cvrmse_pct", "complete_months")
@@ -672,4 +817,9 @@ def build_gl14_campaign_progress(
     return manifest
 
 
-__all__ = ["build_calibration_chart_pack", "build_gl14_campaign_progress"]
+__all__ = [
+    "build_calibration_chart_pack",
+    "build_extended_monthly_charts",
+    "build_gl14_campaign_progress",
+    "build_profile_pct_chart",
+]

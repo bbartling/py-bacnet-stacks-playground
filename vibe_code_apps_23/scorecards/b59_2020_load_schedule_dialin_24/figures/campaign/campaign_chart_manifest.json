@@ -1,0 +1,50 @@
+{
+  "artifacts": [
+    {
+      "media_type": "image/png",
+      "path": "monthly_gl14_progress_by_iteration.png",
+      "sha256": "47f697a8b5f99d534d6c9d12a8e55a0eb261898e2789c55ea257a174f59b0efc"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "monthly_gl14_progress_by_iteration.svg",
+      "sha256": "5bb4200d2aabb0ee0781a5799728f4f743612350ca3e2f7811e6370516cdd3e9"
+    }
+  ],
+  "best_iteration_by_gate_distance": 22,
+  "claim_boundary": "This plot verifies only the numeric monthly thresholds and complete-month count recorded in the log. MONTHLY_CALIBRATED additionally requires verified measured/simulated provenance, successful repeatable EnergyPlus runs, scope/weather alignment, and review for compensating physical errors.",
+  "claim_status": "NUMERIC_MONTHLY_GATE_MET_PROVISIONAL",
+  "first_numeric_gate_iteration": 22,
+  "iteration_count": 24,
+  "parameter_family_order": [
+    "baseline",
+    "load_shape",
+    "equipment_w_m2+load_shape",
+    "equipment_w_m2+load_shape",
+    "equipment_w_m2+load_shape",
+    "equipment_w_m2+load_shape",
+    "lighting_w_m2+load_shape",
+    "lighting_w_m2+load_shape",
+    "lighting_w_m2+load_shape",
+    "lighting_w_m2+load_shape",
+    "internal_loads+load_shape",
+    "internal_loads+load_shape",
+    "internal_loads+load_shape",
+    "internal_loads+load_shape",
+    "hvac_availability+internal_loads",
+    "hvac_availability+internal_loads",
+    "occupancy_hours+internal_loads",
+    "occupancy_hours+internal_loads",
+    "people_density+internal_loads",
+    "post_march_multipliers+internal_loads",
+    "post_march_multipliers+internal_loads",
+    "fan_pressure+internal_loads",
+    "fan_pressure+internal_loads",
+    "fan_pressure+internal_loads"
+  ],
+  "schema": "vibe23.gl14_campaign_progress.v1",
+  "source": {
+    "path": "scorecards/b59_2020_load_schedule_dialin_24/campaign_log_enriched.csv",
+    "sha256": "14c48df67f07190be364be1e8c2d3b4ab5c5d25ab57363a97a3af49b0b32386a"
+  }
+}

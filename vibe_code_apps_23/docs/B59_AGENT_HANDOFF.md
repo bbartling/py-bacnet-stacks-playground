@@ -182,6 +182,18 @@ hash-bound campaign evidence. Create a new as-operated model lineage.
 
 ## Exact next work
 
+0. Optional discrepancy-driven **CONTROL_REPLAY** (30 runs): dial SAT / zone
+   setpoints / OA / DX capacity+airflow only. Claim status stays
+   `CONTROL_REPLAY_SCREENING_NOT_CALIBRATED`. Runner:
+   `scripts/run_b59_control_replay_30.py`. Do not treat a GL14 improvement as
+   topology calibration.
+0b. Optional **LOAD_SCHEDULE** dial-in (24 runs): MEL/lighting densities +
+   measured weekend/standby shapes + fan-pressure sensitivity. Claim:
+   `LOAD_SCHEDULE_DIALIN_SCREENING_NOT_CALIBRATED`. Runner:
+   `scripts/run_b59_load_schedule_dialin_24.py`. Results:
+   `docs/B59_LOAD_SCHEDULE_DIALIN_24_RESULTS.md`. R22 can pass full-year
+   monthly GL14 **numerically** on the screening proxy; tuning/holdout and
+   topology gates still fail — not calibrated.
 1. Freeze/reconcile the current BBD release, timestamps, units, and meter scope.
 2. Map Brick equipment and points into four RTU loops, 50 UFTs/controlled zones,
    plant loops, and meter boundaries; document every unresolved identifier.
