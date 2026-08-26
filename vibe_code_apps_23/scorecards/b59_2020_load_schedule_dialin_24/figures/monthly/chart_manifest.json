@@ -1,0 +1,216 @@
+{
+  "artifacts": [
+    {
+      "media_type": "image/png",
+      "path": "fig00_monthly_gl14_scorecard.png",
+      "sha256": "53020570f3e3070d95c77d272ab554c68049cecfb8666fcfe90521ff7d2a9076"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig00_monthly_gl14_scorecard.svg",
+      "sha256": "239180bf558cf56935eb2a23c5d084d3aae53bdbcabbcd7fe42833a8fbff22c1"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig01_monthly_measured_vs_energyplus.png",
+      "sha256": "d74a5af870671b5732d8621d1092f88f73066c4537ce847e791b6485fea1fd03"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig01_monthly_measured_vs_energyplus.svg",
+      "sha256": "911f95a02bee16404429684a6af44b6639179affa4e67ebab41c228f18e069a7"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig02_monthly_residual_percent.png",
+      "sha256": "0239f0006f0622f0d79df58f540ffb1f499b4422dc09e46d10e54fbed18bc021"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig02_monthly_residual_percent.svg",
+      "sha256": "743486ac755ab61613b0480f0024c3e78fdaa4daf272e52c99a879cd4f4e7292"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig03_paired_interval_parity.png",
+      "sha256": "19888f0bb8a40726e295feeaf349ea43730a17c8b60a9d6fa9521af1067b4a31"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig03_paired_interval_parity.svg",
+      "sha256": "2db0c7859ddd02971b99348ac6836ddbf509152d5b4797cee880ed4827710ef9"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig04_load_duration.png",
+      "sha256": "2215d281cd3727d21a2f04f50c5b3ddb545e92fac6f03cbc72a3340ca1984de1"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig04_load_duration.svg",
+      "sha256": "df68dd99de160ccfe478877755d6ffadba4095c16cf572a07006a3932669f3bf"
+    },
+    {
+      "media_type": "text/csv",
+      "path": "monthly_comparison.csv",
+      "sha256": "ad2324bb2a7617f3a1b86724cc638fa505dfe8518db7fc9f46545942a8bab555"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig07_per_month_kwh_panels.png",
+      "sha256": "817ffcbf80d129311be5142879401ec03adddb9d11182011af27624eea141a09"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig07_per_month_kwh_panels.svg",
+      "sha256": "c388fda06abffa25f02043c5b6224eae5a1d313a96a0259a34b03956beca59b1"
+    },
+    {
+      "media_type": "image/png",
+      "path": "fig08_monthly_peak_kw.png",
+      "sha256": "e5ec94ab581dc939f54c926e9166dc961599faf04f3808300b3f70b6e2673e3b"
+    },
+    {
+      "media_type": "image/svg+xml",
+      "path": "fig08_monthly_peak_kw.svg",
+      "sha256": "b6fb9021cc02f26d4c60ebe37aec26392066142c6e68d13419e85b4dda934da5"
+    }
+  ],
+  "claim_boundary": "Charts and standalone metrics are diagnostic. A Building 59 calibration claim additionally requires complete provenance, a runnable hashed model/AMY, at least 12 complete paired months for the monthly gate, repeatability, and the applicable peak/end-use/zone/control/transient gates.",
+  "claim_status": "LOAD_SCHEDULE_DIALIN_SCREENING_NOT_CALIBRATED",
+  "hourly_gl14_style": {
+    "available": false,
+    "calibration_claim_eligible": false,
+    "interval": "hourly",
+    "n": 0,
+    "p": 1,
+    "reason": "native paired input is coarser than 1.5 hours",
+    "threshold_passes": false
+  },
+  "monthly_completeness": {
+    "complete_month_count": 12,
+    "definition": "at least 99% of expected paired intervals; direct monthly inputs expect one pair",
+    "months": [
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-01"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-02"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-03"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-04"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-05"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-06"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-07"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-08"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-09"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-10"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-11"
+      },
+      {
+        "actual_pairs": 1,
+        "complete": true,
+        "coverage_fraction": 1.0,
+        "expected_pairs": 1,
+        "month": "2020-12"
+      }
+    ]
+  },
+  "monthly_gl14_style": {
+    "available": true,
+    "calibration_claim_eligible": false,
+    "cvrmse_pct": 13.231159988342498,
+    "interval": "monthly",
+    "minimum_complete_month_count_passes": true,
+    "minimum_complete_months": 12,
+    "n": 12,
+    "nmbe_pct": 3.0491086111277355,
+    "p": 1,
+    "threshold_passes": true
+  },
+  "schema": "vibe23.calibration_chart_pack.v1",
+  "semantics": {
+    "data_kind": "interval_energy",
+    "energy_integration": "elapsed_time_left_hold; final_sample_uses_median_native_interval",
+    "energy_interval_hours_max": 744.0,
+    "energy_interval_hours_min": 696.0,
+    "energy_unit": "kWh",
+    "interval_unit": "kWh",
+    "native_interval_hours_median": 744.0,
+    "residual_sign": "simulated_minus_measured",
+    "timezone": "UTC"
+  },
+  "source": {
+    "end": "2020-12-01T00:00:00+00:00",
+    "measured_column": "measured",
+    "paired_rows": 12,
+    "path": "scorecards/b59_2020_load_schedule_dialin_24/champion_monthly_comparison.csv",
+    "sha256": "bd684ba3010fad36a20a148892e057596ee259093ac5433f9ef0577d3b5c8d29",
+    "simulated_column": "simulated",
+    "start": "2020-01-01T00:00:00+00:00",
+    "timestamp_column": "timestamp"
+  },
+  "time_basis_note": "Measured 15-min office subtotal uses source-clock UTC timestamps; EnergyPlus hourly output uses local-standard 2020 stamps without DST reconciliation.",
+  "title": "B59 R22 load-schedule dial-in champion \u2014 LOAD_SCHEDULE_DIALIN_SCREENING_NOT_CALIBRATED"
+}

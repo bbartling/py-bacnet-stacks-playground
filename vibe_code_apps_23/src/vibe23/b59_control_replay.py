@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .b59_campaign_runner import B59CampaignCandidate
-from .b59_model import CFM_TO_M3_S, B59CalibrationParameters, PUBLISHED_RTU_RATINGS
+from .b59_model import CFM_TO_M3_S, PUBLISHED_RTU_RATINGS, B59CalibrationParameters
 
 CLAIM_STATUS = "CONTROL_REPLAY_SCREENING_NOT_CALIBRATED"
 MAX_CONTROL_REPLAY_RUNS = 30

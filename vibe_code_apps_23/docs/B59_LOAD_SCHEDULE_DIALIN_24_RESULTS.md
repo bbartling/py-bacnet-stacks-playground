@@ -50,6 +50,27 @@ python scripts/run_b59_load_schedule_dialin_24.py \
 Artifacts: `scorecards/b59_2020_load_schedule_dialin_24/`,
 `model/b59_load_schedule_dialin_champion.generated.idf`.
 
+## Figure pack (R22 champion)
+
+Path: `scorecards/b59_2020_load_schedule_dialin_24/figures/`
+
+| Directory | Key charts |
+| --- | --- |
+| `monthly/` | `fig00` full-year NMBE + CV(RMSE) scorecard; `fig01` kWh overlay; `fig02` per-month % residual; `fig07` 12-panel actual vs model; `fig08` monthly peak kW |
+| `hourly/` | `fig05` weekday/weekend mean profiles; `fig09` hourly % shape difference; load duration + residual heatmap |
+| `campaign/` | 24-run GL14 progress (`monthly_gl14_progress_by_iteration`) |
+
+Regenerate after a local R22 run:
+
+```bash
+python scripts/plot_b59_load_schedule_champion_figures.py
+```
+
+**Peak diagnostic (hourly paired, time-basis unresolved):** measured peak
+**96.8 kW** vs simulated **118.6 kW** (+22.5%) — does not pass the 15% peak gate.
+Monthly peak bars in `fig08` use observed `peak_kw` from monthly records vs
+simulated monthly max from hourly export.
+
 ## Next
 
 Still topology: UFT fans, hydronic reheat, water-cooled plant, end-use meters,

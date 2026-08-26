@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -170,6 +171,34 @@ def _publish(
     return summary
 
 
+def _publish_champion_figures(
+    *,
+    publish_dir: Path,
+    run_root: Path,
+    champion_run_id: str,
+    measured_monthly: Path,
+) -> None:
+    run_dir = run_root / champion_run_id
+    eplusout = run_dir / "eplusout.csv"
+    if not eplusout.is_file():
+        print(f"WARN: skip champion figure pack; missing {eplusout}")
+        return
+    script = Path(__file__).resolve().parent / "plot_b59_load_schedule_champion_figures.py"
+    subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--scorecard-dir",
+            str(publish_dir),
+            "--run-dir",
+            str(run_dir),
+            "--measured-monthly",
+            str(measured_monthly),
+        ],
+        check=True,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--energyplus", type=Path, required=True)
@@ -219,6 +248,12 @@ def main() -> int:
         measured=args.measured_monthly,
         publish_dir=args.publish_dir,
         champion_idf=args.champion_idf,
+    )
+    _publish_champion_figures(
+        publish_dir=args.publish_dir,
+        run_root=args.run_root,
+        champion_run_id=summary["champion_run_id"],
+        measured_monthly=args.measured_monthly,
     )
     print(
         json.dumps(
