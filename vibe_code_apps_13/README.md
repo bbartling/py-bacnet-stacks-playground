@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-Status: implementation scaffold and AI-agent specification.
+**Status: Active** — primary featured build (August 2026). Implementation scaffold, phase-gated specs, and `lab-common` crate are in-repo; hardware phases not yet complete.
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 

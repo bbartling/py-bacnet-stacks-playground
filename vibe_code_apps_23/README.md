@@ -1,10 +1,14 @@
 # Vibe 23 — LBNL Building 59 calibrated-model + grid-flex lab
 
+> **Status: ON HOLD (August 2026).** Active development has paused while focus moves to **vibe_code_apps_13** (DIY BACnet router). The shipped screening/dial-in artifacts remain in-repo for reference, but this track is **not** promoted to a calibrated model or DSM/grid-search production path.
+>
+> **Why on hold:** Building 59 / Shyh Wang Hall is a strong controls-research dataset but a weak whole-building DSM sandbox — office electrical panels cover ~4,650 m² of a ~10,400 m² / ~149,000 ft² facility with colocated NERSC/HPC, shared heat rejection, unresolved panel→RTU mapping, and 2020 pandemic operation. Revisit only with an explicit office-HVAC flex scope (four RTUs, common fan speed) or a different building boundary — not as a campus demand-response poster child.
+
 Vibe 23 is the evidence-first path from the public LBNL Building 59 / Shyh Wang Hall dataset to an EnergyPlus baseline and, only after calibration, a transparent grid-flexibility search.
 
 **Agent takeover:** start with [`docs/B59_AGENT_HANDOFF.md`](docs/B59_AGENT_HANDOFF.md). It contains the exact clone, data-download, analytics, EnergyPlus validation, and next-model steps.
 
-> **Current status: `CALIBRATION_IN_PROGRESS_BEST_EFFORT`.** The repository now contains real B59 telemetry targets, a bounded-hybrid 2020 AMY, a runnable EnergyPlus 26.1 screening IDF, and a reproducible 50-run campaign. All 50 historical runs had zero warning/severe/fatal markers in the scanned EnergyPlus logs; historical R49 had an incomplete ancillary EIO file, while a post-release repeat passed the strengthened complete-EIO gate. Monthly GL14 was **not met** (`NMBE = -4.13%`, `CV(RMSE) = 22.36%`). The model remains `OFFICE_SCREENING_SEED_UNCALIBRATED`; grid-flexibility/DSM claims are blocked.
+> **Archive note: `CALIBRATION_IN_PROGRESS_BEST_EFFORT`.** The repository contains real B59 telemetry targets, a bounded-hybrid 2020 AMY, runnable EnergyPlus 26.1 screening IDFs, and reproducible campaigns. Monthly GL14 was **not met** on the screening seed; LOAD_SCHEDULE dial-in R22 passes full-year monthly GL14 numerically but remains `LOAD_SCHEDULE_DIALIN_SCREENING_NOT_CALIBRATED`. Grid-flexibility/DSM claims stay blocked.
 
 ## Delivery snapshot
 
