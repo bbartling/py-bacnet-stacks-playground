@@ -19,7 +19,9 @@ pub struct MiniDeviceConfig {
 }
 
 /// Build the Phase 2 mini-device object database (device + four points).
-pub fn build_mini_device_database(cfg: &MiniDeviceConfig) -> Result<ObjectDatabase, bacnet_types::error::Error> {
+pub fn build_mini_device_database(
+    cfg: &MiniDeviceConfig,
+) -> Result<ObjectDatabase, bacnet_types::error::Error> {
     let mut db = ObjectDatabase::new();
     let device_oid = ObjectIdentifier::new(ObjectType::DEVICE, cfg.instance)?;
 

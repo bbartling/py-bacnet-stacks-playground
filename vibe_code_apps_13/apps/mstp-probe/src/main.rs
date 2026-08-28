@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use mstp_lab::{run_hardware_acceptance, run_loopback_acceptance, AcceptanceOptions, AcceptanceReport};
+use mstp_lab::{
+    run_hardware_acceptance, run_loopback_acceptance, AcceptanceOptions, AcceptanceReport,
+};
 use tracing::info;
 
 #[derive(Parser, Debug)]

@@ -86,18 +86,25 @@ fn device_mac(opts: &AcceptanceOptions) -> Vec<u8> {
     vec![opts.device_mac]
 }
 
-async fn timed_step<F, Fut>(
-    report: &mut AcceptanceReport,
-    name: &str,
-    fut: F,
-) where
+async fn timed_step<F, Fut>(report: &mut AcceptanceReport, name: &str, fut: F)
+where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<String>>,
 {
     let start = Instant::now();
     match fut().await {
-        Ok(detail) => report.push_step(name, true, detail, Some(start.elapsed().as_secs_f64() * 1000.0)),
-        Err(e) => report.push_step(name, false, e.to_string(), Some(start.elapsed().as_secs_f64() * 1000.0)),
+        Ok(detail) => report.push_step(
+            name,
+            true,
+            detail,
+            Some(start.elapsed().as_secs_f64() * 1000.0),
+        ),
+        Err(e) => report.push_step(
+            name,
+            false,
+            e.to_string(),
+            Some(start.elapsed().as_secs_f64() * 1000.0),
+        ),
     }
 }
 
@@ -121,12 +128,15 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
     .await;
 
     let mac = device_mac(&opts);
-    let device_oid = ObjectIdentifier::new(ObjectType::DEVICE, opts.device_instance).expect("device oid");
+    let device_oid =
+        ObjectIdentifier::new(ObjectType::DEVICE, opts.device_instance).expect("device oid");
     let ai_oid = ObjectIdentifier::new(ObjectType::ANALOG_INPUT, 1).expect("ai oid");
     let av_oid = ObjectIdentifier::new(ObjectType::ANALOG_VALUE, 2).expect("av oid");
 
     timed_step(&mut report, "who_is", || async {
-        client.who_is(Some(opts.device_instance), Some(opts.device_instance)).await?;
+        client
+            .who_is(Some(opts.device_instance), Some(opts.device_instance))
+            .await?;
         sleep(Duration::from_millis(800)).await;
         let n = client.discovered_devices().await.len();
         Ok(format!("Who-Is sent; {n} device(s) in table"))
@@ -137,7 +147,8 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
         let ack = client
             .read_property(&mac, device_oid, PropertyIdentifier::OBJECT_NAME, None)
             .await?;
-        let (val, _) = decode_application_value(&ack.property_value, 0).context("decode object-name")?;
+        let (val, _) =
+            decode_application_value(&ack.property_value, 0).context("decode object-name")?;
         let name = match val {
             PropertyValue::CharacterString(s) => s,
             other => anyhow::bail!("expected CharacterString, got {other:?}"),
@@ -269,7 +280,10 @@ pub async fn run_loopback_acceptance(opts: AcceptanceOptions) -> AcceptanceRepor
 }
 
 /// Hardware acceptance: probe only (run `mstp-mini-device` on `--device-serial` first).
-pub async fn run_hardware_acceptance(probe_serial: &str, opts: AcceptanceOptions) -> AcceptanceReport {
+pub async fn run_hardware_acceptance(
+    probe_serial: &str,
+    opts: AcceptanceOptions,
+) -> AcceptanceReport {
     let mut report = AcceptanceReport::new(
         "hardware",
         opts.device_instance,

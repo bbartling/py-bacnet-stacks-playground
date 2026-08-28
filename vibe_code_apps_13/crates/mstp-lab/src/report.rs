@@ -39,7 +39,13 @@ impl AcceptanceReport {
         }
     }
 
-    pub fn push_step(&mut self, step: &str, ok: bool, detail: impl Into<String>, latency_ms: Option<f64>) {
+    pub fn push_step(
+        &mut self,
+        step: &str,
+        ok: bool,
+        detail: impl Into<String>,
+        latency_ms: Option<f64>,
+    ) {
         if ok {
             self.passed += 1;
         } else {

@@ -62,7 +62,7 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 Research was performed against `jscott3201/rusty-bacnet` branch `dev` at commit:
 
 ```text
-a6b3eab4f7a8fe17fc068b06d523605bad4580b7
+c77f78445fbf40da15867fec28a36ea120ad1739
 ```
 
 Do not depend on the moving branch in a reproducible build. Pin an exact reviewed commit and commit `Cargo.lock`. Revalidate the source before changing the pin.
