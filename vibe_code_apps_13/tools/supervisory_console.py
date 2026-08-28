@@ -97,10 +97,11 @@ def stop_test() -> str:
     return f"Sent SIGTERM to PID {pid}"
 
 
-def ensure_release_binary() -> tuple[bool, str]:
+def ensure_release_binary(*, quiet: bool = False) -> tuple[bool, str]:
     if BINARY.is_file():
         return True, str(BINARY)
-    st.info("Building release binary (first time may take ~30s)…")
+    if not quiet:
+        st.info("Building release binary (first time may take ~30s)…")
     proc = subprocess.run(
         ["cargo", "build", "--release", "-p", "serial-wire-test"],
         cwd=ROOT,
@@ -132,7 +133,7 @@ def start_test(
     if current_pid() is not None:
         return False, "A test is already running. Stop it first."
 
-    ok, bin_msg = ensure_release_binary()
+    ok, bin_msg = ensure_release_binary(quiet=True)
     if not ok:
         return False, f"Binary missing: {bin_msg}"
 
@@ -304,23 +305,46 @@ def tab_run_control() -> None:
         seed = st.number_input("Seed", 0, 2**32 - 1, 1337)
 
     if not in_dialout():
-        st.warning("Not in `dialout` — serial open will fail until you re-login or `newgrp dialout`.")
+        st.warning(
+            "Not in `dialout` — Start will fail until Streamlit itself runs in a dialout session. "
+            "Stop this UI (Ctrl+C), then: `newgrp dialout` → `./scripts/run_wire_dashboard.sh`"
+        )
 
     pid = current_pid()
     b1, b2, b3 = st.columns(3)
     with b1:
         if st.button("▶ Start wire test", type="primary", disabled=pid is not None):
-            ok, msg = start_test(port_a, port_b, baud, int(rounds), int(max_payload), int(seed), report_name)
-            (st.success if ok else st.error)(msg)
+            with st.status("Starting Rust wire test…", expanded=True) as run_status:
+                run_status.write("Checking release binary…")
+                with st.spinner("Compiling or launching (swimmer active)…"):
+                    ok, msg = start_test(
+                        port_a, port_b, baud, int(rounds), int(max_payload), int(seed), report_name
+                    )
+                if ok:
+                    run_status.update(label="Wire test running", state="complete")
+                    st.toast(msg, icon="✅")
+                else:
+                    run_status.update(label="Start failed", state="error")
+                    run_status.write(msg)
             st.rerun()
     with b2:
         if st.button("⏹ Stop", disabled=pid is None):
-            st.warning(stop_test())
+            with st.spinner("Stopping test…"):
+                msg = stop_test()
+            st.warning(msg)
             st.rerun()
     with b3:
         if st.button("🔨 Build release binary"):
-            ok, msg = ensure_release_binary()
-            (st.success if ok else st.error)(msg)
+            with st.status("Building serial-wire-test…", expanded=True) as build_status:
+                with st.spinner("cargo build --release (may take ~30s)…"):
+                    ok, msg = ensure_release_binary(quiet=True)
+                if ok:
+                    build_status.update(label="Release binary ready", state="complete")
+                    build_status.write(msg)
+                    st.toast("Release binary built", icon="🔨")
+                else:
+                    build_status.update(label="Build failed", state="error")
+                    build_status.write(msg)
 
     if pid:
         st.info(f"Running PID **{pid}** — switch to **Live trunk** tab (auto-refresh on).")
@@ -349,6 +373,8 @@ def tab_live_trunk(auto: bool, refresh_s: int) -> None:
         return
 
     status = str(live.get("status", "unknown"))
+    if status == "running":
+        st.info("🔄 Test in progress — metrics update every ~10 rounds")
     req = int(live.get("rounds_requested", 0))
     done = int(live.get("rounds_completed", 0))
     pct = done / req if req else 0.0
