@@ -11,13 +11,16 @@ use bacnet_types::primitives::{ObjectIdentifier, PropertyValue};
 use clap::Parser;
 use lab_common::{BaudRate, MstpMasterConfig};
 use mstp_lab::{
-    build_mini_device_database, open_mstp_transport, MiniDeviceConfig, VENDOR_ID, UNITS_DEGF,
+    build_mini_device_database, open_mstp_transport, MiniDeviceConfig, UNITS_DEGF, VENDOR_ID,
 };
 use tokio::sync::RwLock;
 use tracing::info;
 
 #[derive(Parser, Debug)]
-#[command(name = "mstp-mini-device", about = "Phase 2 MS/TP-only BACnet mini device")]
+#[command(
+    name = "mstp-mini-device",
+    about = "Phase 2 MS/TP-only BACnet mini device"
+)]
 struct Args {
     #[arg(long)]
     serial: String,
