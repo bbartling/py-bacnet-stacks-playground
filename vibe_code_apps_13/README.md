@@ -15,7 +15,8 @@ The original reservation README is preserved by the installer under `docs/refere
 AI agents must read these files in order:
 
 1. [`AGENTS.md`](AGENTS.md)
-2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+2. [`vibe13_agent_spec/SPEC.md`](vibe13_agent_spec/SPEC.md) — UI stack, repo map, agent commands
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 3. [`docs/BACNET_SPEC_CLAUSE_9_CHECKLIST.md`](docs/BACNET_SPEC_CLAUSE_9_CHECKLIST.md)
 4. the active phase document under `docs/`
 5. the phase-local `AGENTS.md` before changing an app directory

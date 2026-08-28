@@ -14,6 +14,10 @@ Build a trustworthy Linux BACnet/IP-to-MS/TP router appliance in three evidence-
 4. Inspect the actual pinned `rusty-bacnet` source and compiler-visible APIs. Documentation and this plan do not override source.
 5. Inspect the working tree and preserve user changes. Do not reset, clean, delete, or overwrite unrelated files.
 
+## Agent spec (Markdown SoT)
+
+Extended orientation for AI sessions: [`vibe13_agent_spec/AGENTS.md`](vibe13_agent_spec/AGENTS.md) — Streamlit lab vs Rust appliance UI, supervisory metrics, JSON contracts.
+
 ## Phase boundaries
 
 ### Phase 1
