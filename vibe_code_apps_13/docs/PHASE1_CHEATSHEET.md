@@ -70,7 +70,19 @@ cargo build --release -p serial-wire-test
 
 ---
 
-## 4. Run Phase 1 (after both sticks wired + by-id known)
+## 4. Supervisory console (Streamlit lab UI)
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
+./scripts/run_wire_dashboard.sh
+# → http://127.0.0.1:8765
+```
+
+**Run control** tab: pick baud (9600–115200), ports, Smoke/Gate preset → **Start** launches Rust `serial-wire-test`.  
+**Live trunk** tab: Metasys/Niagara-style health table (Phase 1 physical analogs), RTT chart, bus load estimate.  
+**Phase 3** production UI will be Rust Axum on the router appliance — Streamlit is lab-only on bensbench.
+
+## 5. CLI run (optional — console can start this for you)
 
 Smoke (100 rounds):
 
