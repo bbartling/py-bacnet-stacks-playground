@@ -11,6 +11,7 @@ pub use envelope::{
 };
 pub use parser::{EnvelopeParser, ParseEvent};
 pub use report::{
-    atomic_write_json, resolve_same_device, FailureRecord, LatencyStats, ReportStatus, WireReport,
+    atomic_write_json, atomic_write_progress, default_progress_path, resolve_same_device,
+    FailureRecord, LatencyStats, ProgressStatus, ReportStatus, WireProgress, WireReport,
 };
 pub use timing::deadline_ms;

@@ -100,12 +100,106 @@ impl WireReport {
     }
 }
 
+/// Live snapshot for Streamlit / dashboards during long hardware runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProgressStatus {
+    Running,
+    Passed,
+    Failed,
+    Interrupted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProgress {
+    pub schema_version: String,
+    pub status: ProgressStatus,
+    pub updated_utc: String,
+    pub report_path: String,
+    pub rounds_requested: u32,
+    pub rounds_completed: u32,
+    pub elapsed_ms: u64,
+    pub envelopes_ok_a_to_b: u64,
+    pub envelopes_ok_b_to_a: u64,
+    pub missing: u64,
+    pub corrupt: u64,
+    pub duplicate: u64,
+    pub latency_mean_a_to_b_ms: f64,
+    pub latency_mean_b_to_a_ms: f64,
+    /// Last ~120 round-trip samples (ms) for a sparkline in the dashboard.
+    pub recent_latency_ms: Vec<f64>,
+}
+
+impl WireProgress {
+    #[must_use]
+    pub fn from_report(report: &WireReport, status: ProgressStatus, report_path: &Path) -> Self {
+        Self {
+            schema_version: "phase1_wire_progress_v1".into(),
+            status,
+            updated_utc: chrono_lite_utc_now(),
+            report_path: report_path.display().to_string(),
+            rounds_requested: report.rounds_requested,
+            rounds_completed: report.rounds_completed,
+            elapsed_ms: report.elapsed_ms,
+            envelopes_ok_a_to_b: report.envelopes_ok_a_to_b,
+            envelopes_ok_b_to_a: report.envelopes_ok_b_to_a,
+            missing: report.missing,
+            corrupt: report.corrupt,
+            duplicate: report.duplicate,
+            latency_mean_a_to_b_ms: report.latency_ms_a_to_b.mean_ms,
+            latency_mean_b_to_a_ms: report.latency_ms_b_to_a.mean_ms,
+            recent_latency_ms: Vec::new(),
+        }
+    }
+
+    pub fn push_recent_latency(&mut self, ms: f64) {
+        const CAP: usize = 120;
+        self.recent_latency_ms.push(ms);
+        if self.recent_latency_ms.len() > CAP {
+            let drop_n = self.recent_latency_ms.len() - CAP;
+            self.recent_latency_ms.drain(..drop_n);
+        }
+    }
+}
+
+fn chrono_lite_utc_now() -> String {
+    // Avoid pulling chrono into lab-common; RFC3339-ish from std is enough for dashboards.
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    format!("{secs}")
+}
+
+/// Default live progress path: `wire-test-38400.json` → `wire-test-38400-live.json`.
+#[must_use]
+pub fn default_progress_path(report: &Path) -> PathBuf {
+    let stem = report
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("wire-test");
+    report.with_file_name(format!("{stem}-live.json"))
+}
+
 /// Write JSON via temp file + rename in the same directory.
 ///
 /// # Errors
 ///
 /// Returns I/O errors from create/write/rename.
 pub fn atomic_write_json(path: &Path, report: &WireReport) -> io::Result<()> {
+    atomic_write_value(path, report)
+}
+
+/// Write a live progress snapshot (same atomic rename pattern as the final report).
+///
+/// # Errors
+///
+/// Returns I/O errors from create/write/rename.
+pub fn atomic_write_progress(path: &Path, progress: &WireProgress) -> io::Result<()> {
+    atomic_write_value(path, progress)
+}
+
+fn atomic_write_value<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
@@ -122,7 +216,7 @@ pub fn atomic_write_json(path: &Path, report: &WireReport) -> io::Result<()> {
     };
     {
         let mut f = fs::File::create(&tmp)?;
-        let body = serde_json::to_vec_pretty(report)
+        let body = serde_json::to_vec_pretty(value)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         f.write_all(&body)?;
         f.write_all(b"\n")?;

@@ -8,9 +8,10 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use lab_common::{
-    atomic_write_json, deadline_ms, encode_envelope, resolve_same_device, BaudRate, Direction,
-    Envelope, EnvelopeParser, FailureRecord, LatencyStats, ParseEvent, PayloadPattern,
-    ReportStatus, WireReport, BOUNDARY_LENGTHS,
+    atomic_write_json, atomic_write_progress, deadline_ms, default_progress_path, encode_envelope,
+    resolve_same_device, BaudRate, Direction, Envelope, EnvelopeParser, FailureRecord,
+    LatencyStats, ParseEvent, PayloadPattern, ProgressStatus, ReportStatus, WireProgress,
+    WireReport, BOUNDARY_LENGTHS,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
@@ -41,6 +42,9 @@ struct Cli {
     turnaround_guard_ms: u64,
     #[arg(long)]
     report: PathBuf,
+    /// Live JSON snapshot for Streamlit dashboard (default: `<report-stem>-live.json`).
+    #[arg(long)]
+    progress: Option<PathBuf>,
     #[arg(long, default_value = "info")]
     log: String,
 }
@@ -72,7 +76,6 @@ async fn main() {
     std::process::exit(code);
 }
 
-#[allow(clippy::too_many_lines)]
 async fn run() -> Result<i32> {
     let cli = Cli::parse();
     tracing_subscriber::fmt()
@@ -94,6 +97,25 @@ async fn run() -> Result<i32> {
 
     let max_env = 10 + usize::from(cli.max_payload) + 4;
     let timeout_ms = cli.timeout_ms.unwrap_or_else(|| deadline_ms(baud, max_env));
+    let progress_path = cli
+        .progress
+        .clone()
+        .unwrap_or_else(|| default_progress_path(&cli.report));
+
+    fn flush_progress(
+        path: &Path,
+        report: &WireReport,
+        report_path: &Path,
+        status: ProgressStatus,
+        recent: &[f64],
+    ) {
+        let mut snap = WireProgress::from_report(report, status, report_path);
+        snap.updated_utc = chrono::Utc::now().to_rfc3339();
+        snap.recent_latency_ms = recent.to_vec();
+        if let Err(e) = atomic_write_progress(path, &snap) {
+            warn!(error = %e, path = %path.display(), "progress write failed");
+        }
+    }
 
     info!(
         port_a = %cli.port_a.display(),
@@ -205,6 +227,7 @@ async fn run() -> Result<i32> {
     let timeout = Duration::from_millis(timeout_ms);
 
     let mut exit_code = 0i32;
+    let mut recent_latency: Vec<f64> = Vec::with_capacity(128);
 
     for round in 1..=cli.rounds {
         if stop.load(Ordering::SeqCst) {
@@ -247,9 +270,9 @@ async fn run() -> Result<i32> {
             Ok(_latency) => {
                 report.envelopes_ok_a_to_b += 1;
                 report.payload_bytes_a_to_b += u64::from(len);
-                report
-                    .latency_ms_a_to_b
-                    .push(t0.elapsed().as_secs_f64() * 1000.0);
+                let ms = t0.elapsed().as_secs_f64() * 1000.0;
+                report.latency_ms_a_to_b.push(ms);
+                recent_latency.push(ms);
             }
             Err(kind) => {
                 push_fail(&mut report, round, Direction::AToB, seq_ab, &kind);
@@ -289,9 +312,9 @@ async fn run() -> Result<i32> {
             Ok(latency) => {
                 report.envelopes_ok_b_to_a += 1;
                 report.payload_bytes_b_to_a += u64::from(len);
-                report
-                    .latency_ms_b_to_a
-                    .push(t1.elapsed().as_secs_f64() * 1000.0);
+                let ms = t1.elapsed().as_secs_f64() * 1000.0;
+                report.latency_ms_b_to_a.push(ms);
+                recent_latency.push(ms);
                 let _ = latency;
             }
             Err(kind) => {
@@ -305,6 +328,16 @@ async fn run() -> Result<i32> {
         }
 
         report.rounds_completed = round;
+        report.elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        if round == 1 || round % 10 == 0 || round == cli.rounds {
+            flush_progress(
+                &progress_path,
+                &report,
+                &cli.report,
+                ProgressStatus::Running,
+                &recent_latency,
+            );
+        }
         if round % 500 == 0 || round == cli.rounds {
             info!(round, "progress");
         }
@@ -319,6 +352,18 @@ async fn run() -> Result<i32> {
     stop.store(true, Ordering::SeqCst);
     report.ended_utc = chrono::Utc::now().to_rfc3339();
     report.elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let final_progress = match report.status {
+        ReportStatus::Passed => ProgressStatus::Passed,
+        ReportStatus::Failed => ProgressStatus::Failed,
+        ReportStatus::Interrupted => ProgressStatus::Interrupted,
+    };
+    flush_progress(
+        &progress_path,
+        &report,
+        &cli.report,
+        final_progress,
+        &recent_latency,
+    );
     atomic_write_json(&cli.report, &report).context("write report")?;
     info!(
         status = ?report.status,

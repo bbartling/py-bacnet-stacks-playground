@@ -86,6 +86,11 @@ RUST_LOG=info cargo run --release -p serial-wire-test -- \
 Gate (10 000 rounds @ 38 400):
 
 ```bash
+# Terminal 1 — dashboard (auto-refreshes every 2s)
+./scripts/run_wire_dashboard.sh
+# open http://127.0.0.1:8765
+
+# Terminal 2 — run (writes captures/wire-test-38400-live.json every 10 rounds)
 RUST_LOG=info cargo run --release -p serial-wire-test -- \
   --port-a /dev/serial/by-id/REPLACE_A \
   --port-b /dev/serial/by-id/REPLACE_B \
@@ -93,6 +98,8 @@ RUST_LOG=info cargo run --release -p serial-wire-test -- \
   --seed 1337 \
   --report captures/wire-test-38400.json
 ```
+
+Live progress: `<report-stem>-live.json` (e.g. `wire-test-38400-live.json`). Final report: `--report` path.
 
 Unplug fault: start a 100-round run, yank **B** mid-flight → must exit nonzero with a failed JSON report, no hang.
 
