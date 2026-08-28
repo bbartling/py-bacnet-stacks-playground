@@ -76,6 +76,22 @@ async fn main() {
     std::process::exit(code);
 }
 
+fn flush_progress(
+    path: &Path,
+    report: &WireReport,
+    report_path: &Path,
+    status: ProgressStatus,
+    recent: &[f64],
+) {
+    let mut snap = WireProgress::from_report(report, status, report_path);
+    snap.updated_utc = chrono::Utc::now().to_rfc3339();
+    snap.recent_latency_ms = recent.to_vec();
+    if let Err(e) = atomic_write_progress(path, &snap) {
+        warn!(error = %e, path = %path.display(), "progress write failed");
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 async fn run() -> Result<i32> {
     let cli = Cli::parse();
     tracing_subscriber::fmt()
@@ -102,21 +118,6 @@ async fn run() -> Result<i32> {
         .clone()
         .unwrap_or_else(|| default_progress_path(&cli.report));
 
-    fn flush_progress(
-        path: &Path,
-        report: &WireReport,
-        report_path: &Path,
-        status: ProgressStatus,
-        recent: &[f64],
-    ) {
-        let mut snap = WireProgress::from_report(report, status, report_path);
-        snap.updated_utc = chrono::Utc::now().to_rfc3339();
-        snap.recent_latency_ms = recent.to_vec();
-        if let Err(e) = atomic_write_progress(path, &snap) {
-            warn!(error = %e, path = %path.display(), "progress write failed");
-        }
-    }
-
     info!(
         port_a = %cli.port_a.display(),
         port_b = %cli.port_b.display(),
@@ -129,6 +130,7 @@ async fn run() -> Result<i32> {
         timeout_ms,
         turnaround_guard_ms = cli.turnaround_guard_ms,
         report = %cli.report.display(),
+        progress = %progress_path.display(),
         "serial-wire-test starting (8N1, no flow control, auto direction)"
     );
 
