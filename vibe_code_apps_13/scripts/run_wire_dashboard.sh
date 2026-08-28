@@ -3,8 +3,19 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-if ! python3 -c "import streamlit" 2>/dev/null; then
-  echo "Installing streamlit (user)..."
-  python3 -m pip install --user -r requirements-wire-dashboard.txt
+VENV="$ROOT/.venv"
+
+if [[ ! -x "$VENV/bin/python" ]]; then
+  echo "Creating .venv (Ubuntu PEP 668 — no system pip install)..."
+  python3 -m venv "$VENV"
 fi
-exec python3 -m streamlit run tools/supervisory_console.py --server.address 127.0.0.1 --server.port 8765
+
+if ! "$VENV/bin/python" -c "import streamlit" 2>/dev/null; then
+  echo "Installing dashboard deps into .venv..."
+  "$VENV/bin/pip" install -r requirements-wire-dashboard.txt
+fi
+
+echo "Dashboard: http://127.0.0.1:8765"
+exec "$VENV/bin/python" -m streamlit run tools/supervisory_console.py \
+  --server.address 127.0.0.1 \
+  --server.port 8765

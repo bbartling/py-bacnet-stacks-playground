@@ -75,7 +75,7 @@ cargo build --release -p serial-wire-test
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
 ./scripts/run_wire_dashboard.sh
-# → http://127.0.0.1:8765
+# → http://127.0.0.1:8765  (creates .venv + installs streamlit on first run)
 ```
 
 **Run control** tab: pick baud (9600–115200), ports, Smoke/Gate preset → **Start** launches Rust `serial-wire-test`.  

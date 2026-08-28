@@ -15,7 +15,7 @@ Read first: `vibe13_agent_spec/SPEC.md`, `vibe13_agent_spec/UI_STACK.md`, root `
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
 ./scripts/run_wire_dashboard.sh
-# http://127.0.0.1:8765
+# http://127.0.0.1:8765 — auto-creates .venv (Ubuntu blocks system pip)
 ```
 
 ## Hardware prerequisites

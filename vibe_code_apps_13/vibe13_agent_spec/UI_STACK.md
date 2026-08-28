@@ -20,7 +20,7 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
 
 Implementation: `tools/supervisory_console.py`  
 Launcher: `scripts/run_wire_dashboard.sh`  
-Python deps: `requirements-wire-dashboard.txt` (streamlit only)
+Python deps: `requirements-wire-dashboard.txt` — installed into **`.venv`** by `run_wire_dashboard.sh` (not system pip on Ubuntu).
 
 ## Streamlit vs Rust web
 

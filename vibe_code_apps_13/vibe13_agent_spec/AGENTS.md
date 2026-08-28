@@ -15,7 +15,7 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
 ./scripts/run_wire_dashboard.sh
 ```
 
-Requires: `dialout` group for hardware runs; two Waveshare **C** adapters wired A+/B-/REF; Streamlit via `pip install -r requirements-wire-dashboard.txt` if missing.
+Requires: `dialout` group for hardware runs; two Waveshare **C** adapters wired A+/B-/REF. Dashboard uses **`./scripts/run_wire_dashboard.sh`** (auto-creates `.venv` — do not `pip install` system-wide on Ubuntu PEP 668).
 
 ## Agent rules (additions to root AGENTS.md)
 
