@@ -1,0 +1,20 @@
+[adapters]
+model = "Waveshare USB TO RS485 (C)"
+port_a = "/dev/serial/by-id/REPLACE_ADAPTER_A"
+port_b = "/dev/serial/by-id/REPLACE_ADAPTER_B"
+
+[serial]
+baud = 38400
+data_bits = 8
+parity = "none"
+stop_bits = 1
+flow_control = "none"
+direction = "auto"
+
+[test]
+rounds = 10000
+max_payload = 256
+seed = 1337
+turnaround_guard_ms = 5
+report = "reports/phase1-wire-test.json"
+

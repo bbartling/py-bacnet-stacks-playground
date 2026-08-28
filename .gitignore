@@ -26,6 +26,20 @@ __pycache__/
 vibe_code_apps_23/weather/**/*.epw
 vibe_code_apps_23/campaigns/runs/
 vibe_code_apps_23/openfdd/packages/
+vibe_code_apps_23/**/campaign_log_enriched.csv
+vibe_code_apps_23/data/raw/
+vibe_code_apps_23/data/README_Dryad_Bldg59.txt
+
+# Agent session restore files (local machine state; never commit)
+**/.last_agent_session.json
+
+# vibe_code_apps_13: DIY BACnet router lab (detail: vibe_code_apps_13/.gitignore)
+vibe_code_apps_13/target/
+vibe_code_apps_13/captures/*
+!vibe_code_apps_13/captures/.gitkeep
+vibe_code_apps_13/reports/*
+!vibe_code_apps_13/reports/.gitkeep
+vibe_code_apps_13/.bootstrap-backup/
 
 # Distribution / packaging
 .Python

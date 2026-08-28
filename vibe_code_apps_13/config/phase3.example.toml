@@ -1,0 +1,26 @@
+[router]
+name = "Rust BACnet Router Lab"
+instance = 123000
+
+[bip]
+bind = "10.77.0.1:47808"
+broadcast = "10.77.0.255:47808"
+network = 100
+
+[mstp]
+serial = "/dev/serial/by-id/REPLACE_ADAPTER_A"
+network = 2001
+baud = 38400
+mac = 0
+max_master = 10
+max_info_frames = 1
+direction = "auto"
+
+[web]
+listen = "127.0.0.1:8080"
+authentication = "reverse-proxy"
+
+[logging]
+level = "info"
+event_history = 1000
+
