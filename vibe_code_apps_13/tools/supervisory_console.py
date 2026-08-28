@@ -20,9 +20,13 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 CAPTURES = ROOT / "captures"
 BINARY = ROOT / "target/release/serial-wire-test"
+MSTP_PROBE = ROOT / "target/release/mstp-probe"
+MSTP_DEVICE = ROOT / "target/release/mstp-mini-device"
 LAUNCHER = ROOT / "scripts/launch_serial_wire_test.sh"
 RUN_STATE = CAPTURES / ".wire_test_run.json"
 PID_FILE = CAPTURES / ".wire_test.pid"
+MSTP_DEVICE_PID = CAPTURES / ".mstp_device.pid"
+MSTP_ACCEPTANCE_REPORT = CAPTURES / "mstp-acceptance.json"
 
 BAUD_RATES = [9600, 19200, 38400, 57600, 76800, 115200]
 DEFAULT_PORT_A = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0"
@@ -174,19 +178,20 @@ def stop_test(*, force: bool = False) -> str:
 
 
 def ensure_release_binary(*, quiet: bool = False) -> tuple[bool, str]:
-    if BINARY.is_file():
+    if BINARY.is_file() and MSTP_PROBE.is_file() and MSTP_DEVICE.is_file():
         return True, str(BINARY)
     if not quiet:
-        st.info("Building release binary (first time may take ~30s)…")
+        st.info("Building release binaries (first time may take ~60s)…")
     proc = subprocess.run(
-        ["cargo", "build", "--release", "-p", "serial-wire-test"],
+        ["cargo", "build", "--release", "-p", "serial-wire-test", "-p", "mstp-probe", "-p", "mstp-mini-device"],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
     if proc.returncode != 0:
         return False, proc.stderr[-2000:] if proc.stderr else "cargo build failed"
-    return BINARY.is_file(), str(BINARY)
+    ok = BINARY.is_file() and MSTP_PROBE.is_file() and MSTP_DEVICE.is_file()
+    return ok, str(BINARY) if ok else "build finished but binaries missing"
 
 
 def in_dialout() -> bool:
@@ -629,6 +634,164 @@ def render_live_panel_auto(refresh_s: int) -> None:
         }
 
 
+def mstp_device_pid() -> int | None:
+    if not MSTP_DEVICE_PID.is_file():
+        return None
+    try:
+        pid = int(MSTP_DEVICE_PID.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    return pid if pid_running(pid) else None
+
+
+def stop_mstp_device() -> str:
+    pid = mstp_device_pid()
+    if pid is None:
+        MSTP_DEVICE_PID.unlink(missing_ok=True)
+        return "No MS/TP mini-device running."
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
+    except OSError:
+        os.kill(pid, signal.SIGTERM)
+    MSTP_DEVICE_PID.unlink(missing_ok=True)
+    return f"Stopped mini-device PID {pid}"
+
+
+def start_mstp_device(port_b: str, baud: int, mac: int = 1) -> tuple[bool, str]:
+    if mstp_device_pid() is not None:
+        return False, "Mini-device already running — stop it first."
+    ok, msg = ensure_release_binary(quiet=True)
+    if not ok:
+        return False, msg
+    level, access_msg = serial_access_status(DEFAULT_PORT_A, port_b)
+    if level == "error":
+        return False, access_msg
+    cmd = [
+        str(MSTP_DEVICE),
+        "--serial",
+        port_b,
+        "--baud",
+        str(baud),
+        "--mac",
+        str(mac),
+        "--device-instance",
+        "123001",
+    ]
+    if LAUNCHER.is_file() and not port_access_ok(port_b):
+        cmd = [str(LAUNCHER), str(MSTP_DEVICE), *cmd[1:]]
+    log_path = CAPTURES / "mstp-mini-device.log"
+    CAPTURES.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8") as logf:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=ROOT,
+            stdout=logf,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    time.sleep(0.3)
+    if proc.poll() is not None:
+        tail = log_path.read_text(encoding="utf-8", errors="replace")[-1500:]
+        return False, f"Mini-device exited immediately:\n{tail}"
+    MSTP_DEVICE_PID.write_text(str(proc.pid), encoding="utf-8")
+    return True, f"Mini-device PID {proc.pid} on `{port_b}` (log: `{log_path.name}`)"
+
+
+def run_mstp_loopback() -> tuple[bool, str]:
+    ok, msg = ensure_release_binary(quiet=True)
+    if not ok:
+        return False, msg
+    report = CAPTURES / "mstp-loopback.json"
+    proc = subprocess.run(
+        [str(MSTP_PROBE), "loopback", "--report", str(report), "--repeated-reads", "5"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr[-1500:] if proc.stderr else proc.stdout[-1500:]
+        return False, f"Loopback acceptance failed:\n{detail}"
+    data = load_json(report)
+    status = (data or {}).get("status", "?")
+    return status == "Passed", f"Loopback {status} → `{report.name}`"
+
+
+def tab_mstp_phase2() -> None:
+    st.subheader("Phase 2 — rusty-bacnet MS/TP")
+    st.caption(
+        "Loopback acceptance runs in-process (CI-safe). Hardware needs mini-device on Port B, "
+        "then probe on Port A with A+/B-/REF wired."
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        port_a = st.text_input("Probe Port A (by-id)", value=DEFAULT_PORT_A, key="mstp_port_a")
+        baud = st.selectbox("Baud", BAUD_RATES, index=BAUD_RATES.index(38400), key="mstp_baud")
+    with c2:
+        port_b = st.text_input("Device Port B (by-id)", value=DEFAULT_PORT_B, key="mstp_port_b")
+        st.caption("Device MAC 1 · Probe MAC 0 · instance 123001")
+
+    device_pid = mstp_device_pid()
+    b1, b2, b3, b4 = st.columns(4)
+    if b1.button("▶ Start mini-device", disabled=device_pid is not None, key="mstp_start_dev"):
+        with st.spinner("Launching mstp-mini-device…"):
+            ok, msg = start_mstp_device(port_b, baud)
+        st.session_state.flash = ("success" if ok else "error", msg)
+    if b2.button("⏹ Stop mini-device", disabled=device_pid is None, key="mstp_stop_dev"):
+        st.session_state.flash = ("warning", stop_mstp_device())
+    if b3.button("🧪 Loopback acceptance", key="mstp_loopback"):
+        with st.spinner("Running mstp-probe loopback (no USB)…"):
+            ok, msg = run_mstp_loopback()
+        st.session_state.flash = ("success" if ok else "error", msg)
+    if b4.button("🔬 Hardware probe", key="mstp_hw_probe"):
+        ok, bin_msg = ensure_release_binary(quiet=True)
+        if not ok:
+            st.session_state.flash = ("error", bin_msg)
+        else:
+            report = CAPTURES / "mstp-hardware.json"
+            if LAUNCHER.is_file() and not port_access_ok(port_a):
+                cmd = [str(LAUNCHER), str(MSTP_PROBE), "hardware", "--probe-serial", port_a, "--device-serial", port_b, "--report", str(report)]
+            else:
+                cmd = [
+                    str(MSTP_PROBE),
+                    "hardware",
+                    "--probe-serial",
+                    port_a,
+                    "--device-serial",
+                    port_b,
+                    "--report",
+                    str(report),
+                ]
+            with st.spinner("Running hardware acceptance (device must be up)…"):
+                proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+            if proc.returncode == 0:
+                st.session_state.flash = ("success", f"Hardware acceptance Passed → `{report.name}`")
+            else:
+                detail = proc.stderr[-1500:] if proc.stderr else proc.stdout[-1500:]
+                st.session_state.flash = ("error", f"Hardware probe failed:\n{detail}")
+
+    flash_message()
+
+    for report_path in [CAPTURES / "mstp-loopback.json", CAPTURES / "mstp-hardware.json", MSTP_ACCEPTANCE_REPORT]:
+        data = load_json(report_path)
+        if data:
+            st.markdown(f"**Last report:** `{report_path.name}` — **{data.get('status', '?')}**")
+            st.dataframe(
+                [
+                    {
+                        "Step": s.get("step"),
+                        "OK": "✅" if s.get("ok") else "❌",
+                        "Detail": s.get("detail"),
+                        "ms": s.get("latency_ms"),
+                    }
+                    for s in data.get("steps", [])
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+            break
+
+
 def tab_post_run() -> None:
     st.subheader("Post-run analysis")
     reports = list_reports()
@@ -701,8 +864,8 @@ def render_sidebar() -> int:
         st.session_state.flash = ("info", stop_test(force=True))
         st.rerun()
     st.sidebar.caption(
-        "Full dashboard restart: stop Streamlit (Ctrl+C), then "
-        "`./scripts/run_wire_dashboard.sh` — dialout is applied automatically."
+        "Dashboard: `./scripts/run_wire_dashboard.sh` (attach if already running). "
+        "Restart: `./scripts/run_wire_dashboard.sh --restart`"
     )
     return refresh_s
 
@@ -718,9 +881,11 @@ def main() -> None:
     render_supervisory_header()
     refresh_s = render_sidebar()
 
-    tab_lab, tab_post, tab_map = st.tabs(["Lab console", "Post-run", "Roadmap"])
+    tab_lab, tab_mstp, tab_post, tab_map = st.tabs(["Lab console", "MS/TP Phase 2", "Post-run", "Roadmap"])
     with tab_lab:
         render_lab_console(refresh_s)
+    with tab_mstp:
+        tab_mstp_phase2()
     with tab_post:
         tab_post_run()
     with tab_map:

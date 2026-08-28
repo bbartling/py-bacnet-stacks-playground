@@ -20,12 +20,22 @@ def main() -> int:
         return 1
 
     titles = [m.value for m in app.subheader]
-    if "Lab console — run control + live trunk" not in titles:
-        print("Missing lab console subheader:", titles)
-        return 1
+    for need in (
+        "Lab console — run control + live trunk",
+        "Phase 2 — rusty-bacnet MS/TP",
+    ):
+        if need not in titles:
+            print("Missing subheader:", need, "have:", titles)
+            return 1
 
     labels = [b.label for b in app.button]
-    for need in ("▶ Start wire test", "⏹ Stop", "🧹 Clear stale state", "🔨 Build release"):
+    for need in (
+        "▶ Start wire test",
+        "⏹ Stop",
+        "🧹 Clear stale state",
+        "🔨 Build release",
+        "🧪 Loopback acceptance",
+    ):
         if need not in labels:
             print("Missing button:", need, "have:", labels)
             return 1
