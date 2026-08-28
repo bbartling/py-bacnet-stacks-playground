@@ -37,6 +37,7 @@ vibe_code_apps_23/data/README_Dryad_Bldg59.txt
 vibe_code_apps_13/target/
 vibe_code_apps_13/captures/*
 !vibe_code_apps_13/captures/.gitkeep
+!vibe_code_apps_13/captures/wire-test-*.json
 vibe_code_apps_13/reports/*
 !vibe_code_apps_13/reports/.gitkeep
 vibe_code_apps_13/.bootstrap-backup/

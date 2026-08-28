@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/lab-common"]
+members = ["crates/lab-common", "apps/serial-wire-test"]
 
 [workspace.package]
 version = "0.1.0"

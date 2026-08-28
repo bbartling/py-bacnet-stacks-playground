@@ -1,7 +1,7 @@
 [adapters]
 model = "Waveshare USB TO RS485 (C)"
-port_a = "/dev/serial/by-id/REPLACE_ADAPTER_A"
-port_b = "/dev/serial/by-id/REPLACE_ADAPTER_B"
+port_a = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0"
+port_b = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0"
 
 [serial]
 baud = 38400

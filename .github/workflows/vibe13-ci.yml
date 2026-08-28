@@ -1,0 +1,42 @@
+name: vibe13-ci
+
+on:
+  push:
+    paths:
+      - "vibe_code_apps_13/**"
+      - ".github/workflows/vibe13-ci.yml"
+  pull_request:
+    paths:
+      - "vibe_code_apps_13/**"
+      - ".github/workflows/vibe13-ci.yml"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: fmt
+        run: cargo fmt --all -- --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test
+        run: cargo test --workspace
+      - name: build release
+        run: cargo build --release --workspace
+      - name: PTY soft smoke (100 rounds)
+        run: |
+          chmod +x scripts/run_pty_smoke.sh scripts/pty_null_modem.py
+          ./scripts/run_pty_smoke.sh 100 captures/wire-test-pty-ci.json
+      - name: upload PTY report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe13-pty-smoke
+          path: vibe_code_apps_13/captures/wire-test-pty-ci.json
+          if-no-files-found: ignore
