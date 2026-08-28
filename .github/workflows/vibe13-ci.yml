@@ -1,5 +1,8 @@
 name: vibe13-ci
 
+permissions:
+  contents: read
+
 on:
   push:
     paths:
@@ -18,6 +21,8 @@ jobs:
         working-directory: vibe_code_apps_13
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -29,6 +34,11 @@ jobs:
         run: cargo test --workspace
       - name: build release
         run: cargo build --release --workspace
+      - name: Streamlit console smoke (AppTest)
+        run: |
+          python3 -m venv .venv-ci
+          .venv-ci/bin/pip install -r requirements-wire-dashboard.txt
+          .venv-ci/bin/python scripts/test_streamlit_console.py
       - name: PTY soft smoke (100 rounds)
         run: |
           chmod +x scripts/run_pty_smoke.sh scripts/pty_null_modem.py

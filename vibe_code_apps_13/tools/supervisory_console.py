@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Supervisory-style Streamlit console for Phase 1 wire tests + Phase 2/3 roadmap."""
+"""Supervisory Streamlit console for Phase 1 wire tests + Phase 2/3 roadmap."""
 
 from __future__ import annotations
 
 import json
 import os
+import pwd
+import re
 import signal
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -17,14 +20,15 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 CAPTURES = ROOT / "captures"
 BINARY = ROOT / "target/release/serial-wire-test"
+LAUNCHER = ROOT / "scripts/launch_serial_wire_test.sh"
 RUN_STATE = CAPTURES / ".wire_test_run.json"
 PID_FILE = CAPTURES / ".wire_test.pid"
 
 BAUD_RATES = [9600, 19200, 38400, 57600, 76800, 115200]
 DEFAULT_PORT_A = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0"
 DEFAULT_PORT_B = "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0"
+REPORT_NAME_RE = re.compile(r"^wire-test[-\w.]+\.json$")
 
-# Metasys / Niagara / PXC style targets (MS/TP supervisory); Phase 1 maps physical-layer analogs.
 HEALTH_TARGETS = [
     ("Token rotation time (TRT)", "< 300 ms", "Phase 2 MS/TP", "—", "Token ring not exercised in Phase 1"),
     ("Lost tokens", "≈ 0", "missing + stale", "—", "Phase 1: timeout / dropped peer frames"),
@@ -41,6 +45,27 @@ class HealthCell:
     value: str
     target: str
     state: str  # ok | warn | bad | na
+
+
+def init_session_state() -> None:
+    st.session_state.setdefault("flash", None)
+    st.session_state.setdefault("live_mtime", 0.0)
+    st.session_state.setdefault("live_snapshot", None)
+
+
+def flash_message() -> None:
+    msg = st.session_state.pop("flash", None)
+    if not msg:
+        return
+    level, text = msg
+    if level == "success":
+        st.success(text)
+    elif level == "error":
+        st.error(text)
+    elif level == "warning":
+        st.warning(text)
+    else:
+        st.info(text)
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -69,7 +94,41 @@ def pid_running(pid: int) -> bool:
     return True
 
 
+def clear_run_artifacts(*, keep_live: bool = True) -> None:
+    PID_FILE.unlink(missing_ok=True)
+    if RUN_STATE.is_file():
+        RUN_STATE.unlink(missing_ok=True)
+    if not keep_live:
+        for path in CAPTURES.glob("*-live.json"):
+            path.unlink(missing_ok=True)
+
+
+def reconcile_run_state() -> None:
+    """Drop stale PID files and run state when the child process is gone."""
+    pid = None
+    if PID_FILE.is_file():
+        try:
+            pid = int(PID_FILE.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            PID_FILE.unlink(missing_ok=True)
+    if pid is None:
+        state = read_run_state()
+        if state and "pid" in state:
+            try:
+                pid = int(state["pid"])
+            except (TypeError, ValueError):
+                pass
+    if pid is not None and not pid_running(pid):
+        PID_FILE.unlink(missing_ok=True)
+        state = read_run_state()
+        if state and int(state.get("pid", -1)) == pid:
+            state["pid"] = None
+            state["ended_at"] = time.time()
+            save_run_state(state)
+
+
 def current_pid() -> int | None:
+    reconcile_run_state()
     if PID_FILE.is_file():
         try:
             pid = int(PID_FILE.read_text(encoding="utf-8").strip())
@@ -78,23 +137,40 @@ def current_pid() -> int | None:
         except (OSError, ValueError):
             pass
     state = read_run_state()
-    if state and "pid" in state:
-        pid = int(state["pid"])
-        if pid_running(pid):
-            return pid
+    if state and state.get("pid") is not None:
+        try:
+            pid = int(state["pid"])
+            if pid_running(pid):
+                return pid
+        except (TypeError, ValueError):
+            pass
     return None
 
 
-def stop_test() -> str:
+def stop_test(*, force: bool = False) -> str:
     pid = current_pid()
     if pid is None:
+        if force:
+            clear_run_artifacts()
+            return "Cleared stale run state (no live process)."
         return "No running test."
     try:
-        os.kill(pid, signal.SIGTERM)
-    except OSError as e:
-        return f"Stop failed: {e}"
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
+    except OSError:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError as e:
+            if force:
+                clear_run_artifacts()
+                return f"Process gone; cleared state ({e})."
+            return f"Stop failed: {e}"
     PID_FILE.unlink(missing_ok=True)
-    return f"Sent SIGTERM to PID {pid}"
+    state = read_run_state()
+    if state:
+        state["pid"] = None
+        state["stopped_at"] = time.time()
+        save_run_state(state)
+    return f"Sent SIGTERM to process group for PID {pid}"
 
 
 def ensure_release_binary(*, quiet: bool = False) -> tuple[bool, str]:
@@ -121,6 +197,86 @@ def in_dialout() -> bool:
     return "dialout" in groups
 
 
+def member_of_dialout() -> bool:
+    user = os.environ.get("USER") or os.environ.get("LOGNAME") or pwd.getpwuid(os.getuid()).pw_name
+    try:
+        line = subprocess.check_output(["getent", "group", "dialout"], text=True).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    members = [m.strip() for m in line.split(":")[-1].split(",") if m.strip()]
+    return user in members
+
+
+def port_access_ok(path: str) -> bool:
+    p = Path(path)
+    return p.exists() and os.access(p, os.R_OK | os.W_OK)
+
+
+def serial_access_status(port_a: str, port_b: str) -> tuple[str, str]:
+    missing = [p for p in (port_a, port_b) if not Path(p).exists()]
+    if missing:
+        return "error", f"Adapter not found: `{missing[0]}` — check USB / by-id path."
+
+    denied = [p for p in (port_a, port_b) if not port_access_ok(p)]
+    if not denied:
+        return "ok", "Serial ports readable — Start can open both adapters."
+
+    if member_of_dialout():
+        if in_dialout():
+            return "error", (
+                f"Ports denied despite active `dialout`: `{denied[0]}`. "
+                "Check cable, another process holding the port, or udev rules."
+            )
+        return "warn", (
+            "You are in `dialout` but this Streamlit session is not — Start will "
+            "re-launch the Rust test via `sg dialout` (no `newgrp` needed)."
+        )
+
+    return "error", (
+        "Serial ports not writable — run `sudo usermod -aG dialout $USER`, "
+        "then restart this dashboard (sidebar → **Reload UI**)."
+    )
+
+
+def safe_report_path(report_name: str) -> Path | None:
+    name = Path(report_name).name
+    if not REPORT_NAME_RE.match(name):
+        return None
+    return CAPTURES / name
+
+
+def build_wire_cmd(
+    port_a: str,
+    port_b: str,
+    baud: int,
+    rounds: int,
+    max_payload: int,
+    seed: int,
+    report_path: Path,
+) -> list[str]:
+    wire_args = [
+        "--port-a",
+        port_a,
+        "--port-b",
+        port_b,
+        "--baud",
+        str(baud),
+        "--rounds",
+        str(rounds),
+        "--max-payload",
+        str(max_payload),
+        "--seed",
+        str(seed),
+        "--report",
+        str(report_path),
+    ]
+    if port_access_ok(port_a) and port_access_ok(port_b):
+        return [str(BINARY), *wire_args]
+    if LAUNCHER.is_file():
+        return [str(LAUNCHER), str(BINARY), *wire_args]
+    return [str(BINARY), *wire_args]
+
+
 def start_test(
     port_a: str,
     port_b: str,
@@ -137,34 +293,18 @@ def start_test(
     if not ok:
         return False, f"Binary missing: {bin_msg}"
 
-    if not in_dialout():
-        return False, (
-            "User not in `dialout` group — run `sudo usermod -aG dialout $USER` "
-            "then `newgrp dialout` or open a new login session."
-        )
+    level, access_msg = serial_access_status(port_a, port_b)
+    if level == "error":
+        return False, access_msg
+
+    report_path = safe_report_path(report_name)
+    if report_path is None:
+        return False, f"Invalid report filename `{report_name}` — use wire-test-*.json in captures/."
 
     CAPTURES.mkdir(parents=True, exist_ok=True)
-    report_path = CAPTURES / report_name
     live_path = CAPTURES / f"{report_path.stem}-live.json"
     log_path = CAPTURES / f"{report_path.stem}.log"
-
-    cmd = [
-        str(BINARY),
-        "--port-a",
-        port_a,
-        "--port-b",
-        port_b,
-        "--baud",
-        str(baud),
-        "--rounds",
-        str(rounds),
-        "--max-payload",
-        str(max_payload),
-        "--seed",
-        str(seed),
-        "--report",
-        str(report_path),
-    ]
+    cmd = build_wire_cmd(port_a, port_b, baud, rounds, max_payload, seed, report_path)
 
     with open(log_path, "w", encoding="utf-8") as logf:
         proc = subprocess.Popen(
@@ -174,6 +314,11 @@ def start_test(
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+
+    time.sleep(0.25)
+    if proc.poll() is not None:
+        tail = log_path.read_text(encoding="utf-8", errors="replace")[-1500:] if log_path.is_file() else ""
+        return False, f"Wire test exited immediately (code {proc.returncode}). Log tail:\n{tail}"
 
     PID_FILE.write_text(str(proc.pid), encoding="utf-8")
     save_run_state(
@@ -188,6 +333,8 @@ def start_test(
             "rounds": rounds,
         }
     )
+    st.session_state.live_mtime = 0.0
+    st.session_state.live_snapshot = None
     return True, f"Started PID {proc.pid} → `{report_path.name}` (live: `{live_path.name}`)"
 
 
@@ -214,16 +361,14 @@ def pct_errors(data: dict[str, Any]) -> float:
 
 
 def estimate_bus_load(data: dict[str, Any], baud: int) -> float:
-    """Rough duty cycle: payload+ framing bytes transmitted both directions / line capacity."""
     elapsed_ms = max(int(data.get("elapsed_ms", 1)), 1)
     bytes_ab = int(data.get("payload_bytes_a_to_b", 0)) + int(data.get("payload_bytes_b_to_a", 0))
-    # ~15 bytes overhead per envelope (preamble+hdr+crc) × 2 directions per round
     rounds = int(data.get("rounds_completed", 0))
     wire_bytes = bytes_ab + rounds * 30
     line_bps = baud * (elapsed_ms / 1000.0)
     if line_bps <= 0:
         return 0.0
-    return min(100.0, 100.0 * (wire_bytes * 10) / line_bps)  # 10 bits/byte
+    return min(100.0, 100.0 * (wire_bytes * 10) / line_bps)
 
 
 def health_from_live(live: dict[str, Any], report: dict[str, Any] | None, baud: int) -> list[HealthCell]:
@@ -257,41 +402,119 @@ def health_from_live(live: dict[str, Any], report: dict[str, Any] | None, baud: 
     ]
 
 
+def resolve_live_paths() -> tuple[Path | None, Path | None, int]:
+    state = read_run_state()
+    live_path = Path(state["live"]) if state and state.get("live") else None
+    report_path = Path(state["report"]) if state and state.get("report") else None
+    if live_path is None or not live_path.is_file():
+        lives = sorted(CAPTURES.glob("*-live.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        live_path = lives[0] if lives else None
+    baud = int((state or {}).get("baud", 38400))
+    return live_path, report_path, baud
+
+
+def live_file_mtime(live_path: Path | None) -> float:
+    if live_path and live_path.is_file():
+        return live_path.stat().st_mtime
+    return 0.0
+
+
+def is_live_active(live: dict[str, Any] | None, pid: int | None) -> bool:
+    if pid is not None:
+        return True
+    return live is not None and str(live.get("status")) == "running"
+
+
 def render_health_table(cells: list[HealthCell]) -> None:
     icon = {"ok": "🟢", "warn": "🟡", "bad": "🔴", "na": "⚪"}
-    rows = []
-    for c in cells:
-        rows.append(
-            {
-                "Status": icon.get(c.state, "⚪"),
-                "Metric": c.label,
-                "Current": c.value,
-                "Healthy target": c.target,
-            }
-        )
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    rows = [
+        {
+            "Status": icon.get(c.state, "⚪"),
+            "Metric": c.label,
+            "Current": c.value,
+            "Healthy target": c.target,
+        }
+        for c in cells
+    ]
+    st.dataframe(rows, width="stretch", hide_index=True)
+
+
+def render_live_panel(
+    *,
+    live_path: Path | None = None,
+    report_path: Path | None = None,
+    baud: int | None = None,
+    heading: str = "Live trunk — physical layer",
+) -> bool:
+    if live_path is None:
+        live_path, report_path, baud = resolve_live_paths()
+    elif baud is None:
+        _, report_path, baud = resolve_live_paths()
+
+    live = load_json(live_path) if live_path and live_path.is_file() else None
+    report = load_json(report_path) if report_path and report_path.is_file() else None
+    if baud is None:
+        baud = int((report or live or {}).get("baud", 38400))
+
+    if not live:
+        return False
+
+    st.markdown(f"#### {heading}")
+    status = str(live.get("status", "unknown"))
+    if status == "running":
+        st.info("🔄 Test in progress — live JSON updates every ~10 rounds")
+    elif status == "complete":
+        st.success("✅ Run finished — final report written alongside live file.")
+
+    req = int(live.get("rounds_requested", 0))
+    done = int(live.get("rounds_completed", 0))
+    pct = done / req if req else 0.0
+    st.progress(min(pct, 1.0), text=f"{done:,} / {req:,} rounds ({pct * 100:.1f}%) @ {baud} bps")
+
+    render_health_table(health_from_live(live, report, baud))
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("A→B OK", f"{live.get('envelopes_ok_a_to_b', 0):,}")
+    m2.metric("B→A OK", f"{live.get('envelopes_ok_b_to_a', 0):,}")
+    m3.metric("CRC-ish errors", int(live.get("corrupt", 0)) + int(live.get("parser_rejected", 0)))
+    m4.metric(
+        "RTT mean ms",
+        f"{(float(live.get('latency_mean_a_to_b_ms', 0)) + float(live.get('latency_mean_b_to_a_ms', 0))) / 2:.1f}",
+    )
+    m5.metric("Elapsed", f"{int(live.get('elapsed_ms', 0)) / 1000:.1f}s")
+
+    recent = live.get("recent_latency_ms") or []
+    if recent:
+        st.markdown("**Round-trip latency (RTT)**")
+        st.line_chart({"RTT ms": recent})
+        st.caption("Spikes > 500 ms on a short bench cable → FTDI latency timer, USB hub, or CPU load.")
+
+    if live_path:
+        st.caption(f"Live file: `{live_path.name}` · updated `{live.get('updated_utc', '?')}`")
+    return True
 
 
 def render_supervisory_header() -> None:
     st.markdown(
         """
         ### BACnet MS/TP Lab — Supervisory Console
-        **Phase 1 (now):** physical RS-485 / FTDI path via Rust `serial-wire-test` — no BACnet framing yet.  
-        **Phase 2:** `rusty-bacnet` MS/TP token, Who-Is, RP/RPM on this same bus.  
-        **Phase 3:** Rust B/IP ↔ MS/TP router + production commissioning web (Axum, not Streamlit).
+        **Phase 1:** physical RS-485 / FTDI path via Rust `serial-wire-test`.  
+        **Phase 2:** `rusty-bacnet` MS/TP token, Who-Is, RP/RPM.  
+        **Phase 3:** Rust B/IP ↔ MS/TP router + Axum commissioning web.
         """
     )
 
 
-def tab_run_control() -> None:
-    st.subheader("Run control — Rust hardware test")
+def render_lab_console(refresh_s: int) -> None:
+    st.subheader("Lab console — run control + live trunk")
+
     c1, c2 = st.columns(2)
     with c1:
-        port_a = st.text_input("Port A (by-id)", value=DEFAULT_PORT_A)
-        port_b = st.text_input("Port B (by-id)", value=DEFAULT_PORT_B)
-        baud = st.selectbox("Baud rate", BAUD_RATES, index=BAUD_RATES.index(38400))
+        port_a = st.text_input("Port A (by-id)", value=DEFAULT_PORT_A, key="port_a")
+        port_b = st.text_input("Port B (by-id)", value=DEFAULT_PORT_B, key="port_b")
+        baud = st.selectbox("Baud rate", BAUD_RATES, index=BAUD_RATES.index(38400), key="baud")
     with c2:
-        preset = st.radio("Preset", ["Smoke 100", "Gate 10,000", "Custom"], horizontal=True)
+        preset = st.radio("Preset", ["Smoke 100", "Gate 10,000", "Custom"], horizontal=True, key="preset")
         if preset == "Smoke 100":
             rounds = 100
             report_name = f"wire-test-smoke-{baud}.json"
@@ -299,108 +522,111 @@ def tab_run_control() -> None:
             rounds = 10_000
             report_name = f"wire-test-{baud}.json"
         else:
-            rounds = st.number_input("Rounds", 1, 1_000_000, 100)
-            report_name = st.text_input("Report filename", value="wire-test-custom.json")
-        max_payload = st.number_input("Max payload bytes", 0, 256, 256)
-        seed = st.number_input("Seed", 0, 2**32 - 1, 1337)
+            rounds = st.number_input("Rounds", 1, 1_000_000, 100, key="rounds")
+            report_name = st.text_input("Report filename", value="wire-test-custom.json", key="report_name")
+        max_payload = st.number_input("Max payload bytes", 0, 256, 256, key="max_payload")
+        seed = st.number_input("Seed", 0, 2**32 - 1, 1337, key="seed")
 
-    if not in_dialout():
-        st.warning(
-            "Not in `dialout` — Start will fail until Streamlit itself runs in a dialout session. "
-            "Stop this UI (Ctrl+C), then: `newgrp dialout` → `./scripts/run_wire_dashboard.sh`"
-        )
+    access_level, access_msg = serial_access_status(port_a, port_b)
+    if access_level == "ok":
+        st.success(access_msg)
+    elif access_level == "warn":
+        st.warning(access_msg)
+    else:
+        st.error(access_msg)
 
     pid = current_pid()
-    b1, b2, b3 = st.columns(3)
-    with b1:
-        if st.button("▶ Start wire test", type="primary", disabled=pid is not None):
-            with st.status("Starting Rust wire test…", expanded=True) as run_status:
-                run_status.write("Checking release binary…")
-                with st.spinner("Compiling or launching (swimmer active)…"):
-                    ok, msg = start_test(
-                        port_a, port_b, baud, int(rounds), int(max_payload), int(seed), report_name
-                    )
-                if ok:
-                    run_status.update(label="Wire test running", state="complete")
-                    st.toast(msg, icon="✅")
-                else:
-                    run_status.update(label="Start failed", state="error")
-                    run_status.write(msg)
-            st.rerun()
-    with b2:
-        if st.button("⏹ Stop", disabled=pid is None):
-            with st.spinner("Stopping test…"):
-                msg = stop_test()
-            st.warning(msg)
-            st.rerun()
-    with b3:
-        if st.button("🔨 Build release binary"):
-            with st.status("Building serial-wire-test…", expanded=True) as build_status:
-                with st.spinner("cargo build --release (may take ~30s)…"):
-                    ok, msg = ensure_release_binary(quiet=True)
-                if ok:
-                    build_status.update(label="Release binary ready", state="complete")
-                    build_status.write(msg)
-                    st.toast("Release binary built", icon="🔨")
-                else:
-                    build_status.update(label="Build failed", state="error")
-                    build_status.write(msg)
+    running = pid is not None
 
-    if pid:
-        st.info(f"Running PID **{pid}** — switch to **Live trunk** tab (auto-refresh on).")
-        state = read_run_state()
-        if state:
-            st.caption(f"Log: `{state.get('log', '?')}`")
+    b1, b2, b3, b4 = st.columns(4)
+    if b1.button("▶ Start wire test", type="primary", disabled=running, key="btn_start"):
+        with st.status("Starting Rust wire test…", expanded=True) as run_status:
+            run_status.write("Checking release binary…")
+            ok, msg = start_test(
+                port_a, port_b, baud, int(rounds), int(max_payload), int(seed), report_name
+            )
+            if ok:
+                run_status.update(label="Wire test running", state="complete")
+                st.session_state.flash = ("success", msg)
+            else:
+                run_status.update(label="Start failed", state="error")
+                run_status.write(msg)
+                st.session_state.flash = ("error", msg)
 
+    if b2.button("⏹ Stop", disabled=not running, key="btn_stop"):
+        st.session_state.flash = ("warning", stop_test())
 
-def tab_live_trunk(auto: bool, refresh_s: int) -> None:
-    st.subheader("Live trunk — physical layer (Phase 1 analog)")
+    if b3.button("🧹 Clear stale state", key="btn_clear"):
+        st.session_state.flash = ("info", stop_test(force=True))
+
+    if b4.button("🔨 Build release", key="btn_build"):
+        with st.status("Building serial-wire-test…", expanded=True) as build_status:
+            ok, msg = ensure_release_binary(quiet=True)
+            if ok:
+                build_status.update(label="Release binary ready", state="complete")
+                st.session_state.flash = ("success", msg)
+            else:
+                build_status.update(label="Build failed", state="error")
+                build_status.write(msg)
+                st.session_state.flash = ("error", msg)
+
+    flash_message()
+
+    st.divider()
     state = read_run_state()
-    live_path = Path(state["live"]) if state and state.get("live") else CAPTURES / "wire-test-38400-live.json"
-    if not live_path.is_file():
-        # pick newest *-live.json
-        lives = sorted(CAPTURES.glob("*-live.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if lives:
-            live_path = lives[0]
+    if running:
+        st.caption(f"Running PID **{pid}** · log `{state.get('log', '?') if state else '?'}`")
+    elif state and state.get("log"):
+        with st.expander("Last run log tail"):
+            log_path = Path(state["log"])
+            if log_path.is_file():
+                st.code(log_path.read_text(encoding="utf-8", errors="replace")[-4000:], language="text")
+            else:
+                st.caption("Log file missing.")
 
-    live = load_json(live_path)
-    report_path = Path(state["report"]) if state and state.get("report") else None
-    report = load_json(report_path) if report_path and report_path.is_file() else None
-    baud = int((state or {}).get("baud", (report or {}).get("baud", 38400)))
+    live_path, report_path, resolved_baud = resolve_live_paths()
+    live = load_json(live_path) if live_path else None
+    if is_live_active(live, current_pid()):
+        render_live_panel_auto(refresh_s)
+    elif live:
+        render_live_panel(live_path=live_path, report_path=report_path, baud=resolved_baud)
+    else:
+        st.caption("Press **Start** — progress, health table, and RTT chart appear here.")
 
-    if not live:
-        st.info("No live progress file yet — start a run from **Run control**.")
+
+@st.fragment(run_every=timedelta(seconds=1))
+def render_live_panel_auto(refresh_s: int) -> None:
+    reconcile_run_state()
+    live_path, report_path, baud = resolve_live_paths()
+    mtime = live_file_mtime(live_path)
+    pid = current_pid()
+    live = load_json(live_path) if live_path else None
+
+    if mtime == st.session_state.live_mtime and st.session_state.live_snapshot and pid is not None:
+        snap = st.session_state.live_snapshot
+        st.markdown("#### Live trunk — physical layer")
+        st.info(f"🔄 Running · PID {pid} · refresh when live file changes (~{refresh_s}s poll)")
+        st.progress(snap["pct"], text=snap["progress_text"])
+        st.caption(snap["caption"])
         return
 
-    status = str(live.get("status", "unknown"))
-    if status == "running":
-        st.info("🔄 Test in progress — metrics update every ~10 rounds")
-    req = int(live.get("rounds_requested", 0))
-    done = int(live.get("rounds_completed", 0))
-    pct = done / req if req else 0.0
-    st.progress(min(pct, 1.0), text=f"{done:,} / {req:,} rounds ({pct * 100:.1f}%) @ {baud} bps")
+    st.session_state.live_mtime = mtime
+    if not render_live_panel(live_path=live_path, report_path=report_path, baud=baud):
+        if pid is not None:
+            st.caption("Waiting for first live JSON snapshot (~10 rounds)…")
+        else:
+            st.caption("Run ended — use **Reload UI** in the sidebar if metrics look stale.")
+        return
 
-    cells = health_from_live(live, report, baud)
-    render_health_table(cells)
-
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("A→B OK", f"{live.get('envelopes_ok_a_to_b', 0):,}")
-    m2.metric("B→A OK", f"{live.get('envelopes_ok_b_to_a', 0):,}")
-    m3.metric("CRC-ish errors", int(live.get("corrupt", 0)) + int(live.get("parser_rejected", 0)))
-    m4.metric("RTT mean ms", f"{(float(live.get('latency_mean_a_to_b_ms', 0)) + float(live.get('latency_mean_b_to_a_ms', 0))) / 2:.1f}")
-    m5.metric("Elapsed", f"{int(live.get('elapsed_ms', 0)) / 1000:.1f}s")
-
-    recent = live.get("recent_latency_ms") or []
-    if recent:
-        st.markdown("**Round-trip latency (RTT analog)** — Metasys-style read response time preview")
-        st.line_chart({"RTT ms": recent})
-        st.caption("Spikes > 500 ms on a short bench cable → check FTDI latency timer, USB hub, or CPU load.")
-
-    st.caption(f"Live file: `{live_path}` · updated `{live.get('updated_utc', '?')}`")
-
-    if auto and status == "running":
-        time.sleep(refresh_s)
-        st.rerun()
+    if live_path and live:
+        req = int(live.get("rounds_requested", 0))
+        done = int(live.get("rounds_completed", 0))
+        pct = done / req if req else 0.0
+        st.session_state.live_snapshot = {
+            "pct": min(pct, 1.0),
+            "progress_text": f"{done:,} / {req:,} rounds ({pct * 100:.1f}%) @ {baud} bps",
+            "caption": f"Live file: `{live_path.name}` · updated `{live.get('updated_utc', '?')}`",
+        }
 
 
 def tab_post_run() -> None:
@@ -415,8 +641,7 @@ def tab_post_run() -> None:
         return
 
     baud = int(data.get("baud", 38400))
-    cells = health_from_live({}, data, baud)
-    render_health_table(cells)
+    render_health_table(health_from_live({}, data, baud))
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Status", str(data.get("status")))
@@ -447,13 +672,8 @@ def tab_roadmap() -> None:
         | CRC / good frames | Private envelope CRC | MS/TP CRC-32 / header errors | Routed + MS/TP combined |
         | Bus load | Estimated from baud × bytes | MS/TP utilization | B/IP + MS/TP per port |
         | Application RTT | Envelope round-trip | Who-Is / RP / RPM | B/IP client → router → device |
-
-        **Why Streamlit now, Rust web later:** Streamlit is ideal for lab commissioning on bensbench — start tests, tune baud,
-        watch live JSON. The **production appliance** (Phase 3) should use a Rust Axum read-only status API + small HTML
-        (per checkpoint 13 spec), same metrics Metasys/Niagara operators expect, without Python on the edge box.
         """
     )
-    st.markdown("**Reference targets (field MS/TP supervisory)**")
     st.table(
         [
             {"Category": r[0], "Healthy": r[1], "Phase 1 analog": r[2], "Notes": r[4]}
@@ -462,29 +682,45 @@ def tab_roadmap() -> None:
     )
 
 
+def render_sidebar() -> int:
+    st.sidebar.header("Console")
+    pid = current_pid()
+    if pid:
+        st.sidebar.success(f"Test running (PID {pid})")
+    else:
+        st.sidebar.caption("Idle")
+
+    refresh_s = st.sidebar.slider("Live poll interval (s)", 1, 10, 2)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Session tools**")
+    if st.sidebar.button("↻ Reload UI", key="sidebar_reload", width="stretch"):
+        st.session_state.live_mtime = 0.0
+        st.session_state.live_snapshot = None
+        st.rerun()
+    if st.sidebar.button("🧹 Clear run state", key="sidebar_clear", width="stretch"):
+        st.session_state.flash = ("info", stop_test(force=True))
+        st.rerun()
+    st.sidebar.caption(
+        "Full dashboard restart: stop Streamlit (Ctrl+C), then "
+        "`./scripts/run_wire_dashboard.sh` — dialout is applied automatically."
+    )
+    return refresh_s
+
+
 def main() -> None:
     st.set_page_config(
         page_title="BACnet MS/TP Lab — Supervisory",
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    init_session_state()
+    reconcile_run_state()
     render_supervisory_header()
+    refresh_s = render_sidebar()
 
-    st.sidebar.header("Console")
-    auto = st.sidebar.checkbox("Auto-refresh live tab", value=True)
-    refresh_s = st.sidebar.slider("Refresh interval (s)", 1, 15, 2)
-    if pid := current_pid():
-        st.sidebar.success(f"Test running (PID {pid})")
-    else:
-        st.sidebar.caption("Idle")
-
-    tab_run, tab_live, tab_post, tab_map = st.tabs(
-        ["Run control", "Live trunk", "Post-run", "Roadmap"]
-    )
-    with tab_run:
-        tab_run_control()
-    with tab_live:
-        tab_live_trunk(auto, refresh_s)
+    tab_lab, tab_post, tab_map = st.tabs(["Lab console", "Post-run", "Roadmap"])
+    with tab_lab:
+        render_lab_console(refresh_s)
     with tab_post:
         tab_post_run()
     with tab_map:
