@@ -37,7 +37,7 @@ jobs:
       - name: Phase 2 IP exclusion gate
         run: chmod +x scripts/check_mstp_no_ip.sh && ./scripts/check_mstp_no_ip.sh
       - name: MS/TP loopback acceptance
-        run: cargo run --release -p mstp-probe -- loopback --report captures/mstp-loopback-ci.json
+        run: cargo run --release -p mstp-probe -- --report captures/mstp-loopback-ci.json loopback
       - name: Streamlit console smoke (AppTest)
         run: |
           python3 -m venv .venv-ci

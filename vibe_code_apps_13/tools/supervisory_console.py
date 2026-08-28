@@ -703,7 +703,7 @@ def run_mstp_loopback() -> tuple[bool, str]:
         return False, msg
     report = CAPTURES / "mstp-loopback.json"
     proc = subprocess.run(
-        [str(MSTP_PROBE), "loopback", "--report", str(report), "--repeated-reads", "5"],
+        [str(MSTP_PROBE), "--report", str(report), "--repeated-reads", "5", "loopback"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -750,17 +750,27 @@ def tab_mstp_phase2() -> None:
         else:
             report = CAPTURES / "mstp-hardware.json"
             if LAUNCHER.is_file() and not port_access_ok(port_a):
-                cmd = [str(LAUNCHER), str(MSTP_PROBE), "hardware", "--probe-serial", port_a, "--device-serial", port_b, "--report", str(report)]
-            else:
                 cmd = [
+                    str(LAUNCHER),
                     str(MSTP_PROBE),
+                    "--report",
+                    str(report),
                     "hardware",
                     "--probe-serial",
                     port_a,
                     "--device-serial",
                     port_b,
+                ]
+            else:
+                cmd = [
+                    str(MSTP_PROBE),
                     "--report",
                     str(report),
+                    "hardware",
+                    "--probe-serial",
+                    port_a,
+                    "--device-serial",
+                    port_b,
                 ]
             with st.spinner("Running hardware acceptance (device must be up)…"):
                 proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
