@@ -1,0 +1,18 @@
+[device]
+name = "Rust MS/TP Mini Device"
+instance = 123001
+vendor_id = 999 # lab-only placeholder; replace before any product release
+
+[mstp]
+serial = "/dev/serial/by-id/REPLACE_ADAPTER_B"
+baud = 38400
+mac = 1
+max_master = 10
+max_info_frames = 1
+direction = "auto"
+max_apdu = 480
+
+[logging]
+level = "info"
+trace_frames = false
+

@@ -1,0 +1,13 @@
+/target/
+/captures/*.bin
+/captures/*.pcap
+/captures/*.pcapng
+/captures/*.log
+/reports/*.json
+/.bootstrap-backup/
+*.local.toml
+.env
+
+!captures/.gitkeep
+!reports/.gitkeep
+
