@@ -18,6 +18,8 @@ use tokio::sync::mpsc;
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
 use tracing::{error, info, warn};
 
+const RECENT_LATENCY_CAP: usize = 120;
+
 #[derive(Debug, Parser)]
 #[command(name = "serial-wire-test", about = "Phase 1 dual USB RS-485 wire test")]
 struct Cli {
@@ -91,6 +93,14 @@ fn flush_progress(
     }
 }
 
+fn push_recent_latency(recent: &mut Vec<f64>, ms: f64) {
+    recent.push(ms);
+    if recent.len() > RECENT_LATENCY_CAP {
+        let excess = recent.len() - RECENT_LATENCY_CAP;
+        recent.drain(0..excess);
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn run() -> Result<i32> {
     let cli = Cli::parse();
@@ -138,9 +148,33 @@ async fn run() -> Result<i32> {
     {
         let stop = Arc::clone(&stop);
         tokio::spawn(async move {
-            let _ = tokio::signal::ctrl_c().await;
-            warn!("SIGINT — finishing current exchange and writing report");
-            stop.store(true, Ordering::SeqCst);
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                let Ok(mut sigterm) = signal(SignalKind::terminate()) else {
+                    let _ = tokio::signal::ctrl_c().await;
+                    warn!("SIGINT — finishing current exchange and writing report");
+                    stop.store(true, Ordering::SeqCst);
+                    return;
+                };
+                let Ok(mut sigint) = signal(SignalKind::interrupt()) else {
+                    let _ = tokio::signal::ctrl_c().await;
+                    warn!("SIGINT — finishing current exchange and writing report");
+                    stop.store(true, Ordering::SeqCst);
+                    return;
+                };
+                tokio::select! {
+                    _ = sigterm.recv() => warn!("SIGTERM — finishing current exchange and writing report"),
+                    _ = sigint.recv() => warn!("SIGINT — finishing current exchange and writing report"),
+                }
+                stop.store(true, Ordering::SeqCst);
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = tokio::signal::ctrl_c().await;
+                warn!("SIGINT — finishing current exchange and writing report");
+                stop.store(true, Ordering::SeqCst);
+            }
         });
     }
 
@@ -229,7 +263,7 @@ async fn run() -> Result<i32> {
     let timeout = Duration::from_millis(timeout_ms);
 
     let mut exit_code = 0i32;
-    let mut recent_latency: Vec<f64> = Vec::with_capacity(128);
+    let mut recent_latency: Vec<f64> = Vec::with_capacity(RECENT_LATENCY_CAP);
 
     for round in 1..=cli.rounds {
         if stop.load(Ordering::SeqCst) {
@@ -251,11 +285,34 @@ async fn run() -> Result<i32> {
         let seq_ab = sequence;
         encode_envelope(Direction::AToB, seq_ab, payload, &mut encode_buf)?;
         let t0 = Instant::now();
-        a_writer
-            .write_all(&encode_buf)
-            .await
-            .context("write A->B")?;
-        a_writer.flush().await.context("flush A")?;
+        if let Err(e) = a_writer.write_all(&encode_buf).await {
+            push_fail(
+                &mut report,
+                round,
+                Direction::AToB,
+                seq_ab,
+                &format!("write A->B: {e}"),
+            );
+            report.status = ReportStatus::Failed;
+            report.reason = format!("write A->B: {e}");
+            exit_code = 1;
+            report.rounds_completed = round.saturating_sub(1);
+            break;
+        }
+        if let Err(e) = a_writer.flush().await {
+            push_fail(
+                &mut report,
+                round,
+                Direction::AToB,
+                seq_ab,
+                &format!("flush A: {e}"),
+            );
+            report.status = ReportStatus::Failed;
+            report.reason = format!("flush A: {e}");
+            exit_code = 1;
+            report.rounds_completed = round.saturating_sub(1);
+            break;
+        }
 
         match wait_peer(
             &mut rx,
@@ -274,7 +331,7 @@ async fn run() -> Result<i32> {
                 report.payload_bytes_a_to_b += u64::from(len);
                 let ms = t0.elapsed().as_secs_f64() * 1000.0;
                 report.latency_ms_a_to_b.push(ms);
-                recent_latency.push(ms);
+                push_recent_latency(&mut recent_latency, ms);
             }
             Err(kind) => {
                 push_fail(&mut report, round, Direction::AToB, seq_ab, &kind);
@@ -293,11 +350,34 @@ async fn run() -> Result<i32> {
         let seq_ba = sequence;
         encode_envelope(Direction::BToA, seq_ba, payload, &mut encode_buf)?;
         let t1 = Instant::now();
-        b_writer
-            .write_all(&encode_buf)
-            .await
-            .context("write B->A")?;
-        b_writer.flush().await.context("flush B")?;
+        if let Err(e) = b_writer.write_all(&encode_buf).await {
+            push_fail(
+                &mut report,
+                round,
+                Direction::BToA,
+                seq_ba,
+                &format!("write B->A: {e}"),
+            );
+            report.status = ReportStatus::Failed;
+            report.reason = format!("write B->A: {e}");
+            exit_code = 1;
+            report.rounds_completed = round.saturating_sub(1);
+            break;
+        }
+        if let Err(e) = b_writer.flush().await {
+            push_fail(
+                &mut report,
+                round,
+                Direction::BToA,
+                seq_ba,
+                &format!("flush B: {e}"),
+            );
+            report.status = ReportStatus::Failed;
+            report.reason = format!("flush B: {e}");
+            exit_code = 1;
+            report.rounds_completed = round.saturating_sub(1);
+            break;
+        }
 
         match wait_peer(
             &mut rx,
@@ -316,7 +396,7 @@ async fn run() -> Result<i32> {
                 report.payload_bytes_b_to_a += u64::from(len);
                 let ms = t1.elapsed().as_secs_f64() * 1000.0;
                 report.latency_ms_b_to_a.push(ms);
-                recent_latency.push(ms);
+                push_recent_latency(&mut recent_latency, ms);
                 let _ = latency;
             }
             Err(kind) => {

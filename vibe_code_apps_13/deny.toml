@@ -1,0 +1,33 @@
+# cargo-deny configuration for vibe_code_apps_13 (advisory/license hygiene).
+# Keep narrow — do not expand into a large unrelated security project.
+
+[advisories]
+vulnerability = "warn"
+unmaintained = "warn"
+yanked = "warn"
+notice = "warn"
+
+[licenses]
+unlicensed = "deny"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-git = [
+    "https://github.com/jscott3201/rusty-bacnet",
+]

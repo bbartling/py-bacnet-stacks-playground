@@ -130,12 +130,14 @@ Review dependency features too; absence of a string is not sufficient if B/IP is
 ## Exit checklist
 
 - [ ] Phase 1 gate passed and its helpers/tests remain green.
-- [ ] Device executable contains no B/IP/UDP/IP interface.
-- [ ] Two real masters exchange token.
-- [ ] Who-Is/I-Am, RP, RPM, WP, priority/relinquish and negative cases pass.
-- [ ] Object_List enumerates the Device + four points.
-- [ ] Standard-frame/APDU limit is enforced without truncation.
-- [ ] Restart and sole-master admission tests pass.
-- [ ] 500-read report and one-hour soak pass.
-- [ ] Phase 2 behavior is documented as MS/TP-only.
+- [x] Device executable contains no B/IP/UDP/IP interface in **local** sources (CI source gate).
+- [ ] Two real masters exchange token. **Hardware NOT RUN.**
+- [x] Who-Is/I-Am, RP, RPM, WP, priority/relinquish and negative cases pass **in loopback** (`docs/PHASE2_SOFTWARE_RESULTS.md`).
+- [x] Object_List enumerates the Device + four points **in loopback**.
+- [ ] Standard-frame/APDU limit is enforced without truncation (hardware soak pending).
+- [ ] Restart and sole-master admission tests pass. **Hardware NOT RUN.**
+- [ ] 500-read report and one-hour soak pass. **Hardware NOT RUN.**
+- [x] Phase 2 behavior is documented as MS/TP-only; hardware runbook prepared (`docs/PHASE2_HARDWARE_RUNBOOK.md`).
+
+See also: [`PHASE2_SOFTWARE_RESULTS.md`](PHASE2_SOFTWARE_RESULTS.md).
 

@@ -697,13 +697,24 @@ def start_mstp_device(port_b: str, baud: int, mac: int = 1) -> tuple[bool, str]:
     return True, f"Mini-device PID {proc.pid} on `{port_b}` (log: `{log_path.name}`)"
 
 
-def run_mstp_loopback() -> tuple[bool, str]:
+def run_mstp_loopback(baud: int = 38400) -> tuple[bool, str]:
     ok, msg = ensure_release_binary(quiet=True)
     if not ok:
         return False, msg
     report = CAPTURES / "mstp-loopback.json"
     proc = subprocess.run(
-        [str(MSTP_PROBE), "--report", str(report), "--repeated-reads", "5", "loopback"],
+        [
+            str(MSTP_PROBE),
+            "--profile",
+            "smoke",
+            "--baud",
+            str(baud),
+            "--report",
+            str(report),
+            "--repeated-reads",
+            "5",
+            "loopback",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -741,7 +752,7 @@ def tab_mstp_phase2() -> None:
         st.session_state.flash = ("warning", stop_mstp_device())
     if b3.button("🧪 Loopback acceptance", key="mstp_loopback"):
         with st.spinner("Running mstp-probe loopback (no USB)…"):
-            ok, msg = run_mstp_loopback()
+            ok, msg = run_mstp_loopback(baud)
         st.session_state.flash = ("success" if ok else "error", msg)
     if b4.button("🔬 Hardware probe", key="mstp_hw_probe"):
         ok, bin_msg = ensure_release_binary(quiet=True)
@@ -749,29 +760,23 @@ def tab_mstp_phase2() -> None:
             st.session_state.flash = ("error", bin_msg)
         else:
             report = CAPTURES / "mstp-hardware.json"
+            probe_args = [
+                "--profile",
+                "smoke",
+                "--baud",
+                str(baud),
+                "--report",
+                str(report),
+                "hardware",
+                "--probe-serial",
+                port_a,
+                "--device-serial",
+                port_b,
+            ]
             if LAUNCHER.is_file() and not port_access_ok(port_a):
-                cmd = [
-                    str(LAUNCHER),
-                    str(MSTP_PROBE),
-                    "--report",
-                    str(report),
-                    "hardware",
-                    "--probe-serial",
-                    port_a,
-                    "--device-serial",
-                    port_b,
-                ]
+                cmd = [str(LAUNCHER), str(MSTP_PROBE), *probe_args]
             else:
-                cmd = [
-                    str(MSTP_PROBE),
-                    "--report",
-                    str(report),
-                    "hardware",
-                    "--probe-serial",
-                    port_a,
-                    "--device-serial",
-                    port_b,
-                ]
+                cmd = [str(MSTP_PROBE), *probe_args]
             with st.spinner("Running hardware acceptance (device must be up)…"):
                 proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
             if proc.returncode == 0:

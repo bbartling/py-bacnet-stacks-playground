@@ -6,20 +6,19 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use bacnet_objects::database::ObjectDatabase;
 use bacnet_server::server::BACnetServer;
-use bacnet_types::enums::{ObjectType, PropertyIdentifier};
-use bacnet_types::primitives::{ObjectIdentifier, PropertyValue};
 use clap::Parser;
 use lab_common::{BaudRate, MstpMasterConfig};
 use mstp_lab::{
-    build_mini_device_database, open_mstp_transport, MiniDeviceConfig, UNITS_DEGF, VENDOR_ID,
+    apply_simulated_inputs, build_mini_device_database, open_mstp_transport, MiniDeviceConfig,
+    LAB_VENDOR_ID, UNITS_DEGF,
 };
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{error, info, warn};
 
 #[derive(Parser, Debug)]
 #[command(
     name = "mstp-mini-device",
-    about = "Phase 2 MS/TP-only BACnet mini device"
+    about = "Phase 2 MS/TP-only BACnet mini device (lab vendor ID is a placeholder)"
 )]
 struct Args {
     #[arg(long)]
@@ -36,7 +35,8 @@ struct Args {
     device_instance: u32,
     #[arg(long, default_value = "Rust MS/TP Mini Device")]
     name: String,
-    #[arg(long, default_value_t = VENDOR_ID)]
+    /// Lab placeholder vendor ID (default 999) — not production-ready.
+    #[arg(long, default_value_t = LAB_VENDOR_ID)]
     vendor_id: u16,
 }
 
@@ -52,32 +52,40 @@ fn master_config(args: &Args) -> Result<MstpMasterConfig> {
     Ok(cfg)
 }
 
+async fn wait_shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+        let mut sigint = signal(SignalKind::interrupt()).expect("install SIGINT handler");
+        tokio::select! {
+            _ = sigterm.recv() => warn!("SIGTERM — shutting down"),
+            _ = sigint.recv() => warn!("SIGINT — shutting down"),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+        warn!("Ctrl-C — shutting down");
+    }
+}
+
 async fn simulation_task(db: Arc<RwLock<ObjectDatabase>>) {
-    let ai_oid = ObjectIdentifier::new(ObjectType::ANALOG_INPUT, 1).expect("ai:1");
-    let bi_oid = ObjectIdentifier::new(ObjectType::BINARY_INPUT, 1).expect("bi:1");
     let samples: [(bool, f32); 4] = [(true, 1.0), (false, 2.0), (true, 3.0), (false, 4.0)];
     let mut idx = 0usize;
     loop {
         tokio::time::sleep(Duration::from_secs(5)).await;
-        let (active, av_val) = samples[idx];
+        let (active, ai_val) = samples[idx];
         idx = (idx + 1) % samples.len();
         let mut db = db.write().await;
-        if let Some(obj) = db.get_mut(&ai_oid) {
-            let _ = obj.write_property(
-                PropertyIdentifier::PRESENT_VALUE,
-                None,
-                PropertyValue::Real(av_val),
-                None,
+        if let Err(e) = apply_simulated_inputs(&mut db, active, ai_val) {
+            error!(
+                error = %e,
+                object = "AI:1/BI:1",
+                property = "Present_Value",
+                "simulation update failed — terminating simulation task"
             );
-        }
-        if let Some(obj) = db.get_mut(&bi_oid) {
-            let bi_val = u32::from(active);
-            let _ = obj.write_property(
-                PropertyIdentifier::PRESENT_VALUE,
-                None,
-                PropertyValue::Enumerated(bi_val),
-                None,
-            );
+            return;
         }
     }
 }
@@ -98,11 +106,12 @@ async fn main() -> Result<()> {
     let db = build_mini_device_database(&MiniDeviceConfig {
         instance: args.device_instance,
         name: args.name.clone(),
+        vendor_id: args.vendor_id,
     })?;
 
     info!(
-        "Starting MS/TP mini-device: serial={} mac={} instance={} baud={}",
-        args.serial, args.mac, args.device_instance, args.baud
+        "Starting MS/TP mini-device: serial={} mac={} instance={} baud={} vendor_id={} (lab placeholder)",
+        args.serial, args.mac, args.device_instance, args.baud, args.vendor_id
     );
 
     let mut server = BACnetServer::generic_builder()
@@ -121,7 +130,9 @@ async fn main() -> Result<()> {
     let db_arc = Arc::clone(server.database());
     tokio::spawn(simulation_task(db_arc));
 
-    tokio::signal::ctrl_c().await?;
+    // Upstream BACnetServer does not expose a public "transport died" notification
+    // on this pin; we wait for SIGINT/SIGTERM only. Documented in PHASE2_SOFTWARE_RESULTS.
+    wait_shutdown_signal().await;
     info!("Shutting down…");
     server.stop().await.context("stop server")?;
     Ok(())

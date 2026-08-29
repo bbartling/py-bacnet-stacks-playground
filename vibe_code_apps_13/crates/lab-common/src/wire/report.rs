@@ -187,7 +187,7 @@ pub fn default_progress_path(report: &Path) -> PathBuf {
 ///
 /// Returns I/O errors from create/write/rename.
 pub fn atomic_write_json(path: &Path, report: &WireReport) -> io::Result<()> {
-    atomic_write_value(path, report)
+    atomic_write_serde(path, report)
 }
 
 /// Write a live progress snapshot (same atomic rename pattern as the final report).
@@ -196,10 +196,15 @@ pub fn atomic_write_json(path: &Path, report: &WireReport) -> io::Result<()> {
 ///
 /// Returns I/O errors from create/write/rename.
 pub fn atomic_write_progress(path: &Path, progress: &WireProgress) -> io::Result<()> {
-    atomic_write_value(path, progress)
+    atomic_write_serde(path, progress)
 }
 
-fn atomic_write_value<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
+/// Atomically write any JSON-serializable value (temp + fsync + rename).
+///
+/// # Errors
+///
+/// Returns I/O errors from create/write/rename.
+pub fn atomic_write_serde<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;

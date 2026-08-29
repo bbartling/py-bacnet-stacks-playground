@@ -29,15 +29,20 @@ jobs:
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: build release
-        run: cargo build --release --workspace
+        run: cargo build --release --workspace --locked
       - name: Phase 2 IP exclusion gate
         run: chmod +x scripts/check_mstp_no_ip.sh && ./scripts/check_mstp_no_ip.sh
       - name: MS/TP loopback acceptance
-        run: cargo run --release -p mstp-probe -- --report captures/mstp-loopback-ci.json loopback
+        run: cargo run --release --locked -p mstp-probe -- --profile smoke --report captures/mstp-loopback-ci.json loopback
+      - name: cargo-deny (advisory/license)
+        continue-on-error: true
+        run: |
+          cargo install cargo-deny --locked --version 0.18.2 || true
+          cargo deny --manifest-path Cargo.toml check || true
       - name: Streamlit console smoke (AppTest)
         run: |
           python3 -m venv .venv-ci
@@ -52,5 +57,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vibe13-pty-smoke
-          path: vibe_code_apps_13/captures/wire-test-pty-ci.json
+          path: |
+            vibe_code_apps_13/captures/wire-test-pty-ci.json
+            vibe_code_apps_13/captures/mstp-loopback-ci.json
+            vibe_code_apps_13/captures/phase2-no-ip-gate-status.txt
           if-no-files-found: ignore

@@ -3,11 +3,17 @@
 /captures/*.pcap
 /captures/*.pcapng
 /captures/*.log
+/captures/*-live.json
+/captures/.wire_test*
+/captures/.mstp_*
 /reports/*.json
 /.bootstrap-backup/
+/BOOTSTRAP_MANIFEST.json
 *.local.toml
 .env
+.venv/
+.venv-*/
+deny.toml.bak
 
 !captures/.gitkeep
 !reports/.gitkeep
-

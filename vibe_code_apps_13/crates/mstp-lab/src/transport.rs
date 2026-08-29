@@ -19,6 +19,10 @@ pub fn mstp_config_from_lab(cfg: &MstpMasterConfig) -> MstpConfig {
     }
 }
 
+/// Open serial + MS/TP transport from a fully validated [`MstpMasterConfig`].
+///
+/// Callers must set baud/mac/max_master/max_info_frames explicitly — this does
+/// not substitute a default baud.
 pub fn open_mstp_transport(cfg: &MstpMasterConfig) -> Result<MstpEndpoint> {
     cfg.validate().map_err(anyhow::Error::msg)?;
     let serial = TokioSerialPort::open(&SerialConfig {
@@ -33,12 +37,19 @@ pub fn open_mstp_transport(cfg: &MstpMasterConfig) -> Result<MstpEndpoint> {
     })
 }
 
-pub fn default_master_config(serial_path: &str, mac: u8) -> MstpMasterConfig {
+/// Build a master config with explicit baud (no silent 38400 substitution).
+pub fn master_config(
+    serial_path: &str,
+    mac: u8,
+    baud: BaudRate,
+    max_master: u8,
+    max_info_frames: u8,
+) -> MstpMasterConfig {
     MstpMasterConfig {
         serial_path: serial_path.to_owned(),
-        baud: BaudRate::default(),
+        baud,
         mac,
-        max_master: 10,
-        max_info_frames: 1,
+        max_master,
+        max_info_frames,
     }
 }
