@@ -294,8 +294,14 @@ async fn main() -> Result<()> {
             return finish(report_path.as_deref(), report);
         }
     };
-    info!("Device Object_Name = {name_val:?}");
-    report.object_name = Some(format!("{name_val:?}"));
+    let PropertyValue::CharacterString(name) = name_val else {
+        report.error = Some(format!(
+            "Object_Name expected CharacterString, got {name_val:?}"
+        ));
+        return finish(report_path.as_deref(), report);
+    };
+    info!("Device Object_Name = {name}");
+    report.object_name = Some(name);
 
     let read_ai = || async {
         let ai_ack = timeout(
@@ -321,7 +327,10 @@ async fn main() -> Result<()> {
             info!("AI:{} Present_Value = {v}", args.ai_instance);
             report.ai_present_value = Some(v);
         }
-        other => info!("AI:{} Present_Value = {other:?}", args.ai_instance),
+        other => {
+            report.error = Some(format!("AI Present_Value expected Real, got {other:?}"));
+            return finish(report_path.as_deref(), report);
+        }
     }
 
     if args.loop_secs == 0 {
@@ -338,25 +347,51 @@ async fn main() -> Result<()> {
     let mut n = 0u32;
     let mut ok = 0u32;
     let mut fail = 0u32;
+    #[cfg(unix)]
+    let mut sigterm = {
+        use tokio::signal::unix::{signal, SignalKind};
+        signal(SignalKind::terminate()).context("SIGTERM handler")?
+    };
     loop {
         if args.loop_count > 0 && n >= args.loop_count {
             break;
         }
-        sleep(Duration::from_secs(args.loop_secs)).await;
-        n += 1;
-        match read_ai().await {
-            Ok(PropertyValue::Real(v)) => {
-                ok += 1;
-                info!(n, ok, fail, "AI:{} PV={v}", args.ai_instance);
-                report.ai_present_value = Some(v);
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => {
+                let _ = result;
+                info!("SIGINT — finishing report");
+                break;
             }
-            Ok(other) => {
-                ok += 1;
-                info!(n, ok, fail, "AI:{} PV={other:?}", args.ai_instance);
+            () = async {
+                #[cfg(unix)]
+                {
+                    sigterm.recv().await;
+                }
+                #[cfg(not(unix))]
+                {
+                    std::future::pending::<()>().await;
+                }
+            } => {
+                info!("SIGTERM — finishing report");
+                break;
             }
-            Err(e) => {
-                fail += 1;
-                error!(n, ok, fail, error = %e, "peer read failed");
+            () = sleep(Duration::from_secs(args.loop_secs)) => {
+                n += 1;
+                match read_ai().await {
+                    Ok(PropertyValue::Real(v)) => {
+                        ok += 1;
+                        info!(n, ok, fail, "AI:{} PV={v}", args.ai_instance);
+                        report.ai_present_value = Some(v);
+                    }
+                    Ok(other) => {
+                        fail += 1;
+                        error!(n, ok, fail, "AI PV expected Real, got {other:?}");
+                    }
+                    Err(e) => {
+                        fail += 1;
+                        error!(n, ok, fail, error = %e, "peer read failed");
+                    }
+                }
             }
         }
     }

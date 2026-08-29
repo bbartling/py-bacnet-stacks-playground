@@ -12,7 +12,8 @@ use clap::Parser;
 use lab_common::BaudRate;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
-use tokio_serial::SerialPortBuilderExt;
+use tokio::time::timeout;
+use tokio_serial::{DataBits, FlowControl, Parity, SerialPortBuilderExt, StopBits};
 use tracing::{info, warn};
 
 #[derive(Parser, Debug)]
@@ -74,10 +75,14 @@ async fn main() -> Result<()> {
         serial = %args.serial,
         baud = baud.as_u32(),
         seconds = args.seconds,
-        "Passive sniff starting (no TX)"
+        "Passive sniff starting (no TX; 8N1, no flow control)"
     );
 
     let mut port = tokio_serial::new(&args.serial, baud.as_u32())
+        .data_bits(DataBits::Eight)
+        .parity(Parity::None)
+        .stop_bits(StopBits::One)
+        .flow_control(FlowControl::None)
         .timeout(Duration::from_millis(50))
         .open_native_async()
         .context("open serial")?;
@@ -88,9 +93,14 @@ async fn main() -> Result<()> {
     let mut sources = std::collections::BTreeSet::new();
 
     while Instant::now() < deadline {
-        match port.read(&mut recv).await {
-            Ok(0) => continue,
-            Ok(n) => {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            break;
+        }
+        match timeout(remaining, port.read(&mut recv)).await {
+            Err(_) => break,
+            Ok(Ok(0)) => continue,
+            Ok(Ok(n)) => {
                 report.rx_bytes += n as u64;
                 frame_buf.extend_from_slice(&recv[..n]);
                 loop {
@@ -120,16 +130,15 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
-                // Preserve lone 0x55 if stream API left empty search
                 if frame_buf.len() == 1 && frame_buf[0] == PREAMBLE[0] {
-                    // keep
+                    // keep lone 0x55
                 } else if frame_buf.len() > 4096 {
                     warn!("buffer large; trimming");
                     frame_buf.clear();
                 }
             }
-            Err(e) if e.kind() == ErrorKind::TimedOut => continue,
-            Err(e) => {
+            Ok(Err(e)) if e.kind() == ErrorKind::TimedOut => continue,
+            Ok(Err(e)) => {
                 report.error = Some(e.to_string());
                 break;
             }
