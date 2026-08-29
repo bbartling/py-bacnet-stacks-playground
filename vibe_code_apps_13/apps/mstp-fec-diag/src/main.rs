@@ -1,4 +1,4 @@
-//! One-shot MS/TP diag against a real field device (e.g. JCI FEC).
+//! One-shot or 1 Hz MS/TP peer diag against a real field device (e.g. JCI FEC).
 //! Not the Phase 2 mini-device acceptance profile.
 
 use std::time::Duration;
@@ -12,7 +12,7 @@ use clap::Parser;
 use lab_common::BaudRate;
 use mstp_lab::{master_config, open_mstp_transport};
 use tokio::time::{sleep, timeout};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 #[derive(Parser, Debug)]
 #[command(name = "mstp-fec-diag", about = "Who-Is + ReadProperty on one USB MS/TP adapter")]
@@ -37,6 +37,12 @@ struct Args {
     apdu_timeout_ms: u64,
     #[arg(long, default_value_t = 5_000)]
     settle_ms: u64,
+    /// If > 0, keep reading Present_Value every N seconds (peer soak for Workbench watch).
+    #[arg(long, default_value_t = 0)]
+    loop_secs: u64,
+    /// Stop after this many loop reads (0 = until Ctrl-C / SIGTERM).
+    #[arg(long, default_value_t = 0)]
+    loop_count: u32,
 }
 
 #[tokio::main]
@@ -64,6 +70,7 @@ async fn main() -> Result<()> {
         max_master = args.max_master,
         target_instance = args.device_instance,
         expect_mac = args.expect_mac,
+        loop_secs = args.loop_secs,
         "Opening MS/TP probe (auto RS-485 direction)"
     );
 
@@ -120,19 +127,61 @@ async fn main() -> Result<()> {
     let (name_val, _) = decode_application_value(&name_ack.property_value, 0)?;
     info!("Device Object_Name = {name_val:?}");
 
-    let ai_ack = timeout(
-        Duration::from_secs(30),
-        client.read_property(&mac, ai_oid, PropertyIdentifier::PRESENT_VALUE, None),
-    )
-    .await
-    .context("AI PV step timed out")?
-    .context("ReadProperty AI Present_Value")?;
-    let (ai_val, _) = decode_application_value(&ai_ack.property_value, 0)?;
+    let read_ai = || async {
+        let ai_ack = timeout(
+            Duration::from_secs(20),
+            client.read_property(&mac, ai_oid, PropertyIdentifier::PRESENT_VALUE, None),
+        )
+        .await
+        .context("AI PV step timed out")?
+        .context("ReadProperty AI Present_Value")?;
+        let (ai_val, _) = decode_application_value(&ai_ack.property_value, 0)?;
+        Ok::<_, anyhow::Error>(ai_val)
+    };
+
+    let ai_val = read_ai().await?;
     match ai_val {
         PropertyValue::Real(v) => info!("AI:{} Present_Value = {v}", args.ai_instance),
         other => info!("AI:{} Present_Value = {other:?}", args.ai_instance),
     }
 
-    info!("FEC diag PASS");
+    if args.loop_secs == 0 {
+        info!("FEC diag PASS");
+        return Ok(());
+    }
+
+    info!(
+        every_s = args.loop_secs,
+        count = args.loop_count,
+        "Peer loop starting — watch Workbench; Ctrl-C / SIGTERM to stop"
+    );
+    let mut n = 0u32;
+    let mut ok = 0u32;
+    let mut fail = 0u32;
+    loop {
+        if args.loop_count > 0 && n >= args.loop_count {
+            break;
+        }
+        sleep(Duration::from_secs(args.loop_secs)).await;
+        n += 1;
+        match read_ai().await {
+            Ok(PropertyValue::Real(v)) => {
+                ok += 1;
+                info!(n, ok, fail, "AI:{} PV={v}", args.ai_instance);
+            }
+            Ok(other) => {
+                ok += 1;
+                info!(n, ok, fail, "AI:{} PV={other:?}", args.ai_instance);
+            }
+            Err(e) => {
+                fail += 1;
+                error!(n, ok, fail, error = %e, "peer read failed");
+            }
+        }
+    }
+    info!(ok, fail, "peer loop done");
+    if fail > 0 {
+        bail!("peer loop finished with {fail} failures ({ok} ok)");
+    }
     Ok(())
 }
