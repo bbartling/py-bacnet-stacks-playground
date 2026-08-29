@@ -1,0 +1,27 @@
+[package]
+name = "mstp-mini-device"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mstp-mini-device"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+bacnet-objects.workspace = true
+bacnet-server.workspace = true
+bacnet-transport.workspace = true
+bacnet-types.workspace = true
+clap.workspace = true
+lab-common.workspace = true
+mstp-lab.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

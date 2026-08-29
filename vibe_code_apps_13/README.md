@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — primary featured build (August 2026). Implementation scaffold, phase-gated specs, and `lab-common` crate are in-repo; hardware phases not yet complete.
+**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback acceptance are in-repo. **Phase 2 hardware NOT RUN** (adapters not installed/wired). See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
@@ -15,7 +15,8 @@ The original reservation README is preserved by the installer under `docs/refere
 AI agents must read these files in order:
 
 1. [`AGENTS.md`](AGENTS.md)
-2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+2. [`vibe13_agent_spec/SPEC.md`](vibe13_agent_spec/SPEC.md) — UI stack, repo map, agent commands
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 3. [`docs/BACNET_SPEC_CLAUSE_9_CHECKLIST.md`](docs/BACNET_SPEC_CLAUSE_9_CHECKLIST.md)
 4. the active phase document under `docs/`
 5. the phase-local `AGENTS.md` before changing an app directory
@@ -61,7 +62,7 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 Research was performed against `jscott3201/rusty-bacnet` branch `dev` at commit:
 
 ```text
-a6b3eab4f7a8fe17fc068b06d523605bad4580b7
+c77f78445fbf40da15867fec28a36ea120ad1739
 ```
 
 Do not depend on the moving branch in a reproducible build. Pin an exact reviewed commit and commit `Cargo.lock`. Revalidate the source before changing the pin.

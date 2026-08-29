@@ -37,6 +37,7 @@ vibe_code_apps_23/data/README_Dryad_Bldg59.txt
 vibe_code_apps_13/target/
 vibe_code_apps_13/captures/*
 !vibe_code_apps_13/captures/.gitkeep
+!vibe_code_apps_13/captures/wire-test-*.json
 vibe_code_apps_13/reports/*
 !vibe_code_apps_13/reports/.gitkeep
 vibe_code_apps_13/.bootstrap-backup/
@@ -385,3 +386,4 @@ vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v1/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/a04_child_hp67_scaled_v2/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/vibe22_reference_247/**/eplus_out/
 vibe_code_apps_22/docs/audits/figures/vibe22_three_day_pilot/**/eplus_out/
+vibe_code_apps_13/.cargo/
