@@ -548,6 +548,8 @@ dependencies = [
  "clap",
  "lab-common",
  "mstp-lab",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

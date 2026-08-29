@@ -7,6 +7,8 @@ members = [
     "apps/mstp-mini-device",
     "apps/mstp-probe",
     "apps/mstp-fec-diag",
+    # mstp-passive-sniff requires decode_frame_stream (USB fix) — enable via
+    # .cargo/config.toml path-patch to ~/src/rusty-bacnet-vibe13 until pin bumps.
 ]
 
 [workspace.package]
