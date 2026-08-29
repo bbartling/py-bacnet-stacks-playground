@@ -6,6 +6,7 @@ members = [
     "apps/serial-wire-test",
     "apps/mstp-mini-device",
     "apps/mstp-probe",
+    "apps/mstp-fec-diag",
 ]
 
 [workspace.package]

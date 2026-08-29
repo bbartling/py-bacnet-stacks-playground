@@ -538,6 +538,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mstp-fec-diag"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bacnet-client",
+ "bacnet-encoding",
+ "bacnet-types",
+ "clap",
+ "lab-common",
+ "mstp-lab",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mstp-lab"
 version = "0.1.0"
 dependencies = [
