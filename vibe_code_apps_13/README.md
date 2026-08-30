@@ -2,6 +2,23 @@
 
 **Status: Active** — Phase 2 Rescue **Gate 1–4 hardware PASS** on pin `e3b9edb` (fork `vibe13-mstp` only). JENEsys discovers **Rust MS/TP Mini Device** `device:123001` with points Polled `{ok}`. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
+
+## Linux resources (mstp-mini-device on live MS/TP)
+
+Measured on **bensbench** (2026-08-30) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `e3b9edb`:
+
+| Metric | Value |
+|--------|------:|
+| Release binary size | ~4.9 MiB |
+| Resident memory (VmRSS / HWM) | **~5.6 MiB** |
+| Virtual size (VmSize) | ~404 MiB (mapped; not all resident) |
+| Threads | 7 |
+| CPU (steady, pidstat ~3 s) | **~1%** of one core (~0.3% usr / 0.7% sys) |
+| Host | Linux 6.8 x86_64, 6 CPUs |
+
+This is a **mega milestone**: a native Rust MS/TP master mini-device stays discoverable in JENEsys with **single-digit MiB RSS** and ~1% CPU while coexisting on the BASRT+FEC trunk.
+
+
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
 1. **Phase 1 - USB/RS-485 wire test:** prove both USB ports, adapters, wiring, serial settings, bidirectional bytes, timing, unplug behavior, and repeatable hardware tests. This phase contains no BACnet protocol.

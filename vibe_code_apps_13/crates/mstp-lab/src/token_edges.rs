@@ -111,9 +111,7 @@ mod tests {
         assert!(c.has_ring_0_3_7());
         assert_eq!(c.self_tokens, 1);
         assert_eq!(c.edge_count(0, 3), 1);
-        assert!(c
-            .coexistence_red_flags()
-            .contains(&"self_token_ts_to_ts"));
+        assert!(c.coexistence_red_flags().contains(&"self_token_ts_to_ts"));
     }
 
     #[test]
