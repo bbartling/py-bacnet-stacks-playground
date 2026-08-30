@@ -1,0 +1,18 @@
+{
+  "ok": false,
+  "serial": "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0",
+  "resolved_hint": "/dev/ttyUSB0",
+  "baud": 38400,
+  "mac": 3,
+  "max_master": 127,
+  "max_info_frames": 1,
+  "device_instance": 5007,
+  "expect_mac": 7,
+  "ai_instance": 1173,
+  "rusty_bacnet_rev": "c77f78445fbf40da15867fec28a36ea120ad1739",
+  "object_name": null,
+  "ai_present_value": null,
+  "loop_ok": 0,
+  "loop_fail": 0,
+  "error": "no I-Am for instance 5007 after Who-Is (token/join or wiring?)"
+}

@@ -19,7 +19,7 @@ use serde::Serialize;
 use tokio::time::{sleep, timeout};
 use tracing::{error, info, warn};
 
-const RUSTY_BACNET_REV: &str = "c77f78445fbf40da15867fec28a36ea120ad1739";
+const RUSTY_BACNET_REV: &str = "73a1fd41df7df2dfb3fa005cf339f347751f0286";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -231,7 +231,10 @@ async fn main() -> Result<()> {
         report.error = Some(format!("Who-Is: {e:#}"));
         return finish(report_path.as_deref(), report);
     }
-    sleep(Duration::from_millis(2_000)).await;
+    // Token-ring join with Max_Master=127 can be slow; give I-Am time to arrive.
+    let iam_wait_ms = args.apdu_timeout_ms.max(8_000);
+    info!(iam_wait_ms, "Waiting for I-Am");
+    sleep(Duration::from_millis(iam_wait_ms)).await;
 
     let Some(dev) = client.get_device(args.device_instance).await else {
         report.error = Some(format!(

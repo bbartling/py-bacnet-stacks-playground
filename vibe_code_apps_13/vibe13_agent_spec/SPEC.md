@@ -21,29 +21,29 @@ Streamlit **starts** Rust binaries via subprocess. It does not replace them. Pha
 | Phase | Gate | Evidence artifact |
 |-------|------|-------------------|
 | **1** | 10,000 alternating C+C exchanges @ 38,400, zero peer errors; unplug fault bounded | `captures/wire-test-38400.json` |
-| **2** | Two MS/TP masters; Who-Is/I-Am, RP, RPM, WP; 1 h soak; **no IP in device binary** | MS/TP acceptance log + capture |
+| **2** | Rescue gates 1–6: Clause 9 CRC; passive tokens 0+7; FEC RP AI:1173; mini-device; shared endpoint + mirror; soak — **no IP in device binary** | `captures/mstp-passive-*.json`, fec/mini reports |
 | **3** | Routed B/IP → MS/TP; hop count; no broadcast loop; 8 h soak | Router telemetry + pcap |
 
 Phase 1 **100-round smoke PASS** on bensbench (2026-08-28) is recorded in `docs/PHASE1_TEST_RESULTS.md` — not a substitute for the 10k gate.
+
+**Phase 2 (2026-08-30):** pin `73a1fd4` fixes Clause 9 CRC + USB stream. Hardware Gates 2–6 remain OPEN until reports exist. Do not mark Phase 2 PASS from loopback/CI alone.
 
 ## Repository map (what code does what)
 
 ```text
 vibe_code_apps_13/
 ├── apps/serial-wire-test/     # Phase 1 Rust CLI — opens both FTDI ports, alternates framed bytes
+├── apps/mstp-passive-sniff/   # Phase 2 RX-only decode (Gate 2)
+├── apps/mstp-fec-diag/        # Phase 2 client-only FEC RP (Gate 3)
+├── apps/mstp-mini-device/     # Phase 2 MS/TP device (Gate 4+)
+├── apps/mstp-probe/           # Phase 2 acceptance / loopback
 ├── crates/lab-common/         # Shared envelope parser, JSON report, baud policy (no BACnet)
-├── tools/supervisory_console.py  # Phase 1 Streamlit lab UI (start/stop test, health table)
-├── scripts/run_wire_dashboard.sh # Launch Streamlit on :8765
-├── scripts/show-adapters.sh      # lsusb + by-id inventory
-├── captures/                     # JSON reports + *-live.json progress snapshots
-└── docs/                         # Phase plans, cheat sheet, test results
+├── crates/mstp-lab/           # Thin rusty-bacnet boundary
+├── tools/supervisory_console.py  # Phase 1 Streamlit lab UI
+├── scripts/run_wire_dashboard.sh
+├── captures/
+└── docs/
 ```
-
-**Future (placeholders today):**
-
-- `apps/mstp-mini-device/` — Phase 2 BACnet MS/TP device (`rusty-bacnet`)
-- `apps/mstp-probe/` — Phase 2 MS/TP client / acceptance runner
-- `apps/bacnet-router/` — Phase 3 heterogeneous router + Axum status API
 
 ## What Phase 1 proves (honest scope)
 

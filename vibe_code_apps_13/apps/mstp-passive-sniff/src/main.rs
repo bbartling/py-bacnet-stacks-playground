@@ -1,5 +1,5 @@
 //! Receive-only MS/TP frame sniffer (no token participation / no TX).
-//! Uses streaming decode from bacnet-transport (path-patch to USB fix for local proof).
+//! Streaming decode from bacnet-transport @ Clause 9 CRC + USB reassembly pin.
 
 use std::fs;
 use std::io::ErrorKind;
@@ -15,6 +15,9 @@ use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
 use tokio_serial::{DataBits, FlowControl, Parity, SerialPortBuilderExt, StopBits};
 use tracing::{info, warn};
+
+/// rusty-bacnet pin recorded into hardware reports (must match workspace Cargo.toml).
+const RUSTY_BACNET_REV: &str = "73a1fd41df7df2dfb3fa005cf339f347751f0286";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -38,18 +41,22 @@ struct SniffReport {
     serial: String,
     baud: u32,
     seconds: u64,
+    rusty_bacnet_rev: String,
     rx_bytes: u64,
     complete_frames: u64,
     tokens: u64,
+    token_0_from_7: u64,
     poll_for_master: u64,
     data_frames: u64,
     invalid: u64,
     need_more_stalls: u64,
+    valid_ratio: f64,
     sources_seen: Vec<u8>,
     error: Option<String>,
 }
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -68,6 +75,7 @@ async fn main() -> Result<()> {
         serial: args.serial.clone(),
         baud: baud.as_u32(),
         seconds: args.seconds,
+        rusty_bacnet_rev: RUSTY_BACNET_REV.to_string(),
         ..Default::default()
     };
 
@@ -75,6 +83,7 @@ async fn main() -> Result<()> {
         serial = %args.serial,
         baud = baud.as_u32(),
         seconds = args.seconds,
+        rusty = RUSTY_BACNET_REV,
         "Passive sniff starting (no TX; 8N1, no flow control)"
     );
 
@@ -99,7 +108,7 @@ async fn main() -> Result<()> {
         }
         match timeout(remaining, port.read(&mut recv)).await {
             Err(_) => break,
-            Ok(Ok(0)) => continue,
+            Ok(Ok(0)) => {}
             Ok(Ok(n)) => {
                 report.rx_bytes += n as u64;
                 frame_buf.extend_from_slice(&recv[..n]);
@@ -112,6 +121,12 @@ async fn main() -> Result<()> {
                         StreamDecode::Complete { frame, consumed } => {
                             report.complete_frames += 1;
                             sources.insert(frame.source);
+                            if frame.frame_type == FrameType::Token
+                                && frame.destination == 0
+                                && frame.source == 7
+                            {
+                                report.token_0_from_7 += 1;
+                            }
                             match frame.frame_type {
                                 FrameType::Token => report.tokens += 1,
                                 FrameType::PollForMaster => report.poll_for_master += 1,
@@ -137,7 +152,7 @@ async fn main() -> Result<()> {
                     frame_buf.clear();
                 }
             }
-            Ok(Err(e)) if e.kind() == ErrorKind::TimedOut => continue,
+            Ok(Err(e)) if e.kind() == ErrorKind::TimedOut => {}
             Ok(Err(e)) => {
                 report.error = Some(e.to_string());
                 break;
@@ -146,18 +161,32 @@ async fn main() -> Result<()> {
     }
 
     report.sources_seen = sources.into_iter().collect();
+    let denom = report.complete_frames + report.invalid;
+    report.valid_ratio = if denom == 0 {
+        0.0
+    } else {
+        #[allow(clippy::cast_precision_loss)]
+        {
+            report.complete_frames as f64 / denom as f64
+        }
+    };
     report.ok = report.rx_bytes > 0
         && report.complete_frames > 0
         && report.tokens > 0
+        && report.sources_seen.contains(&0)
+        && report.sources_seen.contains(&7)
+        && report.token_0_from_7 > 0
         && report.error.is_none();
 
     info!(
         rx_bytes = report.rx_bytes,
         complete = report.complete_frames,
         tokens = report.tokens,
+        token_0_from_7 = report.token_0_from_7,
         pfm = report.poll_for_master,
         data = report.data_frames,
         invalid = report.invalid,
+        valid_ratio = report.valid_ratio,
         sources = ?report.sources_seen,
         ok = report.ok,
         "Passive sniff done"
@@ -177,10 +206,67 @@ async fn main() -> Result<()> {
         Ok(())
     } else {
         bail!(
-            "passive gate FAIL (rx={} frames={} tokens={})",
+            "passive gate FAIL (rx={} frames={} tokens={} token_0_from_7={} sources={:?})",
             report.rx_bytes,
             report.complete_frames,
-            report.tokens
+            report.tokens,
+            report.token_0_from_7,
+            report.sources_seen
         );
+    }
+}
+
+#[cfg(test)]
+mod offline_fixture_tests {
+    use bacnet_transport::mstp_frame::{
+        decode_frame, decode_frame_stream, encode_frame, FrameType, StreamDecode,
+    };
+    use bytes::BytesMut;
+
+    /// Live trunk Token: dest BASRT(0) ← FEC(7), header CRC 0x37.
+    const TOKEN_0_FROM_7: &[u8] = &[0x55, 0xFF, 0x00, 0x00, 0x07, 0x00, 0x00, 0x37];
+
+    #[test]
+    fn offline_literal_token_0_from_7_decodes() {
+        let (frame, consumed) = decode_frame(TOKEN_0_FROM_7).expect("Token 0<-7");
+        assert_eq!(consumed, 8);
+        assert_eq!(frame.frame_type, FrameType::Token);
+        assert_eq!(frame.destination, 0);
+        assert_eq!(frame.source, 7);
+
+        let mut enc = BytesMut::new();
+        encode_frame(&mut enc, &frame).unwrap();
+        assert_eq!(&enc[..], TOKEN_0_FROM_7);
+    }
+
+    #[test]
+    fn offline_stream_split_across_usb_chunks() {
+        let wire = TOKEN_0_FROM_7;
+        let mut buf = Vec::new();
+        for chunk in [2usize, 3, 1, 2] {
+            let start = buf.len();
+            let end = (start + chunk).min(wire.len());
+            if start >= wire.len() {
+                break;
+            }
+            buf.extend_from_slice(&wire[start..end]);
+            match decode_frame_stream(&buf) {
+                StreamDecode::NeedMore => {}
+                StreamDecode::Complete { frame, consumed } => {
+                    assert_eq!(frame.source, 7);
+                    assert_eq!(consumed, 8);
+                    return;
+                }
+                StreamDecode::Invalid { .. } => panic!("unexpected invalid"),
+            }
+        }
+        match decode_frame_stream(&buf) {
+            StreamDecode::Complete { frame, .. } => {
+                assert_eq!(frame.frame_type, FrameType::Token);
+                assert_eq!(frame.destination, 0);
+                assert_eq!(frame.source, 7);
+            }
+            other => panic!("expected complete, got {other:?}"),
+        }
     }
 }

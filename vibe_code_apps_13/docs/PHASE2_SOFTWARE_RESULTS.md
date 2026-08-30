@@ -1,63 +1,51 @@
-# Phase 2 — Software results (loopback / CI)
+# Phase 2 — Software / pin results
 
-**Date:** 2026-08-28  
-**rusty-bacnet pin:** `c77f78445fbf40da15867fec28a36ea120ad1739`  
-**Hardware evidence:** **NOT RUN** (USB RS-485 adapters are not installed/wired)
+**Date:** 2026-08-30  
+**Branch:** `fix/vibe13-mstp-crc-phase2`  
+**rusty-bacnet pin:** `bbartling/rusty-bacnet` @ `73a1fd41df7df2dfb3fa005cf339f347751f0286`  
+(Upstream PR: https://github.com/jscott3201/rusty-bacnet/pull/464 — re-pin to `jscott3201` when merged.)
 
-## Passed software checks
+**Hardware evidence:** Gate 2 passive **PASS** (`captures/mstp-passive-crc-fixed.json`). Gate 3+ OPEN. Loopback ≠ hardware.
+
+## Root-cause correction
+
+| Claim | Verdict |
+|-------|---------|
+| Token `55 FF 00 00 07 00 00 37` has “invalid” header CRC | **Wrong** — Clause 9.6 `CRC8([00,00,07,00,00]) == 0x37` |
+| Primary blocker was USB `latency_timer` | Partial — latency matters for delivery; **CRC polys** were the interoperability break |
+| Prior rusty-bacnet CRC `0xE0` / `0xA001` | Incorrect (self-round-trip only) |
+| Correct polys | Header `0x81`, data `0x8408` |
+| USB read gaps as `T_frame_abort` | Incorrect host policy — fixed in `a9912b8` |
+
+## Software checks (this pin)
 
 | Check | Result |
 |-------|--------|
-| `cargo fmt --all -- --check` | PASS |
-| `cargo clippy --workspace --all-targets --locked -- -D warnings` | PASS |
-| `cargo test --workspace --locked` | PASS |
-| `./scripts/check_mstp_no_ip.sh` (local source markers) | PASS |
-| `mstp-probe --profile smoke … loopback` | PASS (`hardware_evidence=false`) |
-| Baud propagation unit tests (all 6 rates) | PASS |
-| Gate report completeness unit tests | PASS |
-| Vendor ID consistency in Device object | PASS |
-| Local AI/BI simulation via `set_present_value` + network WP denied | PASS |
-| Streamlit AppTest (Phase 2 buttons present) | PASS (CI) |
+| Upstream `cargo test -p bacnet-transport` (Clause 9 golden + stream) | PASS (2026-08-30) |
+| Vibe13 offline Token 0←7 fixture (`mstp-passive-sniff` unit tests) | expected PASS after lock update |
+| `./scripts/check_mstp_no_ip.sh` | required before handoff |
+| Loopback `mstp-probe` | still valid software smoke; `hardware_evidence=false` |
 
-## Loopback evidence
+## Phase 2 hardware gates (Rescue prompt)
 
-Loopback runs a full application-service sequence on `LoopbackSerial`:
+| Gate | Status |
+|------|--------|
+| 1 Transport CRC + USB fragmentation | **Software PASS** on pin `73a1fd4` |
+| 2 Passive live bus | **PASS** 2026-08-30 — `captures/mstp-passive-crc-fixed.json` (45s: rx=25651, frames=2971, tokens=2117, token_0_from_7=1058, sources=[0,7], invalid=2, valid_ratio≈0.999) |
+| 3 Client-only FEC AI:1173 | **PASS one-shot** — `captures/mstp-fec-ai1173-oneshot.json` (I-Am@7, `BENS BENCHTEST BOX`, PV≈75.57). 20×30s: `captures/mstp-fec-ai1173-30s.*`. Rust `--max-master 7` for PFM join. |
+| 4 Mini-device server-only | **OPEN** |
+| 5 Combined endpoint + mirror | **OPEN** (needs Workstream E upstream) |
+| 6 Soak | **OPEN** |
 
-- Who-Is → require I-Am for instance + MAC + vendor
-- Device Object_Name + Object_List (Device + AI:1 + BI:1 + AV:2 + BV:2)
-- RP AI/BI, RPM, WP/relinquish AV:2 + BV:2
-- Unknown object + write-access denial on AI:1
-- Repeated reads with latency summary
-- Clean client/server stop
+### Gate 2 notes
 
-Reports use schema `phase2_acceptance_v2` with `profile`, `hardware_evidence=false` for loopback.
+- `latency_timer` was **16** during the PASS (not 1). Optional: `echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer`
+- Workbench observation: operator should confirm still online (agent did not kill trunk).
+- No Rust TX (passive sniff only).
 
-Artifact example: `captures/mstp-loopback-software.json` / CI `captures/mstp-loopback-ci.json`.
+## Known limitations
 
-## Hardware NOT RUN
-
-Phase 2 USB RS-485 adapters are **not installed or wired** on this host.
-
-- Do not treat loopback PASS as hardware gate PASS.
-- See [`PHASE2_HARDWARE_RUNBOOK.md`](PHASE2_HARDWARE_RUNBOOK.md) for the exact human bench commands (placeholders only).
-
-## Known rusty-bacnet / upstream blockers
-
-| Topic | Status |
-|-------|--------|
-| Transitive `socket2` via `bacnet-transport` even with `features=["serial"]` | **BLOCKED** dependency-level isolation on this pin — documented by `check_mstp_no_ip.sh` / `captures/phase2-no-ip-gate-status.txt`. Runtime still opens no IP sockets. Upstream ask: split serial-only builds from B/IP/socket2. |
-| `BACnetServer` transport-death notification | **Gap** — pin exposes `stop()` but no public “transport task died” waiter. Apps wait for SIGINT/SIGTERM only. |
-| Lab vendor ID `999` | Placeholder only — not production-ready. |
-
-## Remaining gate work (requires hardware)
-
-- Smoke + gate profiles on real dual Waveshare C adapters
-- Startup-order / sole-master / duplicate-MAC / baud-mismatch / unplug
-- 500-read gate + one-hour soak + per-baud matrix
-
-## Profiles
-
-| Profile | `repeated_reads` | Required steps |
-|---------|------------------|----------------|
-| `smoke` | small (CI default 5–10) | Full service coverage; zero failures |
-| `gate` | ≥ 500 | Every `GATE_REQUIRED_STEPS` present and ok |
+- Pin is on **bbartling fork** until upstream #464 merges.
+- Shared server+requester endpoint (Workstream E) not implemented yet.
+- Transitive `socket2` still present; runtime must not open IP sockets (Phase 2 apps).
+- PR #126 is merged on `develop` (`eb178f70`); old USB-only Cursor plan is historical.

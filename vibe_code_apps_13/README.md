@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback acceptance are in-repo. **Phase 2 hardware NOT RUN** (adapters not installed/wired). See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback in-repo. **Phase 2 Rescue (2026-08-30):** Clause 9 CRC + USB stream pin `73a1fd4`; live BASRT/FEC bench exists. Hardware Gates 2–6 OPEN until `captures/` evidence. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
@@ -59,13 +59,13 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 
 ## Dependency snapshot
 
-Research was performed against `jscott3201/rusty-bacnet` branch `dev` at commit:
+Workspace pins `bbartling/rusty-bacnet` (fork) until upstream merges [#464](https://github.com/jscott3201/rusty-bacnet/pull/464):
 
 ```text
-c77f78445fbf40da15867fec28a36ea120ad1739
+73a1fd41df7df2dfb3fa005cf339f347751f0286
 ```
 
-Do not depend on the moving branch in a reproducible build. Pin an exact reviewed commit and commit `Cargo.lock`. Revalidate the source before changing the pin.
+Includes Clause 9.6 CRC polys (`0x81` / `0x8408`) and USB stream reassembly (`a9912b8`). Do not depend on a moving branch. Commit `Cargo.lock`. Re-pin to `jscott3201/rusty-bacnet` at the merge SHA when #464 lands.
 
 ## Initial workspace
 
