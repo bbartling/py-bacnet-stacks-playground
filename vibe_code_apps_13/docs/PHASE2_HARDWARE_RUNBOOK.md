@@ -59,6 +59,10 @@ PASS: `rx_bytes>0`, `tokens>0`, sources include **0 and 7**, `token_0_from_7>0`,
 
 ## Gate 3 — Client-only FEC (after passive)
 
+**Status:** application exchange can succeed while **network coexistence FAIL**. Do **not** run live TX on pin `73a1fd4` — requires Clause 9.5.6 PR https://github.com/jscott3201/rusty-bacnet/pull/465 and token-edge telemetry. Abort evidence: `captures/mstp-gate3-coexistence-abort.json`.
+
+When unblocked (post-pin), sequence: join with **no** app traffic → confirm edges `0→3`, `3→7`, `7→0` → one Who-Is → one RP → five 30s reads with Workbench watched → only then 20× soak.
+
 ```bash
 cargo run --release -p mstp-fec-diag -- \
   --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
@@ -70,16 +74,19 @@ cargo run --release -p mstp-fec-diag -- \
 
 Read-only. Never WriteProperty to the FEC. Start with AI:1173 (OA-T).
 
-**Join tip:** Rust station `--max-master 7` (highest known master on this bench) so PollForMaster admits MAC 3 in tens of seconds. BASRT/FEC may keep Max_Master=127. Settle ≥30s; I-Am wait uses `--apdu-timeout-ms`.
+**Join tip:** Rust station `--max-master 7` (highest known master on this bench). Longer waits / Max_Master tweaks are **not** substitutes for the 9.5.6 state-machine fix.
 
 ## Gate 4 — Mini-device server-only
+
+**BLOCKED** until Gate 3 coexistence PASS.
 
 Stop fec-diag first. Then `mstp-mini-device` on MAC 3 / instance 123001; validate from Workbench/BASRT.
 
 ## Gates 5–6
 
-Combined server+requester + FEC mirror + soak — see Phase 2 Rescue prompt / `PHASE_2_MSTP_MINI_DEVICE.md`. Not claimed PASS until evidence exists.
+**BLOCKED.** Combined server+requester + FEC mirror + soak — see Phase 2 Rescue prompt / `PHASE_2_MSTP_MINI_DEVICE.md`. Not claimed PASS until evidence exists.
 
 ## rusty-bacnet pin
 
-Workspace pins `bbartling/rusty-bacnet` @ `73a1fd4…` (Clause 9 CRC + USB stream + LOC split). Upstream PR: https://github.com/jscott3201/rusty-bacnet/pull/464 — re-pin to `jscott3201` when merged.
+Workspace pins `bbartling/rusty-bacnet` @ `73a1fd4…` (Clause 9 CRC + USB stream + LOC split). Upstream CRC: https://github.com/jscott3201/rusty-bacnet/pull/464.  
+**Required follow-up pin:** Clause 9.5.6 token/PFM https://github.com/jscott3201/rusty-bacnet/pull/465 — do not resume live TX until pinned and regressions A–E are green in-tree.

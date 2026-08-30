@@ -26,7 +26,7 @@ Streamlit **starts** Rust binaries via subprocess. It does not replace them. Pha
 
 Phase 1 **100-round smoke PASS** on bensbench (2026-08-28) is recorded in `docs/PHASE1_TEST_RESULTS.md` — not a substitute for the 10k gate.
 
-**Phase 2 (2026-08-30):** pin `73a1fd4` fixes Clause 9 CRC + USB stream. Hardware Gates 2–6 remain OPEN until reports exist. Do not mark Phase 2 PASS from loopback/CI alone.
+**Phase 2 (2026-08-30):** pin `73a1fd4` fixes Clause 9 CRC + USB stream. Gate 2 passive **PASS**. Gate 3 application **PASS** / coexistence **FAIL** (`captures/mstp-gate3-coexistence-abort.json`). Gates 4–6 **BLOCKED**. Live TX blocked until Clause 9.5.6 PR https://github.com/jscott3201/rusty-bacnet/pull/465 is pinned. Do not mark Phase 2 PASS from loopback/CI or FEC read alone.
 
 ## Repository map (what code does what)
 

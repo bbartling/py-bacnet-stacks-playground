@@ -1,0 +1,18 @@
+{
+  "ok": false,
+  "serial": "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0",
+  "resolved_hint": "/dev/ttyUSB0",
+  "baud": 38400,
+  "mac": 3,
+  "max_master": 7,
+  "max_info_frames": 1,
+  "device_instance": 5007,
+  "expect_mac": 7,
+  "ai_instance": 1173,
+  "rusty_bacnet_rev": "73a1fd41df7df2dfb3fa005cf339f347751f0286",
+  "object_name": "BENS BENCHTEST BOX",
+  "ai_present_value": 75.35767,
+  "loop_ok": 9,
+  "loop_fail": 11,
+  "error": "peer loop finished with 11 failures (9 ok)"
+}

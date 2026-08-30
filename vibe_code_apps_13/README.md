@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback in-repo. **Phase 2 Rescue (2026-08-30):** Clause 9 CRC + USB stream pin `73a1fd4`; live BASRT/FEC bench exists. Hardware Gates 2–6 OPEN until `captures/` evidence. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback in-repo. **Phase 2 Rescue (2026-08-30):** Clause 9 CRC pin `73a1fd4` (Gate 1–2 PASS). Gate 3 application PASS / **coexistence FAIL** — active TX blocked pending [rusty-bacnet#465](https://github.com/jscott3201/rusty-bacnet/pull/465). Gates 4–6 BLOCKED. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
