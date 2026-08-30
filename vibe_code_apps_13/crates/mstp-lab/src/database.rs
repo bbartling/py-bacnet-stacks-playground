@@ -212,4 +212,30 @@ mod tests {
             .unwrap();
         assert_ne!(after, PropertyValue::Real(75.0));
     }
+
+    #[test]
+    fn object_list_has_device_and_four_points() {
+        let db = build_mini_device_database(&MiniDeviceConfig::default()).unwrap();
+        assert_eq!(db.list_objects().len(), 5, "device + AI + BI + AV + BV");
+        let oid = ObjectIdentifier::new(ObjectType::DEVICE, 123_001).unwrap();
+        let list = db
+            .get(&oid)
+            .unwrap()
+            .read_property(PropertyIdentifier::OBJECT_LIST, None)
+            .unwrap();
+        // PropertyValue shape varies by pin; ensure we got a non-null list payload
+        assert!(!matches!(list, PropertyValue::Null));
+    }
+
+    #[test]
+    fn max_apdu_is_standard_frame_480() {
+        let db = build_mini_device_database(&MiniDeviceConfig::default()).unwrap();
+        let oid = ObjectIdentifier::new(ObjectType::DEVICE, 123_001).unwrap();
+        let v = db
+            .get(&oid)
+            .unwrap()
+            .read_property(PropertyIdentifier::MAX_APDU_LENGTH_ACCEPTED, None)
+            .unwrap();
+        assert_eq!(v, PropertyValue::Unsigned(u64::from(MSTP_MAX_APDU)));
+    }
 }

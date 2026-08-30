@@ -17,7 +17,7 @@ use tokio_serial::{DataBits, FlowControl, Parity, SerialPortBuilderExt, StopBits
 use tracing::{info, warn};
 
 /// rusty-bacnet pin recorded into hardware reports (must match workspace Cargo.toml).
-const RUSTY_BACNET_REV: &str = "73a1fd41df7df2dfb3fa005cf339f347751f0286";
+const RUSTY_BACNET_REV: &str = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef";
 
 #[derive(Parser, Debug)]
 #[command(

@@ -25,16 +25,16 @@ all = "warn"
 pedantic = "warn"
 
 [workspace.dependencies]
-# rusty-bacnet pin: Clause 9 CRC + USB stream reassembly (bbartling fork until upstream #464 merges)
+# rusty-bacnet pin: bbartling fork branch vibe13-mstp (Clause 9 CRC + USB + 9.5.6 token/PFM) — fork-only, not upstream
 # Commits: a9912b8 USB gaps ≠ T_frame_abort; 6a70b85 Clause 9 CRC 0x81/0x8408
-bacnet-types = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-encoding = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-services = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-transport = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286", features = ["serial"] }
-bacnet-network = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-client = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-objects = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
-bacnet-server = { git = "https://github.com/bbartling/rusty-bacnet", rev = "73a1fd41df7df2dfb3fa005cf339f347751f0286" }
+bacnet-types = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-encoding = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-services = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-transport = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef", features = ["serial"] }
+bacnet-network = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-client = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-objects = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
+bacnet-server = { git = "https://github.com/bbartling/rusty-bacnet", rev = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef" }
 anyhow = "1.0"
 bytes = "1"
 clap = { version = "4.5", features = ["derive"] }

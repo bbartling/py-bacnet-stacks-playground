@@ -13,12 +13,12 @@ Plain Markdown in **`vibe13_agent_spec/`** is the source of truth for AI agents 
 | Item | Value |
 |------|--------|
 | Baseline | `develop` @ `eb178f70` (PR #126 merged) |
-| Active work | **Phase 2 Rescue** — CRC PASS; Gate 3 coexistence FAIL → Clause 9.5.6 [#465](https://github.com/jscott3201/rusty-bacnet/pull/465); **no live TX** until pin |
-| rusty-bacnet pin | `bbartling/rusty-bacnet` @ `73a1fd4…` (CRC [#464](https://github.com/jscott3201/rusty-bacnet/pull/464)); need 9.5.6 follow-up |
-| Bench | BASRT MAC0 + FEC MAC7 + Waveshare C; Rust MAC **3**; baud 38400; Max_Master 127 |
+| Active work | **Phase 2** — Gates 1–4 PASS on fork pin `e3b9edb`; Gates 5–6 next |
+| rusty-bacnet pin | `bbartling/rusty-bacnet` @ `e3b9edb…` (`vibe13-mstp`, **fork only**) |
+| Bench | BASRT MAC0 + FEC MAC7 + Waveshare C; Rust MAC **3**; baud 38400 |
 | Historical | Cursor plan `vibe13_ms_tp_usb_fix_*` is **not** active |
 
-**Do not invent hardware PASS.** Gate 3 overall is **FAIL** (`captures/mstp-gate3-coexistence-abort.json`). FEC RP success ≠ coexistence. Evidence: `captures/` + `docs/PHASE2_SOFTWARE_RESULTS.md` + `docs/PHASE2_HARDWARE_RUNBOOK.md`.
+**Do not invent hardware PASS.** Evidence: `captures/` + `docs/PHASE2_SOFTWARE_RESULTS.md` + `docs/PHASE2_HARDWARE_RUNBOOK.md`. Gate 4 Workbench discovery is recorded there.
 
 ## Quick start (Phase 1 lab UI)
 

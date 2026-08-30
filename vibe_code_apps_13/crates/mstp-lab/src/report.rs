@@ -151,7 +151,7 @@ pub struct AcceptanceReport {
 
 impl AcceptanceReport {
     pub const SCHEMA_VERSION: &'static str = "phase2_acceptance_v2";
-    pub const RUSTY_BACNET_COMMIT: &'static str = "73a1fd41df7df2dfb3fa005cf339f347751f0286";
+    pub const RUSTY_BACNET_COMMIT: &'static str = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef";
 
     #[must_use]
     pub fn new(

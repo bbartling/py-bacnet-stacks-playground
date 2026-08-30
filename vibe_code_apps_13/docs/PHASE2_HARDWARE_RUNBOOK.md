@@ -1,7 +1,8 @@
 # Phase 2 — Hardware runbook (BASRT + JCI FEC + Waveshare C)
 
-**Status (2026-08-30):** Live midspan/end-of-line bench exists. Loopback ≠ hardware PASS.  
-**Active rescue prompt:** Phase 2 Rescue (CRC Clause 9 + gates 1–6). Historical Cursor plan `vibe13_ms_tp_usb_fix_*` is obsolete.
+**Status (2026-08-30):** Live midspan/end-of-line bench. Pin **`e3b9edb`** (fork `vibe13-mstp`). Gate 2–4 hardware **PASS** with Workbench. Gates 5–6 open. Loopback ≠ soak PASS.
+
+**Active rescue:** Phase 2 on bbartling fork only (no upstream contribution).
 
 ## Topology (current)
 
@@ -18,11 +19,11 @@ termination enabled            termination disabled          fixed ~130 ohms
 |---------|--------|
 | Baud | 38,400 |
 | BASRT MS/TP MAC / net | 0 / 2000 |
-| BASRT Max_Master | 127 |
 | FEC MAC / device instance | 7 / 5007 |
 | Rust station MAC | **3** (never 0 with BASRT; never 7) |
 | Mini-device instance | 123001 |
 | Max_Info_Frames (initial) | 1 |
+| rusty-bacnet | `bbartling/rusty-bacnet` @ `e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef` |
 
 Powered-off trunk A/B should read ≈ **60–65 Ω**. ≈40–45 Ω ⇒ three terminations — fix before TX.
 
@@ -35,7 +36,6 @@ PORT=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0
 TTY="$(readlink -f "$PORT")"
 ls -l "$PORT"; fuser -v "$TTY" || true
 cat "/sys/bus/usb-serial/devices/${TTY##*/}/latency_timer"
-# If not 1, human runs: echo 1 | sudo tee "/sys/bus/usb-serial/devices/${TTY##*/}/latency_timer"
 ```
 
 ## Build
@@ -47,24 +47,46 @@ cargo build --release --locked -p mstp-passive-sniff -p mstp-fec-diag -p mstp-mi
 
 ## Gate 2 — Passive (no TX)
 
-Only one process may own the tty. Stop mini-device / fec-diag first.
-
 ```bash
-cargo run --release -p mstp-passive-sniff -- \
+cargo run --release --locked -p mstp-passive-sniff -- \
   --serial "$PORT" --baud 38400 --seconds 60 \
   --report captures/mstp-passive-crc-fixed.json
 ```
 
 PASS: `rx_bytes>0`, `tokens>0`, sources include **0 and 7**, `token_0_from_7>0`, Workbench stays online, **no Rust TX**.
 
-## Gate 3 — Client-only FEC (after passive)
+## Gate 3 — Client-only FEC
 
-**Status:** application exchange can succeed while **network coexistence FAIL**. Do **not** run live TX on pin `73a1fd4` — requires Clause 9.5.6 PR https://github.com/jscott3201/rusty-bacnet/pull/465 and token-edge telemetry. Abort evidence: `captures/mstp-gate3-coexistence-abort.json`.
+**Status:** PASS on pin `e3b9edb` after 9.5.6 fix (prior `73a1fd4` coexistence FAIL archived in `captures/mstp-gate3-coexistence-abort.json`).
 
-When unblocked (post-pin), sequence: join with **no** app traffic → confirm edges `0→3`, `3→7`, `7→0` → one Who-Is → one RP → five 30s reads with Workbench watched → only then 20× soak.
+`mstp-fec-diag` always does setup reads (I-Am / object-name / AI) then optional loops.
+
+**One-shot (setup reads only — default loop-count 1):**
 
 ```bash
-cargo run --release -p mstp-fec-diag -- \
+cargo run --release --locked -p mstp-fec-diag -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
+  --settle-ms 30000 --apdu-timeout-ms 15000 \
+  --loop-secs 30 --loop-count 1 \
+  --report captures/mstp-fec-ai1173-oneshot.json
+```
+
+**Five 30s reads (operator watches Workbench):**
+
+```bash
+cargo run --release --locked -p mstp-fec-diag -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
+  --settle-ms 30000 --apdu-timeout-ms 15000 \
+  --loop-secs 30 --loop-count 5 \
+  --report captures/mstp-fec-ai1173-5x30s.json
+```
+
+**Twenty 30s soak (only after five-read coexistence holds):**
+
+```bash
+cargo run --release --locked -p mstp-fec-diag -- \
   --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
   --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
   --settle-ms 30000 --apdu-timeout-ms 15000 \
@@ -72,21 +94,26 @@ cargo run --release -p mstp-fec-diag -- \
   --report captures/mstp-fec-ai1173-30s.json
 ```
 
-Read-only. Never WriteProperty to the FEC. Start with AI:1173 (OA-T).
-
-**Join tip:** Rust station `--max-master 7` (highest known master on this bench). Longer waits / Max_Master tweaks are **not** substitutes for the 9.5.6 state-machine fix.
+Read-only vs FEC. Never WriteProperty to the FEC.
 
 ## Gate 4 — Mini-device server-only
 
-**BLOCKED** until Gate 3 coexistence PASS.
+**Status: PASS (2026-08-30)** — JENEsys discovered `device:123001` / points Polled `{ok}` while FEC stayed online.
 
-Stop fec-diag first. Then `mstp-mini-device` on MAC 3 / instance 123001; validate from Workbench/BASRT.
+Stop any other holder of `$PORT`, then:
+
+```bash
+cargo run --release --locked -p mstp-mini-device -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 123001 --name "Rust MS/TP Mini Device" --vendor-id 999
+```
+
+In Workbench: Who-Is / discover on the MS/TP network → **Rust MS/TP Mini Device**.
 
 ## Gates 5–6
 
-**BLOCKED.** Combined server+requester + FEC mirror + soak — see Phase 2 Rescue prompt / `PHASE_2_MSTP_MINI_DEVICE.md`. Not claimed PASS until evidence exists.
+**OPEN.** Combined endpoint + mirror + long soak — not claimed.
 
 ## rusty-bacnet pin
 
-Workspace pins `bbartling/rusty-bacnet` @ `73a1fd4…` (Clause 9 CRC + USB stream + LOC split). Upstream CRC: https://github.com/jscott3201/rusty-bacnet/pull/464.  
-**Required follow-up pin:** Clause 9.5.6 token/PFM https://github.com/jscott3201/rusty-bacnet/pull/465 — do not resume live TX until pinned and regressions A–E are green in-tree.
+Fork-only: `bbartling/rusty-bacnet` default branch `vibe13-mstp` @ `e3b9edb…`. Do not open PRs against upstream for this train.

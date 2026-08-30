@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback in-repo. **Phase 2 Rescue (2026-08-30):** Clause 9 CRC pin `73a1fd4` (Gate 1–2 PASS). Gate 3 application PASS / **coexistence FAIL** — active TX blocked pending [rusty-bacnet#465](https://github.com/jscott3201/rusty-bacnet/pull/465). Gates 4–6 BLOCKED. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 2 Rescue **Gate 1–4 hardware PASS** on pin `e3b9edb` (fork `vibe13-mstp` only). JENEsys discovers **Rust MS/TP Mini Device** `device:123001` with points Polled `{ok}`. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
@@ -59,13 +59,13 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 
 ## Dependency snapshot
 
-Workspace pins `bbartling/rusty-bacnet` (fork) until upstream merges [#464](https://github.com/jscott3201/rusty-bacnet/pull/464):
+Workspace pins **fork-only** `bbartling/rusty-bacnet` branch `vibe13-mstp`:
 
 ```text
-73a1fd41df7df2dfb3fa005cf339f347751f0286
+e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef
 ```
 
-Includes Clause 9.6 CRC polys (`0x81` / `0x8408`) and USB stream reassembly (`a9912b8`). Do not depend on a moving branch. Commit `Cargo.lock`. Re-pin to `jscott3201/rusty-bacnet` at the merge SHA when #464 lands.
+Includes Clause 9.6 CRC (`0x81` / `0x8408`), USB stream reassembly, and Clause 9.5.6 token/PFM coexistence fix. Commit `Cargo.lock`. Do not open PRs against upstream for this train.
 
 ## Initial workspace
 

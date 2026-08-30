@@ -131,12 +131,13 @@ Review dependency features too; absence of a string is not sufficient if B/IP is
 
 - [ ] Phase 1 gate passed and its helpers/tests remain green.
 - [x] Device executable contains no B/IP/UDP/IP interface in **local** sources (CI source gate).
-- [ ] Two real masters exchange token. **Hardware NOT RUN.**
+- [x] Two real masters exchange token (BASRT+FEC); Rust MAC 3 joins on pin `e3b9edb`.
 - [x] Who-Is/I-Am, RP, RPM, WP, priority/relinquish and negative cases pass **in loopback** (`docs/PHASE2_SOFTWARE_RESULTS.md`).
 - [x] Object_List enumerates the Device + four points **in loopback**.
 - [ ] Standard-frame/APDU limit is enforced without truncation (hardware soak pending).
 - [ ] Restart and sole-master admission tests pass. **Hardware NOT RUN.**
 - [ ] 500-read report and one-hour soak pass. **Hardware NOT RUN.**
+- [x] Mini-device discoverable in Workbench (JENEsys) with points Polled `{ok}` — Gate 4 **PASS** 2026-08-30.
 - [x] Phase 2 behavior is documented as MS/TP-only; hardware runbook prepared (`docs/PHASE2_HARDWARE_RUNBOOK.md`).
 
 See also: [`PHASE2_SOFTWARE_RESULTS.md`](PHASE2_SOFTWARE_RESULTS.md).
