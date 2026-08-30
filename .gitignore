@@ -40,6 +40,7 @@ vibe_code_apps_13/captures/*
 !vibe_code_apps_13/captures/wire-test-*.json
 !vibe_code_apps_13/captures/mstp-passive-*.json
 !vibe_code_apps_13/captures/mstp-fec-*.json
+!vibe_code_apps_13/captures/mstp-gate3-*.json
 !vibe_code_apps_13/captures/phase2-no-ip-gate-status.txt
 vibe_code_apps_13/reports/*
 !vibe_code_apps_13/reports/.gitkeep
