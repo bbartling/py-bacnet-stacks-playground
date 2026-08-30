@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-30  
 **Branch:** `fix/vibe13-mstp-crc-phase2`  
-**rusty-bacnet pin:** `bbartling/rusty-bacnet` @ `e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef` (`vibe13-mstp` / fork **only** — not contributed upstream)
+**rusty-bacnet pin:** `bbartling/rusty-bacnet` @ `19d205d78c947aea3fe98110d8a6c392359aa627` (rebased on upstream `dev`; MS/TP equivalent to lab pin `e3b9edb`)  
+**Upstream PR:** https://github.com/jscott3201/rusty-bacnet/pull/467
 
 **Hardware evidence:** Gate 2 passive **PASS**. Gate 3 FEC application **PASS**. Gate 3 coexistence **PASS** on `e3b9edb` (mini-device MAC 3 + Workbench/FEC stay up). Gate 4 mini-device **PASS** (JENEsys discover + points `{ok}`). Gates 5–6 still open. Loopback ≠ hardware for soak claims.
 
@@ -52,6 +53,8 @@ Do **not** resume open-fdd bosspi MQTT soaks on this Waveshare while mini-device
 
 ## Known limitations
 
-- Gates 5–6 not claimed.
+- Gates 5–6 not claimed (shared endpoint + soak).
 - Transitive `socket2` still in dep graph; runtime must not open IP sockets.
-- Fork-only rusty-bacnet tip; upstream PRs closed on purpose.
+- Not a Clause 9 conformance claim; no extended frames (32/33 / COBS / CRC-32K).
+- Host USB stale-partial timeout ≠ wire `T_frame_abort`.
+- Upstream contribution is open as PR #467 (MS/TP-only; Windows retry-budget timeout stays on fork `main` only).

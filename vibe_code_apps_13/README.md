@@ -1,11 +1,19 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 2 Rescue **Gate 1–4 hardware PASS** on pin `e3b9edb` (fork `vibe13-mstp` only). JENEsys discovers **Rust MS/TP Mini Device** `device:123001` with points Polled `{ok}`. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 2 Rescue **Gate 1–4 hardware PASS** on pin `19d205d` (fork `vibe13-mstp`, rebased on upstream `dev`). Upstream candidate: [rusty-bacnet#467](https://github.com/jscott3201/rusty-bacnet/pull/467). JENEsys discovers **Rust MS/TP Mini Device** `device:123001` with points Polled `{ok}`. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
+## Limitations (current)
+
+- **Not a Clause 9 conformance claim** — CRC / USB stream / 9.5.6 token+PFM only.
+- **No extended MS/TP frames** (types 32/33, COBS, CRC-32K) — do not claim router or oversized-frame conformance.
+- **Gates 5–6 OPEN** — shared endpoint + soak not closed.
+- **Host USB timing** — stale-partial timeout is scheduling-aware; not wire `T_frame_abort`.
+- **Workbench nits** — Niagara Write=`readonly` facets, °C display vs BACnet degF (62), name slash → `MS.TP` are cosmetic / UI, not stack blockers.
+- **Do not run open-fdd MQTT soaks** on the same Waveshare tty while mini-device owns the trunk.
 
 ## Linux resources (mstp-mini-device on live MS/TP)
 
-Measured on **bensbench** (2026-08-30) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `e3b9edb`:
+Measured on **bensbench** (2026-08-30) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `e3b9edb` (behavior unchanged on `19d205d`):
 
 | Metric | Value |
 |--------|------:|
@@ -76,13 +84,13 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 
 ## Dependency snapshot
 
-Workspace pins **fork-only** `bbartling/rusty-bacnet` branch `vibe13-mstp`:
+Workspace pins `bbartling/rusty-bacnet` @ tip matching upstream PR [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (`pr/mstp-clause9-interop` / `vibe13-mstp`):
 
 ```text
-e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef
+19d205d78c947aea3fe98110d8a6c392359aa627
 ```
 
-Includes Clause 9.6 CRC (`0x81` / `0x8408`), USB stream reassembly, and Clause 9.5.6 token/PFM coexistence fix. Commit `Cargo.lock`. Do not open PRs against upstream for this train.
+Includes Clause 9.6 CRC (`0x81` / `0x8408`), USB stream reassembly, and Clause 9.5.6 token/PFM coexistence fix. Commit `Cargo.lock`.
 
 ## Initial workspace
 
