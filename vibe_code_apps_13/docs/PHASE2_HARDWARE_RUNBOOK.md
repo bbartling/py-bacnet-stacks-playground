@@ -1,6 +1,10 @@
 # Phase 2 — Hardware runbook (BASRT + JCI FEC + Waveshare C)
 
-**Status (2026-08-31):** Live midspan/end-of-line bench. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` dev — #467/#468 merged). Gates 2–4 hardware **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6 open.
+**Status (2026-08-31):** Prototype closed — historical runbook. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` — #467/#468 merged). Gates 2–4 hardware **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6, 1h/24h soak **not run**.
+
+## Reference adapter
+
+[Waveshare USB TO RS485 (C)](https://www.waveshare.com/usb-to-rs485-c.htm) — FT232RNL, isolated, **hardware automatic direction**, onboard **120 Ω** termination. See [`../README.md`](../README.md#hardware-baseline) for bench photo and termination rules. **Do not** enable kernel RS-485 ioctl / RTS / GPIO direction on this adapter.
 
 **Upstream:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) and [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) **merged**. Limitations: not conformance; no extended frames; Gates 5–6 open.
 

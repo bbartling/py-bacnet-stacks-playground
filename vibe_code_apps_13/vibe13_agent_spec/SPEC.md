@@ -26,7 +26,7 @@ Streamlit **starts** Rust binaries via subprocess. It does not replace them. Pha
 
 Phase 1 **100-round smoke PASS** on bensbench (2026-08-28) is recorded in `docs/PHASE1_TEST_RESULTS.md` — not a substitute for the 10k gate.
 
-**Phase 2 (2026-08-31):** pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 merged). Gate 2 passive **PASS**. Gate 3 FEC **PASS**. Gate 4 mini-device Workbench discover **PASS** (`device:123001`). Gate 4b Haystack trunk **PASS**. Gates 5–6 **OPEN**. Historical evidence on `19d205d`/`e3b9edb` archived. Limitations: not Clause 9 conformance; no extended frames; no soak claim.
+**Phase 2 (2026-08-31, prototype closed):** pin `af4e886` frozen. Gate 2–4 + 4b **PASS**. Gates 5–6, soak, router **out of scope**. See [`docs/PHASE2_PROTOTYPE_CLOSEOUT.md`](../docs/PHASE2_PROTOTYPE_CLOSEOUT.md).
 
 ## Repository map (what code does what)
 
