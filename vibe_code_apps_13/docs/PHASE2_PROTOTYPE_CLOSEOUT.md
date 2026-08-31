@@ -18,10 +18,15 @@ A **stable, historical lab prototype**: server-only, standard-frame BACnet MS/TP
 | 3 — FEC client RP | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
 | 4 — mini-device server | PASS | Workbench `device:123001`; `captures/mstp-mini-device-af4e886.log` |
 | 4b — Haystack trunk | PASS | `captures/haystack-trunk/` |
-| 5–6 — shared endpoint / mirror / soak | **OUT OF SCOPE** | not attempted |
-| 1h / 24h hardware soak | **NOT RUN** | — |
-| USB unplug hardware gate | **NOT RUN** (app serial-path watchdog only) | — |
-| Linux timing baseline | script present; **not re-run this closeout** | `scripts/linux_timing_baseline.sh` |
+| 5–6 — shared endpoint / mirror | **OUT OF SCOPE** | not attempted |
+| 1h hardware soak | run [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
+| 24h soak | after 1h PASS | scheduled |
+| USB unplug gate | run [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | see `captures/mstp-usb-unplug-af4e886-*` |
+| Linux timing baseline | run [`scripts/run_linux_timing_gate.sh`](../scripts/run_linux_timing_gate.sh) | see `captures/linux-timing-af4e886-*` |
+
+Full manifest: [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md).
+
+**Haystack** validates trunk online (`check` / `fec-only`) and offline-with-FEC-ok (`mini-offline`) during soak and unplug gates.
 
 Captures labeled `19d205d`, `e3b9edb`, `6a70b85`, or `bbartling` fork are **historical** — not evidence for `af4e886`.
 

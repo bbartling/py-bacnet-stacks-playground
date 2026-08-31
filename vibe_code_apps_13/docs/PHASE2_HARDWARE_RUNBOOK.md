@@ -114,15 +114,39 @@ cargo run --release --locked -p mstp-mini-device -- \
 
 In Workbench: Who-Is / discover on the MS/TP network → **Rust MS/TP Mini Device**.
 
-## Gate 4b — Haystack trunk (supervisory, parallel evidence)
+## Gate 4b — Haystack trunk (supervisory validation)
 
-Requires `HAYSTACK_USER` / `HAYSTACK_PASS` (e.g. from `~/open-fdd/.env`):
+Use Haystack to confirm MS/TP trunk **online/offline** without opening a second serial port. Requires `HAYSTACK_USER` / `HAYSTACK_PASS` (e.g. from `~/open-fdd/.env`). For self-signed Niagara certs: `HAYSTACK_INSECURE=1` or `HAYSTACK_CACERT=/path/to/ca.pem`.
 
 ```bash
-./scripts/check_mstp_haystack_trunk.sh check          # before/after functional matrix
-./scripts/check_mstp_haystack_trunk.sh perturb-stop-mini   # mini-device stopped; FEC still ok
-./scripts/check_mstp_haystack_trunk.sh restore      # after mini-device restarted
+./scripts/check_mstp_haystack_trunk.sh check              # FEC + Rust mini-device points ok
+./scripts/check_mstp_haystack_trunk.sh fec-only           # FEC/trunk online (no Rust required)
+./scripts/check_mstp_haystack_trunk.sh mini-offline       # FEC ok; Rust absent/down (unplug test)
+./scripts/check_mstp_haystack_trunk.sh perturb-stop-mini  # mini-device stopped; FEC still ok
+./scripts/check_mstp_haystack_trunk.sh restore          # after mini-device restarted
 ```
+
+Evidence manifest: [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md).
+
+## Gates — endurance and fault (operator hardware)
+
+Run only with trunk healthy and tty free. Scripts poll Haystack every 15 min during soak; abort on FEC trunk failure.
+
+```bash
+# Linux timing baseline (no trunk TX required)
+./scripts/run_linux_timing_gate.sh
+
+# 1h mini-device soak (default 3600s) — Haystack check + RSS samples
+./scripts/run_mstp_mini_soak.sh --serial "$PORT"
+
+# 24h (only after 1h PASS)
+./scripts/run_mstp_mini_soak.sh --seconds 86400 --serial "$PORT"
+
+# USB unplug: bounded exit + FEC stays online via Haystack mini-offline + restart
+./scripts/run_mstp_usb_unplug_gate.sh --serial "$PORT"
+```
+
+Artifacts land under `captures/mstp-soak-af4e886-*`, `captures/mstp-usb-unplug-af4e886-*`, `captures/linux-timing-af4e886-*`.
 
 ## Gates 5–6
 

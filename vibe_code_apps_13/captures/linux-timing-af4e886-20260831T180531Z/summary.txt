@@ -1,0 +1,9 @@
+=== kernel ===
+=== CPU / governor ===
+=== FTDI latency_timer (if present) ===
+=== cyclictest idle (~2s at -i 200 -l 10000) ===
+cyclictest not installed — skip
+=== cyclictest under stress-ng (~2s sample during 12s stress) ===
+stress-ng or cyclictest missing — skip stressed cyclictest
+=== load snapshot ===
+artifacts: /home/ben/py-bacnet-stacks-playground/vibe_code_apps_13/captures/linux-timing-af4e886-20260831T180531Z
