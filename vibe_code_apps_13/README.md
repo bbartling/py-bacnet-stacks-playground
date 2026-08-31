@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 2 on pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 **merged**). Gates 1–4 **PASS** on `af4e886` (2026-08-31 hardware + Haystack 4b). Vibe13 retains Rust hardware mini-device; upstream Python example is binding-only. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Prototype closed (historical)** — Phase 2 evidence frozen on pin `af4e886` (`jscott3201/rusty-bacnet`; #467/#468 **merged**). Gates 1–4 + 4b **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6, 1h/24h soak, and router work are **out of scope** here. See [`docs/PHASE2_PROTOTYPE_CLOSEOUT.md`](docs/PHASE2_PROTOTYPE_CLOSEOUT.md), [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md), and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 ## Limitations (current)
 
@@ -71,16 +71,27 @@ The application must reject any other value unless a future decision record deli
 
 ## Hardware baseline
 
-- Ubuntu x86 tower;
-- two Waveshare USB TO RS485 (C), FT232RNL, hardware automatic direction, isolated;
-- short A+ to A+, B- to B-, field-reference to field-reference bench segment;
-- one 120-ohm termination at each physical end and no intermediate termination;
-- verified network bias: at least one and no more than two BACnet-compliant bias sets;
-- stable `/dev/serial/by-id/...` aliases;
-- FTDI latency setting measured and recorded, with 1 ms used as the initial test value;
-- 38,400 bps, 8 data bits, no parity, one stop bit.
+### Waveshare USB TO RS485 (C) — reference adapter
 
-The B/CH343G adapters are retained for B+B and B+C compatibility runs after the C+C baseline passes.
+Product: [Waveshare USB TO RS485 (C)](https://www.waveshare.com/usb-to-rs485-c.htm) — industrial isolated converter, **FT232RNL**, **hardware automatic direction control**, onboard **120 Ω balancing resistor**, up to ~1.2 km RS485 (vendor spec). Vibe13 Phase 2 hardware evidence used this adapter on the live BASRT/FEC trunk.
+
+![Bench wiring: Waveshare USB TO RS485 (C) on bensbench — GND, A+, B- to field cable](docs/images/waveshare-usb-rs485-c-bench.jpg)
+
+| Topic | Policy |
+|-------|--------|
+| Direction | **Automatic** (adapter handles DE/RE). Do **not** enable Linux `TIOCSRS485`, RTS, or GPIO direction control for this stick. |
+| Termination | Onboard **120 Ω** counts as **one physical-end termination**. Use at a bus **endpoint** only — not mid-span when the segment already has two terminations. |
+| Wiring | A+ to A+, B- to B-, REF/common to REF/common; label sticks and map with `/dev/serial/by-id/...` (never hard-code `ttyUSB0`). |
+| Powered-off A/B | ≈60–65 Ω (two terminations); ≈40–45 Ω ⇒ three terminations — fix before TX. |
+
+### Bench (bensbench)
+
+- Ubuntu x86 tower;
+- **two** Waveshare USB TO RS485 (C) for Phase 1 C+C wire test; **one** on the live MS/TP trunk for Phase 2;
+- 38,400 bps, 8N1; FTDI `latency_timer` measured and recorded (1 ms initial test value);
+- verified network bias: at least one and no more than two BACnet-compliant bias sets.
+
+The B/CH343G adapters are retained for optional B+B and B+C compatibility runs — not the Phase 2 closeout evidence path.
 
 ## Dependency snapshot
 

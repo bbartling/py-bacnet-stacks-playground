@@ -1,9 +1,10 @@
 # Phase 2 — Software results
 
-**Updated:** 2026-08-31  
-**rusty-bacnet pin:** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
+**Updated:** 2026-08-31 (prototype closeout)  
+**rusty-bacnet pin (frozen):** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
 **Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
-**Vibe13 project SHA:** see `git rev-parse HEAD` on branch `fix/vibe13-mstp-crc-phase2`
+**Vibe13 project SHA:** `26b71d02575f978d22a9d6eb24423dfe74274fb2` (`develop` after PR #127)  
+**Closeout doc:** [`PHASE2_PROTOTYPE_CLOSEOUT.md`](PHASE2_PROTOTYPE_CLOSEOUT.md)
 
 Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
 

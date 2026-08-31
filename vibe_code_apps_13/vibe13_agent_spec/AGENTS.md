@@ -12,9 +12,10 @@ Plain Markdown in **`vibe13_agent_spec/`** is the source of truth for AI agents 
 
 | Item | Value |
 |------|--------|
-| Baseline | `develop` @ `eb178f70` (PR #126 merged) |
-| Active work | **Phase 2** — Gates 1–4 PASS on pin `af4e886`; Gates 5–6 next |
-| rusty-bacnet pin | `jscott3201/rusty-bacnet` @ `af4e886…` — #467/#468 merged |
+| Baseline | `develop` @ `26b71d02` (PR #127 merged — prototype closeout) |
+| Status | **Prototype closed (historical)** — do not expand Vibe13 into router/appliance |
+| Evidence | Gates 1–4 + 4b PASS on pin `af4e886`; 1h/24h soak **not run** |
+| rusty-bacnet pin | `jscott3201/rusty-bacnet` @ `af4e886…` — frozen; do not chase `dev` |
 | Bench | BASRT MAC0 + FEC MAC7 + Waveshare C; Rust MAC **3**; baud 38400 |
 | Historical | Cursor plan `vibe13_ms_tp_usb_fix_*` is **not** active |
 
