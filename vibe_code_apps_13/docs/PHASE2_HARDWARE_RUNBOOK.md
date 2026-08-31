@@ -1,8 +1,8 @@
 # Phase 2 — Hardware runbook (BASRT + JCI FEC + Waveshare C)
 
-**Status (2026-08-30):** Live midspan/end-of-line bench. Software pin **`19d205d`** (MS/TP-equivalent to lab `e3b9edb`; fork `vibe13-mstp` rebased on upstream `dev`). Gate 2–4 hardware **PASS** with Workbench. Gates 5–6 open. Loopback ≠ soak PASS.
+**Status (2026-08-31):** Live midspan/end-of-line bench. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` dev — #467/#468 merged). Gate 2–4 hardware **PASS** on historical pin `19d205d`; **revalidation required** on `af4e886`. Gates 5–6 open.
 
-**Upstream:** [rusty-bacnet#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC + USB stream + 9.5.6). Limitations: not conformance; no extended frames; Gates 5–6 open.
+**Upstream:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) and [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) **merged**. Limitations: not conformance; no extended frames; Gates 5–6 open.
 
 ## Topology (current)
 
@@ -23,7 +23,7 @@ termination enabled            termination disabled          fixed ~130 ohms
 | Rust station MAC | **3** (never 0 with BASRT; never 7) |
 | Mini-device instance | 123001 |
 | Max_Info_Frames (initial) | 1 |
-| rusty-bacnet | `bbartling/rusty-bacnet` @ `19d205d78c947aea3fe98110d8a6c392359aa627` |
+| rusty-bacnet | `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732` |
 
 Powered-off trunk A/B should read ≈ **60–65 Ω**. ≈40–45 Ω ⇒ three terminations — fix before TX.
 
@@ -110,11 +110,21 @@ cargo run --release --locked -p mstp-mini-device -- \
 
 In Workbench: Who-Is / discover on the MS/TP network → **Rust MS/TP Mini Device**.
 
+## Gate 4b — Haystack trunk (supervisory, parallel evidence)
+
+Requires `HAYSTACK_USER` / `HAYSTACK_PASS` (e.g. from `~/open-fdd/.env`):
+
+```bash
+./scripts/check_mstp_haystack_trunk.sh check          # before/after functional matrix
+./scripts/check_mstp_haystack_trunk.sh perturb-stop-mini   # mini-device stopped; FEC still ok
+./scripts/check_mstp_haystack_trunk.sh restore      # after mini-device restarted
+```
+
 ## Gates 5–6
 
 **OPEN.** Combined endpoint + mirror + long soak — not claimed.
 
 ## rusty-bacnet pin
 
-`bbartling/rusty-bacnet` @ `19d205d…` (`vibe13-mstp` / `pr/mstp-clause9-interop`). Upstream: https://github.com/jscott3201/rusty-bacnet/pull/467
+`jscott3201/rusty-bacnet` @ `af4e886…` (dev after #467/#468). Historical: `bbartling` @ `19d205d…`.
 

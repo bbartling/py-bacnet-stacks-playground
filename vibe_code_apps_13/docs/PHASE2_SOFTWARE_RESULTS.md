@@ -1,60 +1,57 @@
-# Phase 2 — Software / pin results
+# Phase 2 — Software results
 
-**Date:** 2026-08-30  
-**Branch:** `fix/vibe13-mstp-crc-phase2`  
-**rusty-bacnet pin:** `bbartling/rusty-bacnet` @ `19d205d78c947aea3fe98110d8a6c392359aa627` (rebased on upstream `dev`; MS/TP equivalent to lab pin `e3b9edb`)  
-**Upstream PR:** https://github.com/jscott3201/rusty-bacnet/pull/467
+**Updated:** 2026-08-31  
+**rusty-bacnet pin:** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
+**Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
+**Vibe13 project SHA:** see `git rev-parse HEAD` on branch `fix/vibe13-mstp-crc-phase2`
 
-**Hardware evidence:** Gate 2 passive **PASS**. Gate 3 FEC application **PASS**. Gate 3 coexistence **PASS** on `e3b9edb` (mini-device MAC 3 + Workbench/FEC stay up). Gate 4 mini-device **PASS** (JENEsys discover + points `{ok}`). Gates 5–6 still open. Loopback ≠ hardware for soak claims.
+Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
 
-## Status model (explicit)
+## Classification (2026-08-31 audit)
 
-| Gate | Software / offline | Live hardware |
-|------|-------------------|---------------|
-| 1 CRC + USB stream | **PASS** | **PASS** (via pin) |
-| 2 Passive | n/a | **PASS** `mstp-passive-crc-fixed.json` |
-| 3 FEC client app exchange | loopback N/A | **PASS** oneshot |
-| 3 Network coexistence | regressions A–E **PASS** | **PASS** on `e3b9edb` (Workbench online with MAC 3 TX) |
-| 4 Mini-device discoverable | loopback acceptance **PASS** | **PASS** JENEsys device:123001 + 4 points Polled `{ok}` |
-| 5 Shared endpoint + mirror | **OPEN** | **OPEN** |
-| 6 Long soak | **OPEN** | **OPEN** |
+| Class | Items |
+|-------|--------|
+| **Implemented/proven** | Clause 9 CRC + USB reassembly + token/PFM (#467); Python binding example (#468); Gate 1–4 on historical pin; loopback + CI acceptance on `af4e886` |
+| **Current mini-device blocker** | Upstream transport health notification (app uses serial-path watchdog); simulation still remove/re-add AI/BI (needs `ObjectDatabase` in-place mutation API) |
+| **Phase 2.1 mirror blocker** | Shared MS/TP endpoint (one tty, client+server) |
+| **Phase 3 router blocker** | Extended frames 32/33, COBS, CRC-32K, B/IP↔MS/TP routing |
+| **Conformance evidence gaps** | Six-baud timing matrix; golden vectors; 24h soak; BFR-derived router tests only in research doc |
 
-## Root-cause correction
+## Upstream candidate PRs (local branches in `~/src/rusty-bacnet`)
 
-| Claim | Verdict |
-|-------|---------|
-| Token header CRC “invalid” | **Wrong** — Clause 9.6 polys |
-| Primary blocker = `latency_timer` | Partial; CRC was the decode break |
-| Gate 3 FEC read ⇒ coexistence OK | **Wrong** on `73a1fd4` — FAIL until 9.5.6 |
-| Coexistence root cause | Clause **9.5.6** DONE_WITH_TOKEN / PFM (not Max_Master waits) |
-| Fix location | Fork `vibe13-mstp` @ `e3b9edb` |
+| Branch | Topic |
+|--------|--------|
+| `fix/mstp-validate-rust-config` | Rust `MstpConfig` validation parity with Python |
+| `fix/mstp-tx-completion-after-drain` | `tcdrain` after serial write + wire-delay regression |
 
-## Software checks (pin `e3b9edb`)
+## Software checks (`af4e886`)
 
 | Check | Result |
 |-------|--------|
-| `cargo test -p bacnet-transport --lib` (incl. clause956 A–E) | PASS |
-| Workspace pin + `Cargo.lock` → `e3b9edb` | PASS |
-| `./scripts/check_mstp_no_ip.sh` | OK local sources; socket2 transitive **documented BLOCKED** in `captures/phase2-no-ip-gate-status.txt` |
-| Loopback `mstp-probe` / acceptance | PASS (`hardware_evidence=false`) |
-| `TokenEdgeCounters` unit tests | PASS |
+| `cargo fmt --all -- --check` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
+| `cargo test --workspace --locked` | PASS |
+| `./scripts/check_mstp_no_ip.sh` | PASS (transitive `socket2` documented) |
+| `./scripts/check_mstp_no_ip_runtime.sh` | PASS (no AF_INET on PTY startup) |
+| `mstp-probe --profile smoke loopback` | PASS |
 
-## Gate 4 Workbench notes (2026-08-30)
+## Transport / timing limitations (honest)
 
-- Device **Rust MS/TP Mini Device** / `device:123001` / MAC **3** discovered; `systemStatus=Operational`.
-- Points: AI:1, BI:1, AV:2, BV:2 all **Polled `{ok}`**.
-- Niagara may show Write=`readonly` on AV/BV after discover-add — that is often a **Niagara point facet**, not proof the BACnet objects reject WP. Validate with an explicit WriteProperty / priority command.
-- AI units are BACnet **degrees-Fahrenheit (62)**; Niagara UI may display `°C` depending on facets.
-- Name slash may become `Rust MS.TP…` in Niagara — cosmetic.
+- `TokioSerialPort::write` on pin `af4e886` completes after `write_all` only — **no `tcdrain`**. Upstream fix proposed on branch `fix/mstp-tx-completion-after-drain`.
+- Mini-device exits when serial by-id path disappears (USB unplug watchdog); does not yet observe MS/TP recv-task exit via public server API.
 
-## Active-TX / open-fdd note
+## Allowed acceptance language (after post-pin hardware + Haystack Gate 4b)
 
-Do **not** resume open-fdd bosspi MQTT soaks on this Waveshare while mini-device owns the tty. Unplug Waveshare (or stop mini-device) before bosspi fieldbus, and keep pin ≥ `e3b9edb` if rejoining this trunk.
+> Vibe13 provides a stable, server-only, standard-frame BACnet MS/TP lab device at 38,400 baud on the tested BASRT/FEC/Waveshare topology.
 
-## Known limitations
+## Hardware revalidation (`af4e886`, 2026-08-31)
 
-- Gates 5–6 not claimed (shared endpoint + soak).
-- Transitive `socket2` still in dep graph; runtime must not open IP sockets.
-- Not a Clause 9 conformance claim; no extended frames (32/33 / COBS / CRC-32K).
-- Host USB stale-partial timeout ≠ wire `T_frame_abort`.
-- Upstream contribution is open as PR #467 (MS/TP-only; Windows retry-budget timeout stays on fork `main` only).
+| Step | Result | Artifact |
+|------|--------|----------|
+| Passive sniff 60s @ 38400 | PASS (tokens 2835, MAC 0+7, no TX) | `captures/mstp-passive-af4e886-60s.json` |
+| Gate 3 FEC AI:1173 one-shot | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
+| Haystack Gate 4b (after ~2 min settle) | PASS | `captures/haystack-trunk/` |
+| Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
+| 1h / 24h soak | **Not run** this session | schedule after operator watch window |
+
+**Go/no-go (minimal post-pin smoke):** **GO** for continued Gate 4 lab use at 38 400 on this topology. **No-go** for soak, mirror, router, or conformance claims.

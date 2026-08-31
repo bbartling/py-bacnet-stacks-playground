@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 2 Rescue **Gate 1–4 hardware PASS** on pin `19d205d` (fork `vibe13-mstp`, rebased on upstream `dev`). Upstream candidate: [rusty-bacnet#467](https://github.com/jscott3201/rusty-bacnet/pull/467). JENEsys discovers **Rust MS/TP Mini Device** `device:123001` with points Polled `{ok}`. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 2 on pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 **merged**). Historical Gate 1–4 PASS on `19d205d` — **post-pin live smoke required**. Vibe13 retains Rust hardware mini-device; upstream Python example is binding-only. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 ## Limitations (current)
 
@@ -84,13 +84,13 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 
 ## Dependency snapshot
 
-Workspace pins `bbartling/rusty-bacnet` @ tip matching upstream PR [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (`pr/mstp-clause9-interop` / `vibe13-mstp`):
+Workspace pins `jscott3201/rusty-bacnet` @ dev SHA (exact rev in `Cargo.toml` / `Cargo.lock`):
 
 ```text
-19d205d78c947aea3fe98110d8a6c392359aa627
+af4e88680c51eb4da64dac47f0540a35bf184732
 ```
 
-Includes Clause 9.6 CRC (`0x81` / `0x8408`), USB stream reassembly, and Clause 9.5.6 token/PFM coexistence fix. Commit `Cargo.lock`.
+Includes merged #467 (CRC, USB reassembly, token/PFM) and #468 (Python MS/TP binding example). Vibe13 keeps its Rust hardware mini-device. Commit `Cargo.lock`.
 
 ## Initial workspace
 
