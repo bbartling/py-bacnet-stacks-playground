@@ -8,13 +8,13 @@ Plain Markdown in **`vibe13_agent_spec/`** is the source of truth for AI agents 
 **Supervisory metrics:** [`SUPERVISORY_METRICS.md`](SUPERVISORY_METRICS.md)  
 **JSON contracts:** [`DATA_CONTRACT.md`](DATA_CONTRACT.md)
 
-## Current phase (2026-08-30)
+## Current phase (2026-08-31)
 
 | Item | Value |
 |------|--------|
 | Baseline | `develop` @ `eb178f70` (PR #126 merged) |
-| Active work | **Phase 2** — Gates 1–4 PASS on pin `19d205d` (lab evidence on `e3b9edb`); Gates 5–6 next |
-| rusty-bacnet pin | `bbartling/rusty-bacnet` @ `19d205d…` — upstream PR [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) |
+| Active work | **Phase 2** — Gates 1–4 PASS on pin `af4e886`; Gates 5–6 next |
+| rusty-bacnet pin | `jscott3201/rusty-bacnet` @ `af4e886…` — #467/#468 merged |
 | Bench | BASRT MAC0 + FEC MAC7 + Waveshare C; Rust MAC **3**; baud 38400 |
 | Historical | Cursor plan `vibe13_ms_tp_usb_fix_*` is **not** active |
 

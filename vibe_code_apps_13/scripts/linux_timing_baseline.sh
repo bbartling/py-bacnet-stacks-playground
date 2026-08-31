@@ -29,14 +29,14 @@ if [[ -e "$PORT" ]]; then
   fi
 fi
 
-record "=== cyclictest idle (5s) ==="
+record "=== cyclictest idle (~2s at -i 200 -l 10000) ==="
 if command -v cyclictest >/dev/null; then
   cyclictest -p 80 -m -n -i 200 -l 10000 -q 2>&1 | tee "$ART/cyclictest-idle.txt" || true
 else
   record "cyclictest not installed — skip"
 fi
 
-record "=== cyclictest under stress-ng (10s) ==="
+record "=== cyclictest under stress-ng (~2s sample during 12s stress) ==="
 if command -v cyclictest >/dev/null && command -v stress-ng >/dev/null; then
   stress-ng --cpu 2 --io 1 --vm 1 --timeout 12s >/dev/null 2>&1 &
   SPID=$!

@@ -1,6 +1,6 @@
 # Phase 2 — Hardware runbook (BASRT + JCI FEC + Waveshare C)
 
-**Status (2026-08-31):** Live midspan/end-of-line bench. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` dev — #467/#468 merged). Gate 2–4 hardware **PASS** on historical pin `19d205d`; **revalidation required** on `af4e886`. Gates 5–6 open.
+**Status (2026-08-31):** Live midspan/end-of-line bench. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` dev — #467/#468 merged). Gates 2–4 hardware **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6 open.
 
 **Upstream:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) and [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) **merged**. Limitations: not conformance; no extended frames; Gates 5–6 open.
 
@@ -50,18 +50,18 @@ cargo build --release --locked -p mstp-passive-sniff -p mstp-fec-diag -p mstp-mi
 ```bash
 cargo run --release --locked -p mstp-passive-sniff -- \
   --serial "$PORT" --baud 38400 --seconds 60 \
-  --report captures/mstp-passive-crc-fixed.json
+  --report captures/mstp-passive-af4e886-60s.json
 ```
 
-PASS: `rx_bytes>0`, `tokens>0`, sources include **0 and 7**, `token_0_from_7>0`, Workbench stays online, **no Rust TX**.
+PASS: report **`ok=true`** (command exit 0), `rx_bytes>0`, `tokens>0`, sources include **0 and 7**, `token_0_from_7>0`, Workbench stays online, **no Rust TX**. Historical `captures/mstp-passive-crc-fixed.json` (`rusty_bacnet_rev` `6a70b85`) is archived — not evidence for `af4e886`.
 
 ## Gate 3 — Client-only FEC
 
-**Status:** PASS on pin `e3b9edb` after 9.5.6 fix (prior `73a1fd4` coexistence FAIL archived in `captures/mstp-gate3-coexistence-abort.json`).
+**Status:** PASS on pin `af4e886` (2026-08-31 one-shot; historical `e3b9edb` on `19d205d` archived).
 
 `mstp-fec-diag` always does setup reads (I-Am / object-name / AI) then optional loops.
 
-**One-shot (setup reads only — default loop-count 1):**
+**One-shot (setup + one periodic read — `--loop-count 1`):**
 
 ```bash
 cargo run --release --locked -p mstp-fec-diag -- \
@@ -98,7 +98,7 @@ Read-only vs FEC. Never WriteProperty to the FEC.
 
 ## Gate 4 — Mini-device server-only
 
-**Status: PASS (2026-08-30)** — JENEsys discovered `device:123001` / points Polled `{ok}` while FEC stayed online.
+**Status: PASS (2026-08-31, pin `af4e886`)** — JENEsys discovered `device:123001` / points Polled `{ok}` while FEC stayed online.
 
 Stop any other holder of `$PORT`, then:
 

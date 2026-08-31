@@ -1,6 +1,6 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 2 on pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 **merged**). Historical Gate 1–4 PASS on `19d205d` — **post-pin live smoke required**. Vibe13 retains Rust hardware mini-device; upstream Python example is binding-only. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 2 on pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 **merged**). Gates 1–4 **PASS** on `af4e886` (2026-08-31 hardware + Haystack 4b). Vibe13 retains Rust hardware mini-device; upstream Python example is binding-only. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
 
 ## Limitations (current)
 
@@ -13,7 +13,7 @@
 
 ## Linux resources (mstp-mini-device on live MS/TP)
 
-Measured on **bensbench** (2026-08-30) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `e3b9edb` (behavior unchanged on `19d205d`):
+Measured on **bensbench** (2026-08-31) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `af4e886`:
 
 | Metric | Value |
 |--------|------:|

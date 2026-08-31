@@ -1,0 +1,17 @@
+{
+  "ok": false,
+  "serial": "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0",
+  "baud": 38400,
+  "seconds": 30,
+  "rx_bytes": 16542,
+  "complete_frames": 4,
+  "tokens": 0,
+  "poll_for_master": 4,
+  "data_frames": 0,
+  "invalid": 16510,
+  "need_more_stalls": 1158,
+  "sources_seen": [
+    7
+  ],
+  "error": null
+}

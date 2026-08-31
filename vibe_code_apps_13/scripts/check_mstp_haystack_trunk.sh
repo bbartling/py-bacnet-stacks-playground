@@ -7,8 +7,10 @@
 #   restore            — same as check after mini-device should be running
 #
 # Env (never commit secrets):
-#   HAYSTACK_BASE_URL  default https://192.168.204.11/haystack
+#   HAYSTACK_BASE_URL  default https://192.168.204.11/haystack (https only)
 #   HAYSTACK_USER / HAYSTACK_PASS  or source ~/open-fdd/.env
+#   HAYSTACK_CACERT    PEM for private CA (preferred on lab Niagara)
+#   HAYSTACK_INSECURE=1  only when no CA file is available (self-signed bench)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,6 +26,22 @@ fi
 HS_URL="${HAYSTACK_BASE_URL:-https://192.168.204.11/haystack}"
 HS_USER="${HAYSTACK_USER:-${OPENFDD_HAYSTACK_USER:-}}"
 HS_PASS="${HAYSTACK_PASS:-${OPENFDD_HAYSTACK_PASS:-}}"
+
+case "${HS_URL%%://*}" in
+  https) ;;
+  *) bad "HAYSTACK_BASE_URL must use https:// (got ${HS_URL%%://*}://)" ;;
+esac
+
+curl_tls_args() {
+  if [[ -n "${HAYSTACK_CACERT:-}" ]]; then
+    echo --cacert "$HAYSTACK_CACERT"
+  elif [[ "${HAYSTACK_INSECURE:-}" == "1" ]]; then
+    echo -k
+  else
+    # System trust store — no certificate bypass.
+    true
+  fi
+}
 
 RED=$'\033[31m'
 GRN=$'\033[32m'
@@ -42,7 +60,8 @@ hs_nav() {
   local nav_id="$1" out="$2"
   local enc
   enc="$(NAV="$nav_id" python3 -c 'import urllib.parse,os; print(urllib.parse.quote(os.environ["NAV"]))')"
-  curl -fsSk --max-time 30 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
+  # shellcheck disable=SC2046
+  curl -fsS $(curl_tls_args) --max-time 30 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
     "$HS_URL/nav?navId=$enc" -o "$out"
 }
 
@@ -78,7 +97,8 @@ hs_read() {
   local filter="$1" out="$2"
   local enc
   enc="$(FILTER="$filter" python3 -c 'import urllib.parse,os; print(urllib.parse.quote(os.environ["FILTER"]))')"
-  curl -fsSk --max-time 30 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
+  # shellcheck disable=SC2046
+  curl -fsS $(curl_tls_args) --max-time 30 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
     "$HS_URL/read?filter=$enc" -o "$out"
 }
 
@@ -92,7 +112,8 @@ check_fec_points_nav() {
 check_trunk() {
   require_creds
   hdr "Haystack /about"
-  curl -fsSk --max-time 20 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
+  # shellcheck disable=SC2046
+  curl -fsS $(curl_tls_args) --max-time 20 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
     "$HS_URL/about" -o "$ART/haystack_about.zinc"
   ok "Niagara /about"
 

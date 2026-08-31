@@ -632,7 +632,19 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
             .await
         {
             Ok(_) => bail!("expected invalid array index for Object_List[9999]"),
-            Err(e) => Ok(format!("invalid array index as expected: {e}")),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::INVALID_ARRAY_INDEX)
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("invalid array")
+                {
+                    Ok(format!("invalid array index as expected: {err}"))
+                } else {
+                    bail!("unexpected error for Object_List[9999]: {err}");
+                }
+            }
         }
     })
     .await;
@@ -643,7 +655,29 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
             .await
         {
             Ok(_) => bail!("expected unknown property/index error"),
-            Err(e) => Ok(format!("unknown property/index as expected: {e}")),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::UNKNOWN_PROPERTY)
+                    || is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::INVALID_ARRAY_INDEX)
+                    || is_protocol_error(
+                        &err,
+                        ErrorClass::PROPERTY,
+                        ErrorCode::PROPERTY_IS_NOT_AN_ARRAY,
+                    )
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("unknown property")
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("not-an-array")
+                {
+                    Ok(format!("unknown property/index as expected: {err}"))
+                } else {
+                    bail!("unexpected error for Device DESCRIPTION[1]: {err}");
+                }
+            }
         }
     })
     .await;
@@ -693,7 +727,17 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
             .await
         {
             Ok(()) => bail!("expected write-access denial for BI:1"),
-            Err(e) => Ok(format!("BI:1 write denied as expected: {e}")),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::WRITE_ACCESS_DENIED)
+                    || err.to_string().to_ascii_lowercase().contains("denied")
+                    || err.to_string().to_ascii_lowercase().contains("write")
+                {
+                    Ok(format!("BI:1 write denied as expected: {err}"))
+                } else {
+                    bail!("unexpected BI write error: {err}");
+                }
+            }
         }
     })
     .await;
