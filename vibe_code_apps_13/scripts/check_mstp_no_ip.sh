@@ -51,7 +51,7 @@ if grep -q 'socket2' "$TREE_OUT"; then
   mkdir -p captures
   {
     echo "phase2_no_ip_gate: blocked_dependency_isolation"
-    echo "rusty_bacnet: e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef"
+    echo "rusty_bacnet: af4e88680c51eb4da64dac47f0540a35bf184732"
     echo "socket2: present_via_bacnet_transport"
     echo "local_bip_markers: absent"
     echo "runtime_ip_sockets: forbidden"
