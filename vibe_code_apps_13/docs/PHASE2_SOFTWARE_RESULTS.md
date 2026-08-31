@@ -1,63 +1,57 @@
-# Phase 2 — Software results (loopback / CI)
+# Phase 2 — Software results
 
-**Date:** 2026-08-28  
-**rusty-bacnet pin:** `c77f78445fbf40da15867fec28a36ea120ad1739`  
-**Hardware evidence:** **NOT RUN** (USB RS-485 adapters are not installed/wired)
+**Updated:** 2026-08-31  
+**rusty-bacnet pin:** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
+**Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
+**Vibe13 project SHA:** see `git rev-parse HEAD` on branch `fix/vibe13-mstp-crc-phase2`
 
-## Passed software checks
+Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
+
+## Classification (2026-08-31 audit)
+
+| Class | Items |
+|-------|--------|
+| **Implemented/proven** | Clause 9 CRC + USB reassembly + token/PFM (#467); Python binding example (#468); Gate 1–4 on historical pin; loopback + CI acceptance on `af4e886` |
+| **Current mini-device blocker** | Upstream transport health notification (app uses serial-path watchdog); simulation still remove/re-add AI/BI (needs `ObjectDatabase` in-place mutation API) |
+| **Phase 2.1 mirror blocker** | Shared MS/TP endpoint (one tty, client+server) |
+| **Phase 3 router blocker** | Extended frames 32/33, COBS, CRC-32K, B/IP↔MS/TP routing |
+| **Conformance evidence gaps** | Six-baud timing matrix; golden vectors; 24h soak; BFR-derived router tests only in research doc |
+
+## Upstream candidate PRs (local branches in `~/src/rusty-bacnet`)
+
+| Branch | Topic |
+|--------|--------|
+| `fix/mstp-validate-rust-config` | Rust `MstpConfig` validation parity with Python |
+| `fix/mstp-tx-completion-after-drain` | `tcdrain` after serial write + wire-delay regression |
+
+## Software checks (`af4e886`)
 
 | Check | Result |
 |-------|--------|
 | `cargo fmt --all -- --check` | PASS |
-| `cargo clippy --workspace --all-targets --locked -- -D warnings` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
 | `cargo test --workspace --locked` | PASS |
-| `./scripts/check_mstp_no_ip.sh` (local source markers) | PASS |
-| `mstp-probe --profile smoke … loopback` | PASS (`hardware_evidence=false`) |
-| Baud propagation unit tests (all 6 rates) | PASS |
-| Gate report completeness unit tests | PASS |
-| Vendor ID consistency in Device object | PASS |
-| Local AI/BI simulation via `set_present_value` + network WP denied | PASS |
-| Streamlit AppTest (Phase 2 buttons present) | PASS (CI) |
+| `./scripts/check_mstp_no_ip.sh` | PASS (transitive `socket2` documented) |
+| `./scripts/check_mstp_no_ip_runtime.sh` | PASS (no AF_INET on PTY startup) |
+| `mstp-probe --profile smoke loopback` | PASS |
 
-## Loopback evidence
+## Transport / timing limitations (honest)
 
-Loopback runs a full application-service sequence on `LoopbackSerial`:
+- `TokioSerialPort::write` on pin `af4e886` completes after `write_all` only — **no `tcdrain`**. Upstream fix proposed on branch `fix/mstp-tx-completion-after-drain`.
+- Mini-device exits when serial by-id path disappears (USB unplug watchdog); does not yet observe MS/TP recv-task exit via public server API.
 
-- Who-Is → require I-Am for instance + MAC + vendor
-- Device Object_Name + Object_List (Device + AI:1 + BI:1 + AV:2 + BV:2)
-- RP AI/BI, RPM, WP/relinquish AV:2 + BV:2
-- Unknown object + write-access denial on AI:1
-- Repeated reads with latency summary
-- Clean client/server stop
+## Allowed acceptance language (after post-pin hardware + Haystack Gate 4b)
 
-Reports use schema `phase2_acceptance_v2` with `profile`, `hardware_evidence=false` for loopback.
+> Vibe13 provides a stable, server-only, standard-frame BACnet MS/TP lab device at 38,400 baud on the tested BASRT/FEC/Waveshare topology.
 
-Artifact example: `captures/mstp-loopback-software.json` / CI `captures/mstp-loopback-ci.json`.
+## Hardware revalidation (`af4e886`, 2026-08-31)
 
-## Hardware NOT RUN
+| Step | Result | Artifact |
+|------|--------|----------|
+| Passive sniff 60s @ 38400 | PASS (tokens 2835, MAC 0+7, no TX) | `captures/mstp-passive-af4e886-60s.json` |
+| Gate 3 FEC AI:1173 one-shot | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
+| Haystack Gate 4b (after ~2 min settle) | PASS | `captures/haystack-trunk/` |
+| Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
+| 1h / 24h soak | **Not run** this session | schedule after operator watch window |
 
-Phase 2 USB RS-485 adapters are **not installed or wired** on this host.
-
-- Do not treat loopback PASS as hardware gate PASS.
-- See [`PHASE2_HARDWARE_RUNBOOK.md`](PHASE2_HARDWARE_RUNBOOK.md) for the exact human bench commands (placeholders only).
-
-## Known rusty-bacnet / upstream blockers
-
-| Topic | Status |
-|-------|--------|
-| Transitive `socket2` via `bacnet-transport` even with `features=["serial"]` | **BLOCKED** dependency-level isolation on this pin — documented by `check_mstp_no_ip.sh` / `captures/phase2-no-ip-gate-status.txt`. Runtime still opens no IP sockets. Upstream ask: split serial-only builds from B/IP/socket2. |
-| `BACnetServer` transport-death notification | **Gap** — pin exposes `stop()` but no public “transport task died” waiter. Apps wait for SIGINT/SIGTERM only. |
-| Lab vendor ID `999` | Placeholder only — not production-ready. |
-
-## Remaining gate work (requires hardware)
-
-- Smoke + gate profiles on real dual Waveshare C adapters
-- Startup-order / sole-master / duplicate-MAC / baud-mismatch / unplug
-- 500-read gate + one-hour soak + per-baud matrix
-
-## Profiles
-
-| Profile | `repeated_reads` | Required steps |
-|---------|------------------|----------------|
-| `smoke` | small (CI default 5–10) | Full service coverage; zero failures |
-| `gate` | ≥ 500 | Every `GATE_REQUIRED_STEPS` present and ok |
+**Go/no-go (minimal post-pin smoke):** **GO** for continued Gate 4 lab use at 38 400 on this topology. **No-go** for soak, mirror, router, or conformance claims.

@@ -64,8 +64,20 @@ Waveshare midspan was previously the probe point; current bench places the USB R
 
 ## D-010 - USB host gaps are not Clause 9 T_frame_abort
 
-Status: accepted pending upstream merge.
+Status: accepted (implemented upstream-capable; awaiting merge).
 
-Async USB/serial read chunk gaps must not clear MS/TP reassembly buffers using wire `T_frame_abort` (~1.56 ms @ 38400). Host reassembly uses a named stale-partial policy; token state-machine timers stay separate. Tracked in sibling `~/src/rusty-bacnet-vibe13` branch `fix/mstp-usb-stream-decoder` (local commit; push only with human OK).
+Async USB/serial read chunk gaps must not clear MS/TP reassembly buffers using wire `T_frame_abort` (~1.56 ms @ 38400). Host reassembly uses a named stale-partial policy; token state-machine timers stay separate. Commit `a9912b8` on `fix/mstp-clause9-crc` / PR [#464](https://github.com/jscott3201/rusty-bacnet/pull/464).
+
+## D-011 - Clause 9 CRC was the primary MS/TP interoperability blocker
+
+Status: accepted (2026-08-30).
+
+Prior diagnosis that header CRC `0x37` on Token `55 FF 00 00 07 00 00 37` was “invalid” was **wrong**. `CRC8([00,00,07,00,00]) == 0x37` under Clause 9.6. rusty-bacnet previously used reflected polys `0xE0` / `0xA001` (self-round-trip green, live trunk reject). Correct polys: header `0x81`, data `0x8408`. Commit `6a70b85`. `latency_timer` affects host latency but does not make `0x37` invalid.
+
+## D-012 - PR #126 merged; old USB-only Cursor plan is historical
+
+Status: accepted (2026-08-30).
+
+`develop` includes merge `eb178f70` (PR #126). The attached Cursor plan `vibe13_ms_tp_usb_fix_*` is historical. Active work follows the **Phase 2 Rescue** prompt (CRC → passive → FEC client → mini-device → shared endpoint → FEC mirror).
 
 

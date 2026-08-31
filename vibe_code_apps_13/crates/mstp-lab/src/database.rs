@@ -94,7 +94,9 @@ pub fn build_mini_device_database(cfg: &MiniDeviceConfig) -> Result<ObjectDataba
 /// Trusted local simulation update for AI:1 / BI:1 using `set_present_value`.
 ///
 /// Network WriteProperty to these inputs remains denied while in-service.
-/// Replaces the objects in-place because `dyn BACnetObject` has no downcast.
+/// Re-adds AI/BI after local `set_present_value` because `dyn BACnetObject` has no
+/// safe downcast for in-service input mutation. OIDs remain stable; object-local
+/// state (e.g. future COV) may reset — upstream `ObjectDatabase` mutation API TBD.
 pub fn apply_simulated_inputs(
     db: &mut ObjectDatabase,
     active: bool,
@@ -211,5 +213,31 @@ mod tests {
             .read_property(PropertyIdentifier::PRESENT_VALUE, None)
             .unwrap();
         assert_ne!(after, PropertyValue::Real(75.0));
+    }
+
+    #[test]
+    fn object_list_has_device_and_four_points() {
+        let db = build_mini_device_database(&MiniDeviceConfig::default()).unwrap();
+        assert_eq!(db.list_objects().len(), 5, "device + AI + BI + AV + BV");
+        let oid = ObjectIdentifier::new(ObjectType::DEVICE, 123_001).unwrap();
+        let list = db
+            .get(&oid)
+            .unwrap()
+            .read_property(PropertyIdentifier::OBJECT_LIST, None)
+            .unwrap();
+        // PropertyValue shape varies by pin; ensure we got a non-null list payload
+        assert!(!matches!(list, PropertyValue::Null));
+    }
+
+    #[test]
+    fn max_apdu_is_standard_frame_480() {
+        let db = build_mini_device_database(&MiniDeviceConfig::default()).unwrap();
+        let oid = ObjectIdentifier::new(ObjectType::DEVICE, 123_001).unwrap();
+        let v = db
+            .get(&oid)
+            .unwrap()
+            .read_property(PropertyIdentifier::MAX_APDU_LENGTH_ACCEPTED, None)
+            .unwrap();
+        assert_eq!(v, PropertyValue::Unsigned(u64::from(MSTP_MAX_APDU)));
     }
 }

@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "serial": "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0",
+  "baud": 38400,
+  "seconds": 45,
+  "rusty_bacnet_rev": "6a70b85ef23c18ac06900709552113b96c1ea64e",
+  "historical_note": "Archived pre-af4e886 capture — not evidence for current pin; see mstp-passive-af4e886-60s.json",
+  "rx_bytes": 25651,
+  "complete_frames": 2971,
+  "tokens": 2117,
+  "token_0_from_7": 1058,
+  "poll_for_master": 836,
+  "data_frames": 18,
+  "invalid": 2,
+  "need_more_stalls": 1849,
+  "valid_ratio": 0.9993272788429196,
+  "sources_seen": [
+    0,
+    7
+  ],
+  "error": null
+}

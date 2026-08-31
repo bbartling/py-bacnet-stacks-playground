@@ -365,6 +365,70 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
     })
     .await;
 
+    timed_step(&mut report, "read_device_pics_properties", || async {
+        let props = [
+            PropertyIdentifier::OBJECT_IDENTIFIER,
+            PropertyIdentifier::OBJECT_TYPE,
+            PropertyIdentifier::SYSTEM_STATUS,
+            PropertyIdentifier::VENDOR_NAME,
+            PropertyIdentifier::VENDOR_IDENTIFIER,
+            PropertyIdentifier::MODEL_NAME,
+            PropertyIdentifier::APPLICATION_SOFTWARE_VERSION,
+            PropertyIdentifier::PROTOCOL_VERSION,
+            PropertyIdentifier::PROTOCOL_REVISION,
+            PropertyIdentifier::PROTOCOL_SERVICES_SUPPORTED,
+            PropertyIdentifier::PROTOCOL_OBJECT_TYPES_SUPPORTED,
+            PropertyIdentifier::MAX_APDU_LENGTH_ACCEPTED,
+            PropertyIdentifier::SEGMENTATION_SUPPORTED,
+            PropertyIdentifier::APDU_TIMEOUT,
+            PropertyIdentifier::NUMBER_OF_APDU_RETRIES,
+        ];
+        let mut details = Vec::new();
+        for prop in props {
+            let ack = client.read_property(&mac, device_oid, prop, None).await?;
+            let (val, _) =
+                decode_application_value(&ack.property_value, 0).context("decode device PICS")?;
+            if prop == PropertyIdentifier::MAX_APDU_LENGTH_ACCEPTED {
+                let pv = match val {
+                    PropertyValue::Unsigned(n) => n,
+                    other => bail!("expected Unsigned Max_APDU, got {other:?}"),
+                };
+                if pv != 480 {
+                    bail!("Max_APDU_Length_Accepted={pv}, expected 480");
+                }
+            }
+            details.push(format!("{prop:?}={val:?}"));
+        }
+        Ok(details.join("; "))
+    })
+    .await;
+
+    timed_step(&mut report, "read_object_list_index_zero", || async {
+        let ack = client
+            .read_property(&mac, device_oid, PropertyIdentifier::OBJECT_LIST, Some(0))
+            .await?;
+        let (val, _) = decode_application_value(&ack.property_value, 0).context("decode OL[0]")?;
+        match val {
+            PropertyValue::Unsigned(n) if n == 5 => Ok(format!("Object_List[0]=count {n}")),
+            other => bail!("Object_List[0] expected count 5, got {other:?}"),
+        }
+    })
+    .await;
+
+    timed_step(&mut report, "read_object_list_index_one", || async {
+        let ack = client
+            .read_property(&mac, device_oid, PropertyIdentifier::OBJECT_LIST, Some(1))
+            .await?;
+        let (val, _) = decode_application_value(&ack.property_value, 0).context("decode OL[1]")?;
+        match val {
+            PropertyValue::ObjectIdentifier(oid) if oid == device_oid => {
+                Ok(format!("Object_List[1]={oid:?}"))
+            }
+            other => bail!("Object_List[1] expected device oid, got {other:?}"),
+        }
+    })
+    .await;
+
     timed_step(&mut report, "read_ai_present_value", || async {
         let ack = client
             .read_property(&mac, ai_oid, PropertyIdentifier::PRESENT_VALUE, None)
@@ -557,6 +621,67 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
     })
     .await;
 
+    timed_step(&mut report, "invalid_array_index_error", || async {
+        match client
+            .read_property(
+                &mac,
+                device_oid,
+                PropertyIdentifier::OBJECT_LIST,
+                Some(9999),
+            )
+            .await
+        {
+            Ok(_) => bail!("expected invalid array index for Object_List[9999]"),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::INVALID_ARRAY_INDEX)
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("invalid array")
+                {
+                    Ok(format!("invalid array index as expected: {err}"))
+                } else {
+                    bail!("unexpected error for Object_List[9999]: {err}");
+                }
+            }
+        }
+    })
+    .await;
+
+    timed_step(&mut report, "unknown_property_error", || async {
+        match client
+            .read_property(&mac, device_oid, PropertyIdentifier::DESCRIPTION, Some(1))
+            .await
+        {
+            Ok(_) => bail!("expected unknown property/index error"),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::UNKNOWN_PROPERTY)
+                    || is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::INVALID_ARRAY_INDEX)
+                    || is_protocol_error(
+                        &err,
+                        ErrorClass::PROPERTY,
+                        ErrorCode::PROPERTY_IS_NOT_AN_ARRAY,
+                    )
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("unknown property")
+                    || err
+                        .to_string()
+                        .to_ascii_lowercase()
+                        .contains("not-an-array")
+                {
+                    Ok(format!("unknown property/index as expected: {err}"))
+                } else {
+                    bail!("unexpected error for Device DESCRIPTION[1]: {err}");
+                }
+            }
+        }
+    })
+    .await;
+
     timed_step(&mut report, "write_ai_denied", || async {
         let mut buf = BytesMut::new();
         encode_property_value(&mut buf, &PropertyValue::Real(99.0))?;
@@ -581,6 +706,36 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
                     Ok(format!("AI:1 write denied as expected: {err}"))
                 } else {
                     bail!("unexpected AI write error: {err}");
+                }
+            }
+        }
+    })
+    .await;
+
+    timed_step(&mut report, "write_bi_denied", || async {
+        let mut buf = BytesMut::new();
+        encode_property_value(&mut buf, &PropertyValue::Enumerated(0))?;
+        match client
+            .write_property(
+                &mac,
+                bi_oid,
+                PropertyIdentifier::PRESENT_VALUE,
+                None,
+                buf.to_vec(),
+                None,
+            )
+            .await
+        {
+            Ok(()) => bail!("expected write-access denial for BI:1"),
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if is_protocol_error(&err, ErrorClass::PROPERTY, ErrorCode::WRITE_ACCESS_DENIED)
+                    || err.to_string().to_ascii_lowercase().contains("denied")
+                    || err.to_string().to_ascii_lowercase().contains("write")
+                {
+                    Ok(format!("BI:1 write denied as expected: {err}"))
+                } else {
+                    bail!("unexpected BI write error: {err}");
                 }
             }
         }

@@ -1,96 +1,130 @@
-# Phase 2 — Hardware runbook (NOT EXECUTED)
+# Phase 2 — Hardware runbook (BASRT + JCI FEC + Waveshare C)
 
-**Status:** Prepared only. **Phase 2 hardware was not run because the adapters are not installed/wired.**
+**Status (2026-08-31):** Live midspan/end-of-line bench. Software pin **`af4e886`** (`jscott3201/rusty-bacnet` dev — #467/#468 merged). Gates 2–4 hardware **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6 open.
 
-Do not mark any command below as executed until real captures exist under `captures/`.
+**Upstream:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) and [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) **merged**. Limitations: not conformance; no extended frames; Gates 5–6 open.
 
-## Topology
+## Topology (current)
 
 ```text
-mstp-probe, MAC 0                 mstp-mini-device, MAC 1
-Waveshare C adapter A             Waveshare C adapter B
-          A+ ============================== A+
-          B- ============================== B-
-         REF ============================== REF
+BASRT-B, MAC 0                  JCI FEC, MAC 7               Linux/Waveshare C
+physical endpoint              middle device                physical endpoint
+termination enabled            termination disabled          fixed ~130 ohms
+         |                            |                            |
+         +----------------------------+----------------------------+
+               + to +, - to -, REF/common to REF/common
 ```
 
-- Two Waveshare **C** adapters (FT232RNL, hardware auto direction, isolated)
-- Device on adapter **B**, probe on adapter **A**
-- **No USB 5 V field connection** between adapters
-- Exactly **two** endpoint **120 Ω** terminations (no intermediate termination)
-- Independent bias verification (do not assume onboard 120 Ω is bias)
-- Powered-off A/B resistance expectation ≈ **60 Ω** (two 120 Ω in parallel)
-- Prefer stable `/dev/serial/by-id/...` paths
-- Operator in `dialout` (do not change groups/udev from the agent)
+| Setting | Value |
+|---------|--------|
+| Baud | 38,400 |
+| BASRT MS/TP MAC / net | 0 / 2000 |
+| FEC MAC / device instance | 7 / 5007 |
+| Rust station MAC | **3** (never 0 with BASRT; never 7) |
+| Mini-device instance | 123001 |
+| Max_Info_Frames (initial) | 1 |
+| rusty-bacnet | `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732` |
 
-Placeholders:
+Powered-off trunk A/B should read ≈ **60–65 Ω**. ≈40–45 Ω ⇒ three terminations — fix before TX.
 
-- `/dev/serial/by-id/<PROBE_ADAPTER>`
-- `/dev/serial/by-id/<DEVICE_ADAPTER>`
+Do **not** add a second Waveshare C as midspan tap (extra fixed termination).
 
-Initial baud: **38400** (8N1, no flow control). Shared Max_Master=10, Max_Info_Frames=1.
+## Serial path
+
+```bash
+PORT=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0
+TTY="$(readlink -f "$PORT")"
+ls -l "$PORT"; fuser -v "$TTY" || true
+cat "/sys/bus/usb-serial/devices/${TTY##*/}/latency_timer"
+```
 
 ## Build
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_13
-cargo build --release --locked -p mstp-mini-device -p mstp-probe
+cargo build --release --locked -p mstp-passive-sniff -p mstp-fec-diag -p mstp-mini-device
 ```
 
-## Start mini-device (adapter B)
+## Gate 2 — Passive (no TX)
 
 ```bash
-./target/release/mstp-mini-device \
-  --serial /dev/serial/by-id/<DEVICE_ADAPTER> \
-  --baud 38400 \
-  --mac 1 \
-  --max-master 10 \
-  --max-info-frames 1 \
-  --device-instance 123001 \
-  --vendor-id 999
+cargo run --release --locked -p mstp-passive-sniff -- \
+  --serial "$PORT" --baud 38400 --seconds 60 \
+  --report captures/mstp-passive-af4e886-60s.json
 ```
 
-## Probe smoke (adapter A)
+PASS: report **`ok=true`** (command exit 0), `rx_bytes>0`, `tokens>0`, sources include **0 and 7**, `token_0_from_7>0`, Workbench stays online, **no Rust TX**. Historical `captures/mstp-passive-crc-fixed.json` (`rusty_bacnet_rev` `6a70b85`) is archived — not evidence for `af4e886`.
+
+## Gate 3 — Client-only FEC
+
+**Status:** PASS on pin `af4e886` (2026-08-31 one-shot; historical `e3b9edb` on `19d205d` archived).
+
+`mstp-fec-diag` always does setup reads (I-Am / object-name / AI) then optional loops.
+
+**One-shot (setup + one periodic read — `--loop-count 1`):**
 
 ```bash
-./target/release/mstp-probe \
-  --profile smoke \
-  --baud 38400 \
-  --repeated-reads 10 \
-  --report captures/mstp-hardware-smoke.json \
-  hardware \
-  --probe-serial /dev/serial/by-id/<PROBE_ADAPTER> \
-  --device-serial /dev/serial/by-id/<DEVICE_ADAPTER>
+cargo run --release --locked -p mstp-fec-diag -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
+  --settle-ms 30000 --apdu-timeout-ms 15000 \
+  --loop-secs 30 --loop-count 1 \
+  --report captures/mstp-fec-ai1173-oneshot.json
 ```
 
-`--device-serial` is **report metadata only** — the probe never opens the device tty.
-
-## Probe gate (≥500 reads)
+**Five 30s reads (operator watches Workbench):**
 
 ```bash
-./target/release/mstp-probe \
-  --profile gate \
-  --baud 38400 \
-  --repeated-reads 500 \
-  --report captures/mstp-hardware-gate.json \
-  hardware \
-  --probe-serial /dev/serial/by-id/<PROBE_ADAPTER> \
-  --device-serial /dev/serial/by-id/<DEVICE_ADAPTER>
+cargo run --release --locked -p mstp-fec-diag -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
+  --settle-ms 30000 --apdu-timeout-ms 15000 \
+  --loop-secs 30 --loop-count 5 \
+  --report captures/mstp-fec-ai1173-5x30s.json
 ```
 
-## Matrix to run on the bench
+**Twenty 30s soak (only after five-read coexistence holds):**
 
-1. Startup order: device-first / probe-first
-2. Sole-master then returning-master admission
-3. Duplicate-MAC negative (expect clear failure)
-4. Baud-mismatch negative (never false PASS)
-5. Unplug / fail-fast
-6. 500-read gate
-7. One-hour soak
-8. Later: per-baud matrix (9600…115200)
+```bash
+cargo run --release --locked -p mstp-fec-diag -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 5007 --expect-mac 7 --ai-instance 1173 \
+  --settle-ms 30000 --apdu-timeout-ms 15000 \
+  --loop-secs 30 --loop-count 20 \
+  --report captures/mstp-fec-ai1173-30s.json
+```
 
-## Report expectations
+Read-only vs FEC. Never WriteProperty to the FEC.
 
-Hardware reports must eventually include Git commit, rusty-bacnet SHA, kernel/arch, by-id paths, USB IDs, driver, actual baud, Max_Master, Max_Info_Frames, termination/bias notes, start/end, exit reason, and `hardware_evidence=true`.
+## Gate 4 — Mini-device server-only
 
-Loopback must never set `hardware_evidence=true`.
+**Status: PASS (2026-08-31, pin `af4e886`)** — JENEsys discovered `device:123001` / points Polled `{ok}` while FEC stayed online.
+
+Stop any other holder of `$PORT`, then:
+
+```bash
+cargo run --release --locked -p mstp-mini-device -- \
+  --serial "$PORT" --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 \
+  --device-instance 123001 --name "Rust MS/TP Mini Device" --vendor-id 999
+```
+
+In Workbench: Who-Is / discover on the MS/TP network → **Rust MS/TP Mini Device**.
+
+## Gate 4b — Haystack trunk (supervisory, parallel evidence)
+
+Requires `HAYSTACK_USER` / `HAYSTACK_PASS` (e.g. from `~/open-fdd/.env`):
+
+```bash
+./scripts/check_mstp_haystack_trunk.sh check          # before/after functional matrix
+./scripts/check_mstp_haystack_trunk.sh perturb-stop-mini   # mini-device stopped; FEC still ok
+./scripts/check_mstp_haystack_trunk.sh restore      # after mini-device restarted
+```
+
+## Gates 5–6
+
+**OPEN.** Combined endpoint + mirror + long soak — not claimed.
+
+## rusty-bacnet pin
+
+`jscott3201/rusty-bacnet` @ `af4e886…` (dev after #467/#468). Historical: `bbartling` @ `19d205d…`.
+

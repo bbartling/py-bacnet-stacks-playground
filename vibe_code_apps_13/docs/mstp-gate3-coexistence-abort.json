@@ -1,0 +1,24 @@
+{
+  "gate": 3,
+  "overall_ok": false,
+  "hardware_ok": false,
+  "application_exchange_ok": true,
+  "coexistence_ok": false,
+  "exit_reason": "aborted: existing MS/TP trunk went offline",
+  "gate1_crc": "PASS",
+  "gate2_passive": "PASS",
+  "gate3_application_exchange": "PASS",
+  "gate3_network_coexistence": "FAIL",
+  "gate3_overall": "FAIL",
+  "gates_4_6": "BLOCKED",
+  "active_tx": "blocked",
+  "notes": [
+    "Workbench/FEC offline while mstp-fec-diag MAC 3 participated",
+    "Root cause: Clause 9.5.6 DoneWithToken/PFM maintenance (PS=NS+1 reversed scan) and NextStationUnknown Token 3->3",
+    "Not CRC, wiring, latency_timer, APDU timeout, or Max_Master",
+    "20x30s soak not PASS; do not resume live TX until deterministic multi-master tests pass"
+  ],
+  "evidence_oneshot": "captures/mstp-fec-ai1173-oneshot.json",
+  "evidence_partial_30s": "captures/mstp-fec-ai1173-30s.json",
+  "rusty_bacnet_rev_at_fail": "73a1fd41df7df2dfb3fa005cf339f347751f0286"
+}

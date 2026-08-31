@@ -1,5 +1,7 @@
 //! MS/TP-only `BACnet` mini-device (Phase 2). No `BACnet`/IP.
 
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,7 +12,7 @@ use clap::Parser;
 use lab_common::{BaudRate, MstpMasterConfig};
 use mstp_lab::{
     apply_simulated_inputs, build_mini_device_database, open_mstp_transport, MiniDeviceConfig,
-    LAB_VENDOR_ID, UNITS_DEGF,
+    LAB_VENDOR_ID, RUSTY_BACNET_REV, UNITS_DEGF,
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
@@ -52,7 +54,7 @@ fn master_config(args: &Args) -> Result<MstpMasterConfig> {
     Ok(cfg)
 }
 
-async fn wait_shutdown_signal() {
+async fn wait_shutdown_signal(shutdown: Arc<AtomicBool>) {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
@@ -61,12 +63,29 @@ async fn wait_shutdown_signal() {
         tokio::select! {
             _ = sigterm.recv() => warn!("SIGTERM — shutting down"),
             _ = sigint.recv() => warn!("SIGINT — shutting down"),
+            () = async {
+                while !shutdown.load(Ordering::Relaxed) {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+                warn!("transport watchdog — shutting down");
+            } => {}
         }
     }
     #[cfg(not(unix))]
     {
         let _ = tokio::signal::ctrl_c().await;
         warn!("Ctrl-C — shutting down");
+    }
+}
+
+async fn serial_watchdog(serial_path: String, shutdown: Arc<AtomicBool>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        if !Path::new(&serial_path).exists() {
+            error!(path = %serial_path, "serial device path disappeared (USB unplug?)");
+            shutdown.store(true, Ordering::Relaxed);
+            return;
+        }
     }
 }
 
@@ -110,8 +129,15 @@ async fn main() -> Result<()> {
     })?;
 
     info!(
-        "Starting MS/TP mini-device: serial={} mac={} instance={} baud={} vendor_id={} (lab placeholder)",
-        args.serial, args.mac, args.device_instance, args.baud, args.vendor_id
+        serial = %args.serial,
+        baud = args.baud,
+        mac = args.mac,
+        max_master = args.max_master,
+        max_info_frames = args.max_info_frames,
+        device_instance = args.device_instance,
+        rusty_bacnet_rev = RUSTY_BACNET_REV,
+        vendor_id = args.vendor_id,
+        "Starting MS/TP mini-device (lab placeholder vendor ID)"
     );
 
     let mut server = BACnetServer::generic_builder()
@@ -127,12 +153,15 @@ async fn main() -> Result<()> {
         args.mac, args.device_instance
     );
 
+    let shutdown = Arc::new(AtomicBool::new(false));
+    tokio::spawn(serial_watchdog(args.serial.clone(), Arc::clone(&shutdown)));
+
     let db_arc = Arc::clone(server.database());
     tokio::spawn(simulation_task(db_arc));
 
-    // Upstream BACnetServer does not expose a public "transport died" notification
-    // on this pin; we wait for SIGINT/SIGTERM only. Documented in PHASE2_SOFTWARE_RESULTS.
-    wait_shutdown_signal().await;
+    // Upstream BACnetServer does not expose transport disconnect on this pin;
+    // serial path watchdog provides bounded application supervision until upstream health exists.
+    wait_shutdown_signal(shutdown).await;
     info!("Shutting down…");
     server.stop().await.context("stop server")?;
     Ok(())

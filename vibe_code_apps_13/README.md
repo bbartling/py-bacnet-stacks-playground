@@ -1,6 +1,31 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Active** — Phase 1 wire-test + Phase 2 MS/TP software/loopback acceptance are in-repo. **Phase 2 hardware NOT RUN** (adapters not installed/wired). See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Active** — Phase 2 on pin `af4e886` (`jscott3201/rusty-bacnet` dev; #467/#468 **merged**). Gates 1–4 **PASS** on `af4e886` (2026-08-31 hardware + Haystack 4b). Vibe13 retains Rust hardware mini-device; upstream Python example is binding-only. Gates 5–6 OPEN. See [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+
+## Limitations (current)
+
+- **Not a Clause 9 conformance claim** — CRC / USB stream / 9.5.6 token+PFM only.
+- **No extended MS/TP frames** (types 32/33, COBS, CRC-32K) — do not claim router or oversized-frame conformance.
+- **Gates 5–6 OPEN** — shared endpoint + soak not closed.
+- **Host USB timing** — stale-partial timeout is scheduling-aware; not wire `T_frame_abort`.
+- **Workbench nits** — Niagara Write=`readonly` facets, °C display vs BACnet degF (62), name slash → `MS.TP` are cosmetic / UI, not stack blockers.
+- **Do not run open-fdd MQTT soaks** on the same Waveshare tty while mini-device owns the trunk.
+
+## Linux resources (mstp-mini-device on live MS/TP)
+
+Measured on **bensbench** (2026-08-31) while Gate 4 Workbench discovery was live — release binary, MAC 3, 38 400 baud, pin `af4e886`:
+
+| Metric | Value |
+|--------|------:|
+| Release binary size | ~4.9 MiB |
+| Resident memory (VmRSS / HWM) | **~5.6 MiB** |
+| Virtual size (VmSize) | ~404 MiB (mapped; not all resident) |
+| Threads | 7 |
+| CPU (steady, pidstat ~3 s) | **~1%** of one core (~0.3% usr / 0.7% sys) |
+| Host | Linux 6.8 x86_64, 6 CPUs |
+
+This is a **mega milestone**: a native Rust MS/TP master mini-device stays discoverable in JENEsys with **single-digit MiB RSS** and ~1% CPU while coexisting on the BASRT+FEC trunk.
+
 
 This checkpoint develops a Linux x86 BACnet appliance in three strictly gated phases using two Waveshare USB TO RS485 (C) adapters and `rusty-bacnet`:
 
@@ -59,13 +84,13 @@ The B/CH343G adapters are retained for B+B and B+C compatibility runs after the 
 
 ## Dependency snapshot
 
-Research was performed against `jscott3201/rusty-bacnet` branch `dev` at commit:
+Workspace pins `jscott3201/rusty-bacnet` @ dev SHA (exact rev in `Cargo.toml` / `Cargo.lock`):
 
 ```text
-c77f78445fbf40da15867fec28a36ea120ad1739
+af4e88680c51eb4da64dac47f0540a35bf184732
 ```
 
-Do not depend on the moving branch in a reproducible build. Pin an exact reviewed commit and commit `Cargo.lock`. Revalidate the source before changing the pin.
+Includes merged #467 (CRC, USB reassembly, token/PFM) and #468 (Python MS/TP binding example). Vibe13 keeps its Rust hardware mini-device. Commit `Cargo.lock`.
 
 ## Initial workspace
 

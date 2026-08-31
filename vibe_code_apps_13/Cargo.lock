@@ -85,7 +85,7 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 [[package]]
 name = "bacnet-client"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-endpoint-core",
@@ -102,7 +102,7 @@ dependencies = [
 [[package]]
 name = "bacnet-encoding"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-types",
  "bytes",
@@ -112,7 +112,7 @@ dependencies = [
 [[package]]
 name = "bacnet-endpoint-core"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-network",
@@ -124,7 +124,7 @@ dependencies = [
 [[package]]
 name = "bacnet-network"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-transport",
@@ -137,7 +137,7 @@ dependencies = [
 [[package]]
 name = "bacnet-objects"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-types",
@@ -148,7 +148,7 @@ dependencies = [
 [[package]]
 name = "bacnet-server"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-endpoint-core",
@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "bacnet-services"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-types",
@@ -176,7 +176,7 @@ dependencies = [
 [[package]]
 name = "bacnet-transport"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bacnet-encoding",
  "bacnet-types",
@@ -193,7 +193,7 @@ dependencies = [
 [[package]]
 name = "bacnet-types"
 version = "0.10.1"
-source = "git+https://github.com/jscott3201/rusty-bacnet?rev=c77f78445fbf40da15867fec28a36ea120ad1739#c77f78445fbf40da15867fec28a36ea120ad1739"
+source = "git+https://github.com/jscott3201/rusty-bacnet?rev=af4e88680c51eb4da64dac47f0540a35bf184732#af4e88680c51eb4da64dac47f0540a35bf184732"
 dependencies = [
  "bitflags 2.13.1",
  "smallvec",
@@ -588,6 +588,24 @@ dependencies = [
  "lab-common",
  "mstp-lab",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "mstp-passive-sniff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bacnet-transport",
+ "bytes",
+ "clap",
+ "lab-common",
+ "mstp-lab",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-serial",
  "tracing",
  "tracing-subscriber",
 ]
