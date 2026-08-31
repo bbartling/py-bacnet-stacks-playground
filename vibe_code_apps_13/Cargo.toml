@@ -25,16 +25,16 @@ all = "warn"
 pedantic = "warn"
 
 [workspace.dependencies]
-# rusty-bacnet pin: bbartling fork branch vibe13-mstp (Clause 9 CRC + USB + 9.5.6 token/PFM) — upstream PR https://github.com/jscott3201/rusty-bacnet/pull/467
-# Commits: a9912b8 USB gaps ≠ T_frame_abort; 6a70b85 Clause 9 CRC 0x81/0x8408
-bacnet-types = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-encoding = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-services = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-transport = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627", features = ["serial"] }
-bacnet-network = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-client = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-objects = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
-bacnet-server = { git = "https://github.com/bbartling/rusty-bacnet", rev = "19d205d78c947aea3fe98110d8a6c392359aa627" }
+# rusty-bacnet pin: jscott3201/dev @ af4e886 — PR #467 (CRC/token) and #468 (Python MS/TP) merged
+# Upstream candidate PRs (local branches): fix/mstp-validate-rust-config, fix/mstp-tx-completion-after-drain
+bacnet-types = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-encoding = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-services = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-transport = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732", features = ["serial"] }
+bacnet-network = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-client = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-objects = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
+bacnet-server = { git = "https://github.com/jscott3201/rusty-bacnet", rev = "af4e88680c51eb4da64dac47f0540a35bf184732" }
 anyhow = "1.0"
 bytes = "1"
 clap = { version = "4.5", features = ["derive"] }
