@@ -14,12 +14,10 @@ use bacnet_types::enums::{ObjectType, PropertyIdentifier};
 use bacnet_types::primitives::{ObjectIdentifier, PropertyValue};
 use clap::Parser;
 use lab_common::BaudRate;
-use mstp_lab::{master_config, open_mstp_transport};
+use mstp_lab::{master_config, open_mstp_transport, RUSTY_BACNET_REV};
 use serde::Serialize;
 use tokio::time::{sleep, timeout};
 use tracing::{error, info, warn};
-
-const RUSTY_BACNET_REV: &str = "e3b9edbd5d96d25e21855d5b1ca02f8e070bb1ef";
 
 #[derive(Parser, Debug)]
 #[command(

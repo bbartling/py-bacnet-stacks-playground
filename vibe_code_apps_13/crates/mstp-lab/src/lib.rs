@@ -31,3 +31,6 @@ pub use report::{
 };
 pub use token_edges::{TokenEdge, TokenEdgeCounters};
 pub use transport::{master_config, mstp_config_from_lab, open_mstp_transport, MstpEndpoint};
+
+/// Pinned `jscott3201/rusty-bacnet` git revision (must match workspace `Cargo.toml`).
+pub const RUSTY_BACNET_REV: &str = env!("RUSTY_BACNET_REV");

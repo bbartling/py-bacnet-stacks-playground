@@ -94,7 +94,9 @@ pub fn build_mini_device_database(cfg: &MiniDeviceConfig) -> Result<ObjectDataba
 /// Trusted local simulation update for AI:1 / BI:1 using `set_present_value`.
 ///
 /// Network WriteProperty to these inputs remains denied while in-service.
-/// Replaces the objects in-place because `dyn BACnetObject` has no downcast.
+/// Re-adds AI/BI after local `set_present_value` because `dyn BACnetObject` has no
+/// safe downcast for in-service input mutation. OIDs remain stable; object-local
+/// state (e.g. future COV) may reset — upstream `ObjectDatabase` mutation API TBD.
 pub fn apply_simulated_inputs(
     db: &mut ObjectDatabase,
     active: bool,
