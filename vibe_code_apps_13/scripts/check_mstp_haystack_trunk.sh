@@ -3,6 +3,8 @@
 #
 # Modes:
 #   check              — FEC + Rust mini-device points show curStatus/axStatus ok
+#   fec-only           — FEC/trunk online (no Rust mini-device required)
+#   mini-offline       — FEC ok; Rust mini-device absent or down (unplug/stop)
 #   perturb-stop-mini  — verify trunk/FEC stay ok when local mini-device is stopped
 #   restore            — same as check after mini-device should be running
 #
@@ -27,22 +29,6 @@ HS_URL="${HAYSTACK_BASE_URL:-https://192.168.204.11/haystack}"
 HS_USER="${HAYSTACK_USER:-${OPENFDD_HAYSTACK_USER:-}}"
 HS_PASS="${HAYSTACK_PASS:-${OPENFDD_HAYSTACK_PASS:-}}"
 
-case "${HS_URL%%://*}" in
-  https) ;;
-  *) bad "HAYSTACK_BASE_URL must use https:// (got ${HS_URL%%://*}://)" ;;
-esac
-
-curl_tls_args() {
-  if [[ -n "${HAYSTACK_CACERT:-}" ]]; then
-    echo --cacert "$HAYSTACK_CACERT"
-  elif [[ "${HAYSTACK_INSECURE:-}" == "1" ]]; then
-    echo -k
-  else
-    # System trust store — no certificate bypass.
-    true
-  fi
-}
-
 RED=$'\033[31m'
 GRN=$'\033[32m'
 DIM=$'\033[2m'
@@ -52,8 +38,23 @@ ok() { echo "${GRN}OK${RST}  $*"; }
 bad() { echo "${RED}FAIL${RST} $*" >&2; exit 1; }
 hdr() { echo; echo "== $*"; }
 
+case "${HS_URL%%://*}" in
+  https) ;;
+  *) bad "HAYSTACK_BASE_URL must use https:// (got ${HS_URL%%://*}://)" ;;
+esac
+
 require_creds() {
   [[ -n "$HS_USER" && -n "$HS_PASS" ]] || bad "HAYSTACK_USER/HAYSTACK_PASS required (see ~/open-fdd/.env)"
+}
+
+curl_tls_args() {
+  if [[ -n "${HAYSTACK_CACERT:-}" ]]; then
+    echo --cacert "$HAYSTACK_CACERT"
+  elif [[ "${HAYSTACK_INSECURE:-}" == "1" ]]; then
+    echo -k
+  else
+    true
+  fi
 }
 
 hs_nav() {
@@ -109,6 +110,33 @@ check_fec_points_nav() {
   ok "FEC points nav (7 points) curStatus ok"
 }
 
+check_fec_only() {
+  require_creds
+  hdr "Haystack /about"
+  # shellcheck disable=SC2046
+  curl -fsS $(curl_tls_args) --max-time 20 -u "$HS_USER:$HS_PASS" -H 'Accept: text/zinc' \
+    "$HS_URL/about" -o "$ART/haystack_about.zinc"
+  ok "Niagara /about"
+  hdr "FEC bench points (trunk online)"
+  check_fec_points_nav "$ART/haystack_fec_points.zinc"
+}
+
+check_mini_offline() {
+  require_creds
+  check_fec_only
+  hdr "Rust mini-device should be offline"
+  if hs_read 'point and dis=="read-only-ai"' "$ART/haystack_rust_ai_offline.zinc" 2>/dev/null; then
+    local status
+    status="$(extract_status "$(cat "$ART/haystack_rust_ai_offline.zinc")")"
+    if [[ "$status" == "ok" || "$status" == "operational" ]]; then
+      bad "read-only-ai still ok — mini-device may still be on trunk"
+    fi
+    ok "read-only-ai not operational (status=$status)"
+  else
+    ok "read-only-ai not reachable or absent in Haystack (expected when offline)"
+  fi
+}
+
 check_trunk() {
   require_creds
   hdr "Haystack /about"
@@ -134,6 +162,12 @@ case "$MODE" in
   check|restore)
     check_trunk
     ;;
+  fec-only)
+    check_fec_only
+    ;;
+  mini-offline)
+    check_mini_offline
+    ;;
   perturb-stop-mini)
     require_creds
     hdr "Perturbation: mini-device should be STOPPED; FEC must stay ok"
@@ -145,7 +179,7 @@ case "$MODE" in
     ok "FEC still ok with mini-device stopped"
     ;;
   *)
-    bad "usage: $0 {check|perturb-stop-mini|restore}"
+    bad "usage: $0 {check|fec-only|mini-offline|perturb-stop-mini|restore}"
     ;;
 esac
 

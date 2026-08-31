@@ -1,10 +1,10 @@
 # Phase 2 — Software results
 
-**Updated:** 2026-08-31 (prototype closeout)  
+**Updated:** 2026-08-31 (hardware evidence closeout in progress)  
 **rusty-bacnet pin (frozen):** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
 **Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
-**Vibe13 project SHA:** `26b71d02575f978d22a9d6eb24423dfe74274fb2` (`develop` after PR #127)  
-**Closeout doc:** [`PHASE2_PROTOTYPE_CLOSEOUT.md`](PHASE2_PROTOTYPE_CLOSEOUT.md)
+**Vibe13 project SHA:** `8e0b35429d17be852057bef0907c9f571f2a9e32` (`develop` after PR #128)  
+**Closeout docs:** [`PHASE2_PROTOTYPE_CLOSEOUT.md`](PHASE2_PROTOTYPE_CLOSEOUT.md), [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md)
 
 Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
 
@@ -53,6 +53,19 @@ Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** ev
 | Gate 3 FEC AI:1173 one-shot | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
 | Haystack Gate 4b (after ~2 min settle) | PASS | `captures/haystack-trunk/` |
 | Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
-| 1h / 24h soak | **Not run** this session | schedule after operator watch window |
+| 1h / 24h soak | **NOT RUN** — scripts ready | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) |
+| USB unplug gate | **NOT RUN** — scripts ready | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
+| Linux timing baseline | **PARTIAL** (kernel+FTDI; cyclictest skip — install `rt-tests`) | [`captures/linux-timing-af4e886-20260831T180531Z/`](../captures/linux-timing-af4e886-20260831T180531Z/) |
 
-**Go/no-go (minimal post-pin smoke):** **GO** for continued Gate 4 lab use at 38 400 on this topology. **No-go** for soak, mirror, router, or conformance claims.
+## Haystack trunk revalidation (2026-08-31 session)
+
+With mini-device running on trunk @ 38400:
+
+| Mode | Result |
+|------|--------|
+| `fec-only` | PASS |
+| `check` (FEC + Rust read-only-ai + device) | PASS |
+
+Use `HAYSTACK_INSECURE=1` (or `HAYSTACK_CACERT`) with `~/open-fdd/.env` on the bench.
+
+**Go/no-go:** **GO** for Gates 2–4+4b and continued lab use. **No-go** for 1h/24h soak, unplug hardware gate, or conformance claims until operator runs the scripts in [`PHASE2_HARDWARE_RUNBOOK.md`](PHASE2_HARDWARE_RUNBOOK.md).
