@@ -1,0 +1,10 @@
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=ohci-pci/3p, 12M
+/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=ehci-pci/6p, 480M
+/:  Bus 003.Port 001: Dev 001, Class=root_hub, Driver=ehci-pci/6p, 480M
+/:  Bus 004.Port 001: Dev 001, Class=root_hub, Driver=ohci-pci/3p, 12M
+/:  Bus 005.Port 001: Dev 001, Class=root_hub, Driver=ohci-pci/3p, 12M
+    |__ Port 001: Dev 009, If 0, Class=Vendor Specific Class, Driver=ftdi_sio, 12M
+/:  Bus 006.Port 001: Dev 001, Class=root_hub, Driver=ohci-pci/3p, 12M
+/:  Bus 007.Port 001: Dev 001, Class=root_hub, Driver=ohci-pci/2p, 12M
+/:  Bus 008.Port 001: Dev 001, Class=root_hub, Driver=xhci_hcd/2p, 480M
+/:  Bus 009.Port 001: Dev 001, Class=root_hub, Driver=xhci_hcd/2p, 5000M

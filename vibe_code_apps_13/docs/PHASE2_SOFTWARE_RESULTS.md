@@ -1,9 +1,8 @@
 # Phase 2 — Software results
 
-**Updated:** 2026-09-01 (Linux timing gate PASS)  
+**Updated:** 2026-09-01 (Linux timing evidence closeout)  
 **rusty-bacnet pin (frozen):** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
 **Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
-**Vibe13 project SHA:** `c023e94a` (`chore/linux-timing-gate-10m15m` / PR [#130](https://github.com/bbartling/py-bacnet-stacks-playground/pull/130))  
 **Closeout docs:** [`PHASE2_PROTOTYPE_CLOSEOUT.md`](PHASE2_PROTOTYPE_CLOSEOUT.md), [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md)
 
 Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
@@ -16,7 +15,7 @@ Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** ev
 | **Current mini-device blocker** | Upstream transport health notification (app uses serial-path watchdog); simulation still remove/re-add AI/BI (needs `ObjectDatabase` in-place mutation API) |
 | **Phase 2.1 mirror blocker** | Shared MS/TP endpoint (one tty, client+server) |
 | **Phase 3 router blocker** | Extended frames 32/33, COBS, CRC-32K, B/IP↔MS/TP routing |
-| **Conformance evidence gaps** | Six-baud timing matrix; golden vectors; 24h soak; BFR-derived router tests only in research doc |
+| **Conformance evidence gaps** | Six-baud timing matrix; golden vectors; BFR-derived router tests only in research doc |
 
 ## Upstream candidate PRs (local branches in `~/src/rusty-bacnet`)
 
@@ -53,18 +52,21 @@ Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** ev
 | Gate 3 FEC AI:1173 one-shot | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
 | Haystack Gate 4b (after ~2 min settle) | PASS | `captures/haystack-trunk/` |
 | Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
-| 1h / 24h soak | **NOT RUN** — scripts ready | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) |
-| USB unplug gate | **NOT RUN** — scripts ready | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
-| Linux timing baseline | **PASS** (10m idle + 15m loaded; max 365/197 µs vs 1562 µs bit-time indicator) | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
+| 1h soak script | **NOT RUN** — scripts ready | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) |
+| 24h continuity (same PID) | **PASS** — PID 646770, etimes>86400 at 2026-09-01T20:09:35Z | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
+| USB unplug gate | **DEFERRED** — operator gate | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
+| Linux timing baseline | **PASS** (10m idle + 15m loaded; stress-ng exit 0) | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
 
-### Linux cyclictest summary (2026-09-01, bensbench)
+### Linux cyclictest summary (2026-09-01, bensbench — post-fix capture)
 
-| Phase | Duration | Min (µs) | Avg (µs) | Max (µs) | vs 1562 µs (60 bit @ 38400) |
-|-------|----------|----------|----------|----------|-----------------------------|
-| Idle | 600 s | 4 | 5 | 365 | well under (scheduling-risk indicator only) |
-| Loaded (`stress-ng`) | 900 s | 4 | 5 | 197 | well under |
+Scheduling latency below **1,562.5 µs** (60 bit times @ 38400 baud) is a **host scheduling-risk** indicator only — **not BACnet Clause 9 wire-timing conformance**.
 
-Prior partial capture (tools missing): [`captures/linux-timing-af4e886-20260831T180531Z/`](../captures/linux-timing-af4e886-20260831T180531Z/) — do not overwrite.
+| Phase | Duration | Min (µs) | Avg (µs) | Max (µs) | vs 1562 µs |
+|-------|----------|----------|----------|----------|------------|
+| Idle | 600 s | 4 | 5 | 239 | under |
+| Loaded (`stress-ng`, docker) | 900 s | 4 | 11 | 2639 | under (loaded max higher, expected) |
+
+Prior capture **PARTIAL** (loaded invalid — stress-ng failure + gate bug): [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) — see `ERRATA.md`.
 
 ## Haystack trunk revalidation (2026-08-31 session)
 
@@ -77,4 +79,4 @@ With mini-device running on trunk @ 38400:
 
 Use `HAYSTACK_INSECURE=1` (or `HAYSTACK_CACERT`) with `~/open-fdd/.env` on the bench.
 
-**Go/no-go:** **GO** for Gates 2–4+4b and continued lab use. **No-go** for 1h/24h soak, unplug hardware gate, or conformance claims until operator runs the scripts in [`PHASE2_HARDWARE_RUNBOOK.md`](PHASE2_HARDWARE_RUNBOOK.md).
+**Go/no-go:** **GO** for Gates 2–4+4b, Linux timing host-risk gate, and 24h mini-device continuity. **No-go** for USB unplug gate or Clause 9 conformance claims until operator runs unplug script in [`PHASE2_HARDWARE_RUNBOOK.md`](PHASE2_HARDWARE_RUNBOOK.md).

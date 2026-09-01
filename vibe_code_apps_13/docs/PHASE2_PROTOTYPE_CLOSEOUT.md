@@ -20,9 +20,9 @@ A **stable, historical lab prototype**: server-only, standard-frame BACnet MS/TP
 | 4b — Haystack trunk | PASS | `captures/haystack-trunk/` |
 | 5–6 — shared endpoint / mirror | **OUT OF SCOPE** | not attempted |
 | 1h hardware soak | run [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
-| 24h soak | after 1h PASS | scheduled |
-| USB unplug gate | run [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | see `captures/mstp-usb-unplug-af4e886-*` |
-| Linux timing baseline | **PASS** | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
+| 24h continuity (same PID) | **PASS** | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
+| USB unplug gate | **DEFERRED** | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
+| Linux timing baseline | **PASS** | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
 
 Full manifest: [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md).
 
@@ -58,4 +58,4 @@ Record results in [`PHASE2_SOFTWARE_RESULTS.md`](PHASE2_SOFTWARE_RESULTS.md).
 
 ## Not allowed
 
-Clause 9 conformant, BTL, extended MS/TP, segmentation, FEC mirror, router, 1h/24h soak, or USB-unplug hardware gate claims.
+Clause 9 conformant, BTL, extended MS/TP, segmentation, FEC mirror, router, or USB-unplug hardware gate claims.

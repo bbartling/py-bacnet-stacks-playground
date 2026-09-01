@@ -1,6 +1,6 @@
 {
   "gate": "linux_timing_baseline",
-  "result": "pass",
+  "result": "partial",
   "stop_reason": null,
   "project_git_sha": "c023e94a5d9159dc60c4dd243f364643911071cd",
   "git_dirty": false,
@@ -13,7 +13,9 @@
   "mini_device_elapsed_secs": 80405,
   "retrospective_24h_endurance": false,
   "cyclictest_idle": "pass",
-  "cyclictest_loaded": "pass",
+  "cyclictest_loaded": "invalid",
+  "loaded_stress_ng": "fail",
+  "stress_ng_exit_code": null,
   "timing_idle_secs": 600,
   "timing_loaded_secs": 900,
   "started_utc": "2026-09-01T13:44:54Z",
@@ -21,5 +23,6 @@
   "baseline_exit_code": 0,
   "artifacts_dir": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_13/captures/linux-timing-af4e886-20260901T134454Z",
   "cyclictest_mode": "privileged_docker_pid_host",
-  "note": "baseline_exit_code corrected; script edit mid-run caused transient syntax error after cyclictest completed"
+  "errata": "ERRATA.md — loaded phase invalid (stress-ng libIPSec_MB failure + gate pass overwrite bug)",
+  "note": "historical capture; do not use loaded phase for evidence"
 }

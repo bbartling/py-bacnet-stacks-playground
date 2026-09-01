@@ -1,0 +1,3 @@
+ver:"3.0"
+dis,axType,navName,id,n4SlotPath,axSlotPath,device
+"Rust MS/TP Mini Device","bacnet:BacnetDevice","Rust-MS~2fTP-Mini-Device",@C.Drivers.BacnetNetwork.Rust-MS~2fTP-Mini-Device "Rust MS/TP Mini Device","slot:/Drivers/BacnetNetwork/Rust$20MS$2fTP$20Mini$20Device","slot:/Drivers/BacnetNetwork/Rust$20MS$2fTP$20Mini$20Device","bacnet"
