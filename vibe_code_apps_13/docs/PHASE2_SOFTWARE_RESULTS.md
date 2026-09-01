@@ -1,9 +1,9 @@
 # Phase 2 — Software results
 
-**Updated:** 2026-08-31 (hardware evidence closeout in progress)  
+**Updated:** 2026-09-01 (Linux timing gate PASS)  
 **rusty-bacnet pin (frozen):** `jscott3201/rusty-bacnet` @ `af4e88680c51eb4da64dac47f0540a35bf184732`  
 **Upstream merged:** [#467](https://github.com/jscott3201/rusty-bacnet/pull/467) (CRC/token), [#468](https://github.com/jscott3201/rusty-bacnet/pull/468) (Python MS/TP surfaces)  
-**Vibe13 project SHA:** `8e0b35429d17be852057bef0907c9f571f2a9e32` (`develop` after PR #128)  
+**Vibe13 project SHA:** `c023e94a` (`chore/linux-timing-gate-10m15m` / PR [#130](https://github.com/bbartling/py-bacnet-stacks-playground/pull/130))  
 **Closeout docs:** [`PHASE2_PROTOTYPE_CLOSEOUT.md`](PHASE2_PROTOTYPE_CLOSEOUT.md), [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md)
 
 Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** evidence for the current pin until revalidated.
@@ -55,7 +55,16 @@ Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** ev
 | Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
 | 1h / 24h soak | **NOT RUN** — scripts ready | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) |
 | USB unplug gate | **NOT RUN** — scripts ready | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
-| Linux timing baseline | **PARTIAL** (kernel+FTDI; cyclictest skip — install `rt-tests`) | [`captures/linux-timing-af4e886-20260831T180531Z/`](../captures/linux-timing-af4e886-20260831T180531Z/) |
+| Linux timing baseline | **PASS** (10m idle + 15m loaded; max 365/197 µs vs 1562 µs bit-time indicator) | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
+
+### Linux cyclictest summary (2026-09-01, bensbench)
+
+| Phase | Duration | Min (µs) | Avg (µs) | Max (µs) | vs 1562 µs (60 bit @ 38400) |
+|-------|----------|----------|----------|----------|-----------------------------|
+| Idle | 600 s | 4 | 5 | 365 | well under (scheduling-risk indicator only) |
+| Loaded (`stress-ng`) | 900 s | 4 | 5 | 197 | well under |
+
+Prior partial capture (tools missing): [`captures/linux-timing-af4e886-20260831T180531Z/`](../captures/linux-timing-af4e886-20260831T180531Z/) — do not overwrite.
 
 ## Haystack trunk revalidation (2026-08-31 session)
 

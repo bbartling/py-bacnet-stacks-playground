@@ -22,7 +22,7 @@ A **stable, historical lab prototype**: server-only, standard-frame BACnet MS/TP
 | 1h hardware soak | run [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
 | 24h soak | after 1h PASS | scheduled |
 | USB unplug gate | run [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | see `captures/mstp-usb-unplug-af4e886-*` |
-| Linux timing baseline | run [`scripts/run_linux_timing_gate.sh`](../scripts/run_linux_timing_gate.sh) | see `captures/linux-timing-af4e886-*` |
+| Linux timing baseline | **PASS** | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
 
 Full manifest: [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md).
 

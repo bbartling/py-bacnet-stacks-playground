@@ -1,0 +1,9 @@
+=== environment ===
+=== kernel ===
+=== CPU / governor ===
+=== USB topology ===
+=== FTDI latency_timer (if present) ===
+=== cyclictest idle (600s, loops=3000000) ===
+idle cyclictest complete
+=== cyclictest loaded (900s under stress-ng) ===
+loaded cyclictest complete

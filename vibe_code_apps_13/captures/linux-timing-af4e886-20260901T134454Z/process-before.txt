@@ -1,0 +1,8 @@
+utc=2026-09-01T13:44:54Z
+mini_pid_expected=646770
+    PID                  STARTED ELAPSED     ELAPSED STAT %CPU %MEM   RSS COMMAND
+ 646770 Mon Aug 31 15:24:48 2026   80406    22:20:06 Sl    0.6  0.0  3932 target/release/mstp-mini-device --serial /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0 --baud 38400 --mac 3 --max-master 7 --max-info-frames 1 --device-instance 123001 --name Rust MS/TP Mini Device --vendor-id 999
+ 13:44:54 up 3 days, 18:57,  1 user,  load average: 0.04, 0.15, 0.18
+               total        used        free      shared  buff/cache   available
+Mem:           7.5Gi       1.6Gi       433Mi       756Ki       5.8Gi       5.9Gi
+Swap:          4.0Gi       1.0Gi       3.0Gi
