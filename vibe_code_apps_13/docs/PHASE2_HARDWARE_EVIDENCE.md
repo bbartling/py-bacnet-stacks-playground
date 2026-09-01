@@ -35,7 +35,7 @@ Historical captures (`19d205d`, `e3b9edb`, `6a70b85`, `bbartling` fork) are **no
 
 | Gate | Script | Status |
 |------|--------|--------|
-| Linux timing baseline | [`scripts/run_linux_timing_gate.sh`](../scripts/run_linux_timing_gate.sh) | see `captures/linux-timing-af4e886-*` |
+| Linux timing baseline | **PASS** (10m idle + 15m loaded cyclictest; PR [#130](https://github.com/bbartling/py-bacnet-stacks-playground/pull/130)) | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
 | 1h mini-device soak | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
 | 24h soak | same script `--seconds 86400` | scheduled after 1h PASS |
 | USB unplug | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | see `captures/mstp-usb-unplug-af4e886-*` |

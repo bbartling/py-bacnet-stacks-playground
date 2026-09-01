@@ -236,7 +236,7 @@ if grep -q 'T:' "$ART/cyclictest-idle.txt" 2>/dev/null && grep -q 'T:' "$ART/cyc
 elif grep -q 'T:' "$ART/cyclictest-idle.txt" 2>/dev/null || grep -q 'T:' "$ART/cyclictest-loaded.txt" 2>/dev/null; then
   echo "partial" >"$RESULT_FILE"
 elif [[ "$current_result" == "partial" ]]; then
-  : # preserve earlier partial from failed attempt
+  true
 else
   echo "partial" >"$RESULT_FILE"
 fi
