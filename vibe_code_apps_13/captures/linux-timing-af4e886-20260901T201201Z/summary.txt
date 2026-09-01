@@ -1,0 +1,14 @@
+=== environment ===
+=== kernel ===
+=== CPU / governor ===
+=== USB topology ===
+=== FTDI latency_timer (if present) ===
+Haystack before check PASS
+=== cyclictest idle (600s, loops=3000000) ===
+idle cyclictest complete
+=== cyclictest loaded (900s under stress-ng, mode=docker) ===
+loaded cyclictest complete
+stress-ng exit code: 0
+Haystack after check PASS
+=== load snapshot ===
+artifacts: /home/ben/py-bacnet-stacks-playground/vibe_code_apps_13/captures/linux-timing-af4e886-20260901T201201Z

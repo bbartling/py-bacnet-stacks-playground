@@ -1,0 +1,3 @@
+ver:"3.0"
+cur,curStatus,point,dis,curVal,axType,navName,id,n4SlotPath,axSlotPath,kind,unit,axStatus
+M,"ok",M,"read-only-ai",2°C,"control:NumericPoint","read~2donly~2dai",@C.Drivers.BacnetNetwork.Rust-MS~2fTP-Mini-Device.points.read~2donly~2dai "read-only-ai","slot:/Drivers/BacnetNetwork/Rust$20MS$2fTP$20Mini$20Device/points/read$2donly$2dai","slot:/Drivers/BacnetNetwork/Rust$20MS$2fTP$20Mini$20Device/points/read$2donly$2dai","Number","°C","ok"

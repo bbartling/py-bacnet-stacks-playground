@@ -1,0 +1,2 @@
+# /dev/cpu_dma_latency set to 0us
+cyclictest: failed to set priority

@@ -1,0 +1,22 @@
+{
+  "thread_count": 1,
+  "overall_min_us": 4,
+  "overall_avg_us": 11.0,
+  "overall_max_us": 2639,
+  "sched_policy": "SCHED_FIFO",
+  "sched_priority": 80,
+  "threads": [
+    {
+      "thread": 0,
+      "samples": 932818,
+      "priority": 80,
+      "interval_us": 200,
+      "cycles": 4500000,
+      "min_us": 4,
+      "act_us": 23,
+      "avg_us": 11,
+      "max_us": 2639
+    }
+  ],
+  "overall_avg_us_rounded": 11
+}

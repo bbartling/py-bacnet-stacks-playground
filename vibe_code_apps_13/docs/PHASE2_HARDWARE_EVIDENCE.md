@@ -35,10 +35,11 @@ Historical captures (`19d205d`, `e3b9edb`, `6a70b85`, `bbartling` fork) are **no
 
 | Gate | Script | Status |
 |------|--------|--------|
-| Linux timing baseline | **PASS** (10m idle + 15m loaded cyclictest; PR [#130](https://github.com/bbartling/py-bacnet-stacks-playground/pull/130)) | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) |
+| Linux timing baseline | **PASS** (post-fix; PR timing evidence closeout) | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
+| Linux timing (prior) | **PARTIAL** — loaded invalid | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) (`ERRATA.md`) |
+| 24h mini-device continuity | **PASS** (PID 646770 unchanged, etimes>86400) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
 | 1h mini-device soak | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
-| 24h soak | same script `--seconds 86400` | scheduled after 1h PASS |
-| USB unplug | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | see `captures/mstp-usb-unplug-af4e886-*` |
+| USB unplug | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | **DEFERRED** — operator gate |
 
 ## Out of scope for this trunk
 

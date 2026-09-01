@@ -49,6 +49,51 @@ elif [[ -f "$ART/cyclictest-stress.txt" ]] && grep -q 'T:' "$ART/cyclictest-stre
   CYCLIC_LOADED="pass"
 fi
 
+STRESS_EXIT="null"
+if [[ -f "$ART/stress-ng.exit" ]]; then
+  STRESS_EXIT_RAW="$(tr -d '[:space:]' <"$ART/stress-ng.exit")"
+  if [[ "$STRESS_EXIT_RAW" == "missing" ]]; then
+    STRESS_EXIT="null"
+  elif [[ "$STRESS_EXIT_RAW" =~ ^[0-9]+$ ]]; then
+    STRESS_EXIT="$STRESS_EXIT_RAW"
+  fi
+fi
+
+STRESS_CMD=""
+if [[ -f "$ART/stress-ng.txt" ]]; then
+  STRESS_CMD="$(head -1 "$ART/stress-ng.txt" | tr -d '\n')"
+fi
+
+HAYSTACK_BEFORE="skip"
+HAYSTACK_AFTER="skip"
+[[ -f "$ART/haystack-before.status" ]] && HAYSTACK_BEFORE="$(tr -d '[:space:]' <"$ART/haystack-before.status")"
+[[ -f "$ART/haystack-after.status" ]] && HAYSTACK_AFTER="$(tr -d '[:space:]' <"$ART/haystack-after.status")"
+
+PREEMPT_CONFIG=""
+if [[ -f "$ART/preempt-config.txt" ]]; then
+  PREEMPT_CONFIG="$(tr '\n' ';' <"$ART/preempt-config.txt" | sed 's/;$//')"
+fi
+
+CYCLICTEST_MODE=""
+if [[ -f "$ART/environment.txt" ]]; then
+  CYCLICTEST_MODE="$(grep -m1 '^cyclictest_mode=' "$ART/environment.txt" 2>/dev/null | cut -d= -f2- || true)"
+fi
+if [[ -z "$CYCLICTEST_MODE" && -f "$ART/cyclictest-meta.txt" ]]; then
+  CYCLICTEST_MODE="$(grep -m1 '^cyclictest_mode=' "$ART/cyclictest-meta.txt" 2>/dev/null | cut -d= -f2- || true)"
+fi
+
+CONTAINER_DIGEST=""
+if [[ -f "$ART/cyclictest-meta.txt" ]]; then
+  CONTAINER_DIGEST="$(grep -m1 '^container_image_digest=' "$ART/cyclictest-meta.txt" 2>/dev/null | cut -d= -f2- || true)"
+fi
+
+CYCLICTEST_VERSION=""
+CYCLICTEST_COMMAND=""
+if [[ -f "$ART/cyclictest-meta.txt" ]]; then
+  CYCLICTEST_VERSION="$(grep -m1 '^cyclictest_version=' "$ART/cyclictest-meta.txt" 2>/dev/null | cut -d= -f2- || true)"
+  CYCLICTEST_COMMAND="$(grep -m1 '^cyclictest_command=' "$ART/cyclictest-meta.txt" 2>/dev/null | cut -d= -f2- || true)"
+fi
+
 RESULT="partial"
 STOP_REASON=""
 if [[ -f "$ART/.gate_result" ]]; then
@@ -57,9 +102,16 @@ fi
 if [[ "$RESULT" == "stopped" && -s "$ART/stop-reason.txt" ]]; then
   STOP_REASON="$(head -1 "$ART/stop-reason.txt")"
 fi
-if [[ "$RESULT" != "stopped" && "$RESULT" != "pass" ]]; then
-  if [[ "$CYCLIC_IDLE" == "pass" && "$CYCLIC_LOADED" == "pass" ]]; then
-    RESULT="pass"
+
+# Do not upgrade partial when stress-ng failed.
+if [[ "$RESULT" == "pass" && "$STRESS_EXIT" != "null" && "$STRESS_EXIT" -ne 0 ]]; then
+  RESULT="partial"
+  CYCLIC_LOADED="invalid"
+fi
+if [[ "$RESULT" == "pass" && "$CYCLIC_LOADED" == "pass" && "$STRESS_EXIT" == "null" && -f "$ART/stress-ng.log" ]]; then
+  if grep -qi 'error while loading shared libraries' "$ART/stress-ng.log" 2>/dev/null; then
+    RESULT="partial"
+    CYCLIC_LOADED="invalid"
   fi
 fi
 
@@ -68,73 +120,77 @@ if [[ -n "$MINI_ELAPSED" && "$MINI_ELAPSED" -ge 86400 ]]; then
   RETROSPECTIVE_24H="true"
 fi
 
-GIT_DIRTY_PY="False"
-[[ "$GIT_DIRTY" == "true" ]] && GIT_DIRTY_PY="True"
-RETROSPECTIVE_24H_PY="False"
-[[ "$RETROSPECTIVE_24H" == "true" ]] && RETROSPECTIVE_24H_PY="True"
-FTDI_LAT_PY="null"
-[[ -n "$LATENCY_TIMER" ]] && FTDI_LAT_PY="$LATENCY_TIMER"
+python3 "$ROOT/scripts/cyclictest_summary.py" "$ART/cyclictest-idle.txt" \
+  >"$ART/cyclictest-summary-idle.json" 2>/dev/null || echo '{}' >"$ART/cyclictest-summary-idle.json"
+python3 "$ROOT/scripts/cyclictest_summary.py" "$ART/cyclictest-loaded.txt" \
+  >"$ART/cyclictest-summary-loaded.json" 2>/dev/null || echo '{}' >"$ART/cyclictest-summary-loaded.json"
+
+THREADS_IDLE="$(python3 -c "import json; print(json.load(open('$ART/cyclictest-summary-idle.json')).get('thread_count', 0))" 2>/dev/null || echo 0)"
+THREADS_LOADED="$(python3 -c "import json; print(json.load(open('$ART/cyclictest-summary-loaded.json')).get('thread_count', 0))" 2>/dev/null || echo 0)"
 
 python3 - <<PY
-import json, pathlib
-path = pathlib.Path("$ART") / "manifest.json"
-path.write_text(json.dumps({
-    "gate": "linux_timing_baseline",
-    "result": "$RESULT",
-    "stop_reason": "$STOP_REASON" or None,
-    "project_git_sha": "$PROJECT_SHA",
-    "git_dirty": $GIT_DIRTY_PY,
-    "rusty_bacnet_rev": "$RUSTY_REV",
-    "kernel": "$KERNEL",
-    "arch": "$ARCH",
-    "serial_by_id": "$PORT",
-    "ftdi_latency_timer": $FTDI_LAT_PY,
-    "mini_device_pid": int("$MINI_PID") if "$MINI_PID".isdigit() else None,
-    "mini_device_elapsed_secs": int("$MINI_ELAPSED") if "$MINI_ELAPSED".isdigit() else None,
-    "retrospective_24h_endurance": $RETROSPECTIVE_24H_PY,
-    "cyclictest_idle": "$CYCLIC_IDLE",
-    "cyclictest_loaded": "$CYCLIC_LOADED",
-    "timing_idle_secs": int("${TIMING_IDLE_SECS:-600}"),
-    "timing_loaded_secs": int("${TIMING_LOADED_SECS:-900}"),
-    "started_utc": "$START_UTC",
-    "ended_utc": "$END_UTC",
-    "baseline_exit_code": $BASELINE_RC,
-    "artifacts_dir": "$ART",
-}, indent=2) + "\n")
-PY
+import json, pathlib, sys
+sys.path.insert(0, "$ROOT/scripts")
+from cyclictest_summary import format_result_section, parse_cyclictest_text
 
-# Human-readable summary for evidence closeout.
-python3 - <<'PY' "$ART" "$RESULT"
-import pathlib, re, sys
-art = pathlib.Path(sys.argv[1])
-result = sys.argv[2]
+art = pathlib.Path("$ART")
+result = "$RESULT"
 lines = [
     "# Linux timing gate result",
     "",
     f"**Verdict:** {result}",
+    "",
+    "Scheduling latency below 1,562.5 µs (60 bit times @ 38400 baud) is a **host-risk**",
+    "measurement only — not BACnet Clause 9 wire-timing conformance.",
     "",
 ]
 for name in ("cyclictest-idle.txt", "cyclictest-loaded.txt"):
     p = art / name
     if not p.exists():
         continue
-    text = p.read_text(errors="replace")
-    summary = [ln for ln in text.splitlines() if "Min:" in ln and "Avg:" in ln and "Max:" in ln]
-    if not summary:
+    summary = parse_cyclictest_text(p.read_text(errors="replace"))
+    if summary is None:
         continue
-    m = re.search(r"Min:\s*(\d+).*?Avg:\s*(\d+).*?Max:\s*(\d+)", summary[-1])
-    if not m:
-        continue
-    min_us, avg_us, max_us = (int(x) for x in m.groups())
-    lines += [
-        f"## {name}",
-        f"- min: {min_us} us",
-        f"- avg: {avg_us} us",
-        f"- max: {max_us} us",
-        f"- vs 1562 us (60 bit @ 38400): scheduling-risk indicator only",
-        "",
-    ]
+    lines.extend(format_result_section(name, summary))
 (art / "result.md").write_text("\n".join(lines) + "\n")
+
+manifest = {
+    "gate": "linux_timing_baseline",
+    "result": "$RESULT",
+    "stop_reason": "$STOP_REASON" or None,
+    "project_git_sha": "$PROJECT_SHA",
+    "git_dirty": "$GIT_DIRTY" == "true",
+    "rusty_bacnet_rev": "$RUSTY_REV",
+    "kernel": "$KERNEL",
+    "arch": "$ARCH",
+    "preempt_config": "$PREEMPT_CONFIG" or None,
+    "serial_by_id": "$PORT",
+    "ftdi_latency_timer": int("$LATENCY_TIMER") if "$LATENCY_TIMER".isdigit() else None,
+    "mini_device_pid": int("$MINI_PID") if "$MINI_PID".isdigit() else None,
+    "mini_device_elapsed_secs": int("$MINI_ELAPSED") if "$MINI_ELAPSED".isdigit() else None,
+    "retrospective_24h_endurance": "$RETROSPECTIVE_24H" == "true",
+    "cyclictest_idle": "$CYCLIC_IDLE",
+    "cyclictest_loaded": "$CYCLIC_LOADED",
+    "cyclictest_threads_idle": int("$THREADS_IDLE"),
+    "cyclictest_threads_loaded": int("$THREADS_LOADED"),
+    "cyclictest_version": "$CYCLICTEST_VERSION" or None,
+    "cyclictest_command": "$CYCLICTEST_COMMAND" or None,
+    "sched_policy": "SCHED_FIFO",
+    "sched_priority": 80,
+    "cyclictest_mode": "$CYCLICTEST_MODE" or None,
+    "container_image_digest": "$CONTAINER_DIGEST" or None,
+    "stress_ng_command": "$STRESS_CMD" or None,
+    "stress_ng_exit_code": $STRESS_EXIT,
+    "haystack_before": "$HAYSTACK_BEFORE",
+    "haystack_after": "$HAYSTACK_AFTER",
+    "timing_idle_secs": int("${TIMING_IDLE_SECS:-600}"),
+    "timing_loaded_secs": int("${TIMING_LOADED_SECS:-900}"),
+    "started_utc": "$START_UTC",
+    "ended_utc": "$END_UTC",
+    "baseline_exit_code": $BASELINE_RC,
+    "artifacts_dir": "$ART",
+}
+pathlib.Path("$ART/manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 PY
 
 echo "Timing gate complete: result=$RESULT artifacts=$ART"

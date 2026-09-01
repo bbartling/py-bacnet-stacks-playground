@@ -43,6 +43,8 @@ jobs:
         run: |
           cargo install cargo-deny --locked --version 0.18.2 || true
           cargo deny --manifest-path Cargo.toml check || true
+      - name: cyclictest summary parser
+        run: python3 scripts/test_cyclictest_summary.py
       - name: Streamlit console smoke (AppTest)
         run: |
           python3 -m venv .venv-ci

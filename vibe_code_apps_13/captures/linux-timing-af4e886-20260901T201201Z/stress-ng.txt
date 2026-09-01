@@ -1,0 +1,2 @@
+docker run --rm --privileged --pid=host --name vibe13-stress-931250 ubuntu:24.04 bash -c apt-get\ update\ -qq\ \&\&\ apt-get\ install\ -y\ -qq\ stress-ng\ \>/dev/null\ \&\&\ exec\ stress-ng\ --cpu\ 2\ --io\ 1\ --vm\ 1\ --vm-bytes\ 70%\ --timeout\ 900s 
+stress_ng_mode=docker

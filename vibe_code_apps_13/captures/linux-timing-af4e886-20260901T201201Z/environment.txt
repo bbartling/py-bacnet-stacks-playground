@@ -1,0 +1,10 @@
+utc_start=2026-09-01T20:12:01Z
+timing_idle_secs=600
+timing_loaded_secs=900
+mstp_serial=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0
+mini_pid=646770
+Linux bensbench 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+BOOT_IMAGE=/vmlinuz-6.8.0-138-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro
+tsc
+cyclictest_mode=privileged docker (--pid=host) fallback; host lacks RTPRIO/cap_sys_nice
+cyclictest_mode=privileged docker (--pid=host) fallback; host lacks RTPRIO/cap_sys_nice

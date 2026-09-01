@@ -44,6 +44,7 @@ vibe_code_apps_13/captures/*
 !vibe_code_apps_13/captures/phase2-no-ip-gate-status.txt
 !vibe_code_apps_13/captures/linux-timing-af4e886-*/
 !vibe_code_apps_13/captures/linux-timing-af4e886-*/**
+!vibe_code_apps_13/captures/mini-device-24h-continuity-*.txt
 !vibe_code_apps_13/captures/mstp-soak-af4e886-*/
 !vibe_code_apps_13/captures/mstp-soak-af4e886-*/**
 !vibe_code_apps_13/captures/mstp-usb-unplug-af4e886-*/
