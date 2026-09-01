@@ -17,6 +17,7 @@ RESULT_FILE="${ART}/.gate_result"
 STOP_REASON_FILE="${ART}/.stop_reason"
 : >"$RESULT_FILE"
 : >"$STOP_REASON_FILE"
+: >"$ART/stop-reason.txt"
 
 record() { echo "$*" | tee -a "$ART/summary.txt"; }
 
@@ -147,8 +148,12 @@ lscpu | tee "$ART/lscpu.txt"
 cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null | tee "$ART/cpu-governor.txt" || true
 
 record "=== USB topology ==="
-lsusb | tee "$ART/lsusb.txt"
-lsusb -t 2>/dev/null | tee "$ART/lsusb-t.txt" || true
+if command -v lsusb >/dev/null; then
+  lsusb | tee "$ART/lsusb.txt" || echo "(lsusb failed)" | tee "$ART/lsusb.txt"
+  lsusb -t 2>/dev/null | tee "$ART/lsusb-t.txt" || true
+else
+  echo "(lsusb not installed)" | tee "$ART/lsusb.txt"
+fi
 
 record "=== FTDI latency_timer (if present) ==="
 if [[ -e "$PORT" ]]; then
@@ -185,20 +190,29 @@ else
     "${STRESS_CMD[@]}" >"$ART/stress-ng.log" 2>&1 &
     SPID=$!
     sleep 2
-    snapshot_mini_process "loaded"
-    if run_cyclictest "$ART/cyclictest-loaded.txt" "$loaded_loops"; then
-      record "loaded cyclictest complete"
+    if ! kill -0 "$SPID" 2>/dev/null; then
+      record "stress-ng exited before loaded cyclictest could start"
+      echo "partial" >"$RESULT_FILE"
     else
-      record "loaded cyclictest failed or empty"
+      snapshot_mini_process "loaded"
+      if run_cyclictest "$ART/cyclictest-loaded.txt" "$loaded_loops"; then
+        record "loaded cyclictest complete"
+      else
+        record "loaded cyclictest failed or empty"
+        echo "partial" >"$RESULT_FILE"
+      fi
+    fi
+    if ! wait "$SPID" 2>/dev/null; then
+      record "stress-ng exited with error during loaded phase"
       echo "partial" >"$RESULT_FILE"
     fi
-    wait "$SPID" 2>/dev/null || true
   else
     record "stress-ng missing — skip loaded cyclictest"
     echo "partial" >"$RESULT_FILE"
   fi
 fi
 
+check_mini_health
 capture_kernel_usb "$ART/kernel-usb-after.txt"
 snapshot_mini_process "after"
 
@@ -211,17 +225,20 @@ record "=== load snapshot ==="
 uptime | tee "$ART/uptime.txt"
 record "artifacts: $ART"
 
-if [[ "$(cat "$RESULT_FILE")" == "stopped" ]]; then
+if [[ "$(tr -d '[:space:]' <"$RESULT_FILE")" == "stopped" ]]; then
   echo "Timing baseline stopped — see $ART/stop-reason.txt"
   exit 1
 fi
 
+current_result="$(tr -d '[:space:]' <"$RESULT_FILE")"
 if grep -q 'T:' "$ART/cyclictest-idle.txt" 2>/dev/null && grep -q 'T:' "$ART/cyclictest-loaded.txt" 2>/dev/null; then
   echo "pass" >"$RESULT_FILE"
 elif grep -q 'T:' "$ART/cyclictest-idle.txt" 2>/dev/null || grep -q 'T:' "$ART/cyclictest-loaded.txt" 2>/dev/null; then
   echo "partial" >"$RESULT_FILE"
+elif [[ "$current_result" == "partial" ]]; then
+  : # preserve earlier partial from failed attempt
 else
-  echo "skip" >"$RESULT_FILE"
+  echo "partial" >"$RESULT_FILE"
 fi
 
 echo "Timing baseline complete — see $ART (result=$(cat "$RESULT_FILE"))"

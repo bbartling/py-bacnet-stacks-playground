@@ -38,8 +38,8 @@ if [[ -e "$PORT" ]]; then
   [[ -f "$LAT" ]] && LATENCY_TIMER="$(cat "$LAT")"
 fi
 
-CYCLIC_IDLE="skip"
-CYCLIC_LOADED="skip"
+CYCLIC_IDLE="fail"
+CYCLIC_LOADED="fail"
 if [[ -f "$ART/cyclictest-idle.txt" ]] && grep -q 'T:' "$ART/cyclictest-idle.txt" 2>/dev/null; then
   CYCLIC_IDLE="pass"
 fi
@@ -54,15 +54,12 @@ STOP_REASON=""
 if [[ -f "$ART/.gate_result" ]]; then
   RESULT="$(tr -d '[:space:]' <"$ART/.gate_result")"
 fi
-if [[ -f "$ART/stop-reason.txt" ]]; then
+if [[ "$RESULT" == "stopped" && -s "$ART/stop-reason.txt" ]]; then
   STOP_REASON="$(head -1 "$ART/stop-reason.txt")"
-  RESULT="stopped"
 fi
 if [[ "$RESULT" != "stopped" && "$RESULT" != "pass" ]]; then
   if [[ "$CYCLIC_IDLE" == "pass" && "$CYCLIC_LOADED" == "pass" ]]; then
     RESULT="pass"
-  elif [[ "$CYCLIC_IDLE" == "skip" && "$CYCLIC_LOADED" == "skip" ]]; then
-    RESULT="skip"
   fi
 fi
 
@@ -122,22 +119,26 @@ for name in ("cyclictest-idle.txt", "cyclictest-loaded.txt"):
     if not p.exists():
         continue
     text = p.read_text(errors="replace")
-    nums = [int(x) for x in re.findall(r"T:\s*(\d+)", text)]
-    if nums:
-        lines += [
-            f"## {name}",
-            f"- samples: {len(nums)}",
-            f"- min: {min(nums)} us",
-            f"- avg: {sum(nums)//len(nums)} us",
-            f"- max: {max(nums)} us",
-            f"- vs 1562 us (60 bit @ 38400): scheduling-risk indicator only",
-            "",
-        ]
+    summary = [ln for ln in text.splitlines() if "Min:" in ln and "Avg:" in ln and "Max:" in ln]
+    if not summary:
+        continue
+    m = re.search(r"Min:\s*(\d+).*?Avg:\s*(\d+).*?Max:\s*(\d+)", summary[-1])
+    if not m:
+        continue
+    min_us, avg_us, max_us = (int(x) for x in m.groups())
+    lines += [
+        f"## {name}",
+        f"- min: {min_us} us",
+        f"- avg: {avg_us} us",
+        f"- max: {max_us} us",
+        f"- vs 1562 us (60 bit @ 38400): scheduling-risk indicator only",
+        "",
+    ]
 (art / "result.md").write_text("\n".join(lines) + "\n")
 PY
 
 echo "Timing gate complete: result=$RESULT artifacts=$ART"
-if [[ "$RESULT" == "skip" ]]; then
-  echo "NOTE: install rt-tests and stress-ng for full cyclictest evidence"
+if [[ "$RESULT" == "partial" ]]; then
+  echo "NOTE: timing evidence incomplete — see cyclictest artifacts and summary.txt"
 fi
 exit "$BASELINE_RC"
