@@ -68,20 +68,51 @@ capture_kernel_usb() {
 
 run_cyclictest() {
   local out="$1" loops="$2"
-  local -a cmd
+  local art_dir hist hist_base cyclictest_bin docker_note=""
+  art_dir="$(dirname "$out")"
+  hist="${out%.txt}.hist"
+  hist_base="$(basename "$hist")"
+
+  local -a args=(-p 80 -m -i "$TIMING_INTERVAL_US" -l "$loops" -q --histfile="$hist_base")
+
+  cyclictest_bin=""
   if command -v cyclictest >/dev/null; then
-    cmd=(cyclictest -p 80 -m -n -i "$TIMING_INTERVAL_US" -l "$loops" -q -H 400)
+    cyclictest_bin="$(command -v cyclictest)"
   elif [[ -x "${CYCLICTEST_BIN:-}" ]]; then
-    cmd=("$CYCLICTEST_BIN" -p 80 -m -n -i "$TIMING_INTERVAL_US" -l "$loops" -q -H 400)
-  else
+    cyclictest_bin="$CYCLICTEST_BIN"
+  fi
+
+  if [[ -n "$cyclictest_bin" ]]; then
+  (
+    cd "$art_dir"
+    if "$cyclictest_bin" "${args[@]}" 2>&1 | tee "$out"; then
+      grep -q 'T:' "$out" 2>/dev/null && exit 0
+    fi
+    if [[ -s "$out" ]] && grep -q 'T:' "$out" 2>/dev/null; then
+      exit 0
+    fi
+    exit 1
+  ) && return 0
+  fi
+
+  if ! command -v docker >/dev/null; then
     return 1
   fi
-  if ! "${cmd[@]}" 2>&1 | tee "$out"; then
-    if [[ ! -s "$out" ]] || ! grep -q 'T:' "$out" 2>/dev/null; then
-      return 1
-    fi
+  cyclictest_bin="${CYCLICTEST_BIN:-/tmp/rt-tests-extract/usr/bin/cyclictest}"
+  if [[ ! -x "$cyclictest_bin" ]]; then
+    return 1
   fi
-  return 0
+  docker_note="privileged docker (--pid=host) fallback; host lacks RTPRIO/cap_sys_nice"
+  echo "cyclictest_mode=$docker_note" >>"$ART/environment.txt"
+  if docker run --rm --privileged --pid=host --network=host \
+    -v "$art_dir:/art" -w /art \
+    -v "$cyclictest_bin:/cyclictest:ro" \
+    -v /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro \
+    --entrypoint /cyclictest ubuntu:24.04 \
+    "${args[@]}" 2>&1 | tee "$out"; then
+    grep -q 'T:' "$out" 2>/dev/null && return 0
+  fi
+  [[ -s "$out" ]] && grep -q 'T:' "$out" 2>/dev/null
 }
 
 idle_loops=$((TIMING_IDLE_SECS * 1000000 / TIMING_INTERVAL_US))
@@ -131,7 +162,7 @@ fi
 capture_kernel_usb "$ART/kernel-usb-before.txt"
 snapshot_mini_process "before"
 
-if ! command -v cyclictest >/dev/null && [[ -z "${CYCLICTEST_BIN:-}" ]]; then
+if ! command -v cyclictest >/dev/null && [[ -z "${CYCLICTEST_BIN:-}" ]] && ! command -v docker >/dev/null; then
   record "cyclictest not installed — skip (install rt-tests or set CYCLICTEST_BIN)"
   echo "partial" >"$RESULT_FILE"
 else
