@@ -1,0 +1,2 @@
+counter_capture=N/A
+note=mini-device does not export MS/TP CRC counters via HTTP; observe Niagara/Haystack for trunk health
