@@ -28,7 +28,8 @@ mark_stopped() {
 }
 
 snapshot_mini_process() {
-  local label="$1" out="$ART/process-${label}.txt"
+  local label="$1"
+  local out="$ART/process-${label}.txt"
   {
     echo "utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "mini_pid_expected=${MINI_PID:-}"

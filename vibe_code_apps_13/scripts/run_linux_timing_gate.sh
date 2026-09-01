@@ -71,6 +71,13 @@ if [[ -n "$MINI_ELAPSED" && "$MINI_ELAPSED" -ge 86400 ]]; then
   RETROSPECTIVE_24H="true"
 fi
 
+GIT_DIRTY_PY="False"
+[[ "$GIT_DIRTY" == "true" ]] && GIT_DIRTY_PY="True"
+RETROSPECTIVE_24H_PY="False"
+[[ "$RETROSPECTIVE_24H" == "true" ]] && RETROSPECTIVE_24H_PY="True"
+FTDI_LAT_PY="null"
+[[ -n "$LATENCY_TIMER" ]] && FTDI_LAT_PY="$LATENCY_TIMER"
+
 python3 - <<PY
 import json, pathlib
 path = pathlib.Path("$ART") / "manifest.json"
@@ -79,15 +86,15 @@ path.write_text(json.dumps({
     "result": "$RESULT",
     "stop_reason": "$STOP_REASON" or None,
     "project_git_sha": "$PROJECT_SHA",
-    "git_dirty": $GIT_DIRTY,
+    "git_dirty": $GIT_DIRTY_PY,
     "rusty_bacnet_rev": "$RUSTY_REV",
     "kernel": "$KERNEL",
     "arch": "$ARCH",
     "serial_by_id": "$PORT",
-    "ftdi_latency_timer": "$LATENCY_TIMER" or None,
+    "ftdi_latency_timer": $FTDI_LAT_PY,
     "mini_device_pid": int("$MINI_PID") if "$MINI_PID".isdigit() else None,
     "mini_device_elapsed_secs": int("$MINI_ELAPSED") if "$MINI_ELAPSED".isdigit() else None,
-    "retrospective_24h_endurance": $RETROSPECTIVE_24H,
+    "retrospective_24h_endurance": $RETROSPECTIVE_24H_PY,
     "cyclictest_idle": "$CYCLIC_IDLE",
     "cyclictest_loaded": "$CYCLIC_LOADED",
     "timing_idle_secs": int("${TIMING_IDLE_SECS:-600}"),
