@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from vibe23.envfile import parse_env_file
 from vibe23.residential.constants import DT_HOURS
 from vibe23.residential.model import MODEL_IDF
@@ -21,6 +23,7 @@ from vibe23.studio.uploads import expand_tariff_to_288, parse_epw_day, parse_tar
 
 
 def test_parse_residential_idf_massing() -> None:
+    pytest.importorskip("plotly")
     geom = parse_idf_geometry(MODEL_IDF)
     assert geom.surfaces
     assert "ZONE ONE" in geom.zone_names

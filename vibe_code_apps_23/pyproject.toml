@@ -10,9 +10,9 @@ requires-python = ">=3.12"
 dependencies = ["matplotlib>=3.9", "numpy>=2.0", "pandas>=2.2", "pydantic>=2.6", "tzdata>=2024.1"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.12"]
-compute = ["psutil>=5.9"]
 studio = ["streamlit>=1.37", "plotly>=5.20"]
+dev = ["pytest>=8.0", "ruff>=0.12", "streamlit>=1.37", "plotly>=5.20"]
+compute = ["psutil>=5.9"]
 
 [project.scripts]
 vibe23 = "vibe23.cli:main"

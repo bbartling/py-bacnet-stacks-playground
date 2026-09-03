@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 os.environ["VIBE23_STUDIO_PLAY_ONCE"] = "1"
 
+pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 
