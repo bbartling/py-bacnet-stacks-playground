@@ -1,0 +1,8 @@
+{
+  "schema": "vibe23.tariff.v1",
+  "tariff_id": "illustrative_winter_tou_weekday",
+  "evidence": "ILLUSTRATIVE",
+  "energy_rates_per_kwh_hourly": [0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.35, 0.35, 0.35, 0.14, 0.14, 0.14, 0.14, 0.14, 0.14, 0.14, 0.40, 0.40, 0.40, 0.40, 0.40, 0.12, 0.12, 0.12],
+  "notes": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF — expand to 288 via residential.tariffs",
+  "source_reference": "vibe23 residential plan illustrative high-spread winter TOU"
+}

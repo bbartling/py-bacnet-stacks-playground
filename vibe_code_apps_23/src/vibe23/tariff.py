@@ -1,9 +1,7 @@
 """Tariff evidence and interval-price contracts for Vibe 23 DSM research.
 
-The Building 59 dataset is a meter-data source, not a utility bill.  This
-module therefore makes the evidence level part of the data model instead of a
-display-only warning.  A tariff that is merely plausible cannot silently
-become a verified Building 59 settlement tariff.
+Illustrative/candidate tariffs may be ranked for educational demos but must
+stay labeled. Only VERIFIED evidence authorizes operational monetary selection.
 """
 from __future__ import annotations
 
@@ -11,12 +9,14 @@ import hashlib
 import json
 import math
 import re
+from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-INTERVALS_PER_DAY = 96
+INTERVALS_PER_DAY = 96  # legacy 15-min default; residential DSM uses 288 (5-min)
+INTERVALS_5MIN = 288
 TARIFF_SCHEMA = "vibe23.tariff.v1"
 
 
@@ -65,12 +65,11 @@ class BillingState:
 
 @dataclass(frozen=True)
 class TariffScenario:
-    """A versioned 96-interval research tariff.
+    """A versioned interval research tariff (96×15-min or 288×5-min typical).
 
     ``VERIFIED`` needs both the tariff source and an account/building-period
-    binding.  A published PG&E schedule without proof it applied to Building
-    59 belongs in ``CANDIDATE``.  Both candidate and illustrative money can be
-    analyzed, but are not authorized to select an operational winner.
+    binding.  Illustrative money can be ranked for educational demos but must
+    stay labeled ``ILLUSTRATIVE``.
     """
 
     tariff_id: str
@@ -91,8 +90,8 @@ class TariffScenario:
             raise ValueError("evidence must be a TariffEvidence value")
         if not self.tariff_id.strip():
             raise ValueError("tariff_id is required")
-        if len(self.energy_rates_per_kwh) != INTERVALS_PER_DAY:
-            raise ValueError(f"energy_rates_per_kwh must have {INTERVALS_PER_DAY} values")
+        if len(self.energy_rates_per_kwh) < 1:
+            raise ValueError("energy_rates_per_kwh must not be empty")
         for rate in self.energy_rates_per_kwh:
             _finite_nonnegative(rate, "energy rate")
         _finite_nonnegative(self.demand_rate_per_kw, "demand_rate_per_kw")
@@ -109,6 +108,14 @@ class TariffScenario:
                     "VERIFIED tariff requires source_reference, source_sha256, account_period_binding, "
                     "and effective_period"
                 )
+
+    @property
+    def intervals_per_day(self) -> int:
+        return len(self.energy_rates_per_kwh)
+
+    @property
+    def dt_hours(self) -> float:
+        return 24.0 / float(self.intervals_per_day)
 
     @property
     def monetary_selection_authorized(self) -> bool:
@@ -151,12 +158,15 @@ class TariffScenario:
         evidence: TariffEvidence,
         energy_rate_per_kwh: float,
         demand_rate_per_kw: float = 0.0,
+        intervals_per_day: int = INTERVALS_PER_DAY,
         **provenance: Any,
     ) -> "TariffScenario":
+        if intervals_per_day < 1:
+            raise ValueError("intervals_per_day must be positive")
         return cls(
             tariff_id=tariff_id,
             evidence=evidence,
-            energy_rates_per_kwh=tuple(float(energy_rate_per_kwh) for _ in range(INTERVALS_PER_DAY)),
+            energy_rates_per_kwh=tuple(float(energy_rate_per_kwh) for _ in range(intervals_per_day)),
             demand_rate_per_kw=float(demand_rate_per_kw),
             **provenance,
         )
@@ -182,7 +192,8 @@ def load_tariff(payload_or_path: Mapping[str, Any] | Path | str) -> TariffScenar
         raise ValueError("evidence must be VERIFIED, CANDIDATE, or ILLUSTRATIVE") from exc
     rates = raw.get("energy_rates_per_kwh")
     if rates is None and raw.get("energy_rate_per_kwh") is not None:
-        rates = [raw["energy_rate_per_kwh"]] * INTERVALS_PER_DAY
+        n = int(raw.get("intervals_per_day") or INTERVALS_PER_DAY)
+        rates = [raw["energy_rate_per_kwh"]] * n
     if not isinstance(rates, Sequence) or isinstance(rates, (str, bytes)):
         raise ValueError("energy_rates_per_kwh (or flat energy_rate_per_kwh) is required")
     return TariffScenario(
@@ -200,13 +211,17 @@ def load_tariff(payload_or_path: Mapping[str, Any] | Path | str) -> TariffScenar
 
 
 def billing_cost(
-    facility_kw: Sequence[float], *, tariff: TariffScenario, opening_state: BillingState, dt_hours: float = 0.25
+    facility_kw: Sequence[float],
+    *,
+    tariff: TariffScenario,
+    opening_state: BillingState,
+    dt_hours: float | None = None,
 ) -> dict[str, Any]:
     """Calculate daily energy plus incremental-demand cost from a fixed opening state."""
 
-    if len(facility_kw) != INTERVALS_PER_DAY:
-        raise ValueError(f"facility_kw must have {INTERVALS_PER_DAY} values")
-    dt_hours = float(dt_hours)
+    if len(facility_kw) != tariff.intervals_per_day:
+        raise ValueError(f"facility_kw must have {tariff.intervals_per_day} values")
+    dt_hours = float(tariff.dt_hours if dt_hours is None else dt_hours)
     if not math.isfinite(dt_hours) or dt_hours <= 0.0:
         raise ValueError("dt_hours must be finite and positive")
     values = tuple(_finite_nonnegative(v, "facility kW") for v in facility_kw)
@@ -233,3 +248,54 @@ def billing_cost(
         "tariff_sha256": tariff.fingerprint(),
         "billing_state_sha256": opening_state.fingerprint(),
     }
+
+
+class TariffProvider(ABC):
+    """Interface for fixture or future utility-rate API adapters."""
+
+    @abstractmethod
+    def describe(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def scenario(self) -> TariffScenario:
+        raise NotImplementedError
+
+
+class FixtureTariffProvider(TariffProvider):
+    """Deterministic tariff loaded from JSON or an in-memory scenario."""
+
+    def __init__(self, payload_or_path: Mapping[str, Any] | Path | str | TariffScenario) -> None:
+        if isinstance(payload_or_path, TariffScenario):
+            self._scenario = payload_or_path
+            self._source = "in-memory"
+        else:
+            self._scenario = load_tariff(payload_or_path)
+            self._source = str(payload_or_path)
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "provider": "FixtureTariffProvider",
+            "source": self._source,
+            "tariff_id": self._scenario.tariff_id,
+            "evidence": self._scenario.evidence.value,
+            "intervals": self._scenario.intervals_per_day,
+            "claim": "API_RATE_NOT_REQUIRED_FOR_DEMO",
+        }
+
+    def scenario(self) -> TariffScenario:
+        return self._scenario
+
+
+class FutureApiTariffProvider(TariffProvider):
+    """Stub for a future live utility-rate API (not required for acceptance)."""
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "provider": "FutureApiTariffProvider",
+            "status": "NOT_IMPLEMENTED",
+            "claim": "API_RATE_NOT_REQUIRED_FOR_DEMO",
+        }
+
+    def scenario(self) -> TariffScenario:
+        raise NotImplementedError("Live utility-rate API is not required for the residential demo")

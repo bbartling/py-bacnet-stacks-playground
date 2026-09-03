@@ -1,3 +1,3 @@
-"""Vibe 23: LBNL Building 59 EnergyPlus calibration utilities."""
+"""Vibe 23: residential heat-pump EnergyPlus DSM laboratory."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/github/license/bbartling/py-bacnet-stacks-playground)](LICENSE)
 [![DIY BACnet router](https://img.shields.io/badge/active-vibe__code__apps__13-009966)](vibe_code_apps_13/)
 [![Rust BACnet lab](https://img.shields.io/badge/active-vibe__code__apps__16-009966)](vibe_code_apps_16/)
-[![B59 calibration lab](https://img.shields.io/badge/on%20hold-vibe__code__apps__23-888888)](vibe_code_apps_23/)
+[![Residential DSM lab](https://img.shields.io/badge/active-vibe__code__apps__23-2ea44f)](vibe_code_apps_23/)
 [![GHCR vibe19](https://img.shields.io/badge/GHCR-vibe19-blue?logo=docker&logoColor=white)](https://github.com/bbartling/py-bacnet-stacks-playground/pkgs/container/vibe19)
 [![EnergyPlus MCP](https://img.shields.io/badge/EnergyPlus-MCP%2026.1-blue?logo=docker&logoColor=white)](vibe_code_apps_20/third_party/README.md)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
@@ -43,7 +43,7 @@ Come join the journey as we play around with Python, **Rust**, AI, BACnet, Hayst
 | **OpenFDD WattLab (app 20)** | EnergyPlus ECM screens *(completed reference)* | [`vibe_code_apps_20/`](vibe_code_apps_20/) · [README](vibe_code_apps_20/README.md) |
 | **Demand twin (app 21)** | Liberty cooling DR twin *(completed reference)* | [`vibe_code_apps_21/`](vibe_code_apps_21/) · [AGENTS.md](vibe_code_apps_21/AGENTS.md) |
 | **Lakeside ES (app 22)** | Lakeside heating DSM / grid-search stack *(completed reference)* | [`vibe_code_apps_22/`](vibe_code_apps_22/) · [AGENTS.md](vibe_code_apps_22/AGENTS.md) |
-| **Building 59 lab (app 23)** | LBNL B59 calibration + grid-flex *(on hold — scope may be a poor DSM fit)* | [`vibe_code_apps_23/`](vibe_code_apps_23/) · [README](vibe_code_apps_23/README.md) |
+| **Residential DSM lab (app 23)** | Heat-pump home DR + thermostat/battery grid search | [`vibe_code_apps_23/`](vibe_code_apps_23/) · [README](vibe_code_apps_23/README.md) |
 
 ---
 
@@ -76,7 +76,7 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **20** | **[OpenFDD WattLab](vibe_code_apps_20/)** · [AGENTS.md](vibe_code_apps_20/AGENTS.md) | EnergyPlus companion to vibe19: approved MeasureBriefs → Docker `energyplus-mcp-dev` (EP 26.1) easy button → progressive schedule / GL36-proxy IDF patches → `result_record` QA. | Done |
 | **21** | **[Demand-management twin](vibe_code_apps_21/)** · [AGENTS.md](vibe_code_apps_21/AGENTS.md) | Liberty Building cooling DR: G14 Twin → hourly E+ farm → sklearn `facility_kw` → Flask / Unity scrubbers (HE 14–16). | Done |
 | **22** | **[Lakeside ES (unified)](vibe_code_apps_22/)** · [AGENTS.md](vibe_code_apps_22/AGENTS.md) | Lakeside Elementary (southern WI): ALC→openfdd, IdealLoads G14 (interval + utility bills), heating DSM ML (HE 05–09), OpenStudio OSM; `LAKESIDE_SITE_ROOT` for site data. | Done |
-| **23** | **[Building 59 calibration + grid-flex](vibe_code_apps_23/)** · [README](vibe_code_apps_23/README.md) | LBNL Shyh Wang Hall office-HVAC calibration, Open-FDD evidence, EnergyPlus campaigns, grid-search lessons. Screening + dial-in artifacts shipped; **not promoted to calibrated/DSM-ready**. | **On hold** |
+| **23** | **[Residential heat-pump DSM](vibe_code_apps_23/)** · [README](vibe_code_apps_23/README.md) | Hypothetical heat-pump home at 5-min resolution: DR demo, illustrative TOU thermostat grid, battery co-optimization, compute telemetry. Grid-search lessons preserved. | **Active** |
 
 
 

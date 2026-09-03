@@ -23,6 +23,8 @@ from typing import Any, Literal
 DEFAULT_DOCKER_IMAGE = "energyplus-mcp-dev"
 DEFAULT_ENERGYPLUS_VERSION = "26.1.0-6f2e40d102"
 DEFAULT_MCP_COMMIT = "5a7d3bb1d2e537ba329d3412c8b79d22cedd7c70"
+DEFAULT_WINDOWS_ENERGYPLUS = Path(r"C:\EnergyPlusV26-1-0\energyplus.exe")
+DEFAULT_ENERGYPLUS_ROOT = Path(r"C:\EnergyPlusV26-1-0")
 
 Engine = Literal["auto", "native", "docker"]
 
@@ -95,13 +97,53 @@ def _version_text(result: subprocess.CompletedProcess[str]) -> str | None:
     return value or None
 
 
+def resolve_native_energyplus(explicit: Path | str | None = None) -> Path | None:
+    """Locate a native energyplus executable on Windows, Linux, or macOS.
+
+    Honors ``ENERGYPLUS_EXE`` / ``ENERGYPLUS_ROOT`` (optionally loaded from ``.env``).
+    """
+
+    from .envfile import default_energyplus_executables, load_energyplus_env
+
+    load_energyplus_env()
+    candidates: list[Path] = []
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    env_exe = os.environ.get("ENERGYPLUS_EXE", "").strip()
+    if env_exe:
+        candidates.append(Path(env_exe).expanduser())
+    env_root = os.environ.get("ENERGYPLUS_ROOT", "").strip()
+    if env_root:
+        root = Path(env_root).expanduser()
+        candidates.extend([root / "energyplus.exe", root / "energyplus"])
+    candidates.extend(default_energyplus_executables())
+    which = shutil.which("energyplus") or shutil.which("EnergyPlus")
+    if which:
+        candidates.append(Path(which))
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        if resolved.is_file():
+            return resolved
+    return None
+
+
 def energyplus_capability(
     *,
     docker_image: str = DEFAULT_DOCKER_IMAGE,
     mcp_vendor_path: Path | None = None,
+    eplus_path: Path | str | None = None,
 ) -> EnergyPlusCapability:
     """Probe native and Docker execution paths without pulling or building images."""
-    native = shutil.which("energyplus") or shutil.which("EnergyPlus")
+    native_path = resolve_native_energyplus(eplus_path)
+    native = str(native_path) if native_path else None
     native_version = _version_text(_run_probe([native, "--version"])) if native else None
 
     docker = shutil.which("docker")
@@ -154,7 +196,8 @@ def energyplus_capability(
         recommended_engine=recommended,
         claim_boundary=(
             "Engine availability can support an EnergyPlus smoke run; it cannot establish "
-            "Building 59 calibration or Guideline 14 compliance."
+            "ASHRAE Guideline 14 calibration. Residential DSM demos use "
+            "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL labeling only."
         ),
     )
 
@@ -420,6 +463,7 @@ def run_energyplus_smoke(
     engine: Engine = "auto",
     docker_image: str = DEFAULT_DOCKER_IMAGE,
     timeout_seconds: int = 3600,
+    eplus_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Run EnergyPlus once and write a provenance-bearing smoke manifest."""
     idf = Path(idf).resolve()
@@ -434,7 +478,7 @@ def run_energyplus_smoke(
     if engine not in {"auto", "native", "docker"}:
         raise ValueError("engine must be auto, native, or docker")
 
-    capability = energyplus_capability(docker_image=docker_image)
+    capability = energyplus_capability(docker_image=docker_image, eplus_path=eplus_path)
     selected = capability.recommended_engine if engine == "auto" else engine
     if selected == "native" and not capability.native_version:
         raise EnergyPlusUnavailable("Native EnergyPlus executable is unavailable")
@@ -444,7 +488,8 @@ def run_energyplus_smoke(
         )
     if selected is None:
         raise EnergyPlusUnavailable(
-            "No EnergyPlus engine is available. Expose Docker plus the pinned image or install native EnergyPlus."
+            "No EnergyPlus engine is available. Install native EnergyPlus "
+            f"(default {DEFAULT_WINDOWS_ENERGYPLUS}) or expose Docker plus the pinned image."
         )
 
     _ensure_empty_output(output_dir)

@@ -1,0 +1,9 @@
+{
+  "schema": "vibe23.tariff.v1",
+  "tariff_id": "illustrative_summer_tou_weekday",
+  "evidence": "ILLUSTRATIVE",
+  "energy_rate_per_kwh": null,
+  "energy_rates_per_kwh_hourly": [0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.16, 0.16, 0.16, 0.16, 0.16, 0.16, 0.16, 0.16, 0.30, 0.30, 0.55, 0.55, 0.55, 0.55, 0.55, 0.14, 0.14, 0.14],
+  "notes": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF — expand to 288 via residential.tariffs",
+  "source_reference": "vibe23 residential plan illustrative high-spread summer TOU"
+}

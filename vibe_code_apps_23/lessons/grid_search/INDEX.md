@@ -6,7 +6,7 @@ Ten progressive lessons that teach **bounded grid search for demand-side managem
 
 **Honesty banners (every day):**
 
-- Educational only — stock ExampleFiles, not a calibrated school or Building 59 model
+- Educational only — stock ExampleFiles, not a calibrated school; the active Vibe 23 product is the residential heat-pump DSM lab
 - Illustrative energy + demand dollars — not a complete utility bill
 - **No BACnet** and no authority to write setpoints to a real BAS
 

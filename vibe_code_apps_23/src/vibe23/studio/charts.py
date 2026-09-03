@@ -1,0 +1,254 @@
+"""Plotly figures for the residential DSM Streamlit studio."""
+from __future__ import annotations
+
+from typing import Sequence
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
+def _hours(n: int) -> list[float]:
+    return [i * 24.0 / n for i in range(n)]
+
+
+def playback_figure(
+    *,
+    hours: Sequence[float],
+    house_kw: Sequence[float],
+    purchased_kw: Sequence[float] | None,
+    temp_f: Sequence[float],
+    price: Sequence[float],
+    soc_pct: Sequence[float] | None,
+    cumulative_house_kwh: Sequence[float],
+    cumulative_purchased_kwh: Sequence[float] | None,
+    step: int,
+    title: str,
+) -> go.Figure:
+    rows = 4 if soc_pct is not None else 3
+    specs = [[{"secondary_y": True}], [{"secondary_y": False}], [{"secondary_y": False}]]
+    row_titles = ["Power (kW) / TOU price", "Cumulative energy (kWh)", "Zone °F"]
+    if soc_pct is not None:
+        specs.append([{"secondary_y": False}])
+        row_titles.append("Battery SOC %")
+    fig = make_subplots(
+        rows=rows,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.06,
+        specs=specs,
+        subplot_titles=tuple(row_titles),
+    )
+    end = max(1, min(step + 1, len(hours)))
+    x = list(hours[:end])
+
+    fig.add_trace(
+        go.Scatter(x=x, y=list(house_kw[:end]), name="House kW", line=dict(color="#8FB8FF", width=2)),
+        row=1,
+        col=1,
+        secondary_y=False,
+    )
+    if purchased_kw is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=list(purchased_kw[:end]),
+                name="Purchased kW",
+                line=dict(color="#3DDC97", width=2),
+            ),
+            row=1,
+            col=1,
+            secondary_y=False,
+        )
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=list(price[:end]),
+            name="TOU $/kWh",
+            line=dict(color="#E8A838", width=1.5, dash="dot"),
+        ),
+        row=1,
+        col=1,
+        secondary_y=True,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=list(cumulative_house_kwh[:end]),
+            name="House kWh (cum)",
+            line=dict(color="#8FB8FF", width=2),
+        ),
+        row=2,
+        col=1,
+    )
+    if cumulative_purchased_kwh is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=list(cumulative_purchased_kwh[:end]),
+                name="Purchased kWh (cum)",
+                line=dict(color="#3DDC97", width=2),
+            ),
+            row=2,
+            col=1,
+        )
+
+    fig.add_trace(
+        go.Scatter(x=x, y=list(temp_f[:end]), name="Zone °F", line=dict(color="#FF6B6B", width=2)),
+        row=3,
+        col=1,
+    )
+    if soc_pct is not None:
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=list(soc_pct[:end]),
+                name="SOC %",
+                fill="tozeroy",
+                line=dict(color="#F4D35E", width=2),
+            ),
+            row=4,
+            col=1,
+        )
+        fig.update_yaxes(range=[0, 100], row=4, col=1, title_text="SOC %")
+
+    t_now = hours[min(step, len(hours) - 1)]
+    for r in range(1, rows + 1):
+        fig.add_vline(x=t_now, line_width=1, line_dash="dash", line_color="#64748B", row=r, col=1)
+
+    fig.update_yaxes(title_text="kW", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="$/kWh", row=1, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="kWh", row=2, col=1)
+    fig.update_yaxes(title_text="°F", row=3, col=1)
+    fig.update_xaxes(title_text="Hour of day", row=rows, col=1)
+    fig.update_layout(
+        title=title,
+        height=640 if soc_pct is not None else 560,
+        margin=dict(l=40, r=20, t=50, b=30),
+        legend=dict(orientation="h", y=1.14),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
+    )
+    return fig
+
+
+def cost_bar_figure(labels: Sequence[str], costs: Sequence[float], *, title: str) -> go.Figure:
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=list(labels),
+                y=list(costs),
+                marker_color=["#6B7280", "#2563EB", "#D97706", "#059669"][: len(labels)],
+                text=[f"${c:.2f}" for c in costs],
+                textposition="outside",
+            )
+        ]
+    )
+    fig.update_layout(
+        title=title,
+        yaxis_title="Illustrative $/day",
+        height=280,
+        margin=dict(l=40, r=20, t=50, b=40),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
+    )
+    return fig
+
+
+def kwh_bar_figure(labels: Sequence[str], kwhs: Sequence[float], *, title: str) -> go.Figure:
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=list(labels),
+                y=list(kwhs),
+                marker_color=["#6B7280", "#2563EB", "#D97706", "#059669"][: len(labels)],
+                text=[f"{v:.1f} kWh" for v in kwhs],
+                textposition="outside",
+            )
+        ]
+    )
+    fig.update_layout(
+        title=title,
+        yaxis_title="Daily energy (kWh)",
+        height=280,
+        margin=dict(l=40, r=20, t=50, b=40),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
+    )
+    return fig
+
+
+def hour_axis(n: int) -> list[float]:
+    return _hours(n)
+
+
+def chart_layout(*, theme: str = "light") -> dict:
+    dark = theme == "dark"
+    return {
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(26,35,50,0.35)" if dark else "rgba(241,245,249,0.9)",
+        "font": {"color": "#E7ECF3" if dark else "#1B2430"},
+        "legend": {"orientation": "h", "y": 1.12},
+        "margin": dict(l=48, r=56, t=56, b=40),
+        "autosize": True,
+    }
+
+
+def outdoor_kwh_cost_figure(
+    *,
+    hourly_kwh: Sequence[float],
+    outdoor_f: Sequence[float],
+    hourly_cost: Sequence[float],
+    title: str,
+    theme: str = "light",
+):
+    """Static 24-hour plot (does not follow the playhead).
+
+    Top: house kWh/hour (left) and illustrative $/hour (right).
+    Bottom: outdoor dry-bulb °F used by the weather file for this extreme day.
+    """
+    hours = list(range(24))
+    dark = theme == "dark"
+    kwh_color = "#2563EB" if not dark else "#8FB8FF"
+    temp_color = "#B91C1C" if not dark else "#FF6B6B"
+    cost_color = "#B45309" if not dark else "#E8A838"
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.12,
+        specs=[[{"secondary_y": True}], [{"secondary_y": False}]],
+        subplot_titles=("Hourly energy and illustrative cost", "Outdoor dry-bulb (weather file)"),
+    )
+    fig.add_trace(
+        go.Scatter(x=hours, y=list(hourly_kwh), name="House kWh / hour", line=dict(color=kwh_color, width=2.5)),
+        row=1,
+        col=1,
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=hours,
+            y=list(hourly_cost),
+            name="Illustrative $ / hour",
+            line=dict(color=cost_color, width=2, dash="dot"),
+        ),
+        row=1,
+        col=1,
+        secondary_y=True,
+    )
+    fig.add_trace(
+        go.Scatter(x=hours, y=list(outdoor_f), name="Outdoor °F", line=dict(color=temp_color, width=2.5), fill="tozeroy"),
+        row=2,
+        col=1,
+    )
+    layout = chart_layout(theme=theme)
+    fig.update_layout(title=title, height=420, **{k: v for k, v in layout.items() if k != "margin"})
+    fig.update_yaxes(title_text="kWh / hour", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="$ / hour", row=1, col=1, secondary_y=True)
+    fig.update_yaxes(title_text="Outdoor °F", row=2, col=1)
+    fig.update_xaxes(title_text="Hour of day", row=2, col=1, dtick=2)
+    return fig
