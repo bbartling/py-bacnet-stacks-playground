@@ -1,0 +1,3 @@
+# Synthetic T: line matching retained 201201Z idle overall max (239 µs).
+# Max Latency: 239
+T: 0 (3000000) P:80 I:200 C: 3000000 Min:      4 Act:      5 Avg:      5 Max:    239

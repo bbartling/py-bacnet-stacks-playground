@@ -1,6 +1,17 @@
 # Checkpoint 13 - Rust BACnet MS/TP Router Appliance
 
-**Status: Prototype closed (historical)** — Phase 2 evidence frozen on pin `af4e886` (`jscott3201/rusty-bacnet`; #467/#468 **merged**). Gates 1–4 + 4b **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6, 1h/24h soak, and router work are **out of scope** here. See [`docs/PHASE2_PROTOTYPE_CLOSEOUT.md`](docs/PHASE2_PROTOTYPE_CLOSEOUT.md), [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md), and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+**Status: Prototype closed (historical)** — Phase 2 evidence frozen on pin `af4e886` (`jscott3201/rusty-bacnet`; #467/#468 **merged**). Gates 1–4 + 4b **PASS** on `af4e886` (2026-08-31 smoke). Gates 5–6, 1h/24h *instrumented* soak, and router work are **out of scope** here. See [`docs/PHASE2_PROTOTYPE_CLOSEOUT.md`](docs/PHASE2_PROTOTYPE_CLOSEOUT.md), [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md), and [`docs/PHASE2_HARDWARE_RUNBOOK.md`](docs/PHASE2_HARDWARE_RUNBOOK.md).
+
+## Stress / timing research results (linked)
+
+| Stress | Result | Report |
+|--------|--------|--------|
+| **Host scheduler (cyclictest)** idle+loaded @ pin `af4e886` | **measurement_complete** — idle max 239 µs **under** 1562.5 µs indicator; loaded max **2639 µs exceeded**; **not** Clause 9 wire timing | [`captures/linux-timing-af4e886-20260901T201201Z/README.md`](captures/linux-timing-af4e886-20260901T201201Z/README.md) · [`ASSESSMENT.md`](captures/linux-timing-af4e886-20260901T201201Z/ASSESSMENT.md) · narrative [`docs/PHASE2_SOFTWARE_RESULTS.md`](docs/PHASE2_SOFTWARE_RESULTS.md) |
+| **Prior cyclictest attempt** (invalid loaded) | **PARTIAL** | [`captures/linux-timing-af4e886-20260901T134454Z/ERRATA.md`](captures/linux-timing-af4e886-20260901T134454Z/ERRATA.md) |
+| **24h mini-device continuity** | **PASS** — same PID / etimes>86400 = process continuity + discoverability **only** (not CRC/token counter soak) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](captures/mini-device-24h-continuity-20260901T200935Z.txt) |
+| **On-wire Clause 9 MS/TP timing** (logic analyzer / high-Z RS-485) | **DEFERRED** — no substitute cyclictest | capture ASSESSMENT + diy-bacnet-router M4 carry-forward |
+
+**Honest bottom line for researchers:** Vibe13 shows a **stable standard-frame MS/TP mini-device at 38.4 kbps** on the Waveshare C / BASRT / FEC trunk, with **host scheduler characterization** complete. It does **not** claim measured on-wire turnaround, USB-adapter Clause 9 conformance, extended frames, segmentation, router, or BTL.
 
 ## Limitations (current)
 

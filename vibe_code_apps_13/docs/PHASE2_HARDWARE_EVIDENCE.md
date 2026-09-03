@@ -35,9 +35,10 @@ Historical captures (`19d205d`, `e3b9edb`, `6a70b85`, `bbartling` fork) are **no
 
 | Gate | Script | Status |
 |------|--------|--------|
-| Linux timing baseline | **PASS** (post-fix; PR timing evidence closeout) | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
+| Linux timing baseline | **measurement_complete** (host scheduler; loaded max **exceeded** 1562.5 µs; not Clause 9) | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
 | Linux timing (prior) | **PARTIAL** — loaded invalid | [`captures/linux-timing-af4e886-20260901T134454Z/`](../captures/linux-timing-af4e886-20260901T134454Z/) (`ERRATA.md`) |
-| 24h mini-device continuity | **PASS** (PID 646770 unchanged, etimes>86400) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
+| On-wire Clause 9 timing | **DEFERRED** (needs high-Z analyzer; not cyclictest) | capture `ASSESSMENT.md` |
+| 24h mini-device continuity | **PASS** (process continuity + discoverability; not CRC/token soak) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
 | 1h mini-device soak | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
 | USB unplug | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) | **DEFERRED** — operator gate |
 
