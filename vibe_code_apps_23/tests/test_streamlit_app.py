@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,8 @@ os.environ["VIBE23_STUDIO_PLAY_ONCE"] = "1"
 
 pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
+
+APP_PATH = Path(__file__).resolve().parents[1] / "streamlit_app.py"
 
 
 def _assert_no_exceptions(at: AppTest, label: str) -> None:
@@ -32,7 +35,7 @@ def _radio(at: AppTest, key: str):
 
 
 def test_studio_app_features() -> None:
-    at = AppTest.from_file("streamlit_app.py", default_timeout=60)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=60)
     at.run()
     _assert_no_exceptions(at, "initial run")
 
