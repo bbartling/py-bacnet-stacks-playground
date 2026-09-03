@@ -48,14 +48,33 @@ def test_studio_app_features() -> None:
         "soc_max",
         "initial_soc",
     }
+    assert at.get("select_slider") or any(getattr(s, "key", None) == "dsm_minutes" for s in at.select_slider), (
+        "expected DSM interval select_slider"
+    )
+    assert "session_id" in at.session_state and at.session_state["session_id"], "expected per-browser session id"
     assert at.get("plotly_chart"), "expected plotly charts"
     assert at.metric, "expected metrics"
-    assert at.get("link_button") or at.markdown, "expected Streamlit Cloud / Contribute controls"
+    assert at.file_uploader, "expected IDF/EPW/tariff uploads on Inputs tab"
+    assert at.get("data_editor") or at.get("dataframe"), "expected hourly weather + tariff spreadsheet editor"
 
-    _radio(at, "ui_theme").set_value("Light").run()
-    _assert_no_exceptions(at, "theme light")
-    _radio(at, "ui_theme").set_value("Dark").run()
-    _assert_no_exceptions(at, "theme dark")
+    dsm = None
+    for item in at.select_slider:
+        if item.key == "dsm_minutes":
+            dsm = item
+            break
+    assert dsm is not None
+    dsm.set_value(60).run()
+    _assert_no_exceptions(at, "dsm 1 hour")
+    assert int(at.session_state["dsm_minutes"]) == 60
+    assert int(at.session_state["step"]) == 0
+
+    clears = [b for b in at.button if b.label == "Clear session"]
+    assert clears
+    old_sid = str(at.session_state["session_id"])
+    clears[0].click().run()
+    _assert_no_exceptions(at, "Clear session")
+    assert str(at.session_state["session_id"]) != old_sid
+    assert int(at.session_state["dsm_minutes"]) == 5
 
     _radio(at, "season").set_value("Winter extreme (Jan 15)").run()
     _assert_no_exceptions(at, "winter season")

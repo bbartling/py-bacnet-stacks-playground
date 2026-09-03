@@ -265,3 +265,44 @@ def interval_clock(step: int, *, intervals: int = INTERVALS_PER_DAY) -> str:
     minutes = int(round(step * (24 * 60 / intervals)))
     minutes = min(max(minutes, 0), 24 * 60 - 1)
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+# DSM playback levels (native fixture is always 5-min / 288).
+DSM_INTERVAL_MINUTES = (5, 15, 30, 60)
+
+
+def dsm_block_size(minutes: int) -> int:
+    """Number of native 5-min samples in one DSM display step."""
+    m = int(minutes)
+    if m not in DSM_INTERVAL_MINUTES:
+        raise ValueError(f"DSM interval must be one of {DSM_INTERVAL_MINUTES}, got {minutes}")
+    return m // 5
+
+
+def dsm_dt_hours(minutes: int) -> float:
+    return float(minutes) / 60.0
+
+
+def dsm_steps_per_day(minutes: int, *, native: int = INTERVALS_PER_DAY) -> int:
+    block = dsm_block_size(minutes)
+    if native % block != 0:
+        raise ValueError("native intervals must be divisible by DSM block size")
+    return native // block
+
+
+def downsample_mean(values: list[float] | tuple[float, ...], block: int) -> list[float]:
+    """Average contiguous native samples into coarser DSM steps (energy-preserving)."""
+    series = [float(v) for v in values]
+    b = int(block)
+    if b < 1:
+        raise ValueError("block must be >= 1")
+    if b == 1:
+        return series
+    if len(series) % b != 0:
+        raise ValueError(f"length {len(series)} not divisible by block {b}")
+    return [sum(series[i : i + b]) / b for i in range(0, len(series), b)]
+
+
+def outdoor_hour_index(step: int, *, minutes: int) -> int:
+    """Map a DSM playhead step to the 0–23 outdoor-hour index."""
+    return min(max(int(step) * int(minutes) // 60, 0), 23)

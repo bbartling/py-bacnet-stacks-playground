@@ -35,7 +35,7 @@ vibe23 residential-report
 
 ## Streamlit studio
 
-Interactive twin replay (24h in ~60s), Plotly IDF massing, battery sizing, summer **and** winter extreme days, IDF/EPW/tariff uploads (Pydantic), light/dark theme, and energy-modeler dashboard:
+Interactive twin replay (24h in ~60s), Plotly IDF massing, battery sizing, summer **and** winter extreme days, IDF/EPW/tariff uploads, hourly weather+price spreadsheet editor, light Streamlit default theme (same feel as vibe 19–22), and energy-modeler dashboard:
 
 ```powershell
 # Windows / Linux / macOS
@@ -46,7 +46,9 @@ copy .env.example .env   # Linux/mac: cp .env.example .env
 streamlit run streamlit_app.py
 ```
 
-Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. A **static** extreme-day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Jul-15 demo ≈ **108 kWh**; Jan-15 winter extreme ≈ **88 kWh** for this ~**3,500 ft²** / 5-ton box.
+Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). A **static** extreme-day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Jul-15 demo ≈ **108 kWh**; Jan-15 winter extreme ≈ **88 kWh** for this ~**3,500 ft²** / 5-ton box.
+
+Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (Clear session wipes only that visitor). Isolation is not a password gate.
 
 ### Streamlit Community Cloud
 

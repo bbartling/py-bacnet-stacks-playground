@@ -114,7 +114,7 @@ def playback_figure(
 
     t_now = hours[min(step, len(hours) - 1)]
     for r in range(1, rows + 1):
-        fig.add_vline(x=t_now, line_width=1, line_dash="dash", line_color="#E7ECF3", row=r, col=1)
+        fig.add_vline(x=t_now, line_width=1, line_dash="dash", line_color="#64748B", row=r, col=1)
 
     fig.update_yaxes(title_text="kW", row=1, col=1, secondary_y=False)
     fig.update_yaxes(title_text="$/kWh", row=1, col=1, secondary_y=True)
@@ -127,7 +127,8 @@ def playback_figure(
         margin=dict(l=40, r=20, t=50, b=30),
         legend=dict(orientation="h", y=1.14),
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(26,35,50,0.35)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
     )
     return fig
 
@@ -138,7 +139,7 @@ def cost_bar_figure(labels: Sequence[str], costs: Sequence[float], *, title: str
             go.Bar(
                 x=list(labels),
                 y=list(costs),
-                marker_color=["#6B7280", "#8FB8FF", "#F4D35E", "#3DDC97"][: len(labels)],
+                marker_color=["#6B7280", "#2563EB", "#D97706", "#059669"][: len(labels)],
                 text=[f"${c:.2f}" for c in costs],
                 textposition="outside",
             )
@@ -150,7 +151,8 @@ def cost_bar_figure(labels: Sequence[str], costs: Sequence[float], *, title: str
         height=280,
         margin=dict(l=40, r=20, t=50, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(26,35,50,0.35)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
     )
     return fig
 
@@ -161,7 +163,7 @@ def kwh_bar_figure(labels: Sequence[str], kwhs: Sequence[float], *, title: str) 
             go.Bar(
                 x=list(labels),
                 y=list(kwhs),
-                marker_color=["#6B7280", "#8FB8FF", "#F4D35E", "#3DDC97"][: len(labels)],
+                marker_color=["#6B7280", "#2563EB", "#D97706", "#059669"][: len(labels)],
                 text=[f"{v:.1f} kWh" for v in kwhs],
                 textposition="outside",
             )
@@ -173,7 +175,8 @@ def kwh_bar_figure(labels: Sequence[str], kwhs: Sequence[float], *, title: str) 
         height=280,
         margin=dict(l=40, r=20, t=50, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(26,35,50,0.35)",
+        plot_bgcolor="rgba(241,245,249,0.9)",
+        font=dict(color="#1B2430"),
     )
     return fig
 
@@ -182,8 +185,8 @@ def hour_axis(n: int) -> list[float]:
     return _hours(n)
 
 
-def chart_layout(*, theme: str = "dark") -> dict:
-    dark = theme != "light"
+def chart_layout(*, theme: str = "light") -> dict:
+    dark = theme == "dark"
     return {
         "paper_bgcolor": "rgba(0,0,0,0)",
         "plot_bgcolor": "rgba(26,35,50,0.35)" if dark else "rgba(241,245,249,0.9)",
@@ -200,7 +203,7 @@ def outdoor_kwh_cost_figure(
     outdoor_f: Sequence[float],
     hourly_cost: Sequence[float],
     title: str,
-    theme: str = "dark",
+    theme: str = "light",
 ):
     """Static 24-hour plot (does not follow the playhead).
 
@@ -208,7 +211,7 @@ def outdoor_kwh_cost_figure(
     Bottom: outdoor dry-bulb °F used by the weather file for this extreme day.
     """
     hours = list(range(24))
-    dark = theme != "light"
+    dark = theme == "dark"
     kwh_color = "#2563EB" if not dark else "#8FB8FF"
     temp_color = "#B91C1C" if not dark else "#FF6B6B"
     cost_color = "#B45309" if not dark else "#E8A838"

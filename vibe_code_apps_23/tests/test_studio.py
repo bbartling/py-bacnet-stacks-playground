@@ -11,6 +11,9 @@ from vibe23.residential.model import MODEL_IDF
 from vibe23.studio.demo_data import (
     DEMO_FLOOR_FT2,
     daily_kwh,
+    downsample_mean,
+    dsm_block_size,
+    dsm_steps_per_day,
     hourly_cost,
     hourly_kwh,
     load_outdoor_day,
@@ -19,6 +22,14 @@ from vibe23.studio.demo_data import (
 )
 from vibe23.studio.idf_geometry import idf_massing_figure, parse_idf_geometry
 from vibe23.studio.idf_inspect import inspect_idf
+from vibe23.studio.session_workspace import (
+    ensure_session_id,
+    exports_dir,
+    rotate_session_id,
+    session_root,
+    sweep_stale_workspaces,
+    wipe_session_root,
+)
 from vibe23.studio.uploads import expand_tariff_to_288, parse_epw_day, parse_tariff_csv
 
 
@@ -90,3 +101,37 @@ def test_summer_battery_dispatch() -> None:
     day = load_season_day("summer")
     out = run_battery_on_load(list(day["baseline_kw"]), capacity_kwh=13.5, max_power_kw=5.0)
     assert out["billing_cost"] < out["baseline_billing_cost"]
+
+
+def test_dsm_downsample_preserves_daily_kwh() -> None:
+    day = load_season_day("summer")
+    kw = list(day["baseline_kw"])
+    native = daily_kwh(kw)
+    for minutes in (5, 15, 30, 60):
+        block = dsm_block_size(minutes)
+        assert dsm_steps_per_day(minutes) == 288 // block
+        coarse = downsample_mean(kw, block)
+        assert len(coarse) == 288 // block
+        assert abs(daily_kwh(coarse, dt_hours=minutes / 60.0) - native) < 1e-6
+
+
+def test_session_workspace_isolation(tmp_path: Path) -> None:
+    state_a: dict = {}
+    state_b: dict = {}
+    a = ensure_session_id(state_a)
+    b = ensure_session_id(state_b)
+    assert a != b
+    root_a = session_root(a, temp_dir=tmp_path)
+    root_b = session_root(b, temp_dir=tmp_path)
+    (exports_dir(a, temp_dir=tmp_path) / "marker.txt").write_text("a", encoding="utf-8")
+    (exports_dir(b, temp_dir=tmp_path) / "marker.txt").write_text("b", encoding="utf-8")
+    wipe_session_root(a, temp_dir=tmp_path)
+    assert not root_a.exists()
+    assert root_b.exists()
+    assert (exports_dir(b, temp_dir=tmp_path) / "marker.txt").read_text(encoding="utf-8") == "b"
+    old = rotate_session_id(state_b, temp_dir=tmp_path)
+    assert old != b
+    assert state_b["session_id"] == old
+    assert not root_b.exists()
+    assert session_root(old, temp_dir=tmp_path, create=False).exists() or session_root(old, temp_dir=tmp_path).exists()
+    assert sweep_stale_workspaces(protect=session_root(old, temp_dir=tmp_path), temp_dir=tmp_path, max_age_sec=0) >= 0
