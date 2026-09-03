@@ -1,0 +1,4 @@
+# Synthetic T: line matching retained 201201Z loaded overall max (2639 µs).
+# Used only for threshold-assessment regression — not a re-run of the gate.
+# Max Latency: 2639
+T: 0 (4500000) P:80 I:200 C: 4500000 Min:      4 Act:     11 Avg:     11 Max:   2639

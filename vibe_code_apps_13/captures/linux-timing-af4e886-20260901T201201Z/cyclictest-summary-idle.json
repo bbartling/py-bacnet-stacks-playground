@@ -18,5 +18,10 @@
       "max_us": 239
     }
   ],
-  "overall_avg_us_rounded": 5
+  "overall_avg_us_rounded": 5,
+  "host_risk_threshold_us": 1562.5,
+  "scheduling_threshold_assessment": "under",
+  "wire_timing_measured": false,
+  "clause9_conformance": "not_claimed",
+  "notes": "cyclictest measures host scheduler latency, not Clause 9 wire turnaround; 60-bit interval is an informational host-risk indicator only; cyclictest -m means mlockall, not one worker per CPU"
 }

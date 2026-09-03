@@ -1,6 +1,6 @@
 {
   "gate": "linux_timing_baseline",
-  "result": "pass",
+  "result": "measurement_complete",
   "stop_reason": null,
   "project_git_sha": "c5a1f7ff4a1f5c1de0348e2d4b7c03c658a15c5d",
   "git_dirty": true,
@@ -33,5 +33,15 @@
   "started_utc": "2026-09-01T20:12:01Z",
   "ended_utc": "2026-09-01T20:37:26Z",
   "baseline_exit_code": 0,
-  "artifacts_dir": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_13/captures/linux-timing-af4e886-20260901T201201Z"
+  "artifacts_dir": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_13/captures/linux-timing-af4e886-20260901T201201Z",
+  "measurement_execution": "pass",
+  "stress_ng_execution": "pass",
+  "scheduling_threshold_assessment_idle": "under",
+  "scheduling_threshold_assessment_loaded": "exceeded",
+  "scheduling_threshold_assessment": "exceeded",
+  "host_risk_threshold_us": 1562.5,
+  "wire_timing_measured": false,
+  "clause9_conformance": "not_claimed",
+  "cyclictest_m_flag_means": "mlockall (not one worker per CPU)",
+  "semantics_correction_note": "2026-09-03: renamed bare PASS; loaded max 2639 \u00b5s exceeds 1562.5 \u00b5s host-risk indicator; raw cyclictest logs preserved unchanged"
 }

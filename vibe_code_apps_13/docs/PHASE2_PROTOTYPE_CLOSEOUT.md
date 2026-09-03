@@ -20,9 +20,9 @@ A **stable, historical lab prototype**: server-only, standard-frame BACnet MS/TP
 | 4b — Haystack trunk | PASS | `captures/haystack-trunk/` |
 | 5–6 — shared endpoint / mirror | **OUT OF SCOPE** | not attempted |
 | 1h hardware soak | run [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
-| 24h continuity (same PID) | **PASS** | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
+| 24h continuity (same PID) | **PASS** (process continuity only) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
 | USB unplug gate | **DEFERRED** | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |
-| Linux timing baseline | **PASS** | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
+| Linux timing baseline | **measurement_complete** (loaded host-risk **exceeded**) | [`captures/linux-timing-af4e886-20260901T201201Z/`](../captures/linux-timing-af4e886-20260901T201201Z/) |
 
 Full manifest: [`PHASE2_HARDWARE_EVIDENCE.md`](PHASE2_HARDWARE_EVIDENCE.md).
 
