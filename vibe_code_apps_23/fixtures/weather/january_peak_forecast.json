@@ -1,0 +1,7 @@
+{
+  "day": "illustrative-01-15",
+  "claim": "ILLUSTRATIVE_FORECAST_FIXTURE",
+  "epw": "C:\\EnergyPlusV26-1-0\\WeatherData\\USA_CO_Golden-NREL.724666_TMY3.epw",
+  "drybulb_c": [-8,-9,-10,-10,-9,-8,-6,-4,-2,0,1,2,2,1,0,-1,-2,-3,-4,-5,-6,-7,-8,-8],
+  "note": "Pretend hourly forecast for January peak day; REALTIME WEATHER API NOT REQUIRED FOR DEMO"
+}

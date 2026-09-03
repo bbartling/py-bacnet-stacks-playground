@@ -1,0 +1,44 @@
+{
+  "artifacts": {
+    "compute_host": {
+      "exists": true,
+      "path": "reports\\compute\\host.json"
+    },
+    "dr": {
+      "exists": true,
+      "path": "reports\\dr"
+    },
+    "residential_battery_grid": {
+      "exists": true,
+      "path": "campaigns\\runs\\residential_battery_grid"
+    },
+    "residential_grid": {
+      "exists": true,
+      "path": "campaigns\\runs\\residential_grid"
+    },
+    "residential_smoke": {
+      "exists": true,
+      "path": "campaigns\\runs\\residential_smoke"
+    }
+  },
+  "claim_assumptions": "ILLUSTRATIVE_RESIDENTIAL_ASSUMPTIONS",
+  "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
+  "claim_tariff": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+  "equipment": {
+    "claim_assumptions": "ILLUSTRATIVE_RESIDENTIAL_ASSUMPTIONS",
+    "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
+    "cooling_capacity_w": "17716.3372",
+    "cooling_cop": "4.05",
+    "equipment": "Carrier 50EZ060",
+    "heating_capacity_w": "17303.1085",
+    "heating_cop": "4.5",
+    "intervals_per_day": "288",
+    "nominal_tons": "5",
+    "note": "Curves copied into repo IDF; install DataSets files are not modified.",
+    "rated_flow_m3s": "0.944",
+    "refrigerant": "R-410A",
+    "source_dataset": "C:\\EnergyPlusV26-1-0\\DataSets\\RooftopPackagedHeatPump.idf",
+    "zone_timestep": "12"
+  },
+  "schema": "vibe23.residential_report.v1"
+}

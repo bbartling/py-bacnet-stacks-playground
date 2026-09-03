@@ -8,7 +8,7 @@ from typing import Any, Mapping, Sequence
 from .tariff import BillingState, TariffScenario, billing_cost
 
 REWARD_SCHEMA = "vibe23.operator_pay_v22_compatible.v1"
-N_INTERVALS = 96
+N_INTERVALS = 96  # legacy default; ComfortContract.n_intervals overrides
 
 
 @dataclass(frozen=True)
@@ -20,15 +20,22 @@ class ComfortContract:
     low_f: float
     high_f: float
     required_zone_names: tuple[str, ...] = ()
+    n_intervals: int = N_INTERVALS
 
     def __post_init__(self) -> None:
+        if self.n_intervals < 1:
+            raise ValueError("n_intervals must be positive")
         if not self.readiness_steps:
             raise ValueError("readiness_steps must not be empty")
         for step in (*self.readiness_steps, *self.occupied_steps):
-            if not 0 <= int(step) < N_INTERVALS:
+            if not 0 <= int(step) < self.n_intervals:
                 raise ValueError(f"comfort step out of range: {step}")
         if self.low_f >= self.high_f:
             raise ValueError("low_f must be below high_f")
+
+    @property
+    def dt_hours(self) -> float:
+        return 24.0 / float(self.n_intervals)
 
 
 @dataclass(frozen=True)
@@ -85,9 +92,9 @@ class RewardResult:
         return body
 
 
-def _validate_kw(values: Sequence[float], name: str) -> tuple[float, ...]:
-    if len(values) != N_INTERVALS:
-        raise ValueError(f"{name} must contain {N_INTERVALS} intervals")
+def _validate_kw(values: Sequence[float], name: str, n_intervals: int) -> tuple[float, ...]:
+    if len(values) != n_intervals:
+        raise ValueError(f"{name} must contain {n_intervals} intervals")
     converted = tuple(float(v) for v in values)
     if any(v != v or v in (float("inf"), float("-inf")) or v < 0 for v in converted):
         raise ValueError(f"{name} must be finite and non-negative")
@@ -107,8 +114,8 @@ def _validate_zones(
     out: dict[str, tuple[float, ...]] = {}
     for name, values in zone_temperatures_f.items():
         row = tuple(float(v) for v in values)
-        if len(row) != N_INTERVALS or any(v != v or v in (float("inf"), float("-inf")) for v in row):
-            raise ValueError(f"zone {name!r} must contain {N_INTERVALS} finite values")
+        if len(row) != comfort.n_intervals or any(v != v or v in (float("inf"), float("-inf")) for v in row):
+            raise ValueError(f"zone {name!r} must contain {comfort.n_intervals} finite values")
         out[str(name)] = row
     return out
 
@@ -118,6 +125,7 @@ def comfort_score(zone_temperatures_f: Mapping[str, Sequence[float]], comfort: C
     readiness_failed: list[str] = []
     low_dh = 0.0
     high_dh = 0.0
+    dt = comfort.dt_hours
     for name, values in zones.items():
         for step in comfort.readiness_steps:
             value = values[step]
@@ -125,8 +133,8 @@ def comfort_score(zone_temperatures_f: Mapping[str, Sequence[float]], comfort: C
                 readiness_failed.append(f"{name}@{step}")
         for step in comfort.occupied_steps:
             value = values[step]
-            low_dh += max(0.0, comfort.low_f - value) * 0.25
-            high_dh += max(0.0, value - comfort.high_f) * 0.25
+            low_dh += max(0.0, comfort.low_f - value) * dt
+            high_dh += max(0.0, value - comfort.high_f) * dt
     return {
         "readiness_ok": not readiness_failed,
         "readiness_failed_zones": tuple(readiness_failed),
@@ -135,7 +143,7 @@ def comfort_score(zone_temperatures_f: Mapping[str, Sequence[float]], comfort: C
     }
 
 
-def action_smoothness(schedules: Mapping[str, Sequence[float]] | None) -> float:
+def action_smoothness(schedules: Mapping[str, Sequence[float]] | None, *, n_intervals: int = N_INTERVALS) -> float:
     """Mean absolute within-day setpoint change across all provided schedules."""
 
     if not schedules:
@@ -143,8 +151,8 @@ def action_smoothness(schedules: Mapping[str, Sequence[float]] | None) -> float:
     changes: list[float] = []
     for name, values in schedules.items():
         row = tuple(float(v) for v in values)
-        if len(row) != N_INTERVALS or any(not math.isfinite(value) for value in row):
-            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} finite values")
+        if len(row) != n_intervals or any(not math.isfinite(value) for value in row):
+            raise ValueError(f"schedule {name!r} must contain {n_intervals} finite values")
         changes.extend(abs(b - a) for a, b in zip(row, row[1:], strict=False))
     return float(sum(changes) / len(changes)) if changes else 0.0
 
@@ -152,6 +160,8 @@ def action_smoothness(schedules: Mapping[str, Sequence[float]] | None) -> float:
 def between_day_action_delta(
     previous_schedules: Mapping[str, Sequence[float]] | None,
     candidate_schedules: Mapping[str, Sequence[float]] | None,
+    *,
+    n_intervals: int = N_INTERVALS,
 ) -> float:
     if not previous_schedules or not candidate_schedules:
         return 0.0
@@ -161,11 +171,11 @@ def between_day_action_delta(
         previous = tuple(float(v) for v in previous_schedules[name])
         candidate = tuple(float(v) for v in candidate_schedules[name])
         if (
-            len(previous) != N_INTERVALS
-            or len(candidate) != N_INTERVALS
+            len(previous) != n_intervals
+            or len(candidate) != n_intervals
             or any(not math.isfinite(value) for value in (*previous, *candidate))
         ):
-            raise ValueError(f"schedule {name!r} must contain {N_INTERVALS} finite values")
+            raise ValueError(f"schedule {name!r} must contain {n_intervals} finite values")
         deltas.append(abs(candidate[0] - previous[-1]))
     return float(sum(deltas) / len(deltas)) if deltas else 0.0
 
@@ -188,16 +198,19 @@ def score_operator_pay_day(
     Candidate-as-baseline is rejected rather than implicitly accepted.
     """
 
-    candidate_kw = _validate_kw(candidate_kw, "candidate_kw")
+    if tariff.intervals_per_day != comfort.n_intervals:
+        raise ValueError("tariff intervals must match comfort.n_intervals")
+    n = comfort.n_intervals
+    candidate_kw = _validate_kw(candidate_kw, "candidate_kw", n)
     if baseline_kw is None:
         raise ValueError("paired baseline_kw is required; candidate-as-baseline is forbidden")
-    baseline_kw = _validate_kw(baseline_kw, "baseline_kw")
+    baseline_kw = _validate_kw(baseline_kw, "baseline_kw", n)
     candidate_bill = billing_cost(candidate_kw, tariff=tariff, opening_state=opening_billing_state)
     baseline_bill = billing_cost(baseline_kw, tariff=tariff, opening_state=opening_billing_state)
     comfort_result = comfort_score(candidate_zone_temperatures_f, comfort)
     savings = float(baseline_bill["total_cost_usd"] - candidate_bill["total_cost_usd"])
-    smoothness = action_smoothness(candidate_schedules)
-    day_delta = between_day_action_delta(previous_schedules, candidate_schedules)
+    smoothness = action_smoothness(candidate_schedules, n_intervals=n)
+    day_delta = between_day_action_delta(previous_schedules, candidate_schedules, n_intervals=n)
     readiness_ok = bool(comfort_result["readiness_ok"])
     if readiness_ok:
         paycheck = min(policy.payout_cap_usd, max(0.0, policy.base_wage_usd + policy.savings_multiplier * savings))

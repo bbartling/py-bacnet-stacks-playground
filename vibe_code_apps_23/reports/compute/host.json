@@ -1,0 +1,14 @@
+{
+  "collected_at_unix": 1788456593.8606057,
+  "cpu_count": 8,
+  "hostname": "BensDesktop",
+  "machine": "AMD64",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 158 Stepping 13, GenuineIntel",
+  "psutil": true,
+  "python_version": "3.14.2",
+  "ram_total_gb": 31.79,
+  "release": "11",
+  "schema": "vibe23.host_info.v1",
+  "system": "Windows"
+}

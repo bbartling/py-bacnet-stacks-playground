@@ -3,14 +3,15 @@ requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vibe23-lbnl-b59"
-version = "0.2.0"
-description = "LBNL Building 59 EnergyPlus calibration and DSM research lab"
+name = "vibe23-residential-dsm"
+version = "0.3.0"
+description = "Residential heat-pump EnergyPlus DSM lab: DR demo, thermostat grid search, battery co-optimization"
 requires-python = ">=3.12"
 dependencies = ["matplotlib>=3.9", "numpy>=2.0", "pandas>=2.2", "tzdata>=2024.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.12"]
+compute = ["psutil>=5.9"]
 
 [project.scripts]
 vibe23 = "vibe23.cli:main"

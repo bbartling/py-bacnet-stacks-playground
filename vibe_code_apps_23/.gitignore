@@ -1,0 +1,15 @@
+﻿campaigns/runs/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+reports/**/eplusout.*
+reports/**/eplusmtr.*
+reports/**/eplustbl.htm
+reports/**/eplusout*
+reports/**/in.idf
+reports/**/console.log
+reports/**/sqlite.err
+reports/**/*.csv
+_canvas_data.json
