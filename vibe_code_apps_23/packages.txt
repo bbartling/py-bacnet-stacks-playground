@@ -1,0 +1,2 @@
+# System packages for Streamlit Community Cloud (none required for fixture demo mode).
+# Native EnergyPlus is optional and typically unavailable on Streamlit Cloud.

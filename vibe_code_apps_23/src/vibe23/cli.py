@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -38,18 +40,30 @@ def _emit_json(value: Any, output: str | None = None) -> None:
 
 
 def _residential_doctor(args: argparse.Namespace) -> None:
+    from .energyplus import resolve_native_energyplus
+    from .envfile import load_energyplus_env
+
+    load_energyplus_env()
     cap = energyplus_capability(
         docker_image=args.docker_image,
         eplus_path=args.eplus_path,
     )
     epw = find_denver_epw(args.epw)
-    datasets = Path(r"C:\EnergyPlusV26-1-0\DataSets")
+    native = resolve_native_energyplus(args.eplus_path)
+    root = Path(os.environ["ENERGYPLUS_ROOT"]).expanduser() if os.environ.get("ENERGYPLUS_ROOT") else (
+        native.parent if native else DEFAULT_WINDOWS_ENERGYPLUS.parent
+    )
+    datasets = root / "DataSets"
     result = {
         "schema": "vibe23.residential_doctor.v1",
         "ok": bool(cap.native_version),
         "native_required": True,
         "docker_required": False,
         "wsl_required": False,
+        "platform": sys.platform,
+        "env_energyplus_exe": os.environ.get("ENERGYPLUS_EXE"),
+        "env_energyplus_root": os.environ.get("ENERGYPLUS_ROOT"),
+        "env_energyplus_weather": os.environ.get("ENERGYPLUS_WEATHER"),
         "native_executable": cap.native_executable,
         "native_version": cap.native_version,
         "default_eplus_path": str(DEFAULT_WINDOWS_ENERGYPLUS),
@@ -66,7 +80,7 @@ def _residential_doctor(args: argparse.Namespace) -> None:
         "claim_assumptions": CLAIM_ASSUMPTIONS,
         "claim_tariff": CLAIM_TARIFF,
         "capability": cap.to_dict(),
-        "note": "Docker/WSL absence is informational only; residential acceptance uses native EnergyPlus.",
+        "note": "Copy .env.example to .env. Docker/WSL is optional; native EnergyPlus is used when present. Streamlit Community Cloud runs fixture-only demo mode.",
     }
     _emit_json(result, args.out)
     if not result["ok"]:

@@ -9,8 +9,12 @@ thermal flexibility (house as battery) → finite thermostat grid search under i
 
 ## Requirements
 
-- Windows + native EnergyPlus 26.1 at `C:\EnergyPlusV26-1-0\energyplus.exe` (override with `--eplus-path` / `ENERGYPLUS_EXE`)
 - Python ≥3.12
+- Native EnergyPlus 26.1 when you want live IDF runs (optional for Streamlit fixture demo)
+  - Windows: `C:\EnergyPlusV26-1-0\energyplus.exe`
+  - Linux: `/usr/local/EnergyPlus-26-1-0/energyplus` (or `/opt/EnergyPlus-26-1-0`)
+  - macOS: `/Applications/EnergyPlus-26-1-0/energyplus`
+  - Override with `.env` (`ENERGYPLUS_EXE`, `ENERGYPLUS_ROOT`, `ENERGYPLUS_WEATHER`) or `--eplus-path`
 - **No Docker / WSL required** for acceptance
 
 ## Quick start
@@ -29,6 +33,30 @@ vibe23 residential-battery-grid --season summer --max-candidates 2
 vibe23 residential-report
 ```
 
+## Streamlit studio
+
+Interactive twin replay (24h in ~60s), Plotly IDF massing, battery sizing, summer **and** winter extreme days, IDF/EPW/tariff uploads (Pydantic), light/dark theme, and energy-modeler dashboard:
+
+```powershell
+# Windows / Linux / macOS
+cd vibe_code_apps_23
+python -m pip install -e ".[studio]"
+copy .env.example .env   # Linux/mac: cp .env.example .env
+# Edit ENERGYPLUS_EXE / ENERGYPLUS_ROOT / ENERGYPLUS_WEATHER for live EnergyPlus
+streamlit run streamlit_app.py
+```
+
+Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. A **static** extreme-day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Jul-15 demo ≈ **108 kWh**; Jan-15 winter extreme ≈ **88 kWh** for this ~**3,500 ft²** / 5-ton box.
+
+### Streamlit Community Cloud
+
+1. Deploy from GitHub → [share.streamlit.io](https://share.streamlit.io)
+2. App path: `vibe_code_apps_23/streamlit_app.py`
+3. Requirements: `vibe_code_apps_23/requirements-studio.txt`
+4. Cloud runs **fixture demo mode** (no native EnergyPlus). Use the in-app **Streamlit Cloud** / **Contribute** buttons.
+
+`.env` is for local native EnergyPlus on Windows, Linux, or macOS — never commit secrets.
+
 ## Model
 
 - [`model/residential_heat_pump_home.idf`](model/residential_heat_pump_home.idf) — Carrier 50EZ060 curves, `Timestep=12` (5-min / 288 intervals/day)
@@ -45,6 +73,7 @@ vibe23 residential-report
 | `vibe23.battery` | Behind-the-meter SOC dispatch |
 | `vibe23.compute` | Host + campaign compute telemetry |
 | `vibe23.weather` | `WeatherProvider` (static EPW + forecast fixtures) |
+| `vibe23.studio` | Streamlit helpers: IDF massing, demo day, kWh integration |
 | `lessons/grid_search` | Educational ExampleFiles grid-search series (Day 10 BESS) |
 
 ## Agent handoff

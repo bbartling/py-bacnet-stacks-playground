@@ -98,8 +98,14 @@ def _version_text(result: subprocess.CompletedProcess[str]) -> str | None:
 
 
 def resolve_native_energyplus(explicit: Path | str | None = None) -> Path | None:
-    """Locate a native energyplus executable without requiring PATH or Docker."""
+    """Locate a native energyplus executable on Windows, Linux, or macOS.
 
+    Honors ``ENERGYPLUS_EXE`` / ``ENERGYPLUS_ROOT`` (optionally loaded from ``.env``).
+    """
+
+    from .envfile import default_energyplus_executables, load_energyplus_env
+
+    load_energyplus_env()
     candidates: list[Path] = []
     if explicit:
         candidates.append(Path(explicit).expanduser())
@@ -110,16 +116,20 @@ def resolve_native_energyplus(explicit: Path | str | None = None) -> Path | None
     if env_root:
         root = Path(env_root).expanduser()
         candidates.extend([root / "energyplus.exe", root / "energyplus"])
-    candidates.append(DEFAULT_WINDOWS_ENERGYPLUS)
-    candidates.append(DEFAULT_ENERGYPLUS_ROOT / "energyplus")
+    candidates.extend(default_energyplus_executables())
     which = shutil.which("energyplus") or shutil.which("EnergyPlus")
     if which:
         candidates.append(Path(which))
+    seen: set[str] = set()
     for candidate in candidates:
         try:
             resolved = candidate.resolve()
         except OSError:
             continue
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
         if resolved.is_file():
             return resolved
     return None

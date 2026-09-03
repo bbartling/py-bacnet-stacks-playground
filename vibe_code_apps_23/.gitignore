@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 .venv/
+.env
+.env.local
 reports/**/eplusout.*
 reports/**/eplusmtr.*
 reports/**/eplustbl.htm
@@ -13,3 +15,4 @@ reports/**/console.log
 reports/**/sqlite.err
 reports/**/*.csv
 _canvas_data.json
+
