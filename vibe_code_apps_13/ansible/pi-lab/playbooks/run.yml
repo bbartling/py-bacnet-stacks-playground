@@ -1,0 +1,30 @@
+---
+- name: Vibe13 Pi lab run
+  hosts: vibe13_pi_lab
+  gather_facts: true
+  become: true
+  any_errors_fatal: true
+  vars:
+    lab_profile: "{{ profile | default('mstp-smoke') }}"
+    lab_run_id: "{{ run_id | default(lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ')) }}"
+  pre_tasks:
+    - name: Require wiring manifest on controller
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../wiring.local.yml"
+      register: wiring_stat
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Fail if wiring not confirmed
+      ansible.builtin.assert:
+        that:
+          - wiring_stat.stat.exists
+        fail_msg: Run ./scripts/pi-lab confirm-wiring --confirmed first.
+      run_once: true
+
+    - name: Enable TX for this run only
+      ansible.builtin.set_fact:
+        lab_allow_serial_tx: true
+  roles:
+    - role: run_orchestrate

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Vibe13 Observer</title>
+  <meta http-equiv="refresh" content="2" />
+  <style>
+    body { font-family: ui-monospace, monospace; margin: 1.5rem; background: #0f1419; color: #e7ecf1; }
+    pre { background: #1a222c; padding: 1rem; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>Vibe13 observer</h1>
+  <p>Loopback-only status JSON (no tty ownership). Fetch <code>/</code> for JSON.</p>
+  <pre id="out">loading…</pre>
+  <script>
+    fetch('/').then(r => r.json()).then(j => {
+      document.getElementById('out').textContent = JSON.stringify(j, null, 2);
+    }).catch(e => {
+      document.getElementById('out').textContent = String(e);
+    });
+  </script>
+</body>
+</html>

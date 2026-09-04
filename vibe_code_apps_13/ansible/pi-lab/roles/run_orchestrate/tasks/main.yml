@@ -1,0 +1,62 @@
+---
+- name: Create run directory
+  ansible.builtin.file:
+    path: "{{ lab_state_root }}/runs/{{ lab_run_id }}"
+    state: directory
+    owner: "{{ lab_service_user }}"
+    group: "{{ lab_service_user }}"
+    mode: "0750"
+
+- name: Symlink current run
+  ansible.builtin.file:
+    src: "{{ lab_state_root }}/runs/{{ lab_run_id }}"
+    dest: "{{ lab_state_root }}/runs/current"
+    state: link
+    force: true
+
+- name: Validate pair roles (one server, one probe)
+  ansible.builtin.assert:
+    that:
+      - groups['vibe13_pi_lab'] | length == 2
+    fail_msg: Pair must be exactly two hosts.
+  run_once: true
+
+- name: Start server first
+  ansible.builtin.systemd:
+    name: "{{ 'vibe13-raw-peer.service' if lab_profile is search('raw') else 'vibe13-mini-device.service' }}"
+    state: started
+  when: lab_role == 'server'
+
+- name: Wait for server settle
+  ansible.builtin.pause:
+    seconds: 5
+  when: lab_role == 'server'
+
+- name: Start probe / peer second
+  ansible.builtin.systemd:
+    name: "{{ 'vibe13-raw-peer.service' if lab_profile is search('raw') else 'vibe13-probe.service' }}"
+    state: started
+  when: lab_role == 'probe'
+
+- name: Optionally start observer (no tty)
+  ansible.builtin.systemd:
+    name: vibe13-observer.service
+    state: started
+  when: lab_enable_observer | default(true) | bool
+
+- name: Write RUNNING marker
+  ansible.builtin.copy:
+    dest: "{{ lab_state_root }}/runs/{{ lab_run_id }}/summary.json"
+    content: |
+      {
+        "run_id": "{{ lab_run_id }}",
+        "profile": "{{ lab_profile }}",
+        "host": "{{ inventory_hostname }}",
+        "role": "{{ lab_role }}",
+        "status": "RUNNING",
+        "serial_by_id": "{{ lab_serial_by_id }}",
+        "started_utc": "{{ ansible_date_time.iso8601 | default('') }}"
+      }
+    owner: "{{ lab_service_user }}"
+    group: "{{ lab_service_user }}"
+    mode: "0640"

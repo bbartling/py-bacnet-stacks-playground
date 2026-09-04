@@ -1,0 +1,58 @@
+---
+# Validate inventory allowlist; refuse localhost/tower; TX default false.
+- name: Vibe13 Pi lab preflight
+  hosts: vibe13_pi_lab
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Reject non-allowlisted inventory hostname
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname in lab_allowed_hosts
+        fail_msg: >-
+          Host {{ inventory_hostname }} is not in lab_allowed_hosts.
+          Tower/localhost are not Pi-lab targets.
+
+    - name: Reject unexpected ansible_host address
+      ansible.builtin.assert:
+        that:
+          - ansible_host == lab_allowed_hosts[inventory_hostname]
+        fail_msg: >-
+          ansible_host={{ ansible_host }} does not match allowlist
+          {{ lab_allowed_hosts[inventory_hostname] }} for {{ inventory_hostname }}.
+
+    - name: Reject controller as target
+      ansible.builtin.assert:
+        that:
+          - ansible_connection != 'local'
+          - ansible_host is not match('^127\\.')
+          - ansible_host != 'localhost'
+        fail_msg: Controller/localhost must not be a Pi-lab target.
+
+    - name: Serial TX must be off until wiring confirmed
+      ansible.builtin.assert:
+        that:
+          - not (lab_allow_serial_tx | bool)
+        fail_msg: >-
+          lab_allow_serial_tx is true. Run confirm-wiring and set the wiring
+          manifest before enabling TX. Preflight refuses default TX.
+
+    - name: Unique MAC and role sanity (pair)
+      ansible.builtin.assert:
+        that:
+          - lab_mstp_mac is defined
+          - lab_role in ['server', 'probe']
+          - lab_device_instance | int != 123001
+        fail_msg: Invalid role/MAC or device instance collides with tower 123001.
+
+    - name: TCP port 22 reachable (short timeout)
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        timeout: 8
+        state: started
+      delegate_to: localhost
+      become: false
+
+    - name: Ansible ping (SSH + Python)
+      ansible.builtin.ping:

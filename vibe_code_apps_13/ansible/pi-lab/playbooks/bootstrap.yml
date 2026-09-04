@@ -1,0 +1,15 @@
+---
+# Key bootstrap: non-exclusive authorized_key; password SSH unchanged.
+# Prefer existing tower key (already on workerpis). Optional --ask-pass.
+- name: Vibe13 Pi lab SSH bootstrap
+  hosts: vibe13_pi_lab
+  gather_facts: true
+  become: false
+  any_errors_fatal: true
+  roles:
+    - role: ssh_bootstrap
+  tasks:
+    - name: Verify key-only SSH after bootstrap
+      ansible.builtin.ping:
+      vars:
+        ansible_ssh_private_key_file: "{{ lab_ssh_private_key | default(omit) }}"

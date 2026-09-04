@@ -159,10 +159,19 @@ async fn main() -> Result<()> {
     let db_arc = Arc::clone(server.database());
     tokio::spawn(simulation_task(db_arc));
 
-    // Upstream BACnetServer does not expose transport disconnect on this pin;
-    // serial path watchdog provides bounded application supervision until upstream health exists.
-    wait_shutdown_signal(shutdown).await;
+    // Single recovery owner: path watchdog + exit 75 → systemd Restart=on-failure.
+    // Do not layer an in-process reopen loop on top of systemd.
+    wait_shutdown_signal(Arc::clone(&shutdown)).await;
+    let usb_gone = shutdown.load(Ordering::Relaxed) && !Path::new(&args.serial).exists();
     info!("Shutting down…");
     server.stop().await.context("stop server")?;
+    if usb_gone {
+        const EXIT_USB_GONE: i32 = 75;
+        error!(
+            exit = EXIT_USB_GONE,
+            "exiting for systemd USB recovery (path still missing)"
+        );
+        std::process::exit(EXIT_USB_GONE);
+    }
     Ok(())
 }

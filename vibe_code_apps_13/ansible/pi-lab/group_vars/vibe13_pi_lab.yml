@@ -1,0 +1,17 @@
+---
+# Shared defaults for vibe13_pi_lab (non-secret).
+lab_baud: 38400
+lab_max_master: 2
+lab_max_info_frames: 1
+lab_allow_serial_tx: false
+lab_observer_bind: "127.0.0.1:8765"
+lab_upstream_sha: "af4e88680c51eb4da64dac47f0540a35bf184732"
+lab_install_root: /opt/vibe13
+lab_state_root: /var/lib/vibe13
+lab_etc_root: /etc/vibe13
+lab_service_user: vibe13
+lab_recovery_exit_code: 75
+lab_pair_name: bc
+lab_allowed_hosts:
+  workerpi1: "192.168.204.59"
+  workerpi2: "192.168.204.60"

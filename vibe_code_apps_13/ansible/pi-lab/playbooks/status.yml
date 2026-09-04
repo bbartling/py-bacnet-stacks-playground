@@ -1,0 +1,31 @@
+---
+- name: Vibe13 Pi lab status
+  hosts: vibe13_pi_lab
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Service status
+      ansible.builtin.command: systemctl is-active {{ item }}
+      register: svc
+      changed_when: false
+      failed_when: false
+      loop:
+        - vibe13-mini-device.service
+        - vibe13-probe.service
+        - vibe13-observer.service
+        - vibe13-raw-peer.service
+
+    - name: Show status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} {{ item.item }}={{ item.stdout | default('n/a') }}"
+      loop: "{{ svc.results }}"
+
+    - name: Current release symlink
+      ansible.builtin.command: readlink -f /opt/vibe13/current
+      register: cur
+      changed_when: false
+      failed_when: false
+
+    - name: Report current
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} current={{ cur.stdout | default('none') }}"

@@ -1,0 +1,26 @@
+---
+- name: Vibe13 Pi lab collect
+  hosts: vibe13_pi_lab
+  gather_facts: false
+  become: false
+  vars:
+    lab_run_id: "{{ run_id | mandatory }}"
+  tasks:
+    - name: Ensure controller evidence dir
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: Fetch bounded logs
+      ansible.builtin.fetch:
+        src: "{{ item }}"
+        dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}/"
+        flat: true
+        fail_on_missing: false
+      loop:
+        - /var/lib/vibe13/runs/{{ lab_run_id }}/summary.json
+        - /var/lib/vibe13/runs/{{ lab_run_id }}/mini-device.log
+        - /var/lib/vibe13/runs/{{ lab_run_id }}/probe.log
+        - /var/lib/vibe13/runs/{{ lab_run_id }}/raw.log

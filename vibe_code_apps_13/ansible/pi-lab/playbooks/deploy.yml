@@ -1,0 +1,35 @@
+---
+# Deploy immutable release; services STOPPED by default.
+- name: Vibe13 Pi lab deploy
+  hosts: vibe13_pi_lab
+  gather_facts: true
+  become: true
+  any_errors_fatal: true
+  vars:
+    lab_release_id: "{{ lab_revision | mandatory }}"
+  pre_tasks:
+    - name: Refuse TX during deploy
+      ansible.builtin.assert:
+        that:
+          - not (lab_allow_serial_tx | default(false) | bool)
+        fail_msg: Deploy must not enable TX. Keep lab_allow_serial_tx false.
+    - name: Refuse mixed deploy without revision
+      ansible.builtin.assert:
+        that:
+          - lab_revision is match('^[0-9a-f]{7,40}$') or lab_revision is match('^v?[0-9].*')
+        fail_msg: Pass --extra-vars lab_revision=<FULL_TESTED_SHA>
+  roles:
+    - role: prereqs
+    - role: deploy_release
+  post_tasks:
+    - name: Ensure project units stopped after deploy
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - vibe13-mini-device.service
+        - vibe13-probe.service
+        - vibe13-observer.service
+        - vibe13-raw-peer.service
+      failed_when: false

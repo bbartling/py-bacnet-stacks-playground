@@ -1,0 +1,18 @@
+[package]
+name = "vibe13-raw-peer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vibe13-raw-peer"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "io-util", "sync", "signal"] }
+tokio-serial.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

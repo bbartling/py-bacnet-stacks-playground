@@ -1,0 +1,47 @@
+---
+- name: Vibe13 Pi lab rollback
+  hosts: vibe13_pi_lab
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  vars:
+    lab_release_id: "{{ release_id | mandatory }}"
+  tasks:
+    - name: Verify release exists
+      ansible.builtin.stat:
+        path: "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+      register: rel
+
+    - name: Fail if unknown release
+      ansible.builtin.assert:
+        that:
+          - rel.stat.exists
+          - rel.stat.isdir
+        fail_msg: Unknown release {{ lab_release_id }}
+
+    - name: Stop services before rollback
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - vibe13-mini-device.service
+        - vibe13-probe.service
+        - vibe13-raw-peer.service
+        - vibe13-observer.service
+      failed_when: false
+
+    - name: Point current at known-good release
+      ansible.builtin.file:
+        src: "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+        dest: "{{ lab_install_root }}/current"
+        state: link
+        force: true
+
+    - name: Verify identity file
+      ansible.builtin.slurp:
+        src: "{{ lab_install_root }}/current/MANIFEST.json"
+      register: man
+
+    - name: Show restored manifest
+      ansible.builtin.debug:
+        msg: "{{ man.content | b64decode }}"
