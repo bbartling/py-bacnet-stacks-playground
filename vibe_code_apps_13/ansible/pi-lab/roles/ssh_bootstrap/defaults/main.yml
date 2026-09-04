@@ -1,0 +1,4 @@
+---
+# defaults file for ssh_bootstrap
+lab_ssh_pubkey_path: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
+lab_ssh_private_key: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa"

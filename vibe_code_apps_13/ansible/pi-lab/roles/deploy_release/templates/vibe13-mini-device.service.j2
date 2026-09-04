@@ -1,0 +1,23 @@
+[Unit]
+Description=Vibe13 MS/TP mini-device (isolated Pi lab)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ lab_service_user }}
+Group={{ lab_service_user }}
+EnvironmentFile={{ lab_etc_root }}/{{ inventory_hostname }}.env
+WorkingDirectory={{ lab_state_root }}
+ExecStart={{ lab_install_root }}/current/bin/mstp-mini-device --serial ${LAB_SERIAL} --baud ${LAB_BAUD} --mac ${LAB_MAC} --max-master ${LAB_MAX_MASTER} --max-info-frames ${LAB_MAX_INFO_FRAMES} --device-instance ${LAB_DEVICE_INSTANCE}
+# USB disappear exits with EX_TEMPFAIL (75) so Restart=on-failure reopens after replug.
+Restart=on-failure
+RestartSec=2
+StartLimitIntervalSec=120
+StartLimitBurst=20
+RuntimeMaxSec={{ lab_runtime_max_sec | default(0) }}
+StandardOutput=append:{{ lab_state_root }}/runs/current-mini.log
+StandardError=append:{{ lab_state_root }}/runs/current-mini.log
+
+[Install]
+WantedBy=multi-user.target

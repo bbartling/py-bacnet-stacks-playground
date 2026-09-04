@@ -8,6 +8,8 @@ members = [
     "apps/mstp-probe",
     "apps/mstp-fec-diag",
     "apps/mstp-passive-sniff",
+    "apps/vibe13-observer",
+    "apps/vibe13-raw-peer",
 ]
 
 [workspace.package]

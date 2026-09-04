@@ -1,0 +1,47 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - ca-certificates
+      - curl
+      - jq
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create vibe13 system user
+  ansible.builtin.user:
+    name: "{{ lab_service_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ lab_state_root }}"
+    create_home: false
+    groups: dialout
+    append: true
+
+- name: Create install/state/etc trees
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ lab_install_root }}"
+    - "{{ lab_install_root }}/releases"
+    - "{{ lab_etc_root }}"
+    - "{{ lab_state_root }}"
+    - "{{ lab_state_root }}/runs"
+    - "{{ lab_state_root }}/observer"
+
+- name: State ownership for service user
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ lab_service_user }}"
+    group: "{{ lab_service_user }}"
+    mode: "0750"
+  loop:
+    - "{{ lab_state_root }}/runs"
+    - "{{ lab_state_root }}/observer"

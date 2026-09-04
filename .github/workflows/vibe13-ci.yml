@@ -54,6 +54,19 @@ jobs:
         run: |
           chmod +x scripts/run_pty_smoke.sh scripts/pty_null_modem.py
           ./scripts/run_pty_smoke.sh 100 captures/wire-test-pty-ci.json
+      - name: Pi-lab inventory safety (offline)
+        run: |
+          python3 -m pip install --user PyYAML
+          python3 ansible/pi-lab/tests/test_inventory_safety.py
+      - name: Pi-lab ansible syntax (fixture inventory)
+        working-directory: vibe_code_apps_13/ansible/pi-lab
+        run: |
+          python3 -m pip install --user 'ansible-core==2.17.9'
+          export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+          ansible-playbook --syntax-check -i files/fixtures/inventory.ci.yml \
+            playbooks/preflight.yml
+          ansible-playbook --syntax-check -i files/fixtures/inventory.ci.yml \
+            playbooks/discover.yml
       - name: upload PTY report
         if: always()
         uses: actions/upload-artifact@v4

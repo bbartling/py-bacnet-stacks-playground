@@ -1,0 +1,18 @@
+[Unit]
+Description=Vibe13 read-only observer (no tty ownership)
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ lab_service_user }}
+Group={{ lab_service_user }}
+EnvironmentFile={{ lab_etc_root }}/{{ inventory_hostname }}.env
+WorkingDirectory={{ lab_state_root }}/observer
+ExecStart={{ lab_install_root }}/current/bin/vibe13-observer --bind ${LAB_OBSERVER_BIND} --state-dir {{ lab_state_root }}/observer
+Restart=on-failure
+RestartSec=2
+StandardOutput=append:{{ lab_state_root }}/runs/current-observer.log
+StandardError=append:{{ lab_state_root }}/runs/current-observer.log
+
+[Install]
+WantedBy=multi-user.target

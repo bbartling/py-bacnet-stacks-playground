@@ -1,0 +1,18 @@
+---
+# Read-only discovery — NEVER open serial / MS/TP / TX.
+- name: Vibe13 Pi lab discover (no serial open)
+  hosts: vibe13_pi_lab
+  gather_facts: true
+  become: false
+  any_errors_fatal: true
+  roles:
+    - role: discover_serial
+  tasks:
+    - name: Write per-host discovery JSON on controller
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id | default('discover') }}/{{ inventory_hostname }}.json"
+        content: "{{ hostvars[inventory_hostname].lab_discovery | to_nice_json }}\n"
+        mode: "0644"
+      delegate_to: localhost
+      become: false
+      when: hostvars[inventory_hostname].lab_discovery is defined

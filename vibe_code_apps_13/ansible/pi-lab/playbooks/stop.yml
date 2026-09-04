@@ -1,0 +1,20 @@
+---
+- name: Vibe13 Pi lab stop
+  hosts: vibe13_pi_lab
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Stop project units only
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - vibe13-mini-device.service
+        - vibe13-probe.service
+        - vibe13-raw-peer.service
+        - vibe13-observer.service
+      failed_when: false
+
+    - name: Clear run TX authorization reminder
+      ansible.builtin.debug:
+        msg: "Stopped project units on {{ inventory_hostname }}. TX remains inventory-default false."

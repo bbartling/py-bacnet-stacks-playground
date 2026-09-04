@@ -1,0 +1,21 @@
+---
+- name: Read controller public key
+  ansible.builtin.slurp:
+    src: "{{ lab_ssh_pubkey_path }}"
+  register: pubkey
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Ensure authorized_keys contains tower pubkey (non-exclusive)
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ pubkey.content | b64decode | trim }}"
+    state: present
+    exclusive: false
+
+- name: Record bootstrap note
+  ansible.builtin.debug:
+    msg: >-
+      Authorized key present for {{ ansible_user }}@{{ inventory_hostname }}.
+      Password SSH left unchanged. Do not copy private keys to Pis or Windows.

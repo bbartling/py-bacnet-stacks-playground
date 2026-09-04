@@ -1,0 +1,57 @@
+---
+- name: Collect OS / arch facts (no serial open)
+  ansible.builtin.shell: |
+    set -e
+    echo "hostname=$(hostname)"
+    echo "uname_m=$(uname -m)"
+    echo "dpkg_arch=$(dpkg --print-architecture 2>/dev/null || echo unknown)"
+    echo "long_bit=$(getconf LONG_BIT 2>/dev/null || echo unknown)"
+    echo "os=$(. /etc/os-release; echo $PRETTY_NAME)"
+    echo "kernel=$(uname -r)"
+    echo "python=$(python3 --version 2>&1)"
+    echo "mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+    echo "disk_avail_kb=$(df -k / | awk 'NR==2{print $4}')"
+    echo "uptime=$(cut -d. -f1 /proc/uptime)"
+    echo "timedatectl=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || echo unknown)"
+  args:
+    executable: /bin/bash
+  register: os_facts
+  changed_when: false
+
+- name: Collect USB / serial inventory (read-only paths)
+  ansible.builtin.shell: |
+    set -e
+    echo "=== lsusb ==="
+    lsusb || true
+    echo "=== by-id ==="
+    ls -la /dev/serial/by-id/ 2>/dev/null || echo none
+    echo "=== by-path ==="
+    ls -la /dev/serial/by-path/ 2>/dev/null || echo none
+    echo "=== ttyUSB/ACM ==="
+    ls -la /dev/ttyUSB* /dev/ttyACM* 2>/dev/null || echo none
+    echo "=== dialout ==="
+    id -nG
+  args:
+    executable: /bin/bash
+  register: serial_facts
+  changed_when: false
+
+- name: Parse facts into lab_discovery
+  ansible.builtin.set_fact:
+    lab_discovery:
+      host: "{{ inventory_hostname }}"
+      ansible_host: "{{ ansible_host }}"
+      role: "{{ lab_role }}"
+      expected_serial_by_id: "{{ lab_serial_by_id | default('') }}"
+      expected_adapter_model: "{{ lab_adapter_model | default('unconfirmed') }}"
+      os_lines: "{{ os_facts.stdout_lines }}"
+      serial_text: "{{ serial_facts.stdout }}"
+      gathered_utc: "{{ ansible_date_time.iso8601 | default('') }}"
+      note: "Discovery did not open any serial port or start MS/TP."
+
+- name: Warn if expected by-id missing
+  ansible.builtin.debug:
+    msg: >-
+      Expected {{ lab_serial_by_id }} not listed in by-id output.
+      Replug or revalidate before TX.
+  when: lab_serial_by_id is defined and (lab_serial_by_id | basename) not in serial_facts.stdout

@@ -1,0 +1,68 @@
+---
+- name: Require release artifact on controller
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../files/releases/{{ lab_release_id }}"
+  register: art
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Fail when artifact missing
+  ansible.builtin.assert:
+    that:
+      - art.stat.exists
+      - art.stat.isdir
+    fail_msg: >-
+      Missing files/releases/{{ lab_release_id }}. Build on the tower first
+      (./scripts/pi-lab build --revision {{ lab_release_id }}).
+  run_once: true
+
+- name: Sync release directory to target
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../files/releases/{{ lab_release_id }}/"
+    dest: "{{ lab_install_root }}/releases/{{ lab_release_id }}/"
+    owner: root
+    group: root
+    mode: preserve
+    directory_mode: "0755"
+
+- name: Verify SHA256SUMS after transfer
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+    sha256sum -c SHA256SUMS
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Activate current symlink (atomic)
+  ansible.builtin.file:
+    src: "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+    dest: "{{ lab_install_root }}/current"
+    state: link
+    force: true
+
+- name: Install host config
+  ansible.builtin.template:
+    src: host.env.j2
+    dest: "{{ lab_etc_root }}/{{ inventory_hostname }}.env"
+    owner: root
+    group: "{{ lab_service_user }}"
+    mode: "0640"
+
+- name: Install systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - vibe13-mini-device.service
+    - vibe13-probe.service
+    - vibe13-observer.service
+    - vibe13-raw-peer.service
+  notify: Reload systemd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
