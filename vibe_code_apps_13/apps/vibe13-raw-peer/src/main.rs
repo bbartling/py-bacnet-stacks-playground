@@ -12,7 +12,10 @@ use tracing::{info, warn};
 const MAGIC: [u8; 2] = [0x56, 0x13]; // Vibe13
 
 #[derive(Parser, Debug)]
-#[command(name = "vibe13-raw-peer", about = "Half-duplex raw RS-485 peer (no BACnet)")]
+#[command(
+    name = "vibe13-raw-peer",
+    about = "Half-duplex raw RS-485 peer (no BACnet)"
+)]
 struct Args {
     #[arg(long)]
     serial: String,
@@ -106,11 +109,8 @@ async fn main() -> Result<()> {
             port.write_all(&frame).await?;
             port.flush().await?;
             let mut buf = vec![0u8; 256];
-            match tokio::time::timeout(
-                Duration::from_millis(args.timeout_ms),
-                port.read(&mut buf),
-            )
-            .await
+            match tokio::time::timeout(Duration::from_millis(args.timeout_ms), port.read(&mut buf))
+                .await
             {
                 Ok(Ok(n)) if n > 0 => match decode(&buf[..n]) {
                     Ok((rseq, rp)) if rseq == seq && rp.starts_with(b"pong-") => ok += 1,
@@ -139,7 +139,10 @@ async fn main() -> Result<()> {
             {
                 Ok(Ok(n)) if n > 0 => match decode(&buf[..n]) {
                     Ok((rseq, rp)) => {
-                        let reply = encode(rseq, &format!("pong-{}", String::from_utf8_lossy(&rp)).into_bytes());
+                        let reply = encode(
+                            rseq,
+                            &format!("pong-{}", String::from_utf8_lossy(&rp)).into_bytes(),
+                        );
                         // turnaround gap for half-duplex
                         tokio::time::sleep(Duration::from_millis(20)).await;
                         port.write_all(&reply).await?;

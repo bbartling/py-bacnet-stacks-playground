@@ -13,7 +13,10 @@ use tokio::net::TcpListener;
 use tracing::{info, warn};
 
 #[derive(Parser, Debug)]
-#[command(name = "vibe13-observer", about = "Loopback HTTP observer (no tty ownership)")]
+#[command(
+    name = "vibe13-observer",
+    about = "Loopback HTTP observer (no tty ownership)"
+)]
 struct Args {
     #[arg(long, default_value = "127.0.0.1:8765")]
     bind: String,
