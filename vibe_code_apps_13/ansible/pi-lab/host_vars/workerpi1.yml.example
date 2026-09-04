@@ -7,3 +7,4 @@ lab_adapter_serial_short: "BH002I9S"
 lab_role: server
 lab_mstp_mac: 1
 lab_device_instance: 123101
+lab_peer: workerpi2
