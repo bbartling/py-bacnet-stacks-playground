@@ -416,8 +416,8 @@ def main() -> None:
         width="stretch",
     )
 
-    tab_inputs, tab_twin, tab_model, tab_batt, tab_dr, tab_grid = st.tabs(
-        ["Inputs", "Twin replay", "IDF dashboard", "Battery lab", "DR event", "Grid search"]
+    tab_inputs, tab_twin, tab_model, tab_batt, tab_dr, tab_grid, tab_econ = st.tabs(
+        ["Inputs", "Twin replay", "IDF dashboard", "Battery lab", "DR event", "Grid search", "Economics"]
     )
 
     with tab_inputs:
@@ -794,6 +794,201 @@ def main() -> None:
                         st.json(result.get("ranking") or result)
                     except Exception as exc:  # noqa: BLE001
                         st.error(f"Live grid failed: {exc}")
+
+    with tab_econ:
+        from vibe23.economics import (
+            LifecycleAssumptions,
+            default_day_type_weights,
+            distribution_bands,
+            lifecycle_report,
+            methods_appendix_markdown,
+            price_discovery_summary,
+            residential_day_value_stack,
+            tornado_one_at_a_time,
+            weighted_annual_from_days,
+        )
+        from vibe23.residential.constants import SUMMER_TOU_PEAK_END, SUMMER_TOU_PEAK_START
+
+        st.subheader("What price / incentive is required?")
+        st.caption(
+            "ILLUSTRATIVE inverse economics on the active demo day — not a calibrated ROI tool. "
+            "Never annualize one extreme day ×365 without explicit day-type weights."
+        )
+        base_kw = list(day["baseline_kw"])
+        event_kw = list(day["event_kw"])
+        base_bill = day_bill(base_kw, season=season_key)
+        event_bill = day_bill(event_kw, season=season_key)
+        tou_save = base_bill - event_bill
+
+        def _period_kwh(kw: list[float], start: float, end: float) -> float:
+            n = len(kw)
+            total = 0.0
+            for i, v in enumerate(kw):
+                hour = (i + 1) * 24.0 / max(n, 1)
+                if start < hour <= end:
+                    total += float(v) * dt_hours
+            return total
+
+        if season_key == "summer":
+            p0, p1 = SUMMER_TOU_PEAK_START, SUMMER_TOU_PEAK_END
+        else:
+            p0, p1 = 6.0, 9.0
+        kwh_shed = max(0.0, _period_kwh(base_kw, p0, p1) - _period_kwh(event_kw, p0, p1))
+        event_hours = max(0.25, p1 - p0)
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            target_event = st.number_input("Target $/event", min_value=0.0, value=5.0, step=1.0, key="econ_target")
+        with c2:
+            net_capex = st.number_input("BESS net CapEx $", min_value=0.0, value=9800.0, step=100.0, key="econ_capex")
+        with c3:
+            cycles_yr = st.number_input("Cycles / year", min_value=1.0, value=250.0, step=10.0, key="econ_cycles")
+        off_peak = 0.08
+        eta_rt = float(st.session_state.eta) ** 2
+        disc = price_discovery_summary(
+            kwh_shed=max(kwh_shed, 1e-6),
+            event_hours=event_hours,
+            tou_savings_usd=tou_save,
+            capacity_kwh=float(st.session_state.capacity_kwh),
+            eta_rt=eta_rt,
+            net_capex_usd=float(net_capex),
+            off_peak=off_peak,
+            targets_usd=(2.0, float(target_event), 10.0),
+            cycles_per_year=float(cycles_yr),
+            payback_years=10.0,
+        )
+        e1, e2, e3, e4 = st.columns(4)
+        e1.metric("TOU bill save $/day", f"${tou_save:.2f}")
+        e2.metric("Peak-window kWh shed", f"{kwh_shed:.2f}")
+        row = next(
+            r for r in disc["incentive_table"] if abs(float(r["target_usd_per_event"]) - float(target_event)) < 1e-9
+        )
+        e3.metric("Required $/kWh shed", f"${float(row['required_usd_per_kwh_shed']):.2f}")
+        br = disc["bess_arbitrage_breakeven"]
+        e4.metric("Peak $/kWh for 10-yr arb", f"${float(br['required_peak_usd_per_kwh']):.2f}")
+
+        include_dr = st.checkbox("Include DR incentive layer", value=True, key="econ_incl_dr")
+        include_res = st.checkbox("Include resilience layer (off by default)", value=False, key="econ_incl_res")
+        dr_pay = st.number_input("DR incentive $/event", min_value=0.0, value=float(target_event), key="econ_dr_pay")
+        res_val = st.number_input("Resilience $/day (ILLUSTRATIVE)", min_value=0.0, value=3.0, key="econ_res")
+        stack = residential_day_value_stack(
+            tou_arbitrage_usd=tou_save,
+            dr_incentive_usd=float(dr_pay),
+            include_dr_incentive=include_dr,
+            resilience_usd=float(res_val),
+            include_resilience=include_res,
+        )
+        st.write("Value stack (enabled layers only)")
+        st.dataframe(stack["waterfall"], hide_index=True, width="stretch")
+        st.metric("Stack total $/day", f"${float(stack['total_usd']):.2f}")
+
+        st.subheader("BESS lifecycle (arbitrage cashflows only)")
+        annual_arb = st.number_input(
+            "Assumed annual arbitrage $ (not day×365)",
+            min_value=0.0,
+            value=400.0,
+            step=50.0,
+            key="econ_annual_arb",
+            help="Set explicitly. Extreme demo-day ×365 is forbidden.",
+        )
+        life = lifecycle_report(
+            LifecycleAssumptions(
+                net_capex_usd=float(net_capex),
+                annual_arbitrage_usd=float(annual_arb),
+                discount_rate=0.07,
+                lifetime_years=10,
+                warranty_years=10,
+                throughput_kwh_per_year=float(st.session_state.capacity_kwh) * 0.85 * float(cycles_yr),
+                tax_credit_frac=0.0,
+                tax_credit_evidence="NONE",
+            )
+        )
+        l1, l2, l3 = st.columns(3)
+        l1.metric("NPV $", f"${float(life['npv_usd']):.0f}")
+        pb = life["simple_payback_years"]
+        l2.metric("Simple payback yr", "—" if pb is None else f"{float(pb):.1f}")
+        lcos = life["lcos_usd_per_kwh"]
+        l3.metric("LCOS $/kWh", "—" if lcos is None else f"${float(lcos):.3f}")
+        st.warning(life["warning"])
+
+        st.subheader("Uncertainty — weighted days + tornado")
+        weights = default_day_type_weights()
+        # Map active season day into hot/design; keep other types modest ILLUSTRATIVE.
+        day_vals = {
+            "summer_hot": tou_save if season_key == "summer" else 0.4,
+            "summer_typical": max(0.0, tou_save * 0.35) if season_key == "summer" else 0.2,
+            "winter_design": tou_save if season_key == "winter" else 1.0,
+            "winter_typical": 0.5,
+            "shoulder": 0.15,
+        }
+        annual = weighted_annual_from_days(day_vals, weights)
+        # Build a small sample around weighted mean for P10/P50/P90 display.
+        samples = [
+            annual["annual_usd"] * m for m in (0.4, 0.6, 0.8, 1.0, 1.1, 1.3, 1.6)
+        ]
+        bands = distribution_bands(samples)
+        u1, u2, u3, u4 = st.columns(4)
+        u1.metric("Weighted annual $", f"${annual['annual_usd']:.0f}")
+        u2.metric("P10", f"${bands['p10_usd']:.0f}")
+        u3.metric("P50", f"${bands['p50_usd']:.0f}")
+        u4.metric("P90", f"${bands['p90_usd']:.0f}")
+        st.caption(f"Day-type weights (days/yr): {weights}")
+
+        def _eval(params: dict) -> float:
+            return float(params["tou_save"]) * float(params["event_days"]) + float(params["dr_pay"]) * float(
+                params["event_days"]
+            ) * (1.0 if include_dr else 0.0) - 0.01 * float(params["capex"])
+
+        tornado = tornado_one_at_a_time(
+            {
+                "tou_save": max(tou_save, 0.01),
+                "event_days": 20.0,
+                "dr_pay": float(dr_pay),
+                "capex": float(net_capex),
+            },
+            evaluate=_eval,
+        )
+        st.dataframe(
+            [
+                {
+                    "param": b["param"],
+                    "low $": round(float(b["low_usd"]), 1),
+                    "high $": round(float(b["high_usd"]), 1),
+                    "swing $": round(float(b["swing_usd"]), 1),
+                }
+                for b in tornado["bars"]
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+
+        appendix = methods_appendix_markdown(
+            day=day,
+            equipment=equipment_provenance(),
+            battery={
+                "capacity_kwh": float(st.session_state.capacity_kwh),
+                "max_power_kw": float(st.session_state.max_power_kw),
+                "eta": float(st.session_state.eta),
+            },
+            economics={
+                "tou_save_usd": tou_save,
+                "kwh_shed": kwh_shed,
+                "price_discovery": disc,
+                "value_stack_total": stack["total_usd"],
+                "lifecycle_npv": life["npv_usd"],
+                "weighted_annual_usd": annual["annual_usd"],
+                "bands": bands,
+            },
+        )
+        st.download_button(
+            "Download methods appendix (.md)",
+            data=appendix,
+            file_name="vibe23_methods_appendix.md",
+            mime="text/markdown",
+            key="econ_methods_dl",
+        )
+        with st.expander("Methods appendix preview"):
+            st.code(appendix, language="markdown")
 
     _queue_play_tick(n)
 
