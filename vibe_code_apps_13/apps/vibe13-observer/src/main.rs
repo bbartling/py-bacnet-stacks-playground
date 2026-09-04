@@ -2,7 +2,7 @@
 //! Publishes bounded JSON from a state directory written by other processes.
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -31,7 +31,7 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn load_status(state_dir: &PathBuf) -> Value {
+fn load_status(state_dir: &Path) -> Value {
     let path = state_dir.join("status.json");
     match std::fs::read_to_string(&path) {
         Ok(s) => serde_json::from_str(&s).unwrap_or_else(|_| {
