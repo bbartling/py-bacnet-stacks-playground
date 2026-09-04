@@ -93,10 +93,11 @@ def default_thermostat_candidates(*, season: str = "summer") -> tuple[GridCandid
             GridDimension("event_heat_f", (69.5, 70.5)),
         )
     else:
+        # Align grid search to illustrative summer TOU peak (16-21).
         dims = (
-            GridDimension("pre_start_hour", (12.0, 13.0)),
-            GridDimension("event_start", (14.0,)),
-            GridDimension("event_end", (18.0,)),
+            GridDimension("pre_start_hour", (13.0, 14.0)),
+            GridDimension("event_start", (15.0,)),
+            GridDimension("event_end", (20.0,)),
             GridDimension("pre_cool_f", (70.5, 71.0)),
             GridDimension("event_cool_f", (73.5, 74.5)),
         )

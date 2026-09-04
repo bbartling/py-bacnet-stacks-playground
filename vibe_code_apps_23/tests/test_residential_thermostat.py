@@ -28,11 +28,22 @@ def test_baseline_length_288():
 
 
 def test_summer_action_raises_cool_during_event():
-    action = build_schedule_action(mode="summer_dr", event_cool_f=74.5, pre_cool_f=70.5)
+    action = build_schedule_action(
+        mode="summer_dr",
+        pre_start_hour=13.0,
+        event_start=15.0,
+        event_end=20.0,
+        recover_end=23.0,
+        event_cool_f=74.5,
+        pre_cool_f=70.5,
+    )
     heat, cool = action_to_setpoints_f(action)
-    idx = int(15 * 12) - 1
+    # Hour ending 16:00 is inside the 15-20 event window.
+    idx = int(16 * 12) - 1
     assert cool[idx] == pytest.approx(74.5)
-    pre_idx = int(13 * 12) - 1
+    # Hour ending 14:00 is inside precool 13-15.
+    pre_idx = int(14 * 12) - 1
+    assert cool[pre_idx] == pytest.approx(70.5)
     assert heat[pre_idx] < cool[pre_idx]
     assert comfort_ok([72.0] * 10)
     assert not comfort_ok([80.0] * 10)

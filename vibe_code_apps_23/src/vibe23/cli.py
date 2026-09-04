@@ -88,8 +88,18 @@ def _residential_doctor(args: argparse.Namespace) -> None:
 
 
 def _residential_smoke(args: argparse.Namespace) -> None:
+    from .residential.constants import (
+        SUMMER_DEMO_DAY,
+        SUMMER_DEMO_MONTH,
+        WINTER_DESIGN_DAY,
+        WINTER_DESIGN_MONTH,
+    )
+
     season = args.season.lower()
-    month, day = (1, 15) if season in {"jan", "january", "winter"} else (7, 15)
+    if season in {"jan", "january", "winter"}:
+        month, day = WINTER_DESIGN_MONTH, WINTER_DESIGN_DAY
+    else:
+        month, day = SUMMER_DEMO_MONTH, SUMMER_DEMO_DAY
     out_dir = Path(args.output_dir) if args.output_dir else Path("campaigns/runs/residential_smoke") / season
     result = run_residential_day(
         Path(args.idf) if args.idf else MODEL_IDF,

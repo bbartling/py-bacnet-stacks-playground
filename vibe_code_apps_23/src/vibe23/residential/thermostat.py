@@ -27,10 +27,10 @@ def baseline_setpoints_f(n: int = INTERVALS_PER_DAY) -> tuple[np.ndarray, np.nda
 
 def build_schedule_action(
     *,
-    pre_start_hour: float = 12.0,
-    event_start: float = 14.0,
-    event_end: float = 18.0,
-    recover_end: float = 21.0,
+    pre_start_hour: float = 13.0,
+    event_start: float = 15.0,
+    event_end: float = 20.0,
+    recover_end: float = 23.0,
     pre_cool_f: float = 70.5,
     event_cool_f: float = MAX_COOL_F,
     recover_cool_f: float = DEFAULT_COOL_F,

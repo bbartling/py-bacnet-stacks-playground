@@ -46,7 +46,7 @@ copy .env.example .env   # Linux/mac: cp .env.example .env
 streamlit run streamlit_app.py
 ```
 
-Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). A **static** extreme-day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Jul-15 demo ≈ **108 kWh**; Jan-15 winter extreme ≈ **88 kWh** for this ~**3,500 ft²** / 5-ton box.
+Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). A **static** day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Regenerated fixtures (diurnal lights/plugs, no ALWAYS_ON phantom): Jul-15 ≈ **28 kWh**; Jan-3 winter design-cold ≈ **245 kWh**; mild Jan-15 ≈ **41 kWh** (`winter_typical_jan15_dr_day.json`). ~**3,500 ft²** / 5-ton box.
 
 Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (Clear session wipes only that visitor). Isolation is not a password gate.
 

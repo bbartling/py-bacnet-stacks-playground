@@ -10,6 +10,7 @@ from vibe23.residential.constants import DT_HOURS
 from vibe23.residential.model import MODEL_IDF
 from vibe23.studio.demo_data import (
     DEMO_FLOOR_FT2,
+    FIXTURES,
     daily_kwh,
     downsample_mean,
     dsm_block_size,
@@ -60,14 +61,48 @@ def test_summer_and_winter_extreme_fixtures() -> None:
     assert abs(float(summer["dt_hours"]) - DT_HOURS) < 1e-9
     s_kwh = daily_kwh(list(summer["baseline_kw"]))
     w_kwh = daily_kwh(list(winter["baseline_kw"]))
-    assert 90.0 <= s_kwh <= 130.0
-    assert 60.0 <= w_kwh <= 130.0
+    # Post diurnal-gains fix: summer ~28 kWh; winter design-cold can exceed 200 kWh.
+    assert 15.0 <= s_kwh <= 60.0
+    assert 25.0 <= w_kwh <= 320.0
+    assert int(winter.get("day", 0)) == 3 or winter.get("day_class") == "design_cold"
     assert DEMO_FLOOR_FT2 > 3000
     out_s = load_outdoor_day(season="summer")
     out_w = load_outdoor_day(season="winter")
     assert len(out_s["drybulb_f"]) == 24
     assert len(out_w["drybulb_f"]) == 24
     assert max(out_s["drybulb_f"]) > max(out_w["drybulb_f"])
+    # Design winter should be colder than typical mild Jan 15 fixture if present.
+    typical_out = FIXTURES / "winter_outdoor_jan15.json"
+    if typical_out.is_file():
+        import json
+
+        mild = json.loads(typical_out.read_text(encoding="utf-8"))
+        assert min(out_w["drybulb_f"]) < min(mild["drybulb_f"])
+
+
+def test_idf_lights_equip_not_always_on_phantom() -> None:
+    text = MODEL_IDF.read_text(encoding="utf-8", errors="replace")
+    assert "RESIDENTIAL_LIGHTS" in text
+    assert "RESIDENTIAL_PLUGS" in text
+    # Lights / ElectricEquipment objects must not use ALWAYS_ON (HVAC may still).
+    assert "ZONE ONE Lights" in text
+    lights_block = text.split("ZONE ONE Lights", 1)[1].split("ElectricEquipment", 1)[0]
+    assert "RESIDENTIAL_LIGHTS" in lights_block
+    assert "ALWAYS_ON" not in lights_block
+    equip_block = text.split("ZONE ONE Equip", 1)[1].split("ZoneInfiltration", 1)[0]
+    assert "RESIDENTIAL_PLUGS" in equip_block
+    assert "ALWAYS_ON" not in equip_block
+
+
+def test_july_dr_overlaps_tou_peak() -> None:
+    from vibe23.residential.constants import SUMMER_TOU_PEAK_END, SUMMER_TOU_PEAK_START
+    from vibe23.residential.dr import july_dr_action
+
+    action = july_dr_action()
+    assert action["event_start"] < SUMMER_TOU_PEAK_END
+    assert action["event_end"] > SUMMER_TOU_PEAK_START
+    assert action["event_end"] <= SUMMER_TOU_PEAK_END
+    assert action["recover_end"] >= SUMMER_TOU_PEAK_END
 
 
 def test_hourly_kwh_and_cost() -> None:

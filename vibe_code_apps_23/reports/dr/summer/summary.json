@@ -1,15 +1,15 @@
 {
   "action": {
     "event_cool_f": 74.5,
-    "event_end": 18.0,
+    "event_end": 20.0,
     "event_heat_f": 69.5,
-    "event_start": 14.0,
+    "event_start": 15.0,
     "mode": "summer_dr",
     "pre_cool_f": 70.5,
     "pre_heat_f": 72.5,
-    "pre_start_hour": 12.0,
+    "pre_start_hour": 13.0,
     "recover_cool_f": 72.5,
-    "recover_end": 21.0,
+    "recover_end": 23.0,
     "recover_heat_f": 71.5
   },
   "baseline_ok": true,
@@ -19,15 +19,19 @@
     "comfort_ok_event": false,
     "default_cool_f": 72.5,
     "default_heat_f": 71.5,
-    "peak_kw_baseline": 5.565880339225953,
-    "peak_kw_delta": 1.4638989853425945,
-    "peak_kw_event": 7.029779324568548,
-    "peak_period_kwh_baseline": 19.239462175230006,
-    "peak_period_kwh_delta": -2.6786705678568516,
-    "peak_period_kwh_event": 16.560791607373154,
-    "total_kwh_baseline": 107.76090939617178,
-    "total_kwh_delta": -0.13182019956768443,
-    "total_kwh_event": 107.6290891966041
+    "peak_kw_baseline": 2.131315480696743,
+    "peak_kw_delta": 1.2763174788497635,
+    "peak_kw_event": 3.4076329595465067,
+    "peak_period_hours": [
+      16.0,
+      21.0
+    ],
+    "peak_period_kwh_baseline": 8.688618360573285,
+    "peak_period_kwh_delta": -1.7536304468278718,
+    "peak_period_kwh_event": 6.934987913745413,
+    "total_kwh_baseline": 27.628141667380525,
+    "total_kwh_delta": -0.2670307360655215,
+    "total_kwh_event": 27.361110931315004
   },
   "event_ok": true,
   "plot": "reports\\dr\\summer\\dr_comparison.png",

@@ -90,7 +90,14 @@ def hourly_cost(
 
 
 def load_outdoor_day(*, season: str) -> dict[str, Any]:
-    name = "winter_outdoor_jan15.json" if season == "winter" else "summer_outdoor_jul15.json"
+    """Outdoor dry-bulb for the active studio day (winter uses design-cold Jan 3)."""
+    if season == "winter":
+        design = FIXTURES / "winter_outdoor_design_jan03.json"
+        if design.is_file():
+            return json.loads(design.read_text(encoding="utf-8"))
+        name = "winter_outdoor_jan15.json"
+    else:
+        name = "summer_outdoor_jul15.json"
     path = FIXTURES / name
     return json.loads(path.read_text(encoding="utf-8"))
 

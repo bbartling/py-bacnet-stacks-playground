@@ -326,6 +326,34 @@
     For: AllDays,            !- Field 2
     Until: 24:00,1;          !- Field 3
 
+  ! Diurnal residential lighting (fraction of design). ILLUSTRATIVE shape with
+  ! evening peak 17-22; mean fraction ~0.31. Paired with 2.0 W/m2 design so
+  ! zone-average lighting ~0.20 kW on 325 m2 (RECS-scale non-HVAC order).
+  Schedule:Compact,
+    RESIDENTIAL_LIGHTS,      !- Name
+    Fraction,                !- Schedule Type Limits Name
+    Through: 12/31,          !- Field 1
+    For: AllDays,            !- Field 2
+    Until: 06:00,0.05,       !- Field 3
+    Until: 09:00,0.35,       !- Field 4
+    Until: 17:00,0.10,       !- Field 5
+    Until: 22:00,0.90,       !- Field 6
+    Until: 24:00,0.35;       !- Field 7
+
+  ! Diurnal plug/misc electric (fraction of design). Always-on base + evening
+  ! occupancy peak; mean fraction ~0.47. Paired with 2.5 W/m2 → ~0.38 kW avg.
+  ! Combined lights+plugs ~0.58 kW avg (was 3.25 kW flat ALWAYS_ON phantom).
+  Schedule:Compact,
+    RESIDENTIAL_PLUGS,       !- Name
+    Fraction,                !- Schedule Type Limits Name
+    Through: 12/31,          !- Field 1
+    For: AllDays,            !- Field 2
+    Until: 06:00,0.25,       !- Field 3
+    Until: 09:00,0.45,       !- Field 4
+    Until: 17:00,0.40,       !- Field 5
+    Until: 22:00,0.85,       !- Field 6
+    Until: 24:00,0.50;       !- Field 7
+
   Schedule:Compact,
     OCCUPY,                  !- Name
     Fraction,                !- Schedule Type Limits Name
@@ -389,10 +417,10 @@
   Lights,
     ZONE ONE Lights,         !- Name
     ZONE ONE,                !- Zone or ZoneList or Space or SpaceList Name
-    ALWAYS_ON,               !- Schedule Name
+    RESIDENTIAL_LIGHTS,      !- Schedule Name
     Watts/Area,              !- Design Level Calculation Method
     ,                        !- Lighting Level {W}
-    5.0,                     !- Watts per Floor Area {W/m2}
+    2.0,                     !- Watts per Floor Area {W/m2}
     ,                        !- Watts per Person {W/person}
     0.0,                     !- Return Air Fraction
     0.7,                     !- Fraction Radiant
@@ -403,10 +431,10 @@
   ElectricEquipment,
     ZONE ONE Equip,          !- Name
     ZONE ONE,                !- Zone or ZoneList or Space or SpaceList Name
-    ALWAYS_ON,               !- Schedule Name
+    RESIDENTIAL_PLUGS,       !- Schedule Name
     Watts/Area,              !- Design Level Calculation Method
     ,                        !- Design Level {W}
-    5.0,                     !- Watts per Floor Area {W/m2}
+    2.5,                     !- Watts per Floor Area {W/m2}
     ,                        !- Watts per Person {W/person}
     0.0,                     !- Fraction Latent
     0.3,                     !- Fraction Radiant
