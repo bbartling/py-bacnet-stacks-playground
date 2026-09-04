@@ -91,6 +91,7 @@ def _init_state() -> None:
         "soc_max": 0.95,
         "initial_soc": 0.50,
         "attach_battery": True,
+        "comfort_wtp": 0.10,
         "idf_text": None,
         "idf_name": MODEL_IDF.name,
         "outdoor_override": None,
@@ -659,16 +660,66 @@ def main() -> None:
             b2.metric("Save vs house-only", f"${house_bill - net_bill:.2f}")
             b3.metric("Purchased peak kW", f"{max(purchased or [0.0]):.2f}")
             b4.metric("Purchased day kWh", f"{purchased_day_kwh:.1f}", delta=f"house {house_day_kwh:.1f}")
+        opt = batt_dr.get("optimality") or batt_base.get("optimality")
+        if opt:
+            st.caption(
+                f"Greedy is a heuristic. On DR load it captures "
+                f"**{100 * float(opt.get('greedy_captures_lp_savings_fraction', 0)):.0f}%** of cyclic-LP bill savings "
+                f"(greedy save ${float(opt.get('greedy_savings_usd', 0)):.2f} vs LP "
+                f"${float(opt.get('lp_savings_usd', 0)):.2f}). Purchased peak is capped ≤ house peak."
+            )
+            lp_dr = batt_dr.get("lp") or {}
+            if lp_dr:
+                st.write(
+                    {
+                        "greedy_dr_bill": round(float(batt_dr["billing_cost"]), 3),
+                        "lp_dr_bill": round(float(lp_dr["billing_cost"]), 3),
+                        "lp_purchased_peak_kw": round(float(lp_dr["purchased_peak_kw"]), 3),
+                        "house_peak_kw": round(float(batt_dr.get("house_peak_kw") or max(event_kw)), 3),
+                    }
+                )
 
     with tab_dr:
         st.subheader(f"Stage 1 thermal — {day.get('label', season_key)}")
+        from vibe23.comfort import degree_hours_abs_delta, degree_hours_outside_band, net_welfare_usd
+        from vibe23.residential.thermostat import comfort_ok
+
         base_kwh = daily_kwh(list(day["baseline_kw"]))
         event_kwh = daily_kwh(list(day["event_kw"]))
+        base_bill = day_bill(list(day["baseline_kw"]), season=season_key)
+        event_bill = day_bill(list(day["event_kw"]), season=season_key)
+        bill_savings = base_bill - event_bill
+        dh_vs_base = degree_hours_abs_delta(list(day["event_temp_f"]), list(day["baseline_temp_f"]))
+        band = degree_hours_outside_band(list(day["event_temp_f"]))
+        wtp = st.slider(
+            "ILLUSTRATIVE comfort WTP ($/°F·h vs baseline)",
+            min_value=0.0,
+            max_value=0.50,
+            value=0.10,
+            step=0.05,
+            key="comfort_wtp",
+            help="Willingness-to-pay for thermal deviation from the paired baseline trajectory.",
+        )
+        welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
         d1, d2, d3, d4 = st.columns(4)
         d1.metric("Baseline peak kW", f"{max(day['baseline_kw']):.2f}")
         d2.metric("Event peak kW", f"{max(day['event_kw']):.2f}")
-        d3.metric("Baseline day kWh", f"{base_kwh:.1f}")
-        d4.metric("Event day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
+        d3.metric("Bill savings $/day", f"${bill_savings:.2f}")
+        d4.metric(
+            "Net welfare $/day",
+            f"${welfare['net_welfare_usd']:.2f}",
+            delta=f"comfort −${welfare['comfort_cost_usd']:.2f}",
+        )
+        st.caption(
+            f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
+            f"**{comfort_ok(list(day['event_temp_f']))}** · "
+            f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
+            f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
+            "Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE)."
+        )
+        d5, d6 = st.columns(2)
+        d5.metric("Baseline day kWh", f"{base_kwh:.1f}")
+        d6.metric("Event day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
         base_disp = downsample_mean(list(day["baseline_kw"]), block)
         event_disp = downsample_mean(list(day["event_kw"]), block)
         base_temp = downsample_mean(list(day["baseline_temp_f"]), block)
@@ -690,7 +741,7 @@ def main() -> None:
         fig.add_trace(go.Scatter(x=hours[:end], y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
         fig.add_trace(go.Scatter(x=hours[:end], y=event_temp[:end], name="DR °F", line=dict(color="#FF6B6B")), row=3, col=1)
         if season_key == "summer":
-            fig.add_vrect(x0=14, x1=18, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
+            fig.add_vrect(x0=15, x1=20, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
         else:
             fig.add_vrect(x0=6, x1=9, fillcolor="#8FB8FF", opacity=0.12, line_width=0, row=1, col=1)
         fig.add_vline(x=hours[step], line_dash="dash", line_color="#94A3B8")

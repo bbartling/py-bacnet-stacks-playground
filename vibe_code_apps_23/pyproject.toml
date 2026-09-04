@@ -7,7 +7,14 @@ name = "vibe23-residential-dsm"
 version = "0.3.0"
 description = "Residential heat-pump EnergyPlus DSM lab: DR demo, thermostat grid search, battery co-optimization"
 requires-python = ">=3.12"
-dependencies = ["matplotlib>=3.9", "numpy>=2.0", "pandas>=2.2", "pydantic>=2.6", "tzdata>=2024.1"]
+dependencies = [
+    "matplotlib>=3.9",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pydantic>=2.6",
+    "scipy>=1.11",
+    "tzdata>=2024.1",
+]
 
 [project.optional-dependencies]
 studio = ["streamlit>=1.37", "plotly>=5.20"]
