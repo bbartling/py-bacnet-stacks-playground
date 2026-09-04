@@ -1,6 +1,6 @@
 """Vibe 23 Residential DSM Studio — Streamlit console.
 
-Replay a 24h EnergyPlus extreme day in ~60s (summer Jul 15 / winter Jan 15),
+Replay a 24h EnergyPlus demo day in ~60s (summer Jul 15 / winter design Jan 3),
 browse IDF massing + energy-modeler dashboard, tweak battery sizing, upload
 IDF / EPW / tariff files, and inspect the thermostat + battery grid-search story.
 
@@ -83,7 +83,7 @@ def _init_state() -> None:
         "dsm_minutes": 5,
         "_dsm_minutes_prev": 5,
         "trace": "DR event",
-        "season": "Summer extreme (Jul 15)",
+        "season": "Summer hot day (Jul 15)",
         "capacity_kwh": 13.5,
         "max_power_kw": 5.0,
         "eta": 0.95,
@@ -288,12 +288,13 @@ def main() -> None:
         )
         st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
         st.divider()
-        st.header("Extreme day")
+        st.header("Demo day")
         st.radio(
             "Season",
-            ["Summer extreme (Jul 15)", "Winter extreme (Jan 15)"],
+            ["Summer hot day (Jul 15)", "Winter design cold (Jan 3)"],
             key="season",
-            help="Jul 15 hot-afternoon DR · Jan 15 morning preheat / shed.",
+            help="Jul 15 hot-afternoon DR aligned to TOU peak · Jan 3 near-design cold morning shed. "
+            "Mild Jan 15 is retained as fixtures/studio/winter_typical_jan15_dr_day.json.",
         )
         st.radio(
             "Thermal trace",
@@ -443,7 +444,7 @@ def main() -> None:
             token = (epw_up.name, int(epw_up.size))
             if st.session_state.get("_last_epw_token") != token:
                 try:
-                    month, day_num = (1, 15) if season_key == "winter" else (7, 15)
+                    month, day_num = (1, 3) if season_key == "winter" else (7, 15)
                     outdoor_model = parse_epw_day(
                         epw_up.getvalue().decode("utf-8", errors="replace"),
                         month=month,
@@ -511,7 +512,7 @@ def main() -> None:
                     st.session_state.outdoor_override = {
                         "source_name": "hourly_editor",
                         "month": 1 if season_key == "winter" else 7,
-                        "day": 15,
+                        "day": 3 if season_key == "winter" else 15,
                         "drybulb_f": temps,
                         "drybulb_c": [(t - 32.0) * 5.0 / 9.0 for t in temps],
                         "location": "manual hourly editor",

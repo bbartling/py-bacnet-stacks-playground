@@ -76,11 +76,11 @@ def test_studio_app_features() -> None:
     assert str(at.session_state["session_id"]) != old_sid
     assert int(at.session_state["dsm_minutes"]) == 5
 
-    _radio(at, "season").set_value("Winter extreme (Jan 15)").run()
+    _radio(at, "season").set_value("Winter design cold (Jan 3)").run()
     _assert_no_exceptions(at, "winter season")
     assert "Winter" in str(at.session_state["season"])
 
-    _radio(at, "season").set_value("Summer extreme (Jul 15)").run()
+    _radio(at, "season").set_value("Summer hot day (Jul 15)").run()
     _assert_no_exceptions(at, "summer season")
 
     _radio(at, "trace").set_value("Baseline").run()

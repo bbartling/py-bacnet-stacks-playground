@@ -32,6 +32,10 @@ def equipment_provenance() -> dict[str, str]:
         "rated_flow_m3s": "0.944",
         "zone_timestep": "12",
         "intervals_per_day": "288",
+        "internal_gains": (
+            "ILLUSTRATIVE diurnal RESIDENTIAL_LIGHTS 2.0 W/m2 + RESIDENTIAL_PLUGS 2.5 W/m2 "
+            "(~0.6 kW average on 325 m2; RECS-scale non-HVAC order — not ALWAYS_ON phantom)"
+        ),
         "note": "Curves copied into repo IDF; install DataSets files are not modified.",
     }
 

@@ -5,17 +5,31 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .. import plotting
-from .constants import DEFAULT_COOL_F, DEFAULT_HEAT_F, DT_HOURS, MAX_COOL_F
+from .constants import (
+    DEFAULT_COOL_F,
+    DEFAULT_HEAT_F,
+    DT_HOURS,
+    MAX_COOL_F,
+    SUMMER_DEMO_DAY,
+    SUMMER_DEMO_MONTH,
+    SUMMER_DR_EVENT_END,
+    SUMMER_DR_EVENT_START,
+    SUMMER_DR_PRE_START_HOUR,
+    SUMMER_DR_RECOVER_END,
+    SUMMER_TOU_PEAK_END,
+    SUMMER_TOU_PEAK_START,
+)
 from .runner import run_residential_day
 from .thermostat import action_to_setpoints_f, build_schedule_action, comfort_ok
 
 
 def july_dr_action() -> dict[str, Any]:
+    """Precool then shed through the illustrative $0.55 peak; recover after 21:00."""
     return build_schedule_action(
-        pre_start_hour=12.0,
-        event_start=14.0,
-        event_end=18.0,
-        recover_end=21.0,
+        pre_start_hour=SUMMER_DR_PRE_START_HOUR,
+        event_start=SUMMER_DR_EVENT_START,
+        event_end=SUMMER_DR_EVENT_END,
+        recover_end=SUMMER_DR_RECOVER_END,
         pre_cool_f=70.5,
         event_cool_f=MAX_COOL_F,
         recover_cool_f=DEFAULT_COOL_F,
@@ -38,8 +52,8 @@ def run_july_dr(
         source,
         output_dir=root / "baseline",
         eplus_path=eplus_path,
-        month=7,
-        day=15,
+        month=SUMMER_DEMO_MONTH,
+        day=SUMMER_DEMO_DAY,
     )
     action = july_dr_action()
     heat, cool = action_to_setpoints_f(action)
@@ -47,8 +61,8 @@ def run_july_dr(
         source,
         output_dir=root / "event",
         eplus_path=eplus_path,
-        month=7,
-        day=15,
+        month=SUMMER_DEMO_MONTH,
+        day=SUMMER_DEMO_DAY,
         heat_f=heat,
         cool_f=cool,
     )
@@ -67,7 +81,11 @@ def run_july_dr(
     }
 
 
-def _peak_period_kwh(facility_kw: list[float], start_hour: float = 14.0, end_hour: float = 18.0) -> float:
+def _peak_period_kwh(
+    facility_kw: list[float],
+    start_hour: float = SUMMER_TOU_PEAK_START,
+    end_hour: float = SUMMER_TOU_PEAK_END,
+) -> float:
     n = len(facility_kw)
     total = 0.0
     for i, kw in enumerate(facility_kw):
@@ -93,6 +111,7 @@ def compare_dr(baseline_metrics: Mapping[str, Any], event_metrics: Mapping[str, 
         "peak_period_kwh_baseline": _peak_period_kwh(b_kw),
         "peak_period_kwh_event": _peak_period_kwh(e_kw),
         "peak_period_kwh_delta": _peak_period_kwh(e_kw) - _peak_period_kwh(b_kw),
+        "peak_period_hours": [SUMMER_TOU_PEAK_START, SUMMER_TOU_PEAK_END],
         "comfort_ok_baseline": comfort_ok(b_temp) if b_temp else False,
         "comfort_ok_event": comfort_ok(e_temp) if e_temp else False,
         "default_heat_f": DEFAULT_HEAT_F,

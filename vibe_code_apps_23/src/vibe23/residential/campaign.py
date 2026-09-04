@@ -26,24 +26,31 @@ from .thermostat import (
 
 
 def _season_config(season: str) -> dict[str, Any]:
+    from .constants import (
+        SUMMER_DEMO_DAY,
+        SUMMER_DEMO_MONTH,
+        WINTER_DESIGN_DAY,
+        WINTER_DESIGN_MONTH,
+    )
+
     key = season.strip().lower()
     if key in {"summer", "jul", "july"}:
         return {
             "season": "summer",
-            "month": 7,
-            "day": 15,
+            "month": SUMMER_DEMO_MONTH,
+            "day": SUMMER_DEMO_DAY,
             "tariff": summer_tou_hourly(),
             "mode": "summer_dr",
-            "decision_day": "illustrative-07-15",
+            "decision_day": f"illustrative-{SUMMER_DEMO_MONTH:02d}-{SUMMER_DEMO_DAY:02d}",
         }
     if key in {"winter", "jan", "january"}:
         return {
             "season": "winter",
-            "month": 1,
-            "day": 15,
+            "month": WINTER_DESIGN_MONTH,
+            "day": WINTER_DESIGN_DAY,
             "tariff": winter_tou_hourly(),
             "mode": "winter_dr",
-            "decision_day": "illustrative-01-15",
+            "decision_day": f"illustrative-{WINTER_DESIGN_MONTH:02d}-{WINTER_DESIGN_DAY:02d}",
         }
     raise ValueError(f"unknown season: {season}")
 
