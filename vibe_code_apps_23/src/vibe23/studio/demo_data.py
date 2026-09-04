@@ -152,6 +152,7 @@ def run_battery_on_load(
     soc_max: float = 0.95,
     initial_soc: float = 0.5,
     season: str = "summer",
+    compare_lp: bool = True,
 ) -> dict[str, Any]:
     tariff = _tariff_for_season(season)
     params = BatteryParams(
@@ -164,26 +165,54 @@ def run_battery_on_load(
         soc_max=float(soc_max),
         initial_soc=float(initial_soc),
     )
+    rates = list(tariff.energy_rates_per_kwh)
     dispatch = simulate_dispatch(
         facility_kw,
-        list(tariff.energy_rates_per_kwh),
+        rates,
         params,
         mode="price_arbitrage",
+        cap_purchased_to_house_peak=True,
     )
     purchased = list(dispatch["purchased_kw"])  # type: ignore[arg-type]
     bill = billing_cost(purchased, tariff=tariff, opening_state=BillingState())
     house_kwh = daily_kwh(facility_kw)
     purchased_kwh = daily_kwh(purchased)
-    return {
+    baseline_bill = day_bill(facility_kw, season=season)
+    out: dict[str, Any] = {
         **dispatch,
         "params": params.to_dict(),
         "billing_cost": float(bill["total_cost_usd"]),
-        "baseline_billing_cost": day_bill(facility_kw, season=season),
+        "baseline_billing_cost": baseline_bill,
         "house_kwh": house_kwh,
         "purchased_kwh": purchased_kwh,
         "energy_kwh_bill": float(bill["energy_kwh"]),
-        "rates": list(tariff.energy_rates_per_kwh),
+        "rates": rates,
+        "dispatch_kind": "greedy",
     }
+    if compare_lp:
+        from ..dispatch import cyclic_lp_dispatch, optimality_gap
+
+        lp = cyclic_lp_dispatch(facility_kw, rates, params, cap_purchased_to_house_peak=True)
+        lp_purchased = list(lp["purchased_kw"])  # type: ignore[arg-type]
+        lp_bill = float(billing_cost(lp_purchased, tariff=tariff, opening_state=BillingState())["total_cost_usd"])
+        greedy_save = baseline_bill - float(bill["total_cost_usd"])
+        lp_save = baseline_bill - lp_bill
+        capture = (greedy_save / lp_save) if lp_save > 1e-9 else 1.0
+        out["lp"] = {
+            "billing_cost": lp_bill,
+            "purchased_kwh": daily_kwh(lp_purchased),
+            "purchased_peak_kw": float(lp["purchased_peak_kw"]),
+            "bill_savings_usd": lp_save,
+            "throughput_kwh": float(lp["throughput_kwh"]),
+        }
+        out["optimality"] = {
+            **optimality_gap(greedy_bill_usd=float(bill["total_cost_usd"]), lp_bill_usd=lp_bill),
+            "greedy_savings_usd": greedy_save,
+            "lp_savings_usd": lp_save,
+            "greedy_captures_lp_savings_fraction": float(capture),
+        }
+    return out
+
 
 
 def illustrative_grid_ranking(*, season: str = "summer") -> dict[str, Any]:
