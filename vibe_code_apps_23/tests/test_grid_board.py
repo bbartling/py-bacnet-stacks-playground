@@ -14,6 +14,7 @@ from vibe23.studio.search_progress import (
     format_dimension_values,
     load_grid_ranking,
     parse_dimension_values,
+    qtable_matrix,
     search_progress_state,
     season_dimension_defaults,
 )
@@ -42,7 +43,8 @@ def test_load_grid_ranking_shape(season: str) -> None:
             assert key in row
     anim = candidate_rows_for_animation(payload)
     assert all(r["candidate_id"] != "BASELINE" for r in anim)
-    assert len(anim) == (8 if season == "summer" else 16)
+    assert len(anim) == 169
+    assert payload.get("fixture_kind") == "ILLUSTRATIVE_PHYSICS_PROXY" or "winner" in payload
 
 
 def test_parse_dimension_values() -> None:
@@ -54,17 +56,19 @@ def test_parse_dimension_values() -> None:
 
 
 def test_enumerate_from_form_stable_ids() -> None:
+    from vibe23.residential.experiment import default_thermostat_candidates
+
     dims = season_dimension_defaults("summer")
     form = {d.name: format_dimension_values(d.values) for d in dims}
     cands = enumerate_from_form(form, season="summer")
-    assert len(cands) == 8
+    assert len(cands) == 169
+    assert len(default_thermostat_candidates(season="winter")) == 169
     assert cands[0].candidate_id.startswith("GRID_0000_")
     assert form_matches_fixture_catalog(form, season="summer")
-    # Editing a dimension changes N and ids.
     form2 = dict(form)
-    form2["pre_cool_f"] = "70.5"
+    form2["pre_center_f"] = "70.0"
     cands2 = enumerate_from_form(form2, season="summer")
-    assert len(cands2) == 4
+    assert len(cands2) == 13
     assert not form_matches_fixture_catalog(form2, season="summer")
 
 
@@ -111,3 +115,19 @@ def test_search_progress_state_math() -> None:
 def test_ranking_fixture_files_exist() -> None:
     assert (FIXTURES / "summer_thermostat_grid_ranking.json").is_file()
     assert (FIXTURES / "winter_thermostat_grid_ranking.json").is_file()
+    assert (FIXTURES / "summer_twin_export.json").is_file()
+    assert (FIXTURES / "winter_twin_export.json").is_file()
+
+
+def test_qtable_matrix_shape_from_fixture() -> None:
+    payload = load_grid_ranking("summer")
+    rows = payload["rows"]
+    matrix = qtable_matrix(rows)
+    assert len(matrix["pre_centers"]) == 13
+    assert len(matrix["event_centers"]) == 13
+    assert len(matrix["costs"]) == 13
+    assert all(len(row) == 13 for row in matrix["costs"])
+    assert matrix["n_filled"] == 169
+
+    partial = qtable_matrix(rows, evaluated=0)
+    assert partial["n_filled"] == 0

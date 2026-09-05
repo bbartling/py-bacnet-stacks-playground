@@ -5,11 +5,21 @@ CLAIM_ASSUMPTIONS = "ILLUSTRATIVE_RESIDENTIAL_ASSUMPTIONS"
 CLAIM_TARIFF = "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF"
 INTERVALS_PER_DAY = 288
 DT_HOURS = 1 / 12
-DEFAULT_HEAT_F = 71.5
-DEFAULT_COOL_F = 72.5
+
+# Dual-setpoint deadband is 2°F around the center (heat = center−1, cool = center+1).
+CENTER_F = 72.0
+DEADBAND_F = 2.0
+HALF_DEADBAND_F = DEADBAND_F / 2.0
+DEFAULT_HEAT_F = CENTER_F - HALF_DEADBAND_F  # 71.0
+DEFAULT_COOL_F = CENTER_F + HALF_DEADBAND_F  # 73.0
+
+# Hard comfort envelope used as the default FAIL gate in Studio / campaigns.
 MAX_HEAT_F = 69.5
 MAX_COOL_F = 74.5
-CENTER_F = 72.0
+
+# Finite center search: ±3°F from 72°F in 0.5°F steps → 13 values.
+CENTER_SEARCH_HALF_RANGE_F = 3.0
+CENTER_SEARCH_STEP_F = 0.5
 
 # Demo calendar days (Golden/NREL TMY3). Jan 15 is mild/typical; Jan 3 is near-design cold.
 SUMMER_DEMO_MONTH = 7
@@ -19,10 +29,16 @@ WINTER_DESIGN_DAY = 3
 WINTER_TYPICAL_MONTH = 1
 WINTER_TYPICAL_DAY = 15
 
-# Summer DR aligned to illustrative TOU peak band (16-21 at $0.55/kWh).
+# Summer DR / flex windows aligned to illustrative TOU peak (16–21 at $0.55/kWh).
 SUMMER_DR_PRE_START_HOUR = 13.0
-SUMMER_DR_EVENT_START = 15.0
-SUMMER_DR_EVENT_END = 20.0
+SUMMER_DR_EVENT_START = 16.0
+SUMMER_DR_EVENT_END = 21.0
 SUMMER_DR_RECOVER_END = 23.0
 SUMMER_TOU_PEAK_START = 16.0
 SUMMER_TOU_PEAK_END = 21.0
+
+# Winter morning peak (6–9 at $0.35/kWh).
+WINTER_DR_PRE_START_HOUR = 5.0
+WINTER_DR_EVENT_START = 6.0
+WINTER_DR_EVENT_END = 9.0
+WINTER_DR_RECOVER_END = 12.0

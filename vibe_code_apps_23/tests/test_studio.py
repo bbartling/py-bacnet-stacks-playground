@@ -175,7 +175,7 @@ def test_session_workspace_isolation(tmp_path: Path) -> None:
 def test_thermostat_grid_ranking_fixtures() -> None:
     from vibe23.studio.search_progress import candidate_rows_for_animation, load_grid_ranking
 
-    for season, expected_n in (("summer", 8), ("winter", 16)):
+    for season, expected_n in (("summer", 169), ("winter", 169)):
         payload = load_grid_ranking(season)
         assert payload["schema"] == "vibe23.residential_grid_ranking.v1"
         assert payload.get("winner") is not None

@@ -9,7 +9,6 @@ from .constants import (
     DEFAULT_COOL_F,
     DEFAULT_HEAT_F,
     DT_HOURS,
-    MAX_COOL_F,
     SUMMER_DEMO_DAY,
     SUMMER_DEMO_MONTH,
     SUMMER_DR_EVENT_END,
@@ -30,9 +29,9 @@ def july_dr_action() -> dict[str, Any]:
         event_start=SUMMER_DR_EVENT_START,
         event_end=SUMMER_DR_EVENT_END,
         recover_end=SUMMER_DR_RECOVER_END,
-        pre_cool_f=70.5,
-        event_cool_f=MAX_COOL_F,
-        recover_cool_f=DEFAULT_COOL_F,
+        pre_center_f=70.0,
+        event_center_f=74.0,
+        recover_center_f=72.0,
         mode="summer_dr",
     )
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..grid import GridCandidate, GridDimension, enumerate_grid
-from ..residential.experiment import default_thermostat_candidates
+from ..residential.experiment import default_thermostat_candidates, default_thermostat_dimensions
 from ..residential.model import PACKAGE_ROOT
 
 FIXTURES = PACKAGE_ROOT / "fixtures" / "studio"
@@ -15,24 +15,8 @@ RANKING_SCHEMA = "vibe23.residential_grid_ranking.v1"
 
 
 def season_dimension_defaults(season: str = "summer") -> tuple[GridDimension, ...]:
-    """Return the default thermostat grid dimensions for a season."""
-    # Reconstruct from the enumerated catalog's first candidate + known defaults.
-    # Prefer the authoritative definitions in experiment.py via a small re-build.
-    if season == "winter":
-        return (
-            GridDimension("pre_start_hour", (5.0, 6.0)),
-            GridDimension("event_start", (6.0, 7.0)),
-            GridDimension("event_end", (9.0,)),
-            GridDimension("pre_heat_f", (72.5, 73.5)),
-            GridDimension("event_heat_f", (69.5, 70.5)),
-        )
-    return (
-        GridDimension("pre_start_hour", (13.0, 14.0)),
-        GridDimension("event_start", (15.0,)),
-        GridDimension("event_end", (20.0,)),
-        GridDimension("pre_cool_f", (70.5, 71.0)),
-        GridDimension("event_cool_f", (73.5, 74.5)),
-    )
+    """Return the default thermostat grid dimensions for a season (13×13 centers)."""
+    return default_thermostat_dimensions(season=season)
 
 
 def parse_dimension_values(text: str) -> tuple[float, ...]:
@@ -117,6 +101,35 @@ def load_grid_ranking(season: str = "summer", *, path: Path | str | None = None)
     return payload
 
 
+TWIN_EXPORT_SCHEMA = "vibe23.residential_grid_twin_export.v1"
+
+
+def load_twin_export(season: str = "summer", *, path: Path | str | None = None) -> dict[str, Any]:
+    """Load winner/baseline 288-point traces for Twin promote."""
+    if path is not None:
+        export_path = Path(path)
+    else:
+        key = season.strip().lower()
+        name = (
+            "winter_twin_export.json"
+            if key in {"winter", "jan", "january"}
+            else "summer_twin_export.json"
+        )
+        export_path = FIXTURES / name
+    if not export_path.is_file():
+        raise FileNotFoundError(f"twin export missing: {export_path}")
+    payload = json.loads(export_path.read_text(encoding="utf-8"))
+    if payload.get("schema") not in {TWIN_EXPORT_SCHEMA, None} and "baseline" not in payload:
+        raise ValueError(f"unexpected twin export schema: {payload.get('schema')!r}")
+    for role in ("baseline", "winner"):
+        block = payload.get(role) or {}
+        for key in ("facility_kw", "zone_temp_f"):
+            series = block.get(key)
+            if not isinstance(series, list) or len(series) < 24:
+                raise ValueError(f"twin export {role}.{key} must be a series")
+    return payload
+
+
 def candidate_rows_for_animation(ranking: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return non-BASELINE rows in enumeration (ordinal) order for search replay."""
     rows = [dict(r) for r in ranking.get("rows") or [] if str(r.get("candidate_id")) != "BASELINE"]
@@ -152,6 +165,8 @@ def _action_summary(action_json: str | Mapping[str, Any] | None) -> str:
         return ""
     parts: list[str] = []
     for key in (
+        "pre_center_f",
+        "event_center_f",
         "pre_cool_f",
         "event_cool_f",
         "pre_heat_f",
@@ -236,19 +251,21 @@ def search_progress_state(rows: Sequence[Mapping[str, Any]], evaluated: int) -> 
 
 
 def algorithm_pseudocode(*, season: str, dims: Sequence[GridDimension], n: int) -> str:
-    dim_bits = ", ".join(f"{d.name}={{{format_dimension_values(d.values)}}}" for d in dims)
+    searched = [d for d in dims if d.name in {"pre_center_f", "event_center_f"}]
+    dim_bits = ", ".join(f"{d.name}={{{format_dimension_values(d.values)}}}" for d in searched)
     return "\n".join(
         [
             "freeze  S = {model_sha, weather_sha, tariff_sha, eplus_version}",
-            f"grid    D = [{dim_bits}]",
-            f"for c in itertools.product(*D):          # N = {n} candidates",
+            "deadband 2F around center: heat=c-1, cool=c+1  (default center=72F)",
+            f"grid    D = [{dim_bits}]   # N = {n}",
+            "hours   fixed to TOU peak window (summer 13→16–21, winter 5→6–9)",
+            "for c in itertools.product(*D):",
             '    id = f"GRID_{ordinal:04d}_{sha256(c)[:12]}"',
-            "    e  = simulate(c, S)                  # EnergyPlus, ~seconds",
-            "    score[c] = billing_cost(e.kw)  if soft_ok and comfort_ok  else inf",
-            "rank by (billing_cost, peak_kw, total_kwh, candidate_id)",
-            "",
-            "# Honest limits: no gradient, no pruning, max_candidates truncates from the front.",
-            "# One candidate = one full EnergyPlus subprocess (plus one baseline run).",
+            "    e  = EnergyPlus(c, S)                 # ~0.7–1s / candidate",
+            "    if not soft_ok or zone outside comfort band: score = inf; continue",
+            "    purchased = battery_dispatch(e.kw, TOU)   # pure Python, free",
+            "    score[c] = billing_cost(purchased)",
+            "rank by billing_cost; promote winner → Twin replay",
         ]
     )
 
@@ -265,6 +282,51 @@ def form_matches_fixture_catalog(form: Mapping[str, str], *, season: str) -> boo
     return all(a.candidate_id == b.candidate_id for a, b in zip(live, default, strict=True))
 
 
+def qtable_matrix(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    evaluated: int | None = None,
+) -> dict[str, Any]:
+    """Build a Q-table-style matrix keyed by (pre_center_f, event_center_f).
+
+    Cells are $/day when feasible, None when rejected / not yet evaluated.
+    """
+    anim = [r for r in rows if str(r.get("candidate_id")) != "BASELINE"]
+    if evaluated is not None:
+        anim = anim[: max(0, int(evaluated))]
+
+    pre_vals: set[float] = set()
+    event_vals: set[float] = set()
+    cells: dict[tuple[float, float], float | None] = {}
+
+    for row in anim:
+        try:
+            action = (
+                json.loads(row["action_json"])
+                if isinstance(row.get("action_json"), str)
+                else dict(row.get("action") or {})
+            )
+        except (TypeError, json.JSONDecodeError):
+            action = {}
+        pre = float(action.get("pre_center_f", row.get("pre_center_f", float("nan"))))
+        ev = float(action.get("event_center_f", row.get("event_center_f", float("nan"))))
+        if not (math.isfinite(pre) and math.isfinite(ev)):
+            continue
+        pre_vals.add(pre)
+        event_vals.add(ev)
+        cells[(pre, ev)] = float(row["billing_cost"]) if _is_feasible(row) else None
+
+    pre_axis = sorted(pre_vals)
+    event_axis = sorted(event_vals)
+    z = [[cells.get((p, e)) for e in event_axis] for p in pre_axis]
+    return {
+        "pre_centers": pre_axis,
+        "event_centers": event_axis,
+        "costs": z,
+        "n_filled": len(cells),
+    }
+
+
 __all__ = [
     "algorithm_pseudocode",
     "candidate_rows_for_animation",
@@ -273,7 +335,9 @@ __all__ = [
     "form_matches_fixture_catalog",
     "format_dimension_values",
     "load_grid_ranking",
+    "load_twin_export",
     "parse_dimension_values",
+    "qtable_matrix",
     "search_progress_state",
     "season_dimension_defaults",
 ]

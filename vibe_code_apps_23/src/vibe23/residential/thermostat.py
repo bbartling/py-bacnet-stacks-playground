@@ -6,7 +6,25 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from .constants import DEFAULT_COOL_F, DEFAULT_HEAT_F, INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
+from .constants import (
+    CENTER_F,
+    CENTER_SEARCH_HALF_RANGE_F,
+    CENTER_SEARCH_STEP_F,
+    DEFAULT_COOL_F,
+    DEFAULT_HEAT_F,
+    HALF_DEADBAND_F,
+    INTERVALS_PER_DAY,
+    MAX_COOL_F,
+    MAX_HEAT_F,
+    SUMMER_DR_EVENT_END,
+    SUMMER_DR_EVENT_START,
+    SUMMER_DR_PRE_START_HOUR,
+    SUMMER_DR_RECOVER_END,
+    WINTER_DR_EVENT_END,
+    WINTER_DR_EVENT_START,
+    WINTER_DR_PRE_START_HOUR,
+    WINTER_DR_RECOVER_END,
+)
 
 
 def f_to_c(temp_f: float) -> float:
@@ -15,6 +33,25 @@ def f_to_c(temp_f: float) -> float:
 
 def c_to_f(temp_c: float) -> float:
     return float(temp_c) * 9.0 / 5.0 + 32.0
+
+
+def center_to_heat_cool(center_f: float) -> tuple[float, float]:
+    """Map a dual-setpoint center to heat/cool with a fixed 2°F deadband."""
+    c = float(center_f)
+    return c - HALF_DEADBAND_F, c + HALF_DEADBAND_F
+
+
+def center_search_values(
+    *,
+    center: float = CENTER_F,
+    half_range: float = CENTER_SEARCH_HALF_RANGE_F,
+    step: float = CENTER_SEARCH_STEP_F,
+) -> tuple[float, ...]:
+    """Return ±half_range around center in ``step`` increments (inclusive)."""
+    lo = float(center) - float(half_range)
+    hi = float(center) + float(half_range)
+    n = int(round((hi - lo) / float(step))) + 1
+    return tuple(round(lo + i * float(step), 4) for i in range(n))
 
 
 def baseline_setpoints_f(n: int = INTERVALS_PER_DAY) -> tuple[np.ndarray, np.ndarray]:
@@ -27,19 +64,50 @@ def baseline_setpoints_f(n: int = INTERVALS_PER_DAY) -> tuple[np.ndarray, np.nda
 
 def build_schedule_action(
     *,
-    pre_start_hour: float = 13.0,
-    event_start: float = 15.0,
-    event_end: float = 20.0,
-    recover_end: float = 23.0,
-    pre_cool_f: float = 70.5,
-    event_cool_f: float = MAX_COOL_F,
-    recover_cool_f: float = DEFAULT_COOL_F,
-    pre_heat_f: float = 72.5,
-    event_heat_f: float = MAX_HEAT_F,
-    recover_heat_f: float = DEFAULT_HEAT_F,
+    pre_start_hour: float | None = None,
+    event_start: float | None = None,
+    event_end: float | None = None,
+    recover_end: float | None = None,
+    pre_center_f: float = CENTER_F,
+    event_center_f: float = CENTER_F,
+    recover_center_f: float = CENTER_F,
+    pre_cool_f: float | None = None,
+    event_cool_f: float | None = None,
+    recover_cool_f: float | None = None,
+    pre_heat_f: float | None = None,
+    event_heat_f: float | None = None,
+    recover_heat_f: float | None = None,
     mode: str = "summer_dr",
 ) -> dict[str, Any]:
-    """Build a DR/grid schedule action dict (hours are decimal clock hours)."""
+    """Build a DR/grid schedule action dict (hours are decimal clock hours).
+
+    Prefer ``*_center_f`` (2°F deadband around the center). Legacy ``*_heat_f`` /
+    ``*_cool_f`` keys are accepted and converted when both bounds are provided.
+    """
+
+    winter = str(mode).startswith("winter")
+    if pre_start_hour is None:
+        pre_start_hour = WINTER_DR_PRE_START_HOUR if winter else SUMMER_DR_PRE_START_HOUR
+    if event_start is None:
+        event_start = WINTER_DR_EVENT_START if winter else SUMMER_DR_EVENT_START
+    if event_end is None:
+        event_end = WINTER_DR_EVENT_END if winter else SUMMER_DR_EVENT_END
+    if recover_end is None:
+        recover_end = WINTER_DR_RECOVER_END if winter else SUMMER_DR_RECOVER_END
+
+    def _pair(
+        center: float,
+        heat: float | None,
+        cool: float | None,
+    ) -> tuple[float, float, float]:
+        if heat is not None and cool is not None:
+            return (float(heat) + float(cool)) / 2.0, float(heat), float(cool)
+        h, c = center_to_heat_cool(center)
+        return float(center), h, c
+
+    pre_c, pre_h, pre_cl = _pair(pre_center_f, pre_heat_f, pre_cool_f)
+    ev_c, ev_h, ev_cl = _pair(event_center_f, event_heat_f, event_cool_f)
+    rec_c, rec_h, rec_cl = _pair(recover_center_f, recover_heat_f, recover_cool_f)
 
     return {
         "mode": mode,
@@ -47,12 +115,15 @@ def build_schedule_action(
         "event_start": float(event_start),
         "event_end": float(event_end),
         "recover_end": float(recover_end),
-        "pre_cool_f": float(pre_cool_f),
-        "event_cool_f": float(event_cool_f),
-        "recover_cool_f": float(recover_cool_f),
-        "pre_heat_f": float(pre_heat_f),
-        "event_heat_f": float(event_heat_f),
-        "recover_heat_f": float(recover_heat_f),
+        "pre_center_f": float(pre_c),
+        "event_center_f": float(ev_c),
+        "recover_center_f": float(rec_c),
+        "pre_cool_f": float(pre_cl),
+        "event_cool_f": float(ev_cl),
+        "recover_cool_f": float(rec_cl),
+        "pre_heat_f": float(pre_h),
+        "event_heat_f": float(ev_h),
+        "recover_heat_f": float(rec_h),
     }
 
 
@@ -62,27 +133,31 @@ def action_to_setpoints_f(
     n: int = INTERVALS_PER_DAY,
 ) -> tuple[np.ndarray, np.ndarray]:
     heat, cool = baseline_setpoints_f(n)
-    mode = str(action.get("mode") or "summer_dr")
     pre_s = float(action["pre_start_hour"])
     ev_s = float(action["event_start"])
     ev_e = float(action["event_end"])
     rec_e = float(action.get("recover_end", 24.0))
+
+    def _bounds(prefix: str) -> tuple[float, float]:
+        if f"{prefix}_center_f" in action:
+            return center_to_heat_cool(float(action[f"{prefix}_center_f"]))
+        return float(action[f"{prefix}_heat_f"]), float(action[f"{prefix}_cool_f"])
+
+    pre_h, pre_c = _bounds("pre")
+    ev_h, ev_c = _bounds("event")
+    if "recover_center_f" in action or "recover_heat_f" in action or "recover_cool_f" in action:
+        rec_h, rec_c = _bounds("recover")
+    else:
+        rec_h, rec_c = DEFAULT_HEAT_F, DEFAULT_COOL_F
+
     for i in range(n):
         hour = (i + 1) * 24.0 / n
-        if mode.startswith("winter"):
-            if pre_s < hour <= ev_s:
-                heat[i] = float(action["pre_heat_f"])
-            elif ev_s < hour <= ev_e:
-                heat[i] = float(action["event_heat_f"])
-            elif ev_e < hour <= rec_e:
-                heat[i] = float(action["recover_heat_f"])
-        else:
-            if pre_s < hour <= ev_s:
-                cool[i] = float(action["pre_cool_f"])
-            elif ev_s < hour <= ev_e:
-                cool[i] = float(action["event_cool_f"])
-            elif ev_e < hour <= rec_e:
-                cool[i] = float(action["recover_cool_f"])
+        if pre_s < hour <= ev_s:
+            heat[i], cool[i] = pre_h, pre_c
+        elif ev_s < hour <= ev_e:
+            heat[i], cool[i] = ev_h, ev_c
+        elif ev_e < hour <= rec_e:
+            heat[i], cool[i] = rec_h, rec_c
     heat, cool = enforce_heat_below_cool(heat, cool)
     return heat, cool
 
@@ -91,7 +166,7 @@ def enforce_heat_below_cool(
     heat_f: Sequence[float] | np.ndarray,
     cool_f: Sequence[float] | np.ndarray,
     *,
-    min_gap_f: float = 1.0,
+    min_gap_f: float = 2.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Keep dual-setpoint heating strictly below cooling (EnergyPlus fatal otherwise)."""
 
@@ -101,7 +176,6 @@ def enforce_heat_below_cool(
         raise ValueError("heat/cool shapes must match")
     for i in range(len(heat)):
         if heat[i] >= cool[i] - min_gap_f + 1e-9:
-            # Prefer preserving the actively moved bound by sliding the other.
             if cool[i] <= DEFAULT_COOL_F:
                 heat[i] = cool[i] - min_gap_f
             else:
