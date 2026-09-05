@@ -16,8 +16,8 @@ RestartSec=2
 StartLimitIntervalSec=120
 StartLimitBurst=20
 RuntimeMaxSec={{ lab_runtime_max_sec | default(0) }}
-StandardOutput=append:{{ lab_state_root }}/runs/current-mini.log
-StandardError=append:{{ lab_state_root }}/runs/current-mini.log
+StandardOutput=append:{{ lab_state_root }}/runs/current/mini-device.log
+StandardError=append:{{ lab_state_root }}/runs/current/mini-device.log
 
 [Install]
 WantedBy=multi-user.target

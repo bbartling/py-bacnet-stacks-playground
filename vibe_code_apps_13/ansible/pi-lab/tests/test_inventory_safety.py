@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Offline tests for Pi-lab inventory allowlist / TX defaults (no LAN)."""
+"""Offline tests for Pi-lab inventory allowlist / TX defaults / id safety (no LAN)."""
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import sys
 import unittest
@@ -9,6 +10,15 @@ import unittest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+
+
+def load_lab_ids():
+    spec = importlib.util.spec_from_file_location("lab_ids", SCRIPTS / "lab_ids.py")
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    return mod
 
 
 class InventorySafety(unittest.TestCase):
@@ -42,9 +52,19 @@ class InventorySafety(unittest.TestCase):
         self.assertIn("FTDI", self.hosts["workerpi1"]["lab_serial_by_id"])
         self.assertIn("1a86", self.hosts["workerpi2"]["lab_serial_by_id"])
 
+    def test_official_bc_chipset_map(self) -> None:
+        # C = FTDI; B = CH343 (corrected vs early PR #135 letter swap).
+        self.assertEqual(self.hosts["workerpi1"]["lab_adapter_model"], "waveshare_c")
+        self.assertEqual(self.hosts["workerpi1"]["lab_adapter_vid_pid"], "0403:6001")
+        self.assertEqual(self.hosts["workerpi2"]["lab_adapter_model"], "waveshare_b")
+        self.assertEqual(self.hosts["workerpi2"]["lab_adapter_vid_pid"], "1a86:55d3")
+
     def test_no_localhost_host(self) -> None:
         for h in self.hosts.values():
             self.assertNotIn(h["ansible_host"], {"127.0.0.1", "localhost"})
+
+    def test_exactly_two_hosts(self) -> None:
+        self.assertEqual(len(self.hosts), 2)
 
 
 class FixtureInventory(unittest.TestCase):
@@ -53,8 +73,76 @@ class FixtureInventory(unittest.TestCase):
         data = yaml.safe_load(path.read_text())
         hosts = data["all"]["children"]["vibe13_pi_lab"]["hosts"]
         for h in hosts.values():
-            # RFC 5737 documentation range — never real Pi LAN in CI.
             self.assertTrue(h["ansible_host"].startswith("198.51.100."))
+        self.assertEqual(hosts["workerpi1"]["lab_adapter_model"], "waveshare_c")
+        self.assertEqual(hosts["workerpi2"]["lab_adapter_model"], "waveshare_b")
+
+
+class RunIdValidation(unittest.TestCase):
+    def setUp(self) -> None:
+        self.lab_ids = load_lab_ids()
+
+    def test_accepts_timestamp(self) -> None:
+        self.assertEqual(self.lab_ids.validate_run_id("20260905T120000Z"), "20260905T120000Z")
+
+    def test_rejects_traversal(self) -> None:
+        for bad in ("../etc", "a/b", "a\\b", "..", ".", ""):
+            with self.assertRaises(ValueError):
+                self.lab_ids.validate_run_id(bad)
+
+    def test_git_sha(self) -> None:
+        sha = "a" * 40
+        self.assertEqual(self.lab_ids.validate_git_sha(sha), sha)
+        with self.assertRaises(ValueError):
+            self.lab_ids.validate_git_sha("deadbeef")
+
+    def test_cli_rejects_wrong_argv_count(self) -> None:
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-run-id"]), 2)
+        self.assertEqual(
+            self.lab_ids.main(["lab_ids.py", "check-run-id", "ok", "extra"]), 2
+        )
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-run-id", "ok-id"]), 0)
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-git-sha", "a" * 40]), 0)
+
+
+class WiringRunGateDocs(unittest.TestCase):
+    def test_run_requires_allow_tx(self) -> None:
+        text = (ROOT / "playbooks/run.yml").read_text()
+        self.assertIn("lab_allow_tx", text)
+        self.assertIn("Mere wiring.local.yml", text)
+
+    def test_run_asserts_vid_pid_and_wiring_freshness(self) -> None:
+        text = (ROOT / "playbooks/run.yml").read_text()
+        self.assertIn("lab_adapter_vid_pid", text)
+        self.assertIn("approved_utc", text)
+        self.assertIn("max_age_hours", text)
+        self.assertIn("argv:", text)
+
+    def test_confirm_writes_schema(self) -> None:
+        text = (ROOT / "playbooks/confirm_wiring.yml").read_text()
+        self.assertIn("vibe13_wiring_v1", text)
+        self.assertIn("inventory_digest_sha256", text)
+        self.assertIn("approved_utc", text)
+        self.assertIn("max_age_hours", text)
+
+    def test_deploy_requires_full_sha(self) -> None:
+        text = (ROOT / "playbooks/deploy.yml").read_text()
+        self.assertIn("check-git-sha", text)
+        self.assertIn("argv:", text)
+
+    def test_build_refuses_x86_fallback(self) -> None:
+        text = (ROOT / "scripts/build_release.sh").read_text()
+        self.assertIn("Refusing to package x86_64", text)
+        self.assertNotIn("Building x86_64 host bins for packaging smoke", text)
+
+    def test_unplug_gate_env_report_and_exit75(self) -> None:
+        text = (
+            ROOT.parents[1] / "scripts/run_mstp_usb_unplug_gate.sh"
+        ).read_text()
+        self.assertIn("<<'PY'", text)
+        self.assertIn("GATE_REPORT_DIR", text)
+        self.assertIn('"$PROCESS_EXIT_CODE" -ne 75', text)
+        self.assertIn('! -e "$SERIAL"', text)
 
 
 if __name__ == "__main__":

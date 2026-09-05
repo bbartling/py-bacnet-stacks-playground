@@ -18,7 +18,7 @@ Usage: ./scripts/pi-lab <command> [args]
   build --revision <SHA>
   deploy --revision <SHA>
   confirm-wiring [--confirmed]
-  run --profile <raw-wire|mstp-smoke|mstp-soak> [--pair bc] [--duration 1h]
+  run --profile <raw-wire|mstp-smoke|mstp-soak> [--pair cb] [--duration 1h] --allow-tx
   status [--run <RUN_ID>]
   collect --run <RUN_ID>
   stop [--run <RUN_ID>]
@@ -26,6 +26,7 @@ Usage: ./scripts/pi-lab <command> [args]
 
 Requires inventory.local.yml (copy from inventory.example.yml).
 Never stores SSH passwords. Tower BACnet is not a target.
+TX requires confirm-wiring + run --allow-tx (wiring file alone is insufficient).
 EOF
 }
 
@@ -72,6 +73,55 @@ case "$cmd" in
     "$(ansible_bin)" -i "$INV" playbooks/discover.yml -e "lab_run_id=$RUN_ID" "$@"
     echo "Discovery evidence: $ROOT/reports/pi-lab/$RUN_ID"
     ;;
+  run)
+    need_inv
+    PROFILE="mstp-smoke"
+    PAIR="cb"
+    DUR=""
+    ALLOW_TX=false
+    EXTRA=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --profile) PROFILE="$2"; shift 2 ;;
+        --pair) PAIR="$2"; shift 2 ;;
+        --duration) DUR="$2"; shift 2 ;;
+        --allow-tx) ALLOW_TX=true; shift ;;
+        *) EXTRA+=("$1"); shift ;;
+      esac
+    done
+    RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$RUN_ID" >/dev/null
+    EV=(-e "profile=$PROFILE" -e "pair=$PAIR" -e "run_id=$RUN_ID" -e "lab_allow_tx=$ALLOW_TX")
+    [[ -n "$DUR" ]] && EV+=(-e "lab_duration=$DUR")
+    "$(ansible_bin)" -i "$INV" playbooks/run.yml "${EV[@]}" "${EXTRA[@]}"
+    echo "RUN_ID=$RUN_ID"
+    ;;
+  collect)
+    need_inv
+    RUN=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --run) RUN="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [[ -n "$RUN" ]] || { echo "--run required"; exit 2; }
+    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$RUN" >/dev/null
+    "$(ansible_bin)" -i "$INV" playbooks/collect.yml -e "run_id=$RUN"
+    ;;
+  rollback)
+    need_inv
+    REL=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --release) REL="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [[ -n "$REL" ]] || { echo "--release required"; exit 2; }
+    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REL" >/dev/null
+    "$(ansible_bin)" -i "$INV" playbooks/rollback.yml -e "release_id=$REL"
+    ;;
   build)
     REV=""
     while [[ $# -gt 0 ]]; do
@@ -81,6 +131,7 @@ case "$cmd" in
       esac
     done
     [[ -n "$REV" ]] || { echo "--revision required"; exit 2; }
+    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REV" >/dev/null
     "$ROOT/scripts/build_release.sh" "$REV"
     ;;
   deploy)
@@ -94,6 +145,7 @@ case "$cmd" in
       esac
     done
     [[ -n "$REV" ]] || { echo "--revision required"; exit 2; }
+    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REV" >/dev/null
     "$(ansible_bin)" -i "$INV" playbooks/deploy.yml -e "lab_revision=$REV" "${EXTRA[@]}"
     ;;
   confirm-wiring)
@@ -106,57 +158,13 @@ case "$cmd" in
     done
     "$(ansible_bin)" -i "$INV" playbooks/confirm_wiring.yml -e "lab_wiring_confirmed=$CONFIRMED" "$@"
     ;;
-  run)
-    need_inv
-    PROFILE="mstp-smoke"
-    PAIR="bc"
-    DUR=""
-    EXTRA=()
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --profile) PROFILE="$2"; shift 2 ;;
-        --pair) PAIR="$2"; shift 2 ;;
-        --duration) DUR="$2"; shift 2 ;;
-        *) EXTRA+=("$1"); shift ;;
-      esac
-    done
-    RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-    EV=(-e "profile=$PROFILE" -e "pair=$PAIR" -e "run_id=$RUN_ID")
-    [[ -n "$DUR" ]] && EV+=(-e "lab_duration=$DUR")
-    "$(ansible_bin)" -i "$INV" playbooks/run.yml "${EV[@]}" "${EXTRA[@]}"
-    echo "RUN_ID=$RUN_ID"
-    ;;
   status)
     need_inv
     "$(ansible_bin)" -i "$INV" playbooks/status.yml "$@"
     ;;
-  collect)
-    need_inv
-    RUN=""
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --run) RUN="$2"; shift 2 ;;
-        *) shift ;;
-      esac
-    done
-    [[ -n "$RUN" ]] || { echo "--run required"; exit 2; }
-    "$(ansible_bin)" -i "$INV" playbooks/collect.yml -e "run_id=$RUN"
-    ;;
   stop)
     need_inv
     "$(ansible_bin)" -i "$INV" playbooks/stop.yml "$@"
-    ;;
-  rollback)
-    need_inv
-    REL=""
-    while [[ $# -gt 0 ]]; do
-      case "$1" in
-        --release) REL="$2"; shift 2 ;;
-        *) shift ;;
-      esac
-    done
-    [[ -n "$REL" ]] || { echo "--release required"; exit 2; }
-    "$(ansible_bin)" -i "$INV" playbooks/rollback.yml -e "release_id=$REL"
     ;;
   *)
     echo "Unknown command: $cmd" >&2

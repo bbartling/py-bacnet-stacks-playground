@@ -78,11 +78,17 @@ async fn wait_shutdown_signal(shutdown: Arc<AtomicBool>) {
     }
 }
 
-async fn serial_watchdog(serial_path: String, shutdown: Arc<AtomicBool>) {
+async fn serial_watchdog(
+    serial_path: String,
+    usb_gone: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
+) {
     loop {
         tokio::time::sleep(Duration::from_secs(2)).await;
         if !Path::new(&serial_path).exists() {
             error!(path = %serial_path, "serial device path disappeared (USB unplug?)");
+            // Latch reason permanently — reappearance during shutdown must not clear exit 75.
+            usb_gone.store(true, Ordering::Relaxed);
             shutdown.store(true, Ordering::Relaxed);
             return;
         }
@@ -154,7 +160,12 @@ async fn main() -> Result<()> {
     );
 
     let shutdown = Arc::new(AtomicBool::new(false));
-    tokio::spawn(serial_watchdog(args.serial.clone(), Arc::clone(&shutdown)));
+    let usb_gone_latch = Arc::new(AtomicBool::new(false));
+    tokio::spawn(serial_watchdog(
+        args.serial.clone(),
+        Arc::clone(&usb_gone_latch),
+        Arc::clone(&shutdown),
+    ));
 
     let db_arc = Arc::clone(server.database());
     tokio::spawn(simulation_task(db_arc));
@@ -162,14 +173,14 @@ async fn main() -> Result<()> {
     // Single recovery owner: path watchdog + exit 75 → systemd Restart=on-failure.
     // Do not layer an in-process reopen loop on top of systemd.
     wait_shutdown_signal(Arc::clone(&shutdown)).await;
-    let usb_gone = shutdown.load(Ordering::Relaxed) && !Path::new(&args.serial).exists();
+    let usb_gone = usb_gone_latch.load(Ordering::Relaxed);
     info!("Shutting down…");
     server.stop().await.context("stop server")?;
     if usb_gone {
         const EXIT_USB_GONE: i32 = 75;
         error!(
             exit = EXIT_USB_GONE,
-            "exiting for systemd USB recovery (path still missing)"
+            "exiting for systemd USB recovery (disappearance latched; path may have returned)"
         );
         std::process::exit(EXIT_USB_GONE);
     }

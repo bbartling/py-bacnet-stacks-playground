@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     --peer-check) PEER_CHECK_CMD="$2"; shift 2 ;;
     --mac) MAC="$2"; shift 2 ;;
     --instance) INSTANCE="$2"; shift 2 ;;
-    --no-haystack) shift ;; # accepted for compatibility; Haystack never required here
+    --no-haystack) shift ;;
     *) echo "unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -40,16 +40,69 @@ EXIT_REASON="not_run"
 RESTART="NOT_RUN"
 PEER_BEFORE="NOT_RUN"
 PEER_AFTER="NOT_RUN"
-UNPLUG_MS=""
-RESTORE_MS=""
+UNPLUG_MS="0"
+RESTORE_MS="0"
+PROCESS_EXIT_CODE=""
+PATH_DISAPPEARED=0
+PATH_RETURNED=0
+
+write_final_report() {
+  local end_utc
+  end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  GATE_REPORT_DIR="$REPORT_DIR" \
+  GATE_RESULT="$RESULT" \
+  GATE_EXIT_REASON="${EXIT_REASON:-}" \
+  GATE_WAIT_EXIT="$WAIT_EXIT" \
+  GATE_RECOVERY_DEADLINE_S="$RECOVERY_DEADLINE_S" \
+  GATE_PEER_BEFORE="$PEER_BEFORE" \
+  GATE_PEER_AFTER="$PEER_AFTER" \
+  GATE_RESTART="$RESTART" \
+  GATE_UNPLUG_MS="$UNPLUG_MS" \
+  GATE_RESTORE_MS="$RESTORE_MS" \
+  GATE_PROCESS_EXIT_CODE="$PROCESS_EXIT_CODE" \
+  GATE_PATH_DISAPPEARED="$PATH_DISAPPEARED" \
+  GATE_PATH_RETURNED="$PATH_RETURNED" \
+  GATE_PROJECT_SHA="$PROJECT_SHA" \
+  GATE_RUSTY_REV="$RUSTY_REV" \
+  GATE_SERIAL="$SERIAL" \
+  GATE_INSTANCE="$INSTANCE" \
+  GATE_START_UTC="$START_UTC" \
+  GATE_END_UTC="$end_utc" \
+  python3 - <<'PY'
+import json, os, pathlib
+report_dir = os.environ["GATE_REPORT_DIR"]
+proc = os.environ.get("GATE_PROCESS_EXIT_CODE", "")
+pathlib.Path(report_dir, "gate-report.json").write_text(json.dumps({
+    "gate": "usb_unplug_pi",
+    "result": os.environ["GATE_RESULT"],
+    "exit_reason": os.environ.get("GATE_EXIT_REASON", ""),
+    "bounded_exit_seconds": int(os.environ["GATE_WAIT_EXIT"]),
+    "recovery_deadline_s": int(os.environ["GATE_RECOVERY_DEADLINE_S"]),
+    "peer_before": os.environ["GATE_PEER_BEFORE"],
+    "peer_after": os.environ["GATE_PEER_AFTER"],
+    "restart": os.environ["GATE_RESTART"],
+    "unplug_elapsed_ms": int(os.environ.get("GATE_UNPLUG_MS") or 0),
+    "restore_wait_ms": int(os.environ.get("GATE_RESTORE_MS") or 0),
+    "process_exit_code": (int(proc) if proc.isdigit() else None),
+    "path_disappeared": os.environ.get("GATE_PATH_DISAPPEARED") == "1",
+    "path_returned": os.environ.get("GATE_PATH_RETURNED") == "1",
+    "project_git_sha": os.environ["GATE_PROJECT_SHA"],
+    "rusty_bacnet_rev": os.environ["GATE_RUSTY_REV"],
+    "serial_by_id": os.environ["GATE_SERIAL"],
+    "device_instance": int(os.environ["GATE_INSTANCE"]),
+    "started_utc": os.environ["GATE_START_UTC"],
+    "ended_utc": os.environ["GATE_END_UTC"],
+    "artifacts_dir": report_dir,
+}, indent=2) + "\n")
+PY
+}
+trap write_final_report EXIT
 
 cargo build --release --locked -p mstp-mini-device
 BIN="$ROOT/target/release/mstp-mini-device"
 
 peer_check() {
-  local label="$1"
   if [[ -z "$PEER_CHECK_CMD" ]]; then
-    echo "SKIP peer check ($label): set PEER_CHECK_CMD or --peer-check"
     return 2
   fi
   # shellcheck disable=SC2086
@@ -57,44 +110,26 @@ peer_check() {
 }
 
 if [[ ! -e "$SERIAL" ]]; then
-  echo "FAIL: serial missing: $SERIAL" >&2
+  EXIT_REASON="serial_missing"
+  RESULT="fail"
   exit 1
 fi
 
-echo "== Peer preflight (must succeed — missing peer is NOT PASS)"
-if peer_check before; then
+if peer_check; then
   PEER_BEFORE="pass"
 else
   rc=$?
   if [[ $rc -eq 2 ]]; then
     PEER_BEFORE="NOT_RUN"
-    echo "FAIL: peer supervision required for PASS" >&2
     EXIT_REASON="peer_check_not_configured"
-    RESULT="fail"
   else
     PEER_BEFORE="fail"
     EXIT_REASON="peer_unreachable_before"
-    RESULT="fail"
   fi
-fi
-
-if [[ "$PEER_BEFORE" != "pass" ]]; then
-  python3 - <<PY
-import json, pathlib
-pathlib.Path("$REPORT_DIR/gate-report.json").write_text(json.dumps({
-  "gate": "usb_unplug_pi",
-  "result": "fail",
-  "exit_reason": "$EXIT_REASON",
-  "peer_before": "$PEER_BEFORE",
-  "project_git_sha": "$PROJECT_SHA",
-  "rusty_bacnet_rev": "$RUSTY_REV",
-  "serial_by_id": "$SERIAL",
-}, indent=2)+"\n")
-PY
+  RESULT="fail"
   exit 1
 fi
 
-echo "== Starting mini-device"
 T0="$(date +%s%3N)"
 "$BIN" \
   --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
@@ -103,17 +138,25 @@ T0="$(date +%s%3N)"
 MINI_PID=$!
 
 sleep 15
-kill -0 "$MINI_PID" || { echo "FAIL: mini-device did not stay up"; exit 1; }
+kill -0 "$MINI_PID" || { EXIT_REASON="mini_died_early"; RESULT="fail"; exit 1; }
 grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-before.log" || {
-  echo "FAIL: missing 'MS/TP device up' in log"; exit 1;
+  EXIT_REASON="no_ready_marker"; RESULT="fail"; exit 1;
 }
 
-echo
 echo ">>> OPERATOR: unplug Waveshare USB now, then press Enter <<<"
 read -r _
 UNPLUG_MS="$(( $(date +%s%3N) - T0 ))"
+if [[ ! -e "$SERIAL" ]]; then
+  PATH_DISAPPEARED=1
+else
+  PATH_DISAPPEARED=0
+  EXIT_REASON="path_still_present_after_unplug_prompt"
+  RESULT="fail"
+  kill -TERM "$MINI_PID" 2>/dev/null || true
+  wait "$MINI_PID" 2>/dev/null || true
+  exit 1
+fi
 
-echo "Waiting up to ${WAIT_EXIT}s for process exit..."
 EXIT_OK=0
 for _ in $(seq 1 "$WAIT_EXIT"); do
   if ! kill -0 "$MINI_PID" 2>/dev/null; then
@@ -125,28 +168,42 @@ done
 
 if [[ "$EXIT_OK" != "1" ]]; then
   kill -KILL "$MINI_PID" 2>/dev/null || true
-  echo "FAIL: mini-device still running after ${WAIT_EXIT}s" >&2
   RESULT="fail"
   EXIT_REASON="hung_after_unplug"
 else
-  wait "$MINI_PID" 2>/dev/null || true
-  grep -q 'serial device path disappeared' "$REPORT_DIR/mini-device-before.log" && \
-    EXIT_REASON="watchdog_exit" || EXIT_REASON="process_exit"
-  RESULT="PARTIAL"
+  set +e
+  wait "$MINI_PID"
+  PROCESS_EXIT_CODE=$?
+  set -e
+  if grep -q 'serial device path disappeared' "$REPORT_DIR/mini-device-before.log"; then
+    EXIT_REASON="watchdog_exit"
+  else
+    EXIT_REASON="process_exit"
+  fi
+  if [[ "$PROCESS_EXIT_CODE" -ne 75 ]]; then
+    EXIT_REASON="${EXIT_REASON};unexpected_exit_code_${PROCESS_EXIT_CODE}"
+    RESULT="fail"
+  else
+    RESULT="PARTIAL"
+  fi
 fi
 
-echo
 echo ">>> OPERATOR: replug Waveshare USB, wait for by-id, then press Enter <<<"
 T_RECOVER="$(date +%s)"
 for _ in $(seq 1 "$RECOVERY_DEADLINE_S"); do
-  [[ -e "$SERIAL" ]] && break
+  if [[ -e "$SERIAL" ]]; then
+    PATH_RETURNED=1
+    break
+  fi
   sleep 1
 done
-[[ -e "$SERIAL" ]] || { echo "FAIL: $SERIAL did not reappear within ${RECOVERY_DEADLINE_S}s"; EXIT_REASON="path_not_restored"; RESULT="fail"; }
+if [[ ! -e "$SERIAL" ]]; then
+  EXIT_REASON="path_not_restored"
+  RESULT="fail"
+fi
 RESTORE_MS="$(( ($(date +%s) - T_RECOVER) * 1000 ))"
 
 if [[ -e "$SERIAL" ]]; then
-  echo "== Restart mini-device after replug (manual restart qualification)"
   "$BIN" \
     --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
     --device-instance "$INSTANCE" --vendor-id 999 \
@@ -161,8 +218,7 @@ if [[ -e "$SERIAL" ]]; then
     EXIT_REASON="${EXIT_REASON};restart_failed"
   fi
 
-  echo "== Peer check while restored device RUNNING"
-  if peer_check after; then
+  if peer_check; then
     PEER_AFTER="pass"
     [[ "$RESULT" != "fail" && "$RESTART" == "pass" ]] && RESULT="pass"
   else
@@ -174,32 +230,6 @@ if [[ -e "$SERIAL" ]]; then
   kill -TERM "$MINI_PID" 2>/dev/null || true
   wait "$MINI_PID" 2>/dev/null || true
 fi
-
-END_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-python3 - <<PY
-import json, pathlib
-pathlib.Path("$REPORT_DIR/gate-report.json").write_text(json.dumps({
-    "gate": "usb_unplug_pi",
-    "result": "$RESULT",
-    "exit_reason": "${EXIT_REASON:-}",
-    "bounded_exit_seconds": $WAIT_EXIT,
-    "recovery_deadline_s": $RECOVERY_DEADLINE_S,
-    "peer_before": "$PEER_BEFORE",
-    "peer_after": "$PEER_AFTER",
-    "restart": "$RESTART",
-    "unplug_elapsed_ms": "$UNPLUG_MS",
-    "restore_wait_ms": "$RESTORE_MS",
-    "project_git_sha": "$PROJECT_SHA",
-    "rusty_bacnet_rev": "$RUSTY_REV",
-    "serial_by_id": "$SERIAL",
-    "device_instance": $INSTANCE,
-    "started_utc": "$START_UTC",
-    "ended_utc": "$END_UTC",
-    "artifacts_dir": "$REPORT_DIR",
-    "note": "PASS requires fresh peer BACnet while restored device RUNNING; missing peer supervision is fail not pass",
-}, indent=2) + "\n")
-PY
 
 echo "USB unplug gate $RESULT — artifacts in $REPORT_DIR"
 [[ "$RESULT" == "pass" ]]

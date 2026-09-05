@@ -1,4 +1,5 @@
 # CI-only fixture — documentation IPs; never contact real Pis from GitHub Actions.
+# Model letters match official chipset map (C=FTDI, B=CH343).
 all:
   children:
     vibe13_pi_lab:
@@ -7,6 +8,7 @@ all:
         lab_baud: 38400
         lab_max_master: 2
         lab_allow_serial_tx: false
+        lab_orientation: workerpi1-server
         lab_allowed_hosts:
           workerpi1: "198.51.100.59"
           workerpi2: "198.51.100.60"
@@ -18,7 +20,8 @@ all:
           lab_device_instance: 123101
           lab_peer: workerpi2
           lab_serial_by_id: "/dev/serial/by-id/usb-FTDI_FIXTURE"
-          lab_adapter_model: waveshare_b
+          lab_adapter_model: waveshare_c
+          lab_adapter_vid_pid: "0403:6001"
         workerpi2:
           ansible_host: 198.51.100.60
           lab_role: probe
@@ -26,4 +29,5 @@ all:
           lab_device_instance: 123102
           lab_peer: workerpi1
           lab_serial_by_id: "/dev/serial/by-id/usb-CH343_FIXTURE"
-          lab_adapter_model: waveshare_c
+          lab_adapter_model: waveshare_b
+          lab_adapter_vid_pid: "1a86:55d3"

@@ -2,9 +2,21 @@
 - name: Vibe13 Pi lab collect
   hosts: vibe13_pi_lab
   gather_facts: false
-  become: false
+  become: true
   vars:
     lab_run_id: "{{ run_id | mandatory }}"
+  pre_tasks:
+    - name: Validate run_id allowlist
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - check-run-id
+          - "{{ lab_run_id }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
   tasks:
     - name: Ensure controller evidence dir
       ansible.builtin.file:
@@ -12,15 +24,17 @@
         state: directory
         mode: "0755"
       delegate_to: localhost
+      become: false
 
-    - name: Fetch bounded logs
+    - name: Fetch required artifacts (privileged read)
       ansible.builtin.fetch:
         src: "{{ item }}"
         dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}/"
         flat: true
-        fail_on_missing: false
+        fail_on_missing: true
       loop:
-        - /var/lib/vibe13/runs/{{ lab_run_id }}/summary.json
-        - /var/lib/vibe13/runs/{{ lab_run_id }}/mini-device.log
-        - /var/lib/vibe13/runs/{{ lab_run_id }}/probe.log
-        - /var/lib/vibe13/runs/{{ lab_run_id }}/raw.log
+        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/summary.json"
+        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/mini-device.log"
+        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/probe.log"
+        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/raw.log"
+      # Missing required evidence fails the collection (not silent skip).

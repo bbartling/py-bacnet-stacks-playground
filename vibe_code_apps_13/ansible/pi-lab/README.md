@@ -26,12 +26,17 @@ Password path (optional; never store the secret):
 ./scripts/pi-lab bootstrap --ask-pass --ask-become-pass
 ```
 
-## Seeded adapters (2026-09-04)
+## Seeded adapters (reconciled 2026-09-05)
+
+Official map: **Waveshare C = FTDI** (`0403:6001`), **Waveshare B = CH343** (`1a86:55d3`).
+Early inventory letters were inverted; by-id paths below are unchanged.
 
 | Host | IP | Model | by-id |
 |------|-----|-------|-------|
-| workerpi1 | 192.168.204.59 | Waveshare B (FTDI) | `usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0` |
-| workerpi2 | 192.168.204.60 | Waveshare C (CH343) | `usb-1a86_USB_Single_Serial_5A98075745-if00` |
+| workerpi1 | 192.168.204.59 | Waveshare **C** (FTDI) | `usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0` |
+| workerpi2 | 192.168.204.60 | Waveshare **B** (CH343) | `usb-1a86_USB_Single_Serial_5A98075745-if00` |
+
+Operator must confirm printed product labels at the wiring gate before TX.
 
 ## Physical gate (required before TX)
 

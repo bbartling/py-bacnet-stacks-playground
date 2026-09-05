@@ -13,11 +13,17 @@
         that:
           - not (lab_allow_serial_tx | default(false) | bool)
         fail_msg: Deploy must not enable TX. Keep lab_allow_serial_tx false.
-    - name: Refuse mixed deploy without revision
-      ansible.builtin.assert:
-        that:
-          - lab_revision is match('^[0-9a-f]{7,40}$') or lab_revision is match('^v?[0-9].*')
-        fail_msg: Pass --extra-vars lab_revision=<FULL_TESTED_SHA>
+    - name: Require full 40-char git SHA for deploy
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - check-git-sha
+          - "{{ lab_revision }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
   roles:
     - role: prereqs
     - role: deploy_release

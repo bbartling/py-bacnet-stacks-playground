@@ -1,11 +1,18 @@
-# Vibe13 isolated B+C Pi lab — EXAMPLE only.
+# Vibe13 isolated C+B Pi lab — EXAMPLE only.
 # Copy to inventory.local.yml (gitignored) for real runs.
 #
-# Seeded from 2026-09-04 tower discovery (do not re-guess by-id):
-#   workerpi1 Waveshare B FTDI → usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0
-#   workerpi2 Waveshare C CH343 → usb-1a86_USB_Single_Serial_5A98075745-if00
+# Hardware identity (reconciled 2026-09-05 — operator must confirm printed labels):
+#   Waveshare USB TO RS485 (C): FTDI/FT232 0403:6001 → ftdi_sio
+#   Waveshare USB TO RS485 (B): CH343 1a86:55d3 → cdc_acm
 #
-# lab_allow_serial_tx stays false until confirm-wiring.
+# Seeded by-id from 2026-09-04 discovery (paths kept; model letters corrected):
+#   workerpi1 Waveshare C (FTDI BH002I9S) → usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0
+#   workerpi2 Waveshare B (CH343 5A98075745) → usb-1a86_USB_Single_Serial_5A98075745-if00
+#
+# Orientation: set lab_orientation=workerpi1-server (default) or workerpi2-server
+# to swap roles without hand-editing physical identity.
+#
+# lab_allow_serial_tx stays false until confirm-wiring + validated run.
 
 all:
   children:
@@ -23,6 +30,7 @@ all:
         lab_state_root: /var/lib/vibe13
         lab_etc_root: /etc/vibe13
         lab_service_user: vibe13
+        lab_orientation: workerpi1-server
         # Allowlist enforced by preflight (exact match required).
         lab_allowed_hosts:
           workerpi1: "192.168.204.59"
@@ -35,9 +43,10 @@ all:
           lab_device_instance: 123101
           lab_peer: workerpi2
           lab_serial_by_id: "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH002I9S-if00-port0"
-          lab_adapter_model: waveshare_b
+          lab_adapter_model: waveshare_c
           lab_adapter_vid_pid: "0403:6001"
           lab_adapter_driver: ftdi_sio
+          lab_adapter_serial_short: "BH002I9S"
         workerpi2:
           ansible_host: 192.168.204.60
           lab_role: probe
@@ -45,6 +54,7 @@ all:
           lab_device_instance: 123102
           lab_peer: workerpi1
           lab_serial_by_id: "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5A98075745-if00"
-          lab_adapter_model: waveshare_c
+          lab_adapter_model: waveshare_b
           lab_adapter_vid_pid: "1a86:55d3"
           lab_adapter_driver: cdc_acm
+          lab_adapter_serial_short: "5A98075745"

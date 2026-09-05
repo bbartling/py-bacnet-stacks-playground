@@ -7,12 +7,14 @@
     group: "{{ lab_service_user }}"
     mode: "0750"
 
-- name: Symlink current run
-  ansible.builtin.file:
-    src: "{{ lab_state_root }}/runs/{{ lab_run_id }}"
-    dest: "{{ lab_state_root }}/runs/current"
-    state: link
-    force: true
+- name: Symlink current run (atomic replace via temp)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    tmp="{{ lab_state_root }}/runs/.current.tmp.$$"
+    ln -sfn "{{ lab_state_root }}/runs/{{ lab_run_id }}" "$tmp"
+    mv -Tf "$tmp" "{{ lab_state_root }}/runs/current"
+  args:
+    executable: /bin/bash
 
 - name: Validate pair roles (one server, one probe)
   ansible.builtin.assert:
@@ -21,22 +23,72 @@
     fail_msg: Pair must be exactly two hosts.
   run_once: true
 
+- name: Map profile to units and duration
+  ansible.builtin.set_fact:
+    lab_is_raw: "{{ lab_profile is search('raw') }}"
+    lab_is_soak: "{{ lab_profile is search('soak') }}"
+    lab_runtime_secs: "{{ 3600 if (lab_profile is search('soak')) else 120 }}"
+
+- name: Override duration when --duration provided (seconds or Nm/Nh)
+  ansible.builtin.set_fact:
+    lab_runtime_secs: >-
+      {{
+        lab_duration | regex_replace('^(\\d+)h$', '\\1') | int * 3600
+        if lab_duration is match('^\\d+h$') else (
+          lab_duration | regex_replace('^(\\d+)m$', '\\1') | int * 60
+          if lab_duration is match('^\\d+m$') else (
+            lab_duration | int if lab_duration is match('^\\d+$') else lab_runtime_secs
+          )
+        )
+      }}
+  when: lab_duration is defined and (lab_duration | string | length) > 0
+
 - name: Start server first
   ansible.builtin.systemd:
-    name: "{{ 'vibe13-raw-peer.service' if lab_profile is search('raw') else 'vibe13-mini-device.service' }}"
+    name: "{{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-mini-device.service' }}"
     state: started
   when: lab_role == 'server'
 
-- name: Wait for server settle
-  ansible.builtin.pause:
-    seconds: 5
+- name: Wait for server active
+  ansible.builtin.command: systemctl is-active {{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-mini-device.service' }}
+  register: srv_active
+  until: srv_active.stdout == 'active'
+  retries: 15
+  delay: 1
   when: lab_role == 'server'
+  changed_when: false
+
+- name: Wait for server log readiness marker
+  ansible.builtin.shell: |
+    set -euo pipefail
+    log="{{ lab_state_root }}/runs/current/{{ 'raw.log' if lab_is_raw | bool else 'mini-device.log' }}"
+    for i in $(seq 1 30); do
+      if [[ -f "$log" ]] && grep -E 'raw peer starting|MS/TP device up' "$log" >/dev/null 2>&1; then
+        exit 0
+      fi
+      sleep 1
+    done
+    echo "FAIL: readiness marker missing in $log" >&2
+    exit 1
+  args:
+    executable: /bin/bash
+  when: lab_role == 'server'
+  changed_when: false
 
 - name: Start probe / peer second
   ansible.builtin.systemd:
-    name: "{{ 'vibe13-raw-peer.service' if lab_profile is search('raw') else 'vibe13-probe.service' }}"
+    name: "{{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-probe.service' }}"
     state: started
   when: lab_role == 'probe'
+
+- name: Wait for probe active
+  ansible.builtin.command: systemctl is-active {{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-probe.service' }}
+  register: pr_active
+  until: pr_active.stdout == 'active'
+  retries: 15
+  delay: 1
+  when: lab_role == 'probe'
+  changed_when: false
 
 - name: Optionally start observer (no tty)
   ansible.builtin.systemd:
@@ -44,7 +96,28 @@
     state: started
   when: lab_enable_observer | default(true) | bool
 
-- name: Write RUNNING marker
+- name: Bounded profile wait (smoke vs soak)
+  ansible.builtin.pause:
+    seconds: "{{ lab_runtime_secs | int }}"
+  when: lab_role == 'server'
+
+- name: Collect unit exit/active for summary
+  ansible.builtin.command: systemctl is-active {{ item }}
+  register: final_units
+  loop: >-
+    {{
+      ['vibe13-raw-peer.service']
+      if lab_is_raw | bool
+      else (
+        ['vibe13-mini-device.service']
+        if lab_role == 'server'
+        else ['vibe13-probe.service']
+      )
+    }}
+  failed_when: false
+  changed_when: false
+
+- name: Write terminal summary (not RUNNING-only)
   ansible.builtin.copy:
     dest: "{{ lab_state_root }}/runs/{{ lab_run_id }}/summary.json"
     content: |
@@ -53,9 +126,11 @@
         "profile": "{{ lab_profile }}",
         "host": "{{ inventory_hostname }}",
         "role": "{{ lab_role }}",
-        "status": "RUNNING",
+        "status": "{{ 'PASS' if (final_units.results | map(attribute='stdout') | list | unique | length == 1 and (final_units.results[0].stdout | default('')) == 'active') else 'FAIL' }}",
+        "runtime_secs": {{ lab_runtime_secs | int }},
         "serial_by_id": "{{ lab_serial_by_id }}",
-        "started_utc": "{{ ansible_date_time.iso8601 | default('') }}"
+        "started_utc": "{{ ansible_date_time.iso8601 | default('') }}",
+        "units": {{ final_units.results | map(attribute='item') | list | to_json }}
       }
     owner: "{{ lab_service_user }}"
     group: "{{ lab_service_user }}"

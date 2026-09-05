@@ -26,21 +26,44 @@
     mode: preserve
     directory_mode: "0755"
 
-- name: Verify SHA256SUMS after transfer
+- name: Verify SHA256SUMS and MANIFEST after transfer
   ansible.builtin.shell: |
-    set -e
+    set -euo pipefail
     cd "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+    test -f MANIFEST.json
+    test -f SHA256SUMS
     sha256sum -c SHA256SUMS
+    python3 - <<'PY'
+    import json, pathlib
+    m=json.loads(pathlib.Path("MANIFEST.json").read_text())
+    assert m.get("release_id") == "{{ lab_release_id }}", m
+    assert m.get("target_triple","").startswith("aarch64"), m
+    print("manifest ok")
+    PY
+    for b in mstp-mini-device mstp-probe vibe13-observer vibe13-raw-peer; do
+      python3 - <<PY
+    import struct
+    p="bin/$b"
+    with open(p,"rb") as f: hdr=f.read(20)
+    assert hdr[:4]==b"\\x7fELF", p
+    machine=struct.unpack_from("<H", hdr, 18)[0]
+    assert machine==183, (p, machine)
+    print("elf ok", p)
+    PY
+    done
   args:
     executable: /bin/bash
   changed_when: false
 
-- name: Activate current symlink (atomic)
-  ansible.builtin.file:
-    src: "{{ lab_install_root }}/releases/{{ lab_release_id }}"
-    dest: "{{ lab_install_root }}/current"
-    state: link
-    force: true
+- name: Activate current symlink atomically
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dest="{{ lab_install_root }}/current"
+    tmp="{{ lab_install_root }}/.current.tmp.$$"
+    ln -sfn "{{ lab_install_root }}/releases/{{ lab_release_id }}" "$tmp"
+    mv -Tf "$tmp" "$dest"
+  args:
+    executable: /bin/bash
 
 - name: Install host config
   ansible.builtin.template:
