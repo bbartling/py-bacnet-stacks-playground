@@ -100,12 +100,20 @@
   ansible.builtin.pause:
     seconds: "{{ lab_runtime_secs | int }}"
   when: lab_role == 'server'
-  run_once: true
 
 - name: Collect unit exit/active for summary
   ansible.builtin.command: systemctl is-active {{ item }}
   register: final_units
-  loop: "{{ ['vibe13-raw-peer.service'] if lab_is_raw | bool else ['vibe13-mini-device.service', 'vibe13-probe.service'] }}"
+  loop: >-
+    {{
+      ['vibe13-raw-peer.service']
+      if lab_is_raw | bool
+      else (
+        ['vibe13-mini-device.service']
+        if lab_role == 'server'
+        else ['vibe13-probe.service']
+      )
+    }}
   failed_when: false
   changed_when: false
 

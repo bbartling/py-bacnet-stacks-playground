@@ -12,7 +12,11 @@
   pre_tasks:
     - name: Validate run_id allowlist
       ansible.builtin.command:
-        cmd: python3 "{{ playbook_dir }}/../scripts/lab_ids.py" check-run-id "{{ lab_run_id }}"
+        argv:
+          - python3
+          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - check-run-id
+          - "{{ lab_run_id }}"
       delegate_to: localhost
       become: false
       run_once: true
@@ -40,6 +44,35 @@
         wiring: "{{ wiring_slurp.content | b64decode | from_yaml }}"
       run_once: true
 
+    - name: Reject expired wiring manifests
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import sys
+            from datetime import datetime, timezone, timedelta
+            approved = """{{ wiring.approved_utc | default('') }}"""
+            max_h = int("""{{ wiring.max_age_hours | default(8) }}""")
+            if not approved:
+                sys.exit("missing approved_utc")
+            # Accept ISO8601 with Z
+            ts = approved.replace("Z", "+00:00")
+            try:
+                t = datetime.fromisoformat(ts)
+            except ValueError as e:
+                sys.exit(f"bad approved_utc: {e}")
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - t.astimezone(timezone.utc)
+            if age > timedelta(hours=max_h) or age.total_seconds() < -60:
+                sys.exit(f"wiring expired age={age} max_h={max_h}")
+            print("fresh")
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
     - name: Validate wiring schema and freshness
       ansible.builtin.assert:
         that:
@@ -49,6 +82,8 @@
           - wiring.hosts.workerpi2.serial_by_id == hostvars['workerpi2'].lab_serial_by_id
           - wiring.hosts.workerpi1.adapter_model == hostvars['workerpi1'].lab_adapter_model
           - wiring.hosts.workerpi2.adapter_model == hostvars['workerpi2'].lab_adapter_model
+          - wiring.hosts.workerpi1.vid_pid == hostvars['workerpi1'].lab_adapter_vid_pid
+          - wiring.hosts.workerpi2.vid_pid == hostvars['workerpi2'].lab_adapter_vid_pid
           - wiring.hosts.workerpi1.mac | int == hostvars['workerpi1'].lab_mstp_mac | int
           - wiring.hosts.workerpi2.mac | int == hostvars['workerpi2'].lab_mstp_mac | int
           - wiring.baud | int == lab_baud | int

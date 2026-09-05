@@ -49,29 +49,50 @@ PATH_RETURNED=0
 write_final_report() {
   local end_utc
   end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  python3 - <<PY
-import json, pathlib
-pathlib.Path(r"""$REPORT_DIR/gate-report.json""").write_text(json.dumps({
+  GATE_REPORT_DIR="$REPORT_DIR" \
+  GATE_RESULT="$RESULT" \
+  GATE_EXIT_REASON="${EXIT_REASON:-}" \
+  GATE_WAIT_EXIT="$WAIT_EXIT" \
+  GATE_RECOVERY_DEADLINE_S="$RECOVERY_DEADLINE_S" \
+  GATE_PEER_BEFORE="$PEER_BEFORE" \
+  GATE_PEER_AFTER="$PEER_AFTER" \
+  GATE_RESTART="$RESTART" \
+  GATE_UNPLUG_MS="$UNPLUG_MS" \
+  GATE_RESTORE_MS="$RESTORE_MS" \
+  GATE_PROCESS_EXIT_CODE="$PROCESS_EXIT_CODE" \
+  GATE_PATH_DISAPPEARED="$PATH_DISAPPEARED" \
+  GATE_PATH_RETURNED="$PATH_RETURNED" \
+  GATE_PROJECT_SHA="$PROJECT_SHA" \
+  GATE_RUSTY_REV="$RUSTY_REV" \
+  GATE_SERIAL="$SERIAL" \
+  GATE_INSTANCE="$INSTANCE" \
+  GATE_START_UTC="$START_UTC" \
+  GATE_END_UTC="$end_utc" \
+  python3 - <<'PY'
+import json, os, pathlib
+report_dir = os.environ["GATE_REPORT_DIR"]
+proc = os.environ.get("GATE_PROCESS_EXIT_CODE", "")
+pathlib.Path(report_dir, "gate-report.json").write_text(json.dumps({
     "gate": "usb_unplug_pi",
-    "result": "$RESULT",
-    "exit_reason": """${EXIT_REASON:-}""",
-    "bounded_exit_seconds": $WAIT_EXIT,
-    "recovery_deadline_s": $RECOVERY_DEADLINE_S,
-    "peer_before": "$PEER_BEFORE",
-    "peer_after": "$PEER_AFTER",
-    "restart": "$RESTART",
-    "unplug_elapsed_ms": int("$UNPLUG_MS" or 0),
-    "restore_wait_ms": int("$RESTORE_MS" or 0),
-    "process_exit_code": (int("$PROCESS_EXIT_CODE") if "$PROCESS_EXIT_CODE".isdigit() else None),
-    "path_disappeared": bool($PATH_DISAPPEARED),
-    "path_returned": bool($PATH_RETURNED),
-    "project_git_sha": "$PROJECT_SHA",
-    "rusty_bacnet_rev": "$RUSTY_REV",
-    "serial_by_id": "$SERIAL",
-    "device_instance": $INSTANCE,
-    "started_utc": "$START_UTC",
-    "ended_utc": "$end_utc",
-    "artifacts_dir": r"""$REPORT_DIR""",
+    "result": os.environ["GATE_RESULT"],
+    "exit_reason": os.environ.get("GATE_EXIT_REASON", ""),
+    "bounded_exit_seconds": int(os.environ["GATE_WAIT_EXIT"]),
+    "recovery_deadline_s": int(os.environ["GATE_RECOVERY_DEADLINE_S"]),
+    "peer_before": os.environ["GATE_PEER_BEFORE"],
+    "peer_after": os.environ["GATE_PEER_AFTER"],
+    "restart": os.environ["GATE_RESTART"],
+    "unplug_elapsed_ms": int(os.environ.get("GATE_UNPLUG_MS") or 0),
+    "restore_wait_ms": int(os.environ.get("GATE_RESTORE_MS") or 0),
+    "process_exit_code": (int(proc) if proc.isdigit() else None),
+    "path_disappeared": os.environ.get("GATE_PATH_DISAPPEARED") == "1",
+    "path_returned": os.environ.get("GATE_PATH_RETURNED") == "1",
+    "project_git_sha": os.environ["GATE_PROJECT_SHA"],
+    "rusty_bacnet_rev": os.environ["GATE_RUSTY_REV"],
+    "serial_by_id": os.environ["GATE_SERIAL"],
+    "device_instance": int(os.environ["GATE_INSTANCE"]),
+    "started_utc": os.environ["GATE_START_UTC"],
+    "ended_utc": os.environ["GATE_END_UTC"],
+    "artifacts_dir": report_dir,
 }, indent=2) + "\n")
 PY
 }
@@ -125,7 +146,16 @@ grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-before.log" || {
 echo ">>> OPERATOR: unplug Waveshare USB now, then press Enter <<<"
 read -r _
 UNPLUG_MS="$(( $(date +%s%3N) - T0 ))"
-PATH_DISAPPEARED=1
+if [[ ! -e "$SERIAL" ]]; then
+  PATH_DISAPPEARED=1
+else
+  PATH_DISAPPEARED=0
+  EXIT_REASON="path_still_present_after_unplug_prompt"
+  RESULT="fail"
+  kill -TERM "$MINI_PID" 2>/dev/null || true
+  wait "$MINI_PID" 2>/dev/null || true
+  exit 1
+fi
 
 EXIT_OK=0
 for _ in $(seq 1 "$WAIT_EXIT"); do
@@ -150,7 +180,12 @@ else
   else
     EXIT_REASON="process_exit"
   fi
-  RESULT="PARTIAL"
+  if [[ "$PROCESS_EXIT_CODE" -ne 75 ]]; then
+    EXIT_REASON="${EXIT_REASON};unexpected_exit_code_${PROCESS_EXIT_CODE}"
+    RESULT="fail"
+  else
+    RESULT="PARTIAL"
+  fi
 fi
 
 echo ">>> OPERATOR: replug Waveshare USB, wait for by-id, then press Enter <<<"

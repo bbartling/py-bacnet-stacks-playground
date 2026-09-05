@@ -40,11 +40,19 @@ def expected_model_for_vid_pid(vid_pid: str) -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3 or argv[1] != "check-run-id":
-        print("usage: lab_ids.py check-run-id <id>", file=sys.stderr)
+    # Exact argv: [prog, check-run-id|check-git-sha, <id>]
+    if len(argv) != 3:
+        print("usage: lab_ids.py check-run-id|check-git-sha <id>", file=sys.stderr)
         return 2
+    cmd = argv[1]
     try:
-        print(validate_run_id(argv[2]))
+        if cmd == "check-run-id":
+            print(validate_run_id(argv[2]))
+        elif cmd == "check-git-sha":
+            print(validate_git_sha(argv[2]))
+        else:
+            print("usage: lab_ids.py check-run-id|check-git-sha <id>", file=sys.stderr)
+            return 2
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1

@@ -8,7 +8,11 @@
   pre_tasks:
     - name: Validate run_id allowlist
       ansible.builtin.command:
-        cmd: python3 "{{ playbook_dir }}/../scripts/lab_ids.py" check-run-id "{{ lab_run_id }}"
+        argv:
+          - python3
+          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - check-run-id
+          - "{{ lab_run_id }}"
       delegate_to: localhost
       become: false
       run_once: true

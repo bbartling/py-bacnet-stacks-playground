@@ -47,7 +47,7 @@
         fi
         if command -v fuser >/dev/null 2>&1; then
           out="$(fuser -v "$P" 2>&1 || true)"
-          if echo "$out" | grep -E 'vibe13-(mini|probe|raw)' >/dev/null; then
+          if echo "$out" | grep -E 'mstp-mini-device|mstp-probe|vibe13-raw-peer|vibe13-observer' >/dev/null; then
             echo "FAIL: project process still holds $P: $out" >&2
             exit 1
           fi

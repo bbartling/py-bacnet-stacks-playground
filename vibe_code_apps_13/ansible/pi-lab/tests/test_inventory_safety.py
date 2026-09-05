@@ -96,6 +96,14 @@ class RunIdValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.lab_ids.validate_git_sha("deadbeef")
 
+    def test_cli_rejects_wrong_argv_count(self) -> None:
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-run-id"]), 2)
+        self.assertEqual(
+            self.lab_ids.main(["lab_ids.py", "check-run-id", "ok", "extra"]), 2
+        )
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-run-id", "ok-id"]), 0)
+        self.assertEqual(self.lab_ids.main(["lab_ids.py", "check-git-sha", "a" * 40]), 0)
+
 
 class WiringRunGateDocs(unittest.TestCase):
     def test_run_requires_allow_tx(self) -> None:
@@ -103,15 +111,38 @@ class WiringRunGateDocs(unittest.TestCase):
         self.assertIn("lab_allow_tx", text)
         self.assertIn("Mere wiring.local.yml", text)
 
+    def test_run_asserts_vid_pid_and_wiring_freshness(self) -> None:
+        text = (ROOT / "playbooks/run.yml").read_text()
+        self.assertIn("lab_adapter_vid_pid", text)
+        self.assertIn("approved_utc", text)
+        self.assertIn("max_age_hours", text)
+        self.assertIn("argv:", text)
+
     def test_confirm_writes_schema(self) -> None:
         text = (ROOT / "playbooks/confirm_wiring.yml").read_text()
         self.assertIn("vibe13_wiring_v1", text)
         self.assertIn("inventory_digest_sha256", text)
+        self.assertIn("approved_utc", text)
+        self.assertIn("max_age_hours", text)
+
+    def test_deploy_requires_full_sha(self) -> None:
+        text = (ROOT / "playbooks/deploy.yml").read_text()
+        self.assertIn("check-git-sha", text)
+        self.assertIn("argv:", text)
 
     def test_build_refuses_x86_fallback(self) -> None:
         text = (ROOT / "scripts/build_release.sh").read_text()
         self.assertIn("Refusing to package x86_64", text)
         self.assertNotIn("Building x86_64 host bins for packaging smoke", text)
+
+    def test_unplug_gate_env_report_and_exit75(self) -> None:
+        text = (
+            ROOT.parents[1] / "scripts/run_mstp_usb_unplug_gate.sh"
+        ).read_text()
+        self.assertIn("<<'PY'", text)
+        self.assertIn("GATE_REPORT_DIR", text)
+        self.assertIn('"$PROCESS_EXIT_CODE" -ne 75', text)
+        self.assertIn('! -e "$SERIAL"', text)
 
 
 if __name__ == "__main__":
