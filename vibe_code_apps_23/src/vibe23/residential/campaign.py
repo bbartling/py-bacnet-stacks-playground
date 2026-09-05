@@ -4,25 +4,25 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
-
-import numpy as np
+from typing import Any, Callable
 
 from ..battery import BatteryParams, simulate_dispatch
 from ..compute import CampaignCompute, PerRunTelemetry, collect_host_info, write_host_json
 from ..plotting import save_baseline_vs_winner_png
 from ..tariff import BillingState, billing_cost
+from .constants import MAX_COOL_F, MAX_HEAT_F
 from .experiment import default_thermostat_candidates, save_ranking
 from .model import MODEL_IDF
 from .runner import run_residential_day
 from .tariffs import summer_tou_hourly, winter_tou_hourly
 from .thermostat import (
     action_to_setpoints_f,
-    baseline_setpoints_f,
     build_schedule_action,
     comfort_ok,
     enforce_heat_below_cool,
 )
+
+ProgressCb = Callable[[dict[str, Any]], None]
 
 
 def _season_config(season: str) -> dict[str, Any]:
@@ -55,20 +55,42 @@ def _season_config(season: str) -> dict[str, Any]:
     raise ValueError(f"unknown season: {season}")
 
 
+def _default_battery_params() -> BatteryParams:
+    return BatteryParams(
+        capacity_kwh=13.5,
+        max_charge_kw=5.0,
+        max_discharge_kw=5.0,
+        eta_c=0.95,
+        eta_d=0.95,
+        soc_min=0.1,
+        soc_max=0.95,
+        initial_soc=0.5,
+    )
+
+
 def run_thermostat_grid(
     *,
     season: str,
     output_root: Path | str,
     eplus_path: Path | str | None = None,
-    max_candidates: int | None = 5,
+    max_candidates: int | None = None,
     idf: Path | str | None = None,
+    comfort_low_f: float = MAX_HEAT_F,
+    comfort_high_f: float = MAX_COOL_F,
+    attach_battery: bool = True,
+    battery_params: BatteryParams | None = None,
+    store_traces: bool = True,
+    progress_callback: ProgressCb | None = None,
 ) -> dict[str, Any]:
+    """Enumerate the 13×13 center grid, simulate each candidate, score with optional battery."""
     cfg = _season_config(season)
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=True)
     write_host_json(root / "compute" / "host.json", collect_host_info())
     source = Path(idf) if idf else MODEL_IDF
     tariff = cfg["tariff"]
+    prices = list(tariff.energy_rates_per_kwh)
+    params = battery_params or _default_battery_params()
     campaign_start = time.perf_counter()
 
     baseline = run_residential_day(
@@ -78,28 +100,42 @@ def run_thermostat_grid(
         month=cfg["month"],
         day=cfg["day"],
     )
-    heat0, cool0 = baseline_setpoints_f()
     opening = BillingState()
-    baseline_bill = billing_cost(baseline["facility_kw"], tariff=tariff, opening_state=opening)
 
-    candidates = list(default_thermostat_candidates(season=cfg["season"]))
-    # Always include an explicit baseline-like candidate first in ranking via baseline row.
-    if max_candidates is not None:
-        candidates = candidates[: max(0, int(max_candidates))]
+    def _score_kw(facility_kw: list[float]) -> tuple[float, list[float], list[float]]:
+        if attach_battery:
+            dispatch = simulate_dispatch(facility_kw, prices, params, mode="price_arbitrage")
+            purchased = list(dispatch["purchased_kw"])  # type: ignore[arg-type]
+            soc = list(dispatch["soc"])  # type: ignore[arg-type]
+            bill = billing_cost(purchased, tariff=tariff, opening_state=opening)
+            return float(bill["total_cost_usd"]), purchased, soc
+        bill = billing_cost(facility_kw, tariff=tariff, opening_state=opening)
+        return float(bill["total_cost_usd"]), list(facility_kw), []
 
-    rows: list[dict[str, Any]] = [
-        {
-            "candidate_id": "BASELINE",
-            "billing_cost": float(baseline_bill["total_cost_usd"]),
-            "peak_kw": float(baseline["peak_kw"]),
-            "total_kwh": float(baseline["total_kwh"]),
-            "comfort_ok": bool(comfort_ok(baseline["zone_temp_f"])),
-            "soft_ok": bool(baseline.get("soft_ok")),
-            "wall_seconds": float(baseline["wall_seconds"]),
-            "action_json": json.dumps({"mode": "baseline"}),
-            "idf_sha256": baseline["idf_sha256"],
-        }
-    ]
+    baseline_cost, baseline_purchased, baseline_soc = _score_kw(list(baseline["facility_kw"]))
+    ok_comfort_base = comfort_ok(baseline["zone_temp_f"], low=comfort_low_f, high=comfort_high_f)
+    base_row: dict[str, Any] = {
+        "candidate_id": "BASELINE",
+        "billing_cost": baseline_cost if baseline.get("soft_ok") and ok_comfort_base else float("inf"),
+        "thermal_cost": float(
+            billing_cost(baseline["facility_kw"], tariff=tariff, opening_state=opening)["total_cost_usd"]
+        ),
+        "peak_kw": float(baseline["peak_kw"]),
+        "total_kwh": float(baseline["total_kwh"]),
+        "comfort_ok": bool(ok_comfort_base),
+        "soft_ok": bool(baseline.get("soft_ok")),
+        "wall_seconds": float(baseline["wall_seconds"]),
+        "action_json": json.dumps({"mode": "baseline", "pre_center_f": 72.0, "event_center_f": 72.0}),
+        "idf_sha256": baseline["idf_sha256"],
+        "attach_battery": bool(attach_battery),
+    }
+    if store_traces:
+        base_row["facility_kw"] = list(baseline["facility_kw"])
+        base_row["zone_temp_f"] = list(baseline["zone_temp_f"])
+        base_row["purchased_kw"] = baseline_purchased
+        base_row["soc"] = baseline_soc
+
+    rows: list[dict[str, Any]] = [base_row]
     telemetry = [
         PerRunTelemetry(
             candidate_id="BASELINE",
@@ -114,14 +150,25 @@ def run_thermostat_grid(
     ]
     trajectories: dict[str, dict[str, Any]] = {"BASELINE": baseline}
 
-    for candidate in candidates:
+    candidates = list(default_thermostat_candidates(season=cfg["season"]))
+    if max_candidates is not None:
+        candidates = candidates[: max(0, int(max_candidates))]
+    n_cand = len(candidates)
+
+    if progress_callback is not None:
+        progress_callback(
+            {
+                "phase": "baseline",
+                "index": 0,
+                "total": n_cand,
+                "candidate_id": "BASELINE",
+                "wall_seconds": float(baseline["wall_seconds"]),
+            }
+        )
+
+    for idx, candidate in enumerate(candidates, start=1):
         action = build_schedule_action(mode=cfg["mode"], **dict(candidate.action))
         heat, cool = action_to_setpoints_f(action)
-        # Keep opposing setpoint at baseline defaults, then enforce deadband.
-        if cfg["season"] == "summer":
-            heat = np.full(len(cool), float(heat0[0]))
-        else:
-            cool = np.full(len(heat), float(cool0[0]))
         heat, cool = enforce_heat_below_cool(heat, cool)
         metrics = run_residential_day(
             source,
@@ -132,26 +179,43 @@ def run_thermostat_grid(
             heat_f=heat,
             cool_f=cool,
         )
-        ok_comfort = comfort_ok(metrics["zone_temp_f"]) if metrics.get("zone_temp_f") else False
-        bill = (
-            billing_cost(metrics["facility_kw"], tariff=tariff, opening_state=opening)
-            if metrics.get("facility_kw")
-            else {"total_cost_usd": float("inf")}
+        ok_comfort = (
+            comfort_ok(metrics["zone_temp_f"], low=comfort_low_f, high=comfort_high_f)
+            if metrics.get("zone_temp_f")
+            else False
         )
-        cost = float(bill["total_cost_usd"]) if metrics.get("soft_ok") and ok_comfort else float("inf")
-        rows.append(
-            {
-                "candidate_id": candidate.candidate_id,
-                "billing_cost": cost,
-                "peak_kw": float(metrics.get("peak_kw") or 0.0),
-                "total_kwh": float(metrics.get("total_kwh") or 0.0),
-                "comfort_ok": ok_comfort,
-                "soft_ok": bool(metrics.get("soft_ok")),
-                "wall_seconds": float(metrics.get("wall_seconds") or 0.0),
-                "action_json": json.dumps(action, sort_keys=True),
-                "idf_sha256": metrics.get("idf_sha256"),
-            }
-        )
+        soft = bool(metrics.get("soft_ok"))
+        facility = list(metrics.get("facility_kw") or [])
+        if soft and facility:
+            thermal_bill = billing_cost(facility, tariff=tariff, opening_state=opening)
+            thermal_cost = float(thermal_bill["total_cost_usd"])
+            purchased_cost, purchased, soc = _score_kw(facility)
+        else:
+            thermal_cost = float("inf")
+            purchased_cost = float("inf")
+            purchased, soc = [], []
+        cost = purchased_cost if soft and ok_comfort else float("inf")
+        row: dict[str, Any] = {
+            "candidate_id": candidate.candidate_id,
+            "billing_cost": cost,
+            "thermal_cost": thermal_cost,
+            "peak_kw": float(metrics.get("peak_kw") or 0.0),
+            "total_kwh": float(metrics.get("total_kwh") or 0.0),
+            "comfort_ok": ok_comfort,
+            "soft_ok": soft,
+            "wall_seconds": float(metrics.get("wall_seconds") or 0.0),
+            "action_json": json.dumps(action, sort_keys=True),
+            "idf_sha256": metrics.get("idf_sha256"),
+            "attach_battery": bool(attach_battery),
+            "pre_center_f": float(action.get("pre_center_f", 72.0)),
+            "event_center_f": float(action.get("event_center_f", 72.0)),
+        }
+        if store_traces and facility:
+            row["facility_kw"] = facility
+            row["zone_temp_f"] = list(metrics.get("zone_temp_f") or [])
+            row["purchased_kw"] = purchased
+            row["soc"] = soc
+        rows.append(row)
         telemetry.append(
             PerRunTelemetry(
                 candidate_id=candidate.candidate_id,
@@ -165,6 +229,19 @@ def run_thermostat_grid(
             )
         )
         trajectories[candidate.candidate_id] = metrics
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "phase": "candidate",
+                    "index": idx,
+                    "total": n_cand,
+                    "candidate_id": candidate.candidate_id,
+                    "wall_seconds": float(metrics.get("wall_seconds") or 0.0),
+                    "billing_cost": cost,
+                    "comfort_ok": ok_comfort,
+                    "soft_ok": soft,
+                }
+            )
 
     ranking = save_ranking(
         rows,
@@ -187,9 +264,32 @@ def run_thermostat_grid(
         "billing_cost": winner.get("billing_cost"),
         "claim_tariff": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
         "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
+        "attach_battery": bool(attach_battery),
+        "comfort_band_f": [float(comfort_low_f), float(comfort_high_f)],
     }
     (root / "winner_schedule.json").write_text(
         json.dumps(winner_schedule, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    twin_export = {
+        "schema": "vibe23.residential_grid_twin_export.v1",
+        "baseline": {
+            "facility_kw": list(baseline["facility_kw"]),
+            "zone_temp_f": list(baseline["zone_temp_f"]),
+            "purchased_kw": baseline_purchased,
+            "soc": baseline_soc,
+        },
+        "winner": {
+            "candidate_id": winner_id,
+            "facility_kw": list(winner.get("facility_kw") or winner_metrics.get("facility_kw") or []),
+            "zone_temp_f": list(winner.get("zone_temp_f") or winner_metrics.get("zone_temp_f") or []),
+            "purchased_kw": list(winner.get("purchased_kw") or []),
+            "soc": list(winner.get("soc") or []),
+            "action": winner_schedule["action"],
+            "billing_cost": winner.get("billing_cost"),
+        },
+    }
+    (root / "twin_export.json").write_text(
+        json.dumps(twin_export, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     campaign_wall = time.perf_counter() - campaign_start
     compute = CampaignCompute(runs=telemetry, campaign_wall_seconds=campaign_wall).summary()
@@ -206,10 +306,13 @@ def run_thermostat_grid(
         "baseline": {k: v for k, v in baseline.items() if k not in {"facility_kw", "zone_temp_f", "inspection"}},
         "ranking": ranking,
         "winner_schedule": winner_schedule,
+        "twin_export": twin_export,
         "plot": str(plot),
         "compute": compute,
         "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
         "claim_tariff": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+        "catalog_size": n_cand,
+        "attach_battery": bool(attach_battery),
     }
 
 
@@ -230,12 +333,12 @@ def run_battery_grid(
         eplus_path=eplus_path,
         max_candidates=max_candidates,
         idf=idf,
+        attach_battery=True,
+        store_traces=False,
     )
     cfg = _season_config(season)
     tariff = cfg["tariff"]
     prices = list(tariff.energy_rates_per_kwh)
-    # Re-load baseline facility from thermal campaign artifacts via re-run is expensive;
-    # use ranking winner/baseline by re-simulating baseline only once more if needed.
     baseline = run_residential_day(
         Path(idf) if idf else MODEL_IDF,
         output_dir=root / "battery_baseline",
@@ -243,20 +346,10 @@ def run_battery_grid(
         month=cfg["month"],
         day=cfg["day"],
     )
-    params = BatteryParams(
-        capacity_kwh=13.5,
-        max_charge_kw=5.0,
-        max_discharge_kw=5.0,
-        eta_c=0.95,
-        eta_d=0.95,
-        soc_min=0.1,
-        soc_max=0.95,
-        initial_soc=0.5,
-    )
+    params = _default_battery_params()
     opening = BillingState()
     thermal_only_kw = baseline["facility_kw"]
     battery_only = simulate_dispatch(thermal_only_kw, prices, params, mode="price_arbitrage")
-    # Combined: use winner thermal if available else baseline, then battery.
     winner_id = str((thermal.get("winner_schedule") or {}).get("candidate_id") or "BASELINE")
     winner_dir = root / "thermal" / "candidates" / winner_id
     if winner_id == "BASELINE" or not (winner_dir / "eplusout.csv").is_file():
