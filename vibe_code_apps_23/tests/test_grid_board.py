@@ -42,8 +42,8 @@ def test_load_grid_ranking_shape(season: str) -> None:
             assert key in row
     anim = candidate_rows_for_animation(payload)
     assert all(r["candidate_id"] != "BASELINE" for r in anim)
-    # Count refreshed in T4 (13×13 = 169); until then accept any non-empty GRID set.
-    assert len(anim) >= 1
+    assert len(anim) == 169
+    assert payload.get("fixture_kind") == "ILLUSTRATIVE_PHYSICS_PROXY" or "winner" in payload
 
 
 def test_parse_dimension_values() -> None:
@@ -114,3 +114,5 @@ def test_search_progress_state_math() -> None:
 def test_ranking_fixture_files_exist() -> None:
     assert (FIXTURES / "summer_thermostat_grid_ranking.json").is_file()
     assert (FIXTURES / "winter_thermostat_grid_ranking.json").is_file()
+    assert (FIXTURES / "summer_twin_export.json").is_file()
+    assert (FIXTURES / "winter_twin_export.json").is_file()
