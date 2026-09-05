@@ -43,9 +43,10 @@ fn load_status(state_dir: &Path) -> Value {
             })
         }),
         Err(_) => json!({
-            "ok": true,
+            "ok": false,
             "freshness": "offline",
-            "note": "waiting for status.json from mini/probe IPC",
+            "error": "status.json missing",
+            "note": "no status producer file — not healthy",
             "tty_owner": false,
             "observed_utc_ms": now_ms(),
         }),
@@ -53,15 +54,38 @@ fn load_status(state_dir: &Path) -> Value {
 }
 
 async fn handle_client(mut socket: tokio::net::TcpStream, state_dir: PathBuf) -> Result<()> {
-    let mut buf = [0u8; 1024];
-    let _n = socket.read(&mut buf).await.unwrap_or(0);
+    // Bound request read and response write; reject oversized requests.
+    let mut buf = vec![0u8; 4096];
+    let n = match tokio::time::timeout(Duration::from_secs(2), socket.read(&mut buf)).await {
+        Ok(Ok(n)) => n,
+        Ok(Err(_)) | Err(_) => 0,
+    };
+    if n >= buf.len() {
+        let body = b"{\"ok\":false,\"error\":\"request too large\"}";
+        let resp = format!(
+            "HTTP/1.1 413 Payload Too Large\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+            socket.write_all(resp.as_bytes()).await?;
+            socket.write_all(body).await?;
+            Ok::<(), std::io::Error>(())
+        })
+        .await;
+        return Ok(());
+    }
     let body = serde_json::to_vec_pretty(&load_status(&state_dir))?;
     let resp = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
-    socket.write_all(resp.as_bytes()).await?;
-    socket.write_all(&body).await?;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        socket.write_all(resp.as_bytes()).await?;
+        socket.write_all(&body).await?;
+        Ok::<(), std::io::Error>(())
+    })
+    .await
+    .context("response write timeout")??;
     Ok(())
 }
 

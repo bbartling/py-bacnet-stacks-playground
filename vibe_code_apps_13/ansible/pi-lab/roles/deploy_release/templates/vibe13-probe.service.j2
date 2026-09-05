@@ -12,8 +12,8 @@ WorkingDirectory={{ lab_state_root }}
 ExecStart={{ lab_install_root }}/current/bin/mstp-probe --profile smoke --report {{ lab_state_root }}/runs/probe-report.json --device-instance {{ hostvars[lab_peer].lab_device_instance | default(123101) }} --probe-mac ${LAB_MAC} --device-mac {{ hostvars[lab_peer].lab_mstp_mac | default(1) }} --baud ${LAB_BAUD} --max-master ${LAB_MAX_MASTER} hardware --probe-serial ${LAB_SERIAL} --device-serial {{ hostvars[lab_peer].lab_serial_by_id | default('') }}
 Restart=on-failure
 RestartSec=3
-StandardOutput=append:{{ lab_state_root }}/runs/current-probe.log
-StandardError=append:{{ lab_state_root }}/runs/current-probe.log
+StandardOutput=append:{{ lab_state_root }}/runs/current/probe.log
+StandardError=append:{{ lab_state_root }}/runs/current/probe.log
 
 [Install]
 WantedBy=multi-user.target

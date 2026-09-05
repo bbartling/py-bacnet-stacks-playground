@@ -7,20 +7,64 @@
   vars:
     lab_profile: "{{ profile | default('mstp-smoke') }}"
     lab_run_id: "{{ run_id | default(lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ')) }}"
+    lab_wiring_file: "{{ playbook_dir }}/../wiring.local.yml"
+    lab_allow_tx_flag: "{{ lab_allow_tx | default(false) | bool }}"
   pre_tasks:
-    - name: Require wiring manifest on controller
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../wiring.local.yml"
-      register: wiring_stat
+    - name: Validate run_id allowlist
+      ansible.builtin.command:
+        cmd: python3 "{{ playbook_dir }}/../scripts/lab_ids.py" check-run-id "{{ lab_run_id }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Require explicit --allow-tx for this invocation
+      ansible.builtin.assert:
+        that:
+          - lab_allow_tx_flag | bool
+        fail_msg: >-
+          Refusing TX. Re-run with --allow-tx after confirm-wiring. Mere wiring.local.yml
+          existence is not authorization.
+      run_once: true
+
+    - name: Load wiring manifest
+      ansible.builtin.slurp:
+        src: "{{ lab_wiring_file }}"
+      register: wiring_slurp
       delegate_to: localhost
       become: false
       run_once: true
 
-    - name: Fail if wiring not confirmed
+    - name: Parse wiring YAML
+      ansible.builtin.set_fact:
+        wiring: "{{ wiring_slurp.content | b64decode | from_yaml }}"
+      run_once: true
+
+    - name: Validate wiring schema and freshness
       ansible.builtin.assert:
         that:
-          - wiring_stat.stat.exists
-        fail_msg: Run ./scripts/pi-lab confirm-wiring --confirmed first.
+          - wiring.schema == 'vibe13_wiring_v1'
+          - wiring.operator_confirmed | default(false) | bool
+          - wiring.hosts.workerpi1.serial_by_id == hostvars['workerpi1'].lab_serial_by_id
+          - wiring.hosts.workerpi2.serial_by_id == hostvars['workerpi2'].lab_serial_by_id
+          - wiring.hosts.workerpi1.adapter_model == hostvars['workerpi1'].lab_adapter_model
+          - wiring.hosts.workerpi2.adapter_model == hostvars['workerpi2'].lab_adapter_model
+          - wiring.hosts.workerpi1.mac | int == hostvars['workerpi1'].lab_mstp_mac | int
+          - wiring.hosts.workerpi2.mac | int == hostvars['workerpi2'].lab_mstp_mac | int
+          - wiring.baud | int == lab_baud | int
+          - wiring.max_master | int == lab_max_master | int
+        fail_msg: >-
+          wiring.local.yml stale/mismatched/malformed vs live inventory. Re-run
+          confirm-wiring --confirmed. Never authorize the tower tty.
+      run_once: true
+
+    - name: Show what will transmit
+      ansible.builtin.debug:
+        msg: >-
+          TX ENABLED for run {{ lab_run_id }} profile={{ lab_profile }}
+          workerpi1={{ hostvars['workerpi1'].lab_serial_by_id }} (MAC {{ hostvars['workerpi1'].lab_mstp_mac }})
+          workerpi2={{ hostvars['workerpi2'].lab_serial_by_id }} (MAC {{ hostvars['workerpi2'].lab_mstp_mac }})
+          baud={{ lab_baud }}. Tower tty is NOT a target.
       run_once: true
 
     - name: Enable TX for this run only

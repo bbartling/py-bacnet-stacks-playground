@@ -4,17 +4,65 @@
   gather_facts: false
   become: true
   tasks:
-    - name: Stop project units only
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        state: stopped
+    - name: Query unit state before stop
+      ansible.builtin.command: systemctl is-active {{ item }}
+      register: unit_before
       loop:
         - vibe13-mini-device.service
         - vibe13-probe.service
         - vibe13-raw-peer.service
         - vibe13-observer.service
       failed_when: false
+      changed_when: false
+
+    - name: Stop project units (absent unit is ok; unexpected stop failure is not)
+      ansible.builtin.systemd:
+        name: "{{ item.item }}"
+        state: stopped
+      loop: "{{ unit_before.results }}"
+      when: item.stdout | default('') not in ['inactive', 'failed', 'unknown', '']
+      register: stop_res
+      failed_when:
+        - stop_res is failed
+        - "'Could not find' not in (stop_res.msg | default(''))"
+
+    - name: Assert units inactive
+      ansible.builtin.command: systemctl is-active {{ item }}
+      register: unit_after
+      loop:
+        - vibe13-mini-device.service
+        - vibe13-probe.service
+        - vibe13-raw-peer.service
+        - vibe13-observer.service
+      failed_when: unit_after.stdout | default('') == 'active'
+      changed_when: false
+
+    - name: Check serial path holders (report unknown owner; never fuser -k)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        P="{{ lab_serial_by_id }}"
+        if [[ ! -e "$P" ]]; then
+          echo "serial_absent"
+          exit 0
+        fi
+        if command -v fuser >/dev/null 2>&1; then
+          out="$(fuser -v "$P" 2>&1 || true)"
+          if echo "$out" | grep -E 'vibe13-(mini|probe|raw)' >/dev/null; then
+            echo "FAIL: project process still holds $P: $out" >&2
+            exit 1
+          fi
+          if echo "$out" | grep -E '[0-9]+' >/dev/null; then
+            echo "UNKNOWN_OWNER: $out" >&2
+            exit 2
+          fi
+        fi
+        echo "serial_free"
+      args:
+        executable: /bin/bash
+      register: tty_hold
+      failed_when: tty_hold.rc == 1
+      changed_when: false
 
     - name: Clear run TX authorization reminder
       ansible.builtin.debug:
-        msg: "Stopped project units on {{ inventory_hostname }}. TX remains inventory-default false."
+        msg: "Stopped project units on {{ inventory_hostname }}. TX remains inventory-default false. tty={{ tty_hold.stdout }}"

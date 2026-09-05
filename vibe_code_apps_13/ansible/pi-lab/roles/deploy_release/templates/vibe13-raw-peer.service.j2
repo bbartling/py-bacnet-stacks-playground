@@ -10,8 +10,8 @@ EnvironmentFile={{ lab_etc_root }}/{{ inventory_hostname }}.env
 WorkingDirectory={{ lab_state_root }}
 ExecStart={{ lab_install_root }}/current/bin/vibe13-raw-peer --serial ${LAB_SERIAL} --baud ${LAB_BAUD} --role ${LAB_ROLE}
 Restart=no
-StandardOutput=append:{{ lab_state_root }}/runs/current-raw.log
-StandardError=append:{{ lab_state_root }}/runs/current-raw.log
+StandardOutput=append:{{ lab_state_root }}/runs/current/raw.log
+StandardError=append:{{ lab_state_root }}/runs/current/raw.log
 
 [Install]
 WantedBy=multi-user.target
