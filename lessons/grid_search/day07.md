@@ -1,4 +1,4 @@
-# Day 07 – Night Ventilation Comparison
+﻿# Day 07 – Night Ventilation Comparison
 
 *Vibe 23 Grid Search track | Lesson 7 of 10*
 
@@ -13,7 +13,7 @@ Sometimes the “candidate” is not only a schedule number but a **model varian
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day07_night_ventilation.py
 ```
 

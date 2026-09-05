@@ -1,4 +1,4 @@
-# Day 08 – Small Office Reference Building
+﻿# Day 08 – Small Office Reference Building
 
 *Vibe 23 Grid Search track | Lesson 8 of 10*
 
@@ -13,7 +13,7 @@ Reference buildings are still ExampleFiles, but they behave more like “real-is
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day08_small_office.py
 ```
 

@@ -2,6 +2,10 @@
 
 Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in the repo [README.md](../README.md#computer-science-theory-101-weekly-outline) is the canonical syllabus text; this page is a **compact link hub**.
 
+**Also in this folder:**
+- **Linux / shell:** [OverTheWire Bandit](https://overthewire.org/wargames/bandit/) — see [`bandit/README.md`](./bandit/README.md); daily challenges on [Discord](https://discord.gg/Ta48yQF8fC)
+- **EnergyPlus grid-search DSM tutorials:** [`grid_search/INDEX.md`](./grid_search/INDEX.md) (supports Vibe 23)
+
 **Conventions:** Same section scaffold throughout (`# Day NN`, then `## Goal` / `## Concept` / `## Why This Matters` / `## Mini Examples` / `## Micro Exercises` / `## Key Takeaway`, optional `## Wireshark Lab`, then companion). Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions), each with a **Rust companion** at the bottom (install Rust on **Day 1**). Days **28–75** are **Rust-main** (Day 28 ownership/borrowing/lifetimes; then network programming UDP/TCP, **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF dual-stack: `rdflib` (Python) + `oxrdf` (Rust)**—same Turtle samples and SPARQL/`SELECT`/`ASK`/`CONSTRUCT` intent on both where queries appear), each with a **Python companion** at the bottom for parallel learning. Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
 
 ---

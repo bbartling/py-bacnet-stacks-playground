@@ -1,4 +1,4 @@
-# Day 10 – BESS Bonus (PV + Battery Grid Search)
+﻿# Day 10 – BESS Bonus (PV + Battery Grid Search)
 
 *Vibe 23 Grid Search track | Lesson 10 of 10*
 
@@ -18,7 +18,7 @@ Day 10 patches those fields across a five-candidate menu and scores the utility-
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day10_bess_battery.py
 ```
 

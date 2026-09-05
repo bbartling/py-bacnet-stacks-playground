@@ -1,11 +1,11 @@
-# Vibe 23 — Residential heat-pump DSM laboratory
+﻿# Vibe 23 — Residential heat-pump DSM laboratory
 
 Transparent EnergyPlus demand-side-management lab for a hypothetical all-electric heat-pump home:
 thermal flexibility (house as battery) → finite thermostat grid search under illustrative TOU → home-battery co-optimization.
 
 **Labels:** `HYPOTHETICAL_GL14_TUNED_DEMO_MODEL` · `ILLUSTRATIVE_RESIDENTIAL_ASSUMPTIONS` · `ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF`
 
-> LBNL Building 59 calibration work was removed from the active path (poor whole-building DSM fit). Historical lessons under [`lessons/grid_search/`](lessons/grid_search/) remain.
+> LBNL Building 59 calibration work was removed from the active path (poor whole-building DSM fit). Historical lessons under [`../lessons/grid_search/` (repo root)](../lessons/grid_search/) remain.
 
 ## Requirements
 
@@ -82,7 +82,7 @@ Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (
 | `vibe23.compute` | Host + campaign compute telemetry |
 | `vibe23.weather` | `WeatherProvider` (static EPW + forecast fixtures) |
 | `vibe23.studio` | Streamlit helpers: IDF massing, demo day, kWh integration |
-| `lessons/grid_search` | Educational ExampleFiles grid-search series (Day 10 BESS) |
+| `../lessons/grid_search` | Educational ExampleFiles grid-search series (Day 10 BESS) |
 
 ## Agent handoff
 

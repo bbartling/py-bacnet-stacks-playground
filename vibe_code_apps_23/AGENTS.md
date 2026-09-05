@@ -9,7 +9,7 @@
 2. [`README.md`](README.md)
 3. [`vibe23_agent_spec/SPEC.md`](vibe23_agent_spec/SPEC.md)
 4. [`model/README.md`](model/README.md)
-5. [`lessons/grid_search/INDEX.md`](lessons/grid_search/INDEX.md) (preserve Day 10 BESS ideas)
+5. [`../lessons/grid_search/INDEX.md`](../lessons/grid_search/INDEX.md) (preserve Day 10 BESS ideas)
 
 ## Hard rules
 - Native `C:\EnergyPlusV26-1-0\energyplus.exe` is the acceptance path; Docker/WSL/MCP are optional helpers only

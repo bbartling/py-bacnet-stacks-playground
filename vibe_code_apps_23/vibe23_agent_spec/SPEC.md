@@ -1,4 +1,4 @@
-# Vibe 23 Agentic Spec — Residential Heat-Pump DSM
+﻿# Vibe 23 Agentic Spec — Residential Heat-Pump DSM
 
 **Project:** Vibe Code App 23  
 **Product:** Educational residential EnergyPlus DSM laboratory  
@@ -33,4 +33,4 @@ residential IDF (Carrier 50EZ060)
 - LBNL Building 59 as the active modeling target
 
 ## Preserve
-`lessons/grid_search/` especially Day 10 BESS patterns.
+`../lessons/grid_search/` (repo root) especially Day 10 BESS patterns.
