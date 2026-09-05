@@ -1,6 +1,6 @@
 # AGENTS.md — Vibe 23 residential heat-pump DSM
 
-**Mission:** run a transparent residential EnergyPlus DSM lab (DR → thermostat grid → battery) on native Windows EnergyPlus 26.1.
+**Mission:** run a transparent residential EnergyPlus DSM lab (Grid flex calculator → 13×13 thermostat center search → battery co-opt) on native Windows EnergyPlus 26.1.
 
 **Claim boundary:** `HYPOTHETICAL_GL14_TUNED_DEMO_MODEL`. Never fabricate Guideline 14 NMBE/CV(RMSE). Tariffs are `ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF`.
 
@@ -15,6 +15,8 @@
 - Native `C:\EnergyPlusV26-1-0\energyplus.exe` is the acceptance path; Docker/WSL/MCP are optional helpers only
 - Do not resurrect LBNL B59 calibration as the active product
 - Do not duplicate grid-search engines; reuse `vibe23.grid`
+- Default thermostat is **71/73°F** (2°F deadband); search is **13×13 centers** (169) with battery-co-optimized ranking
+- Studio tabs: `Inputs | Grid search | Twin replay | Grid flex calculator | Economics`
 - Tariff/reward interval count is configurable (288 for 5-min residential)
 - Record compute telemetry for campaigns (`reports/compute/`, campaign `compute/`)
 - After IDF edits: run EnergyPlus, read `.err`, then tests
