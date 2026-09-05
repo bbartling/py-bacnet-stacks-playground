@@ -1,0 +1,207 @@
+{
+  "candidate_count": 17,
+  "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
+  "claim_tariff": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+  "rows": [
+    {
+      "action_json": "{\"mode\": \"baseline\"}",
+      "billing_cost": 50.246634037474436,
+      "candidate_id": "BASELINE",
+      "comfort_ok": false,
+      "idf_sha256": "e9aedacdfb295068d85761a75b2d9a6416bfccfe22bec0cd137c332b20734b87",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.82130658132763,
+      "wall_seconds": 0.7331153999548405
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0000_ae76c0dc452d",
+      "comfort_ok": false,
+      "idf_sha256": "237376fdfc7935e47df5f09ba80e5f3bf476685dff6ac6e9d249b4ef373ce51c",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.5690626097529,
+      "wall_seconds": 0.7007070999825373
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0001_053ff0956542",
+      "comfort_ok": false,
+      "idf_sha256": "f4318a6132138a9514e1613f3b6c998142b869ac31ab41f311e7639d7ea516f7",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424515942696,
+      "wall_seconds": 0.6675506999017671
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0002_accf4e3eb508",
+      "comfort_ok": false,
+      "idf_sha256": "237376fdfc7935e47df5f09ba80e5f3bf476685dff6ac6e9d249b4ef373ce51c",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.5690626097529,
+      "wall_seconds": 0.7822716000955552
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0003_a5400e705fbb",
+      "comfort_ok": false,
+      "idf_sha256": "f4318a6132138a9514e1613f3b6c998142b869ac31ab41f311e7639d7ea516f7",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424515942696,
+      "wall_seconds": 0.7709787000203505
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0004_9ae67a2ffc6c",
+      "comfort_ok": false,
+      "idf_sha256": "f190c782944e3910faebda1288698230cd428ffee6aeb9c3ac091f47a4ca7726",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.63092629976506,
+      "wall_seconds": 0.9689668999053538
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0005_871ea173b3a5",
+      "comfort_ok": false,
+      "idf_sha256": "2f8bb5c9e8fe8a89cd7682d30e6b297a4e447a5bb61b685a8f6efcf03d3c7370",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424305486517,
+      "wall_seconds": 0.9029200000222772
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0006_22db0cd62396",
+      "comfort_ok": false,
+      "idf_sha256": "f190c782944e3910faebda1288698230cd428ffee6aeb9c3ac091f47a4ca7726",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.63092629976506,
+      "wall_seconds": 0.6613646000623703
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 5.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0007_d358684a00ff",
+      "comfort_ok": false,
+      "idf_sha256": "2f8bb5c9e8fe8a89cd7682d30e6b297a4e447a5bb61b685a8f6efcf03d3c7370",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424305486517,
+      "wall_seconds": 0.6485047999303788
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0008_e7e63800b626",
+      "comfort_ok": false,
+      "idf_sha256": "237376fdfc7935e47df5f09ba80e5f3bf476685dff6ac6e9d249b4ef373ce51c",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.5690626097529,
+      "wall_seconds": 1.1537042999407277
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0009_b5e1595fd2b3",
+      "comfort_ok": false,
+      "idf_sha256": "f4318a6132138a9514e1613f3b6c998142b869ac31ab41f311e7639d7ea516f7",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424515942696,
+      "wall_seconds": 0.6697808000026271
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0010_84549b935167",
+      "comfort_ok": false,
+      "idf_sha256": "237376fdfc7935e47df5f09ba80e5f3bf476685dff6ac6e9d249b4ef373ce51c",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.5690626097529,
+      "wall_seconds": 0.803284400026314
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 6.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0011_aedba47295db",
+      "comfort_ok": false,
+      "idf_sha256": "f4318a6132138a9514e1613f3b6c998142b869ac31ab41f311e7639d7ea516f7",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424515942696,
+      "wall_seconds": 0.672358899959363
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0012_9f57088aa4ba",
+      "comfort_ok": false,
+      "idf_sha256": "f190c782944e3910faebda1288698230cd428ffee6aeb9c3ac091f47a4ca7726",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.63092629976506,
+      "wall_seconds": 0.7193250999553129
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0013_1e47de8584ce",
+      "comfort_ok": false,
+      "idf_sha256": "2f8bb5c9e8fe8a89cd7682d30e6b297a4e447a5bb61b685a8f6efcf03d3c7370",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424305486517,
+      "wall_seconds": 0.6397577000316232
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 69.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0014_aff51c922375",
+      "comfort_ok": false,
+      "idf_sha256": "f190c782944e3910faebda1288698230cd428ffee6aeb9c3ac091f47a4ca7726",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.63092629976506,
+      "wall_seconds": 0.6508056999882683
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 9.0, \"event_heat_f\": 70.5, \"event_start\": 7.0, \"mode\": \"winter_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 73.5, \"pre_start_hour\": 6.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0015_0ac16628ce71",
+      "comfort_ok": false,
+      "idf_sha256": "2f8bb5c9e8fe8a89cd7682d30e6b297a4e447a5bb61b685a8f6efcf03d3c7370",
+      "peak_kw": 10.9348726425,
+      "soft_ok": true,
+      "total_kwh": 244.80424305486517,
+      "wall_seconds": 1.155871299910359
+    }
+  ],
+  "schema": "vibe23.residential_grid_ranking.v1",
+  "winner": {
+    "action_json": "{\"mode\": \"baseline\"}",
+    "billing_cost": 50.246634037474436,
+    "candidate_id": "BASELINE",
+    "comfort_ok": false,
+    "idf_sha256": "e9aedacdfb295068d85761a75b2d9a6416bfccfe22bec0cd137c332b20734b87",
+    "peak_kw": 10.9348726425,
+    "soft_ok": true,
+    "total_kwh": 244.82130658132763,
+    "wall_seconds": 0.7331153999548405
+  },
+  "winner_key": "billing_cost"
+}

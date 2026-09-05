@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-studio = ["streamlit>=1.37", "plotly>=5.20"]
-dev = ["pytest>=8.0", "ruff>=0.12", "streamlit>=1.37", "plotly>=5.20"]
+studio = ["streamlit>=1.59.2", "plotly>=5.20"]
+dev = ["pytest>=8.0", "ruff>=0.12", "streamlit>=1.59.2", "plotly>=5.20"]
 compute = ["psutil>=5.9"]
 
 [project.scripts]

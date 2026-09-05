@@ -1,4 +1,4 @@
-streamlit>=1.37
+streamlit==1.59.2
 plotly>=5.20
 matplotlib>=3.9
 numpy>=2.0

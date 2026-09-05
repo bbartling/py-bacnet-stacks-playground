@@ -35,18 +35,23 @@ def _radio(at: AppTest, key: str):
 
 
 def test_studio_app_features() -> None:
-    at = AppTest.from_file(str(APP_PATH), default_timeout=60)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=90)
     at.run()
     _assert_no_exceptions(at, "initial run")
 
     assert {s.key for s in at.slider} >= {
         "step",
+        "dr_step",
+        "cand_step",
         "capacity_kwh",
         "max_power_kw",
         "eta",
         "soc_min",
         "soc_max",
         "initial_soc",
+        "comfort_wtp",
+        "econ_target",
+        "grid_max_candidates",
     }
     assert at.get("select_slider") or any(getattr(s, "key", None) == "dsm_minutes" for s in at.select_slider), (
         "expected DSM interval select_slider"
@@ -56,6 +61,24 @@ def test_studio_app_features() -> None:
     assert at.metric, "expected metrics"
     assert at.file_uploader, "expected IDF/EPW/tariff uploads on Inputs tab"
     assert at.get("data_editor") or at.get("dataframe"), "expected hourly weather + tariff spreadsheet editor"
+    assert "trace" not in {r.key for r in at.radio}, "trace radio must stay removed"
+
+    tab_labels = [getattr(t, "label", None) for t in at.tabs]
+    assert tab_labels == ["Inputs", "Twin replay", "Grid search", "DR event", "Economics"], tab_labels
+
+    # Seed independent axis values, then advance twin only.
+    at.session_state.dr_step = 7
+    at.session_state.cand_step = 3
+    at.session_state.step = 10
+    at.session_state.playing_twin = True
+    at.session_state._do_advance_twin = True
+    at.session_state._stop_after_advance_twin = True
+    at.run()
+    _assert_no_exceptions(at, "twin-only advance")
+    assert int(at.session_state["step"]) == 11
+    assert int(at.session_state["dr_step"]) == 7, "DR playhead must not move when Twin advances"
+    assert int(at.session_state["cand_step"]) == 3, "cand playhead must not move when Twin advances"
+    assert at.session_state["playing_twin"] is False
 
     dsm = None
     for item in at.select_slider:
@@ -67,6 +90,7 @@ def test_studio_app_features() -> None:
     _assert_no_exceptions(at, "dsm 1 hour")
     assert int(at.session_state["dsm_minutes"]) == 60
     assert int(at.session_state["step"]) == 0
+    assert int(at.session_state["dr_step"]) == 0
 
     clears = [b for b in at.button if b.label == "Clear session"]
     assert clears
@@ -75,6 +99,7 @@ def test_studio_app_features() -> None:
     _assert_no_exceptions(at, "Clear session")
     assert str(at.session_state["session_id"]) != old_sid
     assert int(at.session_state["dsm_minutes"]) == 5
+    assert int(at.session_state["cand_step"]) == 0
 
     _radio(at, "season").set_value("Winter design cold (Jan 3)").run()
     _assert_no_exceptions(at, "winter season")
@@ -83,15 +108,11 @@ def test_studio_app_features() -> None:
     _radio(at, "season").set_value("Summer hot day (Jul 15)").run()
     _assert_no_exceptions(at, "summer season")
 
-    _radio(at, "trace").set_value("Baseline").run()
-    _assert_no_exceptions(at, "baseline trace")
-    _radio(at, "trace").set_value("DR event").run()
-    _assert_no_exceptions(at, "dr trace")
-
-    assert at.toggle and at.toggle[0].key == "attach_battery"
-    at.toggle[0].set_value(False).run()
+    assert at.toggle and any(t.key == "attach_battery" for t in at.toggle)
+    batt = next(t for t in at.toggle if t.key == "attach_battery")
+    batt.set_value(False).run()
     _assert_no_exceptions(at, "battery off")
-    at.toggle[0].set_value(True).run()
+    batt.set_value(True).run()
     _assert_no_exceptions(at, "battery on")
 
     _slider(at, "capacity_kwh").set_value(20.0).run()
@@ -100,20 +121,35 @@ def test_studio_app_features() -> None:
     _assert_no_exceptions(at, "timestep slider")
     assert int(at.session_state["step"]) == 100
 
-    at.session_state.playing = True
-    at.session_state._do_advance = True
-    at.session_state._stop_after_advance = True
+    # Run search advances cand_step only.
+    before_twin = int(at.session_state["step"])
+    before_dr = int(at.session_state["dr_step"])
+    at.session_state.cand_step = 0
+    at.session_state.playing_cand = True
+    at.session_state._do_advance_cand = True
+    at.session_state._stop_after_advance_cand = True
     at.run()
-    _assert_no_exceptions(at, "playhead advance")
-    assert int(at.session_state["step"]) == 101
+    _assert_no_exceptions(at, "cand advance")
+    assert int(at.session_state["cand_step"]) == 1
+    assert int(at.session_state["step"]) == before_twin
+    assert int(at.session_state["dr_step"]) == before_dr
 
-    plays = [b for b in at.button if b.label == "Play"]
+    run_btns = [b for b in at.button if b.label == "Run search"]
+    assert run_btns, "expected Run search button on Grid search tab"
+    run_btns[0].click().run()
+    _assert_no_exceptions(at, "Run search click")
+
+    plays = [b for b in at.button if b.label == "Play" and getattr(b, "key", None) == "btn_play_twin"]
+    if not plays:
+        plays = [b for b in at.button if b.label == "Play"]
     assert plays
     plays[0].click().run()
-    _assert_no_exceptions(at, "Play")
+    _assert_no_exceptions(at, "Play twin")
 
-    resets = [b for b in at.button if b.label == "Reset"]
+    resets = [b for b in at.button if "Reset" in str(b.label)]
     assert resets
-    resets[0].click().run()
-    _assert_no_exceptions(at, "Reset")
+    # Prefer twin reset
+    twin_reset = next((b for b in resets if getattr(b, "key", None) == "btn_reset_twin"), resets[0])
+    twin_reset.click().run()
+    _assert_no_exceptions(at, "Reset twin")
     assert int(at.session_state["step"]) == 0
