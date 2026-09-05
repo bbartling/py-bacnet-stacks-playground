@@ -14,6 +14,7 @@ from vibe23.studio.search_progress import (
     format_dimension_values,
     load_grid_ranking,
     parse_dimension_values,
+    qtable_matrix,
     search_progress_state,
     season_dimension_defaults,
 )
@@ -116,3 +117,17 @@ def test_ranking_fixture_files_exist() -> None:
     assert (FIXTURES / "winter_thermostat_grid_ranking.json").is_file()
     assert (FIXTURES / "summer_twin_export.json").is_file()
     assert (FIXTURES / "winter_twin_export.json").is_file()
+
+
+def test_qtable_matrix_shape_from_fixture() -> None:
+    payload = load_grid_ranking("summer")
+    rows = payload["rows"]
+    matrix = qtable_matrix(rows)
+    assert len(matrix["pre_centers"]) == 13
+    assert len(matrix["event_centers"]) == 13
+    assert len(matrix["costs"]) == 13
+    assert all(len(row) == 13 for row in matrix["costs"])
+    assert matrix["n_filled"] == 169
+
+    partial = qtable_matrix(rows, evaluated=0)
+    assert partial["n_filled"] == 0

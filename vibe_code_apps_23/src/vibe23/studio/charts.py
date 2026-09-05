@@ -381,3 +381,76 @@ def search_convergence_figure(
         margin=dict(l=48, r=24, t=48, b=48),
     )
     return fig
+
+
+def qtable_heatmap_figure(
+    *,
+    pre_centers: Sequence[float],
+    event_centers: Sequence[float],
+    costs: Sequence[Sequence[float | None]],
+    current: tuple[float, float] | None = None,
+    best: tuple[float, float] | None = None,
+    title: str = "Grid flex Q-table ($/day)",
+    theme: str = "light",
+) -> go.Figure:
+    """Heatmap of purchased-grid $/day keyed by pre/event center setpoints."""
+    dark = theme == "dark"
+    z: list[list[float | None]] = [list(row) for row in costs]
+    text = [
+        ["" if v is None or not math.isfinite(float(v)) else f"{float(v):.2f}" for v in row]
+        for row in z
+    ]
+    # Plotly heatmap: None shows as missing; use nan for rejected.
+    z_plot: list[list[float]] = []
+    for row in z:
+        z_plot.append(
+            [float("nan") if v is None or not math.isfinite(float(v)) else float(v) for v in row]
+        )
+    fig = go.Figure(
+        data=[
+            go.Heatmap(
+                z=z_plot,
+                x=[f"{v:g}" for v in event_centers],
+                y=[f"{v:g}" for v in pre_centers],
+                colorscale="YlGnBu_r",
+                colorbar=dict(title="$/day"),
+                hovertemplate="pre %{y}°F · event %{x}°F<br>$%{z:.2f}<extra></extra>",
+                text=text,
+                texttemplate="%{text}",
+                textfont=dict(size=9),
+            )
+        ]
+    )
+    shapes = []
+    if current is not None and current[0] in pre_centers and current[1] in event_centers:
+        shapes.append(
+            dict(
+                type="rect",
+                xref="x",
+                yref="y",
+                x0=str(current[1]),
+                x1=str(current[1]),
+                y0=str(current[0]),
+                y1=str(current[0]),
+                line=dict(color="#DC2626", width=2),
+            )
+        )
+    layout = chart_layout(theme=theme)
+    fig.update_layout(
+        title=title,
+        height=520,
+        xaxis_title="Event center °F",
+        yaxis_title="Pre-window center °F",
+        **{k: v for k, v in layout.items() if k != "margin"},
+        margin=dict(l=64, r=24, t=56, b=56),
+        paper_bgcolor=layout["paper_bgcolor"],
+    )
+    if best is not None:
+        fig.add_annotation(
+            x=f"{best[1]:g}",
+            y=f"{best[0]:g}",
+            text="★",
+            showarrow=False,
+            font=dict(size=16, color="#B45309" if not dark else "#E8A838"),
+        )
+    return fig

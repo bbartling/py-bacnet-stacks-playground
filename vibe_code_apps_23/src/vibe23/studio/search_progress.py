@@ -253,6 +253,51 @@ def form_matches_fixture_catalog(form: Mapping[str, str], *, season: str) -> boo
     return all(a.candidate_id == b.candidate_id for a, b in zip(live, default, strict=True))
 
 
+def qtable_matrix(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    evaluated: int | None = None,
+) -> dict[str, Any]:
+    """Build a Q-table-style matrix keyed by (pre_center_f, event_center_f).
+
+    Cells are $/day when feasible, None when rejected / not yet evaluated.
+    """
+    anim = [r for r in rows if str(r.get("candidate_id")) != "BASELINE"]
+    if evaluated is not None:
+        anim = anim[: max(0, int(evaluated))]
+
+    pre_vals: set[float] = set()
+    event_vals: set[float] = set()
+    cells: dict[tuple[float, float], float | None] = {}
+
+    for row in anim:
+        try:
+            action = (
+                json.loads(row["action_json"])
+                if isinstance(row.get("action_json"), str)
+                else dict(row.get("action") or {})
+            )
+        except (TypeError, json.JSONDecodeError):
+            action = {}
+        pre = float(action.get("pre_center_f", row.get("pre_center_f", float("nan"))))
+        ev = float(action.get("event_center_f", row.get("event_center_f", float("nan"))))
+        if not (math.isfinite(pre) and math.isfinite(ev)):
+            continue
+        pre_vals.add(pre)
+        event_vals.add(ev)
+        cells[(pre, ev)] = float(row["billing_cost"]) if _is_feasible(row) else None
+
+    pre_axis = sorted(pre_vals)
+    event_axis = sorted(event_vals)
+    z = [[cells.get((p, e)) for e in event_axis] for p in pre_axis]
+    return {
+        "pre_centers": pre_axis,
+        "event_centers": event_axis,
+        "costs": z,
+        "n_filled": len(cells),
+    }
+
+
 __all__ = [
     "algorithm_pseudocode",
     "candidate_rows_for_animation",
@@ -262,6 +307,7 @@ __all__ = [
     "format_dimension_values",
     "load_grid_ranking",
     "parse_dimension_values",
+    "qtable_matrix",
     "search_progress_state",
     "season_dimension_defaults",
 ]
