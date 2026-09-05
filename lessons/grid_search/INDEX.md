@@ -1,8 +1,8 @@
-# Grid Search DSM Lessons — Index
+﻿# Grid Search DSM Lessons — Index
 
 Ten progressive lessons that teach **bounded grid search for demand-side management (DSM)** — first with pseudocode and fake data, then with stock EnergyPlus 26.1 ExampleFiles, ending with a PV + battery (BESS) bonus.
 
-**Scaffold:** same as repo [`lessons/`](../../../lessons/) — `Goal` / `Concept` / `How to Use It` / `Why This Matters` / `Mini Examples` / `Micro Exercises` / `Key Takeaway`.
+**Scaffold:** same as repo [`lessons/`](../) — `Goal` / `Concept` / `How to Use It` / `Why This Matters` / `Mini Examples` / `Micro Exercises` / `Key Takeaway`.
 
 **Honesty banners (every day):**
 
@@ -17,7 +17,7 @@ Ten progressive lessons that teach **bounded grid search for demand-side managem
 Run this **before Day 03** (Days 01–02 need no EnergyPlus):
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python check_energyplus_install.py
 ```
 

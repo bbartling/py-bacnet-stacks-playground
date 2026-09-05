@@ -1,4 +1,4 @@
----
+﻿---
 name: vibe23-residential-dsm
 description: >-
   Run Vibe 23 residential heat-pump EnergyPlus DSM workflows (doctor, smoke,
@@ -12,7 +12,7 @@ description: >-
 - Label model `HYPOTHETICAL_GL14_TUNED_DEMO_MODEL` — never fabricate GL14 metrics
 - Native `C:\EnergyPlusV26-1-0\energyplus.exe`; Docker/WSL not acceptance gates
 - `Timestep=12` → 288 intervals/day; generalize tariff/reward interval counts
-- Preserve `lessons/grid_search/` (Day 10 BESS); do not resurrect B59 calibration
+- Preserve repo-root `lessons/grid_search/` (Day 10 BESS); do not resurrect B59 calibration
 - Optional MCP: `C:\Users\ben\OneDrive\Desktop\testing\EnergyPlus-MCP`
 
 ## CLI

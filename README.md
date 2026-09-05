@@ -10,7 +10,7 @@
 [![EnergyPlus MCP](https://img.shields.io/badge/EnergyPlus-MCP%2026.1-blue?logo=docker&logoColor=white)](vibe_code_apps_20/third_party/README.md)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
 [![AWS IoT Core](https://img.shields.io/badge/cloud-AWS%20IoT%20Core-FF9900?logo=amazonaws&logoColor=white)](vibe_code_apps_12/aws_cloud_pipeline/)
-[![LFCS 50-day](https://img.shields.io/badge/LFCS-50%20day%20Pi%20labs-FCC624?logo=linux&logoColor=black)](lessons/lfcs/)
+[![Bandit Linux](https://img.shields.io/badge/Linux-OverTheWire%20Bandit-FCC624?logo=linux&logoColor=black)](https://overthewire.org/wargames/bandit/)
 
 ## **Applied Python + BACnet → Dual-Language Networking + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
 
@@ -37,7 +37,8 @@ Come join the journey as we play around with Python, **Rust**, AI, BACnet, Hayst
 | Track | What you get | Start here |
 | --- | --- | --- |
 | **Python + Rust (BACnet / networking / RDF)** | Days **1–75 dual-language**: shared scaffold every day; **1–27** Python-main + Rust companion; **28–75** Rust-main + Python companion (same lab intent); RDF weeks **`rdflib` + `oxrdf`** with shared Turtle/SPARQL | [Computer Science Theory 101](#computer-science-theory-101-weekly-outline) · [`lessons/`](lessons/) · [`lessons/INDEX.md`](lessons/INDEX.md) · Day 1: [`lessons/day01.md`](lessons/day01.md) |
-| **Linux LFCS (Raspberry Pi)** | 50-day crash course for the Linux Foundation Certified System Administrator exam | [LFCS 50-day crash course](#lfcs-50-day-crash-course) · [`lessons/lfcs/`](lessons/lfcs/) · [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) · Day 1: [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
+| **Linux (OverTheWire Bandit)** | Shell / Linux fundamentals via [Bandit](https://overthewire.org/wargames/bandit/); **daily challenges posted on Discord** (same cadence as Python & Rust) | [Linux training — Bandit](#linux-training--overthewire-bandit) · [`lessons/bandit/`](lessons/bandit/) · [Discord](https://discord.gg/Ta48yQF8fC) |
+| **Grid-search DSM tutorials** | Ten progressive EnergyPlus ExampleFiles lessons (thermostat → BESS) supporting Vibe 23 | [`lessons/grid_search/`](lessons/grid_search/) · [`lessons/grid_search/INDEX.md`](lessons/grid_search/INDEX.md) |
 | **DIY BACnet router (app 13)** | Pi/Linux **BACnet/IP ↔ MS/TP** router; three-phase Rust lab (RS-485 wire test → MS/TP mini-device → router appliance) | [`vibe_code_apps_13/`](vibe_code_apps_13/) · [AGENTS.md](vibe_code_apps_13/AGENTS.md) |
 | **Open FDD Vibe Coder (app 19)** | Streamlit + pandas 50-rule cookbook lab *(completed reference)* | [`vibe_code_apps_19/`](vibe_code_apps_19/) · [AGENTS.md](vibe_code_apps_19/AGENTS.md) |
 | **OpenFDD WattLab (app 20)** | EnergyPlus ECM screens *(completed reference)* | [`vibe_code_apps_20/`](vibe_code_apps_20/) · [README](vibe_code_apps_20/README.md) |
@@ -245,102 +246,21 @@ Daily labs include **tcpdump** / **Wireshark** — see [`lessons/lab-scripts/`](
 
 ---
 
-## LFCS 50-day crash course
+## Linux training — OverTheWire Bandit
 
-**Pass the [Linux Foundation Certified System Administrator (LFCS)](https://training.linuxfoundation.org/certification/linux-foundation-certified-sysadmin-lfcs/)** with daily mini-labs on a **Raspberry Pi** (or any Linux VM) — same short format as the BACnet/Rust lessons (`Goal` · `Concept` · `Micro exercises` · `Key takeaway`).
+Linux / shell fundamentals now use **[OverTheWire Bandit](https://overthewire.org/wargames/bandit/)** instead of a local LFCS day pack.
 
 | Item | Link |
 | --- | --- |
-| **Start here** | [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) |
-| **Day 1** | [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
-| **Format twin** | Same style as [`lessons/day31.md`](lessons/day31.md) |
+| **Play Bandit** | [overthewire.org/wargames/bandit](https://overthewire.org/wargames/bandit/) · start at [Level 0](https://overthewire.org/wargames/bandit/bandit0.html) |
+| **Repo pointer** | [`lessons/bandit/README.md`](lessons/bandit/README.md) |
+| **Daily challenges** | Posted on **[Discord](https://discord.gg/Ta48yQF8fC)** — same pattern as the Python and Rust lesson posts |
 
-```text
-git clone <this-repo>
-cd py-bacnet-stacks-playground/lessons/lfcs
-# open day01.md → run commands on the Pi → micro exercises → next day
-```
+Bandit teaches the command-line basics (SSH, files, permissions, pipes, processes) that everything else in this repo assumes. When stuck: `man <command>`, `help <builtin>`, then ask on Discord.
 
-**~20–40 minutes/day.** Snapshot your SD card or VM before storage/network experiments.
+### Related EnergyPlus tutorials
 
-### Domain map (exam weights)
-
-| Week | Days | Domain | Weight |
-| --- | --- | --- | --- |
-| 1–2 | 1–13 | **Essential Commands** — shell, files, git, systemd, perf, disk, SSL | 20% |
-| 3 | 14–19 | **Users and Groups** — accounts, profiles, limits, ACLs, LDAP client | 10% |
-| 4 | 20–28 | **Operations Deployment** — sysctl, cron, packages, recovery, libvirt, containers, SELinux | 25% |
-| 5 | 29–37 | **Networking** — IP, time, SSH, firewall/NAT, routes, bridge/bond, reverse proxy | 25% |
-| 6 | 38–45 | **Storage** — LVM, VFS, filesystems, NFS/iSCSI, swap, autofs, I/O | 20% |
-| 7 | 46–50 | **Exam practice** — mixed mocks, weak-area drills, strategy, final checklist | — |
-
-### Weekly outline
-
-#### Week 1 — Essential Commands foundation
-- **Day 1** — Lab setup & LFCS map (Pi snapshot, domain weights)
-- **Day 2** — Shell, paths & man pages
-- **Day 3** — Files, find & locate
-- **Day 4** — Permissions & ownership
-- **Day 5** — Text tools: grep, head, cut
-- **Day 6** — Pipes, redirection & tee
-- **Day 7** — Basic Git operations
-
-#### Week 2 — Services, logs & certs
-- **Day 8** — systemd services
-- **Day 9** — Monitor performance
-- **Day 10** — Logs & service constraints
-- **Day 11** — Troubleshoot disk space
-- **Day 12** — SSL certificates
-- **Day 13** — Essential Commands review
-
-#### Week 3 — Users and Groups
-- **Day 14** — Users & groups
-- **Day 15** — Environment profiles
-- **Day 16** — User resource limits
-- **Day 17** — ACLs
-- **Day 18** — LDAP client accounts
-- **Day 19** — Users & Groups review
-
-#### Week 4 — Operations Deployment
-- **Day 20** — Kernel parameters (sysctl)
-- **Day 21** — Processes & services
-- **Day 22** — Schedule jobs (cron / timers)
-- **Day 23** — Packages & repositories
-- **Day 24** — Recover from failures
-- **Day 25** — Virtual machines (libvirt)
-- **Day 26** — Containers (podman/docker)
-- **Day 27** — SELinux basics (AppArmor note for Pi OS)
-- **Day 28** — Operations review
-
-#### Week 5 — Networking
-- **Day 29** — IPv4/IPv6 & hostname
-- **Day 30** — Time sync
-- **Day 31** — Troubleshoot networking
-- **Day 32** — OpenSSH server & client
-- **Day 33** — Firewall, NAT & redirect
-- **Day 34** — Static routing
-- **Day 35** — Bridge & bonding
-- **Day 36** — Reverse proxy & load balancer
-- **Day 37** — Networking review
-
-#### Week 6 — Storage
-- **Day 38** — LVM (loop-file safe on Pi)
-- **Day 39** — Virtual filesystem (`/proc`, `/sys`)
-- **Day 40** — Filesystems create & repair
-- **Day 41** — Remote FS & network block (NFS / iSCSI)
-- **Day 42** — Swap space
-- **Day 43** — Automounters (autofs)
-- **Day 44** — Storage performance
-- **Day 45** — Storage review
-
-#### Week 7 — Exam practice
-- **Day 46** — Mixed practice A
-- **Day 47** — Mixed practice B
-- **Day 48** — Weak-area drills
-- **Day 49** — Exam strategy
-- **Day 50** — Final mock & checklist
-
-Pi OS notes are included where the exam expects **SELinux/libvirt** but the Pi runs **AppArmor** or lacks a hypervisor — you still learn the commands for exam day.
+Bounded DSM grid-search labs (ExampleFiles → BESS) live at [`lessons/grid_search/`](lessons/grid_search/) and support the active [Vibe 23 residential DSM studio](vibe_code_apps_23/).
 
 ---
 

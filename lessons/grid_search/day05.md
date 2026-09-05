@@ -1,4 +1,4 @@
-# Day 05 – Expand the Menu (WLHP Full Grid)
+﻿# Day 05 – Expand the Menu (WLHP Full Grid)
 
 *Vibe 23 Grid Search track | Lesson 5 of 10*
 
@@ -21,7 +21,7 @@ Use `--quick` to run the four corner cases when you want a smoke test.
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day05_expand_menu.py --quick          # 4 runs
 python day05_expand_menu.py                  # full 16 runs
 ```

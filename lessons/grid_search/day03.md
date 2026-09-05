@@ -1,4 +1,4 @@
-# Day 03 – First Real EnergyPlus Run
+﻿# Day 03 – First Real EnergyPlus Run
 
 *Vibe 23 Grid Search track | Lesson 3 of 10*
 
@@ -22,7 +22,7 @@ Model: `1ZoneUncontrolled.idf` — the simplest stock zone. We inject timestep o
 ### 1. Test that EnergyPlus is installed locally
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python check_energyplus_install.py
 ```
 

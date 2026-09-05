@@ -1,4 +1,4 @@
-# Vibe 23 — Grid Search DSM Lessons
+﻿# Vibe 23 — Grid Search DSM Lessons
 
 Progressive tutorials that show the **same shape** as the Vibe22/Vibe23 DSM workflow:
 
@@ -9,7 +9,7 @@ Progressive tutorials that show the **same shape** as the Vibe22/Vibe23 DSM work
 ## Quick start
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 
 # Day 02 — no EnergyPlus required
 python day02_fake_data_grid_search.py

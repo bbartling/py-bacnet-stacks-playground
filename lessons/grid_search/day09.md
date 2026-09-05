@@ -1,4 +1,4 @@
-# Day 09 – Primary School Occupancy-Aware Readiness
+﻿# Day 09 – Primary School Occupancy-Aware Readiness
 
 *Vibe 23 Grid Search track | Lesson 9 of 10*
 
@@ -15,7 +15,7 @@ Use `--quick` for three representative candidates when iterating.
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day09_primary_school.py --quick
 python day09_primary_school.py              # full 9-run menu (slower)
 ```

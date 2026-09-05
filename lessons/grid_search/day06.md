@@ -1,4 +1,4 @@
-# Day 06 – Demand-Limiting Arms
+﻿# Day 06 – Demand-Limiting Arms
 
 *Vibe 23 Grid Search track | Lesson 6 of 10*
 
@@ -15,7 +15,7 @@ This lesson uses a **July 15** run period so cooling-dominated demand limiting i
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day06_demand_limiting.py
 ```
 

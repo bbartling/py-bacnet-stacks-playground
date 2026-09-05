@@ -1,4 +1,4 @@
-# Day 04 – Tiny Thermostat Grid (2×2)
+﻿# Day 04 – Tiny Thermostat Grid (2×2)
 
 *Vibe 23 Grid Search track | Lesson 4 of 10*
 
@@ -19,7 +19,7 @@ This is the easy on-ramp to the fuller menu in Day 05 (and the original `energyp
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day04_tiny_thermostat_grid.py
 ```
 

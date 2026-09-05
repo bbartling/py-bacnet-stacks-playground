@@ -1,4 +1,4 @@
-# Day 02 – Fake-Data Grid Search (Stdlib Toy Model)
+﻿# Day 02 – Fake-Data Grid Search (Stdlib Toy Model)
 
 *Vibe 23 Grid Search track | Lesson 2 of 10*
 
@@ -15,7 +15,7 @@ It is **not** calibrated and **must not** control a real BAS.
 ## How to Use It
 
 ```bash
-cd vibe_code_apps_23/lessons/grid_search/scripts
+cd lessons/grid_search/scripts
 python day02_fake_data_grid_search.py
 ```
 
