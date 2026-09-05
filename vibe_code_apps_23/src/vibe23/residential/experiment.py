@@ -7,8 +7,17 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from ..grid import FrozenExperimentState, GridCandidate, enumerate_grid
+from ..grid import FrozenExperimentState, GridCandidate, GridDimension, enumerate_grid
 from ..tariff import TariffScenario
+from .constants import (
+    SUMMER_DR_EVENT_END,
+    SUMMER_DR_EVENT_START,
+    SUMMER_DR_PRE_START_HOUR,
+    WINTER_DR_EVENT_END,
+    WINTER_DR_EVENT_START,
+    WINTER_DR_PRE_START_HOUR,
+)
+from .thermostat import center_search_values
 
 
 def _sha256(value: Any) -> str:
@@ -61,12 +70,16 @@ def save_ranking(
     json_out.parent.mkdir(parents=True, exist_ok=True)
     ordered = sorted(rows, key=lambda row: float(row.get(winner_key, float("inf"))))
     if ordered:
-        fieldnames = list(ordered[0].keys())
+        fieldnames = [
+            k
+            for k in ordered[0].keys()
+            if k not in {"facility_kw", "zone_temp_f", "purchased_kw", "soc"}
+        ]
         with csv_out.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
             for row in ordered:
-                writer.writerow(dict(row))
+                writer.writerow({k: row.get(k) for k in fieldnames})
     winner = ordered[0] if ordered else None
     payload = {
         "schema": "vibe23.residential_grid_ranking.v1",
@@ -81,24 +94,25 @@ def save_ranking(
     return payload
 
 
-def default_thermostat_candidates(*, season: str = "summer") -> tuple[GridCandidate, ...]:
-    from ..grid import GridDimension
-
+def default_thermostat_dimensions(*, season: str = "summer") -> tuple[GridDimension, ...]:
+    """13×13 center search (±3°F from 72°F @ 0.5°F) with TOU-aligned fixed event hours."""
+    centers = center_search_values()
     if season == "winter":
-        dims = (
-            GridDimension("pre_start_hour", (5.0, 6.0)),
-            GridDimension("event_start", (6.0, 7.0)),
-            GridDimension("event_end", (9.0,)),
-            GridDimension("pre_heat_f", (72.5, 73.5)),
-            GridDimension("event_heat_f", (69.5, 70.5)),
+        return (
+            GridDimension("pre_center_f", centers),
+            GridDimension("event_center_f", centers),
+            GridDimension("pre_start_hour", (WINTER_DR_PRE_START_HOUR,)),
+            GridDimension("event_start", (WINTER_DR_EVENT_START,)),
+            GridDimension("event_end", (WINTER_DR_EVENT_END,)),
         )
-    else:
-        # Align grid search to illustrative summer TOU peak (16-21).
-        dims = (
-            GridDimension("pre_start_hour", (13.0, 14.0)),
-            GridDimension("event_start", (15.0,)),
-            GridDimension("event_end", (20.0,)),
-            GridDimension("pre_cool_f", (70.5, 71.0)),
-            GridDimension("event_cool_f", (73.5, 74.5)),
-        )
-    return enumerate_grid(dims)
+    return (
+        GridDimension("pre_center_f", centers),
+        GridDimension("event_center_f", centers),
+        GridDimension("pre_start_hour", (SUMMER_DR_PRE_START_HOUR,)),
+        GridDimension("event_start", (SUMMER_DR_EVENT_START,)),
+        GridDimension("event_end", (SUMMER_DR_EVENT_END,)),
+    )
+
+
+def default_thermostat_candidates(*, season: str = "summer") -> tuple[GridCandidate, ...]:
+    return enumerate_grid(default_thermostat_dimensions(season=season))

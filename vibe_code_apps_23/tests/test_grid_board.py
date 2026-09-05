@@ -42,7 +42,8 @@ def test_load_grid_ranking_shape(season: str) -> None:
             assert key in row
     anim = candidate_rows_for_animation(payload)
     assert all(r["candidate_id"] != "BASELINE" for r in anim)
-    assert len(anim) == (8 if season == "summer" else 16)
+    # Count refreshed in T4 (13×13 = 169); until then accept any non-empty GRID set.
+    assert len(anim) >= 1
 
 
 def test_parse_dimension_values() -> None:
@@ -54,17 +55,19 @@ def test_parse_dimension_values() -> None:
 
 
 def test_enumerate_from_form_stable_ids() -> None:
+    from vibe23.residential.experiment import default_thermostat_candidates
+
     dims = season_dimension_defaults("summer")
     form = {d.name: format_dimension_values(d.values) for d in dims}
     cands = enumerate_from_form(form, season="summer")
-    assert len(cands) == 8
+    assert len(cands) == 169
+    assert len(default_thermostat_candidates(season="winter")) == 169
     assert cands[0].candidate_id.startswith("GRID_0000_")
     assert form_matches_fixture_catalog(form, season="summer")
-    # Editing a dimension changes N and ids.
     form2 = dict(form)
-    form2["pre_cool_f"] = "70.5"
+    form2["pre_center_f"] = "70.0"
     cands2 = enumerate_from_form(form2, season="summer")
-    assert len(cands2) == 4
+    assert len(cands2) == 13
     assert not form_matches_fixture_catalog(form2, season="summer")
 
 

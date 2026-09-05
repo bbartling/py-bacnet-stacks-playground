@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..grid import GridCandidate, GridDimension, enumerate_grid
-from ..residential.experiment import default_thermostat_candidates
+from ..residential.experiment import default_thermostat_candidates, default_thermostat_dimensions
 from ..residential.model import PACKAGE_ROOT
 
 FIXTURES = PACKAGE_ROOT / "fixtures" / "studio"
@@ -15,24 +15,8 @@ RANKING_SCHEMA = "vibe23.residential_grid_ranking.v1"
 
 
 def season_dimension_defaults(season: str = "summer") -> tuple[GridDimension, ...]:
-    """Return the default thermostat grid dimensions for a season."""
-    # Reconstruct from the enumerated catalog's first candidate + known defaults.
-    # Prefer the authoritative definitions in experiment.py via a small re-build.
-    if season == "winter":
-        return (
-            GridDimension("pre_start_hour", (5.0, 6.0)),
-            GridDimension("event_start", (6.0, 7.0)),
-            GridDimension("event_end", (9.0,)),
-            GridDimension("pre_heat_f", (72.5, 73.5)),
-            GridDimension("event_heat_f", (69.5, 70.5)),
-        )
-    return (
-        GridDimension("pre_start_hour", (13.0, 14.0)),
-        GridDimension("event_start", (15.0,)),
-        GridDimension("event_end", (20.0,)),
-        GridDimension("pre_cool_f", (70.5, 71.0)),
-        GridDimension("event_cool_f", (73.5, 74.5)),
-    )
+    """Return the default thermostat grid dimensions for a season (13×13 centers)."""
+    return default_thermostat_dimensions(season=season)
 
 
 def parse_dimension_values(text: str) -> tuple[float, ...]:
@@ -152,6 +136,8 @@ def _action_summary(action_json: str | Mapping[str, Any] | None) -> str:
         return ""
     parts: list[str] = []
     for key in (
+        "pre_center_f",
+        "event_center_f",
         "pre_cool_f",
         "event_cool_f",
         "pre_heat_f",
@@ -236,19 +222,21 @@ def search_progress_state(rows: Sequence[Mapping[str, Any]], evaluated: int) -> 
 
 
 def algorithm_pseudocode(*, season: str, dims: Sequence[GridDimension], n: int) -> str:
-    dim_bits = ", ".join(f"{d.name}={{{format_dimension_values(d.values)}}}" for d in dims)
+    searched = [d for d in dims if d.name in {"pre_center_f", "event_center_f"}]
+    dim_bits = ", ".join(f"{d.name}={{{format_dimension_values(d.values)}}}" for d in searched)
     return "\n".join(
         [
             "freeze  S = {model_sha, weather_sha, tariff_sha, eplus_version}",
-            f"grid    D = [{dim_bits}]",
-            f"for c in itertools.product(*D):          # N = {n} candidates",
+            "deadband 2F around center: heat=c-1, cool=c+1  (default center=72F)",
+            f"grid    D = [{dim_bits}]   # N = {n}",
+            "hours   fixed to TOU peak window (summer 13→16–21, winter 5→6–9)",
+            "for c in itertools.product(*D):",
             '    id = f"GRID_{ordinal:04d}_{sha256(c)[:12]}"',
-            "    e  = simulate(c, S)                  # EnergyPlus, ~seconds",
-            "    score[c] = billing_cost(e.kw)  if soft_ok and comfort_ok  else inf",
-            "rank by (billing_cost, peak_kw, total_kwh, candidate_id)",
-            "",
-            "# Honest limits: no gradient, no pruning, max_candidates truncates from the front.",
-            "# One candidate = one full EnergyPlus subprocess (plus one baseline run).",
+            "    e  = EnergyPlus(c, S)                 # ~0.7–1s / candidate",
+            "    if not soft_ok or zone outside comfort band: score = inf; continue",
+            "    purchased = battery_dispatch(e.kw, TOU)   # pure Python, free",
+            "    score[c] = billing_cost(purchased)",
+            "rank by billing_cost; promote winner → Twin replay",
         ]
     )
 
