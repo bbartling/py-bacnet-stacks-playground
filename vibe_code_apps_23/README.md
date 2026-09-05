@@ -38,24 +38,30 @@ vibe23 residential-report
 Interactive twin replay (24h in ~60s), Plotly IDF massing, battery sizing, summer **and** winter extreme days, IDF/EPW/tariff uploads, hourly weather+price spreadsheet editor, light Streamlit default theme (same feel as vibe 19–22), and energy-modeler dashboard:
 
 ```powershell
-# Windows / Linux / macOS
+# Windows — preferred launcher (Python 3.12 + Streamlit 1.59.2 pin)
 cd vibe_code_apps_23
-python -m pip install -e ".[studio]"
-copy .env.example .env   # Linux/mac: cp .env.example .env
-# Edit ENERGYPLUS_EXE / ENERGYPLUS_ROOT / ENERGYPLUS_WEATHER for live EnergyPlus
-streamlit run streamlit_app.py
+py -3.12 -m pip install -e ".[studio]"
+copy .env.example .env
+.\scripts\run_studio.ps1
+# Hard-refresh the browser once (Ctrl+Shift+R) after switching interpreters.
 ```
 
-Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). A **static** day plot shows hourly kWh, illustrative $/hour, and outdoor dry-bulb °F (does not scrub with Play). Regenerated fixtures (diurnal lights/plugs, no ALWAYS_ON phantom): Jul-15 ≈ **28 kWh**; Jan-3 winter design-cold ≈ **245 kWh**; mild Jan-15 ≈ **41 kWh** (`winter_typical_jan15_dr_day.json`). ~**3,500 ft²** / 5-ton box.
+Or manually:
+
+```powershell
+cd vibe_code_apps_23
+py -3.12 -m pip install -r requirements-studio.txt
+# Edit ENERGYPLUS_EXE / ENERGYPLUS_ROOT / ENERGYPLUS_WEATHER for live EnergyPlus
+py -3.12 -m streamlit run streamlit_app.py
+```
+
+Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). The **Inputs** tab holds the static outdoor/kWh/cost context chart, hourly spreadsheet editor, IDF compatibility preflight, and energy-modeler dashboard. **Twin replay** animates the normal (baseline) day only; **DR event** is a separate static full-day comparison. Regenerated fixtures (diurnal lights/plugs, no ALWAYS_ON phantom): Jul-15 ≈ **28 kWh**; Jan-3 winter design-cold ≈ **245 kWh**; mild Jan-15 ≈ **41 kWh** (`winter_typical_jan15_dr_day.json`). ~**3,500 ft²** / 5-ton box.
 
 Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (Clear session wipes only that visitor). Isolation is not a password gate.
 
-### Streamlit Community Cloud
+### Deployment note (Streamlit Community Cloud)
 
-1. Deploy from GitHub → [share.streamlit.io](https://share.streamlit.io)
-2. App path: `vibe_code_apps_23/streamlit_app.py`
-3. Requirements: `vibe_code_apps_23/requirements-studio.txt`
-4. Cloud runs **fixture demo mode** (no native EnergyPlus). Use the in-app **Streamlit Cloud** / **Contribute** buttons.
+**Not supported for live EnergyPlus.** Community Cloud cannot install EnergyPlus: it is not in the Debian `packages.txt` apt set, there is no sudo for runtime installs, and the Ubuntu x86_64 tarball is ~234 MB against a ~1 GB-class container. This app is intended to run **locally** (or on a Docker host such as Hugging Face Spaces / Fly.io / Render with EnergyPlus baked into the image). Without EnergyPlus the Studio still opens in **fixture demo mode** for UI/tests — that is a fallback, not a Cloud product path.
 
 `.env` is for local native EnergyPlus on Windows, Linux, or macOS — never commit secrets.
 

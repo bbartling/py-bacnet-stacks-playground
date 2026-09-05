@@ -196,14 +196,25 @@ def _parse_block(object_type: str, body: str) -> IdfSurface | None:
 def parse_idf_geometry(text_or_path: str | Path) -> IdfGeometry:
     """Parse IDF text or path into surfaces."""
     source: str | None = None
-    if isinstance(text_or_path, Path) or (
-        isinstance(text_or_path, str)
-        and len(text_or_path) < 400
-        and Path(text_or_path).is_file()
-    ):
-        path = Path(text_or_path)
+    if isinstance(text_or_path, Path):
+        path = text_or_path
         text = path.read_text(encoding="utf-8", errors="replace")
         source = str(path)
+    elif (
+        isinstance(text_or_path, str)
+        and "\n" not in text_or_path
+        and len(text_or_path) < 400
+    ):
+        path = Path(text_or_path)
+        try:
+            is_file = path.is_file()
+        except OSError:
+            is_file = False
+        if is_file:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            source = str(path)
+        else:
+            text = text_or_path
     else:
         text = str(text_or_path)
 

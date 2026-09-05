@@ -1,2 +1,3 @@
-# System packages for Streamlit Community Cloud (none required for fixture demo mode).
-# Native EnergyPlus is optional and typically unavailable on Streamlit Cloud.
+# System packages for optional Linux hosts (none required for fixture demo mode).
+# Native EnergyPlus is not installable via apt on Streamlit Community Cloud —
+# run locally or bake EnergyPlus into a Docker image (HF Spaces / Fly.io / Render).

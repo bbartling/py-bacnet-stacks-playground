@@ -1,6 +1,7 @@
 """Plotly figures for the residential DSM Streamlit studio."""
 from __future__ import annotations
 
+import math
 from typing import Sequence
 
 import plotly.graph_objects as go
@@ -251,4 +252,132 @@ def outdoor_kwh_cost_figure(
     fig.update_yaxes(title_text="$ / hour", row=1, col=1, secondary_y=True)
     fig.update_yaxes(title_text="Outdoor °F", row=2, col=1)
     fig.update_xaxes(title_text="Hour of day", row=2, col=1, dtick=2)
+    return fig
+
+
+def search_progress_ring(
+    fraction: float,
+    *,
+    label: str,
+    sublabel: str = "",
+    theme: str = "light",
+) -> go.Figure:
+    """Clock-face donut: sweeps clockwise from 0→100% as candidates are evaluated."""
+    frac = max(0.0, min(1.0, float(fraction)))
+    done = max(frac, 1e-9)
+    remaining = max(1.0 - frac, 1e-9)
+    dark = theme == "dark"
+    done_color = "#2563EB" if not dark else "#8FB8FF"
+    rest_color = "#E2E8F0" if not dark else "#334155"
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                values=[done, remaining],
+                labels=["done", "remaining"],
+                hole=0.72,
+                sort=False,
+                direction="clockwise",
+                rotation=90,
+                marker=dict(colors=[done_color, rest_color], line=dict(width=0)),
+                textinfo="none",
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        ]
+    )
+    layout = chart_layout(theme=theme)
+    fig.update_layout(
+        title=None,
+        height=280,
+        margin=dict(l=20, r=20, t=20, b=20),
+        paper_bgcolor=layout["paper_bgcolor"],
+        plot_bgcolor="rgba(0,0,0,0)",
+        annotations=[
+            dict(
+                text=f"<b>{100.0 * frac:.0f}%</b><br>{label}",
+                x=0.5,
+                y=0.52,
+                showarrow=False,
+                font=dict(size=18, color=layout["font"]["color"]),
+                align="center",
+            ),
+            dict(
+                text=sublabel,
+                x=0.5,
+                y=0.32,
+                showarrow=False,
+                font=dict(size=12, color="#64748B" if not dark else "#94A3B8"),
+                align="center",
+            ),
+        ],
+    )
+    return fig
+
+
+def search_convergence_figure(
+    *,
+    costs: Sequence[float | None],
+    best_so_far: Sequence[float | None],
+    current_index: int,
+    rejected_indices: Sequence[int] | None = None,
+    title: str = "Search convergence",
+    theme: str = "light",
+) -> go.Figure:
+    """Cost per candidate + monotone best-so-far line (search axis, not clock)."""
+    dark = theme == "dark"
+    xs = list(range(1, len(costs) + 1))
+    cost_color = "#B45309" if not dark else "#E8A838"
+    best_color = "#2563EB" if not dark else "#8FB8FF"
+    reject_color = "#B91C1C" if not dark else "#FF6B6B"
+    fig = go.Figure()
+    y_cost = [None if v is None or not math.isfinite(float(v)) else float(v) for v in costs]
+    y_best = [None if v is None or not math.isfinite(float(v)) else float(v) for v in best_so_far]
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=y_cost,
+            mode="lines+markers",
+            name="Candidate $/day",
+            line=dict(color=cost_color, width=2),
+            marker=dict(size=8),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=y_best,
+            mode="lines+markers",
+            name="Best so far",
+            line=dict(color=best_color, width=2.5),
+            marker=dict(size=7),
+        )
+    )
+    rejected = set(rejected_indices or [])
+    if rejected:
+        rx = [i + 1 for i in range(len(costs)) if i in rejected]
+        ry = [0.0 for _ in rx]
+        # Place reject markers at the current y-range mid if costs exist.
+        finite = [float(v) for v in y_cost if v is not None]
+        y_mark = (min(finite) if finite else 0.0)
+        ry = [y_mark for _ in rx]
+        fig.add_trace(
+            go.Scatter(
+                x=rx,
+                y=ry,
+                mode="markers",
+                name="Rejected",
+                marker=dict(symbol="x", size=12, color=reject_color),
+            )
+        )
+    if 0 <= current_index < len(costs):
+        fig.add_vline(x=current_index + 1, line_dash="dash", line_color="#94A3B8")
+    layout = chart_layout(theme=theme)
+    fig.update_layout(
+        title=title,
+        height=320,
+        xaxis_title="Candidate (enumeration order)",
+        yaxis_title="Illustrative $/day",
+        **{k: v for k, v in layout.items() if k != "margin"},
+        margin=dict(l=48, r=24, t=48, b=48),
+    )
     return fig

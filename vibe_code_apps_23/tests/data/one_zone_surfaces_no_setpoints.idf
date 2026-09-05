@@ -1,0 +1,27 @@
+!- Synthetic CI fixture: surfaces present, but no HEAT/COOL SETPOINT (simulate blocked).
+Version,26.1;
+Building,OneZoneSurfaces,0,Suburbs,0.04,0.4,FullInteriorAndExterior,25,6;
+Timestep,6;
+Site:Location,Test,39.74,-105.18,-7,1829;
+Zone,ZONE ONE,0,0,0,0,1,1,autocalculate,autocalculate;
+BuildingSurface:Detailed,
+  Zn001:Floor,Floor,FLOOR,ZONE ONE,Ground,,NoSun,NoWind,1,4,
+  0,0,0,
+  0,10,0,
+  10,10,0,
+  10,0,0;
+BuildingSurface:Detailed,
+  Zn001:Wall,Wall,WALL,ZONE ONE,Outdoors,SunExposed,WindExposed,0.5,4,
+  0,0,0,
+  0,0,3,
+  10,0,3,
+  10,0,0;
+BuildingSurface:Detailed,
+  Zn001:Roof,Roof,ROOF,ZONE ONE,Outdoors,SunExposed,WindExposed,0,4,
+  0,0,3,
+  0,10,3,
+  10,10,3,
+  10,0,3;
+ThermostatSetpoint:SingleHeating,Zone One Heating,Always 21C;
+Output:Meter,Electricity:Facility,Hourly;
+Output:Variable,*,Zone Mean Air Temperature,Hourly;

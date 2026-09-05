@@ -42,12 +42,26 @@ def _float_or_none(token: str | None) -> float | None:
 
 
 def inspect_idf(text_or_path: str | Path, *, source_name: str | None = None) -> IdfDashboard:
-    if isinstance(text_or_path, Path) or (
-        isinstance(text_or_path, str) and len(text_or_path) < 400 and Path(text_or_path).is_file()
-    ):
-        path = Path(text_or_path)
+    if isinstance(text_or_path, Path):
+        path = text_or_path
         text = path.read_text(encoding="utf-8", errors="replace")
         source_name = source_name or path.name
+    elif (
+        isinstance(text_or_path, str)
+        and "\n" not in text_or_path
+        and len(text_or_path) < 400
+    ):
+        path = Path(text_or_path)
+        try:
+            is_file = path.is_file()
+        except OSError:
+            is_file = False
+        if is_file:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            source_name = source_name or path.name
+        else:
+            text = text_or_path
+            source_name = source_name or "uploaded.idf"
     else:
         text = str(text_or_path)
         source_name = source_name or "uploaded.idf"

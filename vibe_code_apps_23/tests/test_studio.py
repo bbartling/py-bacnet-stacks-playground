@@ -170,3 +170,18 @@ def test_session_workspace_isolation(tmp_path: Path) -> None:
     assert not root_b.exists()
     assert session_root(old, temp_dir=tmp_path, create=False).exists() or session_root(old, temp_dir=tmp_path).exists()
     assert sweep_stale_workspaces(protect=session_root(old, temp_dir=tmp_path), temp_dir=tmp_path, max_age_sec=0) >= 0
+
+
+def test_thermostat_grid_ranking_fixtures() -> None:
+    from vibe23.studio.search_progress import candidate_rows_for_animation, load_grid_ranking
+
+    for season, expected_n in (("summer", 8), ("winter", 16)):
+        payload = load_grid_ranking(season)
+        assert payload["schema"] == "vibe23.residential_grid_ranking.v1"
+        assert payload.get("winner") is not None
+        rows = candidate_rows_for_animation(payload)
+        assert len(rows) == expected_n
+        for row in rows:
+            assert "idf_sha256" in row
+            assert "wall_seconds" in row
+            assert row["candidate_id"].startswith("GRID_")

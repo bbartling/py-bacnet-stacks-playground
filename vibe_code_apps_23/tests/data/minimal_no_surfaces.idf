@@ -1,0 +1,6 @@
+!- Synthetic CI fixture: no BuildingSurface:Detailed (cannot visualize).
+Version,26.1;
+Building,MinimalNone,0,Suburbs,0.04,0.4,FullInteriorAndExterior,25,6;
+Timestep,4;
+Site:Location,Test,39.74,-105.18,-7,1829;
+Zone,ZONE ONE,0,0,0,0,1,1,autocalculate,autocalculate;

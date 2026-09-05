@@ -1,0 +1,119 @@
+{
+  "candidate_count": 9,
+  "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
+  "claim_tariff": "ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+  "rows": [
+    {
+      "action_json": "{\"event_cool_f\": 73.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 71.0, \"pre_heat_f\": 72.5, \"pre_start_hour\": 13.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": 7.514443566970922,
+      "candidate_id": "GRID_0002_a7f03b673ae2",
+      "comfort_ok": true,
+      "idf_sha256": "446bcf0a31f4732343b288a4f85ac6fcbd80d14632e43890acfef26b8000c190",
+      "peak_kw": 2.9911078073683672,
+      "soft_ok": true,
+      "total_kwh": 27.447428985698128,
+      "wall_seconds": 0.7638267000438645
+    },
+    {
+      "action_json": "{\"event_cool_f\": 73.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 13.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": 7.529774892582132,
+      "candidate_id": "GRID_0000_3c1b8cf937ce",
+      "comfort_ok": true,
+      "idf_sha256": "0650df55bf6970262d838922ea5177d2a266e4a91df7722efdefffcc24d1bdcf",
+      "peak_kw": 3.396973267033587,
+      "soft_ok": true,
+      "total_kwh": 27.62577854187278,
+      "wall_seconds": 0.708822299959138
+    },
+    {
+      "action_json": "{\"event_cool_f\": 73.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 71.0, \"pre_heat_f\": 72.5, \"pre_start_hour\": 14.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": 7.584114844573252,
+      "candidate_id": "GRID_0006_9da1d424e4a6",
+      "comfort_ok": true,
+      "idf_sha256": "fe87d0825ae1346d27f93ead0d91d19eb2de1966813a0cea951d91f22eceed79",
+      "peak_kw": 2.597744104568887,
+      "soft_ok": true,
+      "total_kwh": 27.36639246337336,
+      "wall_seconds": 0.8784942000638694
+    },
+    {
+      "action_json": "{\"event_cool_f\": 73.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 14.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": 7.623303194114536,
+      "candidate_id": "GRID_0004_703c3a6f4c4d",
+      "comfort_ok": true,
+      "idf_sha256": "6224a9c04b161ebccf6e033282f3aa415d83e3b5bc78108471fdf7b724934eb8",
+      "peak_kw": 2.9919575419078352,
+      "soft_ok": true,
+      "total_kwh": 27.512760765263153,
+      "wall_seconds": 1.0111743001034483
+    },
+    {
+      "action_json": "{\"mode\": \"baseline\"}",
+      "billing_cost": 7.991425845509006,
+      "candidate_id": "BASELINE",
+      "comfort_ok": true,
+      "idf_sha256": "e452cc0caca63640f32b8f5a9af92f83d5e3f47c88389151caedfaea24f905a8",
+      "peak_kw": 2.131315480696743,
+      "soft_ok": true,
+      "total_kwh": 27.628141667380525,
+      "wall_seconds": 1.830743399914354
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 13.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0001_c1ad6bdd8108",
+      "comfort_ok": false,
+      "idf_sha256": "3be41112dc6a49bde7e43cb454f5758893778df3a901582cb8d0f7d433944a55",
+      "peak_kw": 3.4076329595465067,
+      "soft_ok": true,
+      "total_kwh": 27.361110931315004,
+      "wall_seconds": 0.7254184000194073
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 71.0, \"pre_heat_f\": 72.5, \"pre_start_hour\": 13.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0003_10bcc2200694",
+      "comfort_ok": false,
+      "idf_sha256": "e6ac913ab732aa8539b9f2b5f878085bfc14de31594cbee259df276970f9bd6b",
+      "peak_kw": 3.0024117040134546,
+      "soft_ok": true,
+      "total_kwh": 27.2124172191009,
+      "wall_seconds": 0.8202752999495715
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 70.5, \"pre_heat_f\": 72.5, \"pre_start_hour\": 14.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0005_03222add9145",
+      "comfort_ok": false,
+      "idf_sha256": "c18c2315deece3165a1ffd6dde908efc491fe5b02d33235cd5a0336fd074a88a",
+      "peak_kw": 3.002194230510265,
+      "soft_ok": true,
+      "total_kwh": 27.24462710254064,
+      "wall_seconds": 0.7355473999632522
+    },
+    {
+      "action_json": "{\"event_cool_f\": 74.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 71.0, \"pre_heat_f\": 72.5, \"pre_start_hour\": 14.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+      "billing_cost": Infinity,
+      "candidate_id": "GRID_0007_a82ca952869a",
+      "comfort_ok": false,
+      "idf_sha256": "43bc0b2e50427a580f165948549df8a4050ca7740084032461fd867fdbccc906",
+      "peak_kw": 2.9798673795279105,
+      "soft_ok": true,
+      "total_kwh": 27.12361718691019,
+      "wall_seconds": 0.7344578999327496
+    }
+  ],
+  "schema": "vibe23.residential_grid_ranking.v1",
+  "winner": {
+    "action_json": "{\"event_cool_f\": 73.5, \"event_end\": 20.0, \"event_heat_f\": 69.5, \"event_start\": 15.0, \"mode\": \"summer_dr\", \"pre_cool_f\": 71.0, \"pre_heat_f\": 72.5, \"pre_start_hour\": 13.0, \"recover_cool_f\": 72.5, \"recover_end\": 23.0, \"recover_heat_f\": 71.5}",
+    "billing_cost": 7.514443566970922,
+    "candidate_id": "GRID_0002_a7f03b673ae2",
+    "comfort_ok": true,
+    "idf_sha256": "446bcf0a31f4732343b288a4f85ac6fcbd80d14632e43890acfef26b8000c190",
+    "peak_kw": 2.9911078073683672,
+    "soft_ok": true,
+    "total_kwh": 27.447428985698128,
+    "wall_seconds": 0.7638267000438645
+  },
+  "winner_key": "billing_cost"
+}
