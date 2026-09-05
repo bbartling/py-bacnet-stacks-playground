@@ -32,6 +32,7 @@ from plotly.subplots import make_subplots
 
 from vibe23.energyplus import resolve_native_energyplus
 from vibe23.envfile import load_energyplus_env
+from vibe23.residential.constants import MAX_COOL_F, MAX_HEAT_F
 from vibe23.residential.model import MODEL_IDF, equipment_provenance, find_denver_epw
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
 from vibe23.studio.charts import (
@@ -40,6 +41,7 @@ from vibe23.studio.charts import (
     kwh_bar_figure,
     outdoor_kwh_cost_figure,
     playback_figure,
+    qtable_heatmap_figure,
     search_convergence_figure,
     search_progress_ring,
 )
@@ -76,6 +78,8 @@ from vibe23.studio.search_progress import (
     form_matches_fixture_catalog,
     format_dimension_values,
     load_grid_ranking,
+    load_twin_export,
+    qtable_matrix,
     search_progress_state,
     season_dimension_defaults,
 )
@@ -224,6 +228,7 @@ def _init_state() -> None:
         "promoted_action": None,
         "promoted_has_trace": False,
         "session_ranking_path": None,
+        "session_twin_export_path": None,
         "dsm_minutes": 5,
         "_dsm_minutes_prev": 5,
         "season": "Summer hot day (Jul 15)",
@@ -250,6 +255,8 @@ def _init_state() -> None:
         "econ_incl_dr": True,
         "econ_incl_res": False,
         "grid_max_candidates": 2,
+        "comfort_low_f": MAX_HEAT_F,
+        "comfort_high_f": MAX_COOL_F,
         "epw_upload_name": None,
         "tariff_upload_name": None,
     }
@@ -288,6 +295,9 @@ def _clear_session() -> None:
     st.session_state.promoted_action = None
     st.session_state.promoted_has_trace = False
     st.session_state.session_ranking_path = None
+    st.session_state.session_twin_export_path = None
+    st.session_state.comfort_low_f = MAX_HEAT_F
+    st.session_state.comfort_high_f = MAX_COOL_F
     st.session_state.idf_text = None
     st.session_state.idf_name = MODEL_IDF.name
     st.session_state.outdoor_override = None
@@ -428,6 +438,30 @@ def _load_session_ranking(season_key: str) -> dict | None:
         return None
 
 
+def _load_session_twin_export(season_key: str) -> dict | None:
+    """Winner/baseline 288-point traces from the live session run or the committed fixture."""
+    try:
+        path = st.session_state.get("session_twin_export_path")
+        if path:
+            return load_twin_export(season_key, path=path)
+        return load_twin_export(season_key)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _centers_from_row(row: object) -> tuple[float, float] | None:
+    """Extract (pre_center_f, event_center_f) from a ranking row for Q-table highlights."""
+    if not isinstance(row, dict):
+        return None
+    action = _parse_action(row.get("action_json"))
+    try:
+        pre = float(action.get("pre_center_f", row.get("pre_center_f")))
+        event = float(action.get("event_center_f", row.get("event_center_f")))
+    except (TypeError, ValueError):
+        return None
+    return (pre, event)
+
+
 def _render_battery_lab(day: dict, season_key: str) -> None:
     st.subheader("Stage 2 — battery dispatch")
     base_kw = list(day["baseline_kw"])
@@ -525,36 +559,44 @@ def _render_grid_board(session_id: str, season_key: str, eplus) -> None:
             for row in board["rows"]
         ]
     )
-    with st.expander("Run live EnergyPlus thermostat grid (optional)"):
-        st.caption("Requires ENERGYPLUS_EXE on this machine.")
-        st.caption(f"Max candidates (sidebar): {int(st.session_state.grid_max_candidates)}")
-        if st.button("Run thermostat grid for selected season"):
-            if eplus is None:
-                st.error("No native EnergyPlus found. Set ENERGYPLUS_EXE in .env.")
-            else:
-                try:
-                    from vibe23.residential.campaign import run_thermostat_grid
+    st.markdown("**Legacy live run (optional)**")
+    st.caption(
+        "Requires ENERGYPLUS_EXE on this machine · "
+        f"max candidates {int(st.session_state.grid_max_candidates)} · comfort band "
+        f"{float(st.session_state.comfort_low_f):.1f}–{float(st.session_state.comfort_high_f):.1f}°F."
+    )
+    if st.button("Run thermostat grid for selected season", key="legacy_run_grid"):
+        if eplus is None:
+            st.error("No native EnergyPlus found. Set ENERGYPLUS_EXE in .env.")
+        else:
+            try:
+                from vibe23.residential.campaign import run_thermostat_grid
 
-                    out = exports_dir(session_id) / "studio_grid" / season_key
-                    with st.spinner("Running EnergyPlus candidates…"):
-                        result = run_thermostat_grid(
-                            season=season_key,
-                            output_root=out,
-                            max_candidates=int(st.session_state.grid_max_candidates),
-                        )
-                    ranking_path = out / "ranking.json"
-                    st.session_state.session_ranking_path = str(ranking_path)
-                    ranking_payload = result.get("ranking") or {}
-                    win = ranking_payload.get("winner") or {}
-                    if win:
-                        st.session_state.promoted_candidate_id = win.get("candidate_id")
-                        st.session_state.promoted_action = _parse_action(win.get("action_json"))
-                        st.session_state.promoted_has_trace = True
-                    st.success(f"Grid finished · {out}")
-                    st.json(ranking_payload or result)
-                    st.rerun()
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Live grid failed: {exc}")
+                out = exports_dir(session_id) / "studio_grid" / season_key
+                with st.spinner("Running EnergyPlus candidates…"):
+                    result = run_thermostat_grid(
+                        season=season_key,
+                        output_root=out,
+                        max_candidates=int(st.session_state.grid_max_candidates),
+                        comfort_low_f=float(st.session_state.comfort_low_f),
+                        comfort_high_f=float(st.session_state.comfort_high_f),
+                        attach_battery=bool(st.session_state.attach_battery),
+                        store_traces=True,
+                    )
+                st.session_state.session_ranking_path = str(out / "ranking.json")
+                st.session_state.session_twin_export_path = str(out / "twin_export.json")
+                ranking_payload = result.get("ranking") or {}
+                win = ranking_payload.get("winner") or {}
+                if win:
+                    st.session_state.promoted_candidate_id = win.get("candidate_id")
+                    st.session_state.promoted_action = _parse_action(win.get("action_json"))
+                    st.session_state.promoted_has_trace = bool(
+                        ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
+                    )
+                st.success(f"Grid finished · {out}")
+                st.rerun()
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Live grid failed: {exc}")
 
 
 def main() -> None:
@@ -598,9 +640,10 @@ def main() -> None:
             "Season",
             ["Summer hot day (Jul 15)", "Winter design cold (Jan 3)"],
             key="season",
-            help="Jul 15 hot-afternoon DR aligned to TOU peak · Jan 3 near-design cold morning shed. "
+            help="Jul 15 hot-afternoon flex aligned to TOU peak 16–21 · Jan 3 near-design cold morning shed 6–9. "
             "Mild Jan 15 is retained as fixtures/studio/winter_typical_jan15_dr_day.json. "
-            "Twin replay animates the normal (baseline) day; DR event and Grid search have independent playheads.",
+            "Twin replay animates the baseline day (or the promoted winner traces); "
+            "Grid search and Grid flex calculator have independent playheads.",
         )
         st.divider()
         with st.expander("Battery sizing", expanded=True):
@@ -648,7 +691,31 @@ def main() -> None:
             st.toggle("Include DR incentive layer", key="econ_incl_dr")
             st.toggle("Include resilience layer", key="econ_incl_res")
         with st.expander("Grid search", expanded=False):
-            st.slider("Max candidates", 1, 16, step=1, key="grid_max_candidates")
+            st.slider(
+                "Comfort band low °F (FAIL below)",
+                60.0,
+                72.0,
+                step=0.5,
+                key="comfort_low_f",
+                help="Hard comfort gate for the 13×13 center search. Cells that dip below FAIL.",
+            )
+            st.slider(
+                "Comfort band high °F (FAIL above)",
+                72.0,
+                85.0,
+                step=0.5,
+                key="comfort_high_f",
+                help="Hard comfort gate for the 13×13 center search. Cells that drift above FAIL.",
+            )
+            st.slider(
+                "Max candidates",
+                1,
+                169,
+                step=1,
+                key="grid_max_candidates",
+                help="Truncates the front of the 169-cell catalog for live EnergyPlus smoke runs.",
+            )
+            st.caption("Comfort band gates live EnergyPlus runs; fixture replay uses the committed gate.")
         st.divider()
         st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
         with st.expander("EnergyPlus environment", expanded=False):
@@ -709,27 +776,49 @@ def main() -> None:
 
     hours = hour_axis(n)
 
-    # Twin replay always uses the normal (baseline) day — DR is a separate tab.
+    # Twin replay animates the baseline day unless a promoted winner carries EnergyPlus traces.
+    twin_export = _load_session_twin_export(season_key)
+    winner_trace = (twin_export or {}).get("winner") or {}
     house_kw_native = list(day["baseline_kw"])
     temp_f_native = list(day["baseline_temp_f"])
     zone_name = "ZONE ONE"
+    n_native = len(house_kw_native)
+    twin_trace_id: str | None = None
+    purchased_trace = None
+    soc_trace = None
+    if st.session_state.promoted_has_trace and len(winner_trace.get("facility_kw") or []) == n_native:
+        house_kw_native = [float(v) for v in winner_trace["facility_kw"]]
+        temps = winner_trace.get("zone_temp_f") or []
+        if len(temps) == n_native:
+            temp_f_native = [float(v) for v in temps]
+        twin_trace_id = str(winner_trace.get("candidate_id") or st.session_state.promoted_candidate_id or "winner")
+        pk = winner_trace.get("purchased_kw") or []
+        sc = winner_trace.get("soc") or []
+        if len(pk) == n_native and len(sc) == n_native:
+            purchased_trace = [float(v) for v in pk]
+            soc_trace = [100.0 * float(s) for s in sc]
 
     batt = None
     purchased_native = None
     soc_pct_native = None
     if st.session_state.attach_battery:
-        batt = run_battery_on_load(
-            house_kw_native,
-            capacity_kwh=float(st.session_state.capacity_kwh),
-            max_power_kw=float(st.session_state.max_power_kw),
-            eta=float(st.session_state.eta),
-            soc_min=float(st.session_state.soc_min),
-            soc_max=float(st.session_state.soc_max),
-            initial_soc=float(st.session_state.initial_soc),
-            season=season_key,
-        )
-        purchased_native = list(batt["purchased_kw"])  # type: ignore[index]
-        soc_pct_native = [100.0 * float(s) for s in batt["soc"]]  # type: ignore[index]
+        if purchased_trace is not None:
+            # Prefer the co-optimized dispatch that the search itself scored.
+            purchased_native = purchased_trace
+            soc_pct_native = soc_trace
+        else:
+            batt = run_battery_on_load(
+                house_kw_native,
+                capacity_kwh=float(st.session_state.capacity_kwh),
+                max_power_kw=float(st.session_state.max_power_kw),
+                eta=float(st.session_state.eta),
+                soc_min=float(st.session_state.soc_min),
+                soc_max=float(st.session_state.soc_max),
+                initial_soc=float(st.session_state.initial_soc),
+                season=season_key,
+            )
+            purchased_native = list(batt["purchased_kw"])  # type: ignore[index]
+            soc_pct_native = [100.0 * float(s) for s in batt["soc"]]  # type: ignore[index]
 
     house_kw = downsample_mean(house_kw_native, block)
     temp_f = downsample_mean(temp_f_native, block)
@@ -744,7 +833,12 @@ def main() -> None:
     house_day_kwh = daily_kwh(house_kw_native)
     purchased_day_kwh = daily_kwh(purchased_native) if purchased_native is not None else house_day_kwh
     house_bill = day_bill(house_kw_native, season=season_key)
-    net_bill = float(batt["billing_cost"]) if batt else house_bill
+    if batt:
+        net_bill = float(batt["billing_cost"])
+    elif purchased_native is not None:
+        net_bill = day_bill(purchased_native, season=season_key)
+    else:
+        net_bill = house_bill
     intensity = energy_intensity_kwh_per_ft2(house_day_kwh)
     h_kwh = hourly_kwh(house_kw_native)
     h_cost = hourly_cost(house_kw_native, rates_native)
@@ -754,8 +848,8 @@ def main() -> None:
     dashboard = inspect_idf(idf_text, source_name=str(st.session_state.idf_name))
     pf = _preflight(idf_text, str(st.session_state.idf_name))
 
-    tab_inputs, tab_twin, tab_grid, tab_dr, tab_econ = st.tabs(
-        ["Inputs", "Twin replay", "Grid search", "DR event", "Economics"]
+    tab_inputs, tab_grid, tab_twin, tab_dr, tab_econ = st.tabs(
+        ["Inputs", "Grid search", "Twin replay", "Grid flex calculator", "Economics"]
     )
 
     with tab_inputs:
@@ -996,7 +1090,16 @@ def main() -> None:
             st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed.")
 
     with tab_twin:
-        st.caption("Animates the **normal (baseline) day** only. Demand-response events live on the DR event tab.")
+        if twin_trace_id:
+            st.caption(
+                f"Animating the **promoted winner** `{twin_trace_id}` EnergyPlus traces. "
+                "Baseline vs winner comparison lives on the **Grid flex calculator** tab."
+            )
+        else:
+            st.caption(
+                "Animates the **normal (baseline) day**. Promote a winner on **Grid search** to animate its "
+                "EnergyPlus traces here; flex comparisons live on the **Grid flex calculator** tab."
+            )
         _transport("twin", n)
         m1, m2, m3, m4, m5, m6 = st.columns(6)
         m1.metric("House kW", f"{house_kw[step]:.2f}")
@@ -1012,11 +1115,22 @@ def main() -> None:
         )
         if st.session_state.promoted_candidate_id:
             action = st.session_state.promoted_action or {}
-            st.info(
-                f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                "Twin still animates the fixture baseline trajectory unless a live run provided traces "
-                f"(has_trace={bool(st.session_state.promoted_has_trace)})."
-            )
+            if twin_trace_id:
+                st.success(
+                    f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
+                    "Series above are the winner's EnergyPlus facility kW / zone °F"
+                    + (
+                        " with the co-optimized battery dispatch (purchased kW / SOC)."
+                        if purchased_trace is not None
+                        else " (battery re-dispatched from sidebar sizing)."
+                    )
+                )
+            else:
+                st.info(
+                    f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
+                    "Twin still animates the baseline trajectory — no winner traces are available for this "
+                    f"candidate (has_trace={bool(st.session_state.promoted_has_trace)})."
+                )
         st.plotly_chart(
             playback_figure(
                 hours=hours,
@@ -1029,7 +1143,8 @@ def main() -> None:
                 cumulative_purchased_kwh=purchased_cum_kwh,
                 step=step,
                 title=(
-                    f"{st.session_state.season} · Baseline (normal day) · "
+                    f"{st.session_state.season} · "
+                    f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline (normal day)'} · "
                     f"{interval_clock(step, intervals=n)} · {_dsm_label(minutes)}"
                 ),
             ),
@@ -1049,70 +1164,76 @@ def main() -> None:
                 st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed. See Inputs → IDF compatibility.")
 
     with tab_grid:
-        st.subheader("Finite thermostat grid search")
+        st.subheader("Grid flex calculator — 13×13 thermostat center search")
         st.markdown(
-            "The residential search is intentionally boring and honest: **freeze** experiment state "
-            "(model / weather / tariff / EnergyPlus version), **enumerate** a Cartesian product of "
-            "thermostat dimensions, **simulate** each candidate as one EnergyPlus subprocess, then "
-            "**rank** by billing cost with soft/comfort gates. There is no gradient, no pruning, and "
-            "`max_candidates` only truncates from the front of the catalog. Fixture scores are "
-            "pre-computed; editing the grid beyond the fixture catalog needs a live EnergyPlus run."
+            "The search is intentionally boring and honest: **freeze** experiment state "
+            "(model / weather / tariff / EnergyPlus version) → **enumerate** a 13×13 grid of "
+            "pre-window × event **center** setpoints (69.0–75.0°F in 0.5°F steps, fixed 2°F deadband so "
+            "heat = center−1 and cool = center+1) → **simulate** each of the 169 cells as one EnergyPlus "
+            "day → **gate** on the hard comfort band (FAIL, not a penalty) → **co-optimize** the battery on "
+            "purchased-grid kW and rank by illustrative $/day. No gradient, no pruning; `max_candidates` only "
+            "truncates from the front of the catalog for smoke runs."
         )
-
-        dims = season_dimension_defaults(season_key)
-        for dim in dims:
-            key = f"grid_dim_{dim.name}"
-            if key not in st.session_state:
-                st.session_state[key] = format_dimension_values(dim.values)
-            st.text_input(
-                f"{dim.name} (comma-separated)",
-                key=key,
-                help="Edit values to re-enumerate the catalog. Fixture replay scores require a catalog match.",
-            )
-
-        form = {dim.name: str(st.session_state.get(f"grid_dim_{dim.name}", "")) for dim in dims}
-        try:
-            form_dims = dimensions_from_form(form, season=season_key)
-            candidates = enumerate_from_form(form, season=season_key)
-            enum_ok = True
-            enum_err = None
-        except ValueError as exc:
-            form_dims = dims
-            candidates = ()
-            enum_ok = False
-            enum_err = str(exc)
-
-        st.code(
-            algorithm_pseudocode(season=season_key, dims=form_dims, n=len(candidates)),
-            language="text",
-        )
-        if not enum_ok:
-            st.error(f"Dimension form invalid: {enum_err}")
+        if season_key == "summer":
+            st.caption("Fixed TOU-aligned hours · pre-window starts 13:00 · event 16–21 · recovery to 23:00.")
         else:
-            st.metric("Enumerated catalog N", len(candidates))
-            st.table(
-                [
-                    {
-                        "ordinal": c.ordinal,
-                        "id": c.candidate_id,
-                        "action": dict(c.action),
-                    }
-                    for c in candidates
-                ]
-            )
+            st.caption("Fixed TOU-aligned hours · pre-window starts 05:00 · event 6–9 · recovery to 12:00.")
+        st.caption(
+            f"Comfort FAIL band (sidebar): **{float(st.session_state.comfort_low_f):.1f}–"
+            f"{float(st.session_state.comfort_high_f):.1f}°F** · battery co-optimization "
+            f"**{'ON' if st.session_state.attach_battery else 'OFF'}** · "
+            f"claim boundary HYPOTHETICAL_GL14_TUNED_DEMO_MODEL / ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF."
+        )
 
-        matches_fixture = form_matches_fixture_catalog(form, season=season_key) if enum_ok else False
         if ranking is None:
             st.warning("No ranking JSON available for this season.")
-        elif not matches_fixture:
+        else:
+            src = (
+                st.session_state.get("session_ranking_path")
+                or f"fixtures/studio/{season_key}_thermostat_grid_ranking.json"
+            )
+            st.caption(f"Ranking source: `{src}` · catalog N = {n_cand}")
+
+        if eplus is not None:
+            if st.button("Run live EnergyPlus search", type="primary", key="grid_run_live"):
+                try:
+                    from vibe23.residential.campaign import run_thermostat_grid
+
+                    out = exports_dir(session_id) / "studio_grid" / season_key
+                    with st.spinner("Running EnergyPlus candidates…"):
+                        result = run_thermostat_grid(
+                            season=season_key,
+                            output_root=out,
+                            max_candidates=int(st.session_state.grid_max_candidates),
+                            comfort_low_f=float(st.session_state.comfort_low_f),
+                            comfort_high_f=float(st.session_state.comfort_high_f),
+                            attach_battery=True,
+                            store_traces=True,
+                        )
+                    st.session_state.session_ranking_path = str(out / "ranking.json")
+                    st.session_state.session_twin_export_path = str(out / "twin_export.json")
+                    ranking_payload = result.get("ranking") or {}
+                    st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
+                    win = ranking_payload.get("winner") or {}
+                    if win:
+                        st.session_state.promoted_candidate_id = win.get("candidate_id")
+                        st.session_state.promoted_action = _parse_action(win.get("action_json"))
+                        st.session_state.promoted_has_trace = bool(
+                            ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
+                        )
+                    st.success(f"Live search finished · {out}")
+                    st.rerun()
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Live grid failed: {exc}")
             st.caption(
-                "Form dimensions do **not** match the fixture catalog — live EnergyPlus scores are required "
-                "for this grid. Animation below still replays the committed fixture ranking for training only "
-                "when a ranking is loaded; treat costs as illustrative of the fixture search, not your edited grid."
+                f"Live path writes `ranking.json` + `twin_export.json` under the session workspace · "
+                f"max candidates {int(st.session_state.grid_max_candidates)} of 169."
             )
         else:
-            src = st.session_state.get("session_ranking_path") or f"fixtures/studio/{season_key}_thermostat_grid_ranking.json"
-            st.caption(f"Form matches fixture catalog · ranking source: `{src}`")
+            st.caption(
+                "No native EnergyPlus on this machine — **Run search** below replays the committed fixture "
+                "ranking (same schema, pre-computed scores). Set `ENERGYPLUS_EXE` in `.env` for live runs."
+            )
 
         evaluated = int(st.session_state.get("cand_step", 0))
         if evaluated < 0:
@@ -1193,6 +1314,32 @@ def main() -> None:
             "What is an iteration? One catalog candidate = one full EnergyPlus day simulation "
             "(plus a shared baseline run). The progress slider is candidates evaluated, not clock time."
         )
+
+        qt = qtable_matrix(anim_rows, evaluated=evaluated)
+        current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
+        best = _centers_from_row(progress.get("best_row"))
+        if qt["pre_centers"] and qt["event_centers"]:
+            st.plotly_chart(
+                qtable_heatmap_figure(
+                    pre_centers=qt["pre_centers"],
+                    event_centers=qt["event_centers"],
+                    costs=qt["costs"],
+                    current=current,
+                    best=best,
+                    title=(
+                        f"Grid flex Q-table ($/day) · {evaluated}/{n_cand} cells evaluated · "
+                        f"{'battery co-optimized' if st.session_state.attach_battery else 'thermal only'}"
+                    ),
+                ),
+                width="stretch",
+            )
+            st.caption(
+                "Rows = pre-window center °F, columns = event center °F. Blank cells are not yet evaluated or "
+                "were rejected by the comfort / soft gate. Each filled cell is one EnergyPlus day."
+            )
+        else:
+            st.info("No Q-table cells yet — press **Run search** (or run a live search) to evaluate candidates.")
+
         st.code("\n".join(progress["log_lines"]) or "(press Run search)", language="text")
 
         if st.button("Promote winner to Twin", type="primary", key="promote_winner"):
@@ -1209,42 +1356,133 @@ def main() -> None:
             if not row:
                 st.warning("No feasible winner yet — advance the search or load a ranking.")
             else:
+                promoted_id = str(row.get("candidate_id"))
                 st.session_state.promoted_candidate_id = row.get("candidate_id")
                 st.session_state.promoted_action = _parse_action(row.get("action_json"))
-                st.session_state.promoted_has_trace = False
-                st.success(
-                    f"Promoted `{st.session_state.promoted_candidate_id}`. "
-                    "Twin still uses the fixture baseline kW/°F series — fixture rankings do not carry "
-                    "per-candidate traces. Live EnergyPlus runs can attach traces later."
-                )
+                export_winner = (_load_session_twin_export(season_key) or {}).get("winner") or {}
+                trace_id = str(export_winner.get("candidate_id") or "")
+                has_trace = bool(export_winner.get("facility_kw")) and trace_id == promoted_id
+                st.session_state.promoted_has_trace = has_trace
+                if has_trace:
+                    st.success(
+                        f"Promoted `{promoted_id}`. Twin replay will animate the winner EnergyPlus traces "
+                        "(facility kW / zone °F, plus the co-optimized purchased kW / SOC when battery is on)."
+                    )
+                else:
+                    st.warning(
+                        f"Promoted `{promoted_id}`, but the twin export only carries traces for "
+                        f"`{trace_id or '—'}` — Twin keeps the baseline series. Finish the search (or run a "
+                        "live EnergyPlus search) so the promoted candidate is the exported winner."
+                    )
                 st.rerun()
 
-        _render_grid_board(session_id, season_key, eplus)
+        with st.expander("Advanced: edit dimensions / legacy board", expanded=False):
+            st.caption(
+                "Legacy UX kept for transparency: the raw Cartesian dimension form, the enumerated catalog, "
+                "and the old two-stage optimizer board. Editing dimensions beyond the committed catalog "
+                "invalidates fixture replay scores."
+            )
+            dims = season_dimension_defaults(season_key)
+            for dim in dims:
+                dim_key = f"grid_dim_{dim.name}"
+                if dim_key not in st.session_state:
+                    st.session_state[dim_key] = format_dimension_values(dim.values)
+                st.text_input(
+                    f"{dim.name} (comma-separated)",
+                    key=dim_key,
+                    help="Edit values to re-enumerate the catalog. Fixture replay scores require a catalog match.",
+                )
+            form = {dim.name: str(st.session_state.get(f"grid_dim_{dim.name}", "")) for dim in dims}
+            try:
+                form_dims = dimensions_from_form(form, season=season_key)
+                candidates = enumerate_from_form(form, season=season_key)
+                enum_ok = True
+                enum_err = None
+            except ValueError as exc:
+                form_dims = dims
+                candidates = ()
+                enum_ok = False
+                enum_err = str(exc)
+            st.code(
+                algorithm_pseudocode(season=season_key, dims=form_dims, n=len(candidates)),
+                language="text",
+            )
+            if not enum_ok:
+                st.error(f"Dimension form invalid: {enum_err}")
+            else:
+                st.metric("Enumerated catalog N", len(candidates))
+                head = candidates[:24]
+                st.table(
+                    [
+                        {
+                            "ordinal": c.ordinal,
+                            "id": c.candidate_id,
+                            "action": dict(c.action),
+                        }
+                        for c in head
+                    ]
+                )
+                if len(candidates) > len(head):
+                    st.caption(f"Showing first {len(head)} of {len(candidates)} enumerated candidates.")
+                if form_matches_fixture_catalog(form, season=season_key):
+                    st.caption("Form matches the committed catalog — fixture replay scores apply.")
+                else:
+                    st.caption(
+                        "Form does **not** match the committed catalog — live EnergyPlus scores are required; "
+                        "the replay above still shows the committed ranking."
+                    )
+            st.divider()
+            _render_grid_board(session_id, season_key, eplus)
 
     with tab_dr:
         from vibe23.comfort import degree_hours_abs_delta, degree_hours_outside_band, net_welfare_usd
         from vibe23.residential.thermostat import comfort_ok
 
-        st.subheader(f"Stage 1 thermal — {day.get('label', season_key)}")
+        flex_export = twin_export or {}
+        fx_base = flex_export.get("baseline") or {}
+        fx_win = flex_export.get("winner") or {}
+        use_export = (
+            len(fx_base.get("facility_kw") or []) == n_native
+            and len(fx_win.get("facility_kw") or []) == n_native
+            and len(fx_base.get("zone_temp_f") or []) == n_native
+            and len(fx_win.get("zone_temp_f") or []) == n_native
+        )
+        if use_export:
+            base_kw_native = [float(v) for v in fx_base["facility_kw"]]
+            flex_kw_native = [float(v) for v in fx_win["facility_kw"]]
+            base_temp_native = [float(v) for v in fx_base["zone_temp_f"]]
+            flex_temp_native = [float(v) for v in fx_win["zone_temp_f"]]
+            flex_id = str(fx_win.get("candidate_id") or "winner")
+            source_note = f"grid winner `{flex_id}` vs its paired EnergyPlus baseline"
+        else:
+            base_kw_native = list(day["baseline_kw"])
+            flex_kw_native = list(day["event_kw"])
+            base_temp_native = list(day["baseline_temp_f"])
+            flex_temp_native = list(day["event_temp_f"])
+            source_note = "fixture flex day vs baseline day"
+
+        st.subheader(f"Grid flex calculator — {day.get('label', season_key)}")
+        window = "16–21" if season_key == "summer" else "6–9"
         st.caption(
-            "Independent playhead from Twin replay — scrub or Play this DR event day on its own clock."
+            f"Winner-vs-baseline flex on the TOU peak window **{window}** · {source_note}. "
+            "Independent playhead from Twin replay — scrub or Play this comparison on its own clock."
         )
         _transport("dr", n)
         dr_step = int(st.session_state.dr_step)
         end = dr_step + 1
 
-        base_kwh = daily_kwh(list(day["baseline_kw"]))
-        event_kwh = daily_kwh(list(day["event_kw"]))
-        base_bill = day_bill(list(day["baseline_kw"]), season=season_key)
-        event_bill = day_bill(list(day["event_kw"]), season=season_key)
+        base_kwh = daily_kwh(base_kw_native)
+        event_kwh = daily_kwh(flex_kw_native)
+        base_bill = day_bill(base_kw_native, season=season_key)
+        event_bill = day_bill(flex_kw_native, season=season_key)
         bill_savings = base_bill - event_bill
-        dh_vs_base = degree_hours_abs_delta(list(day["event_temp_f"]), list(day["baseline_temp_f"]))
-        band = degree_hours_outside_band(list(day["event_temp_f"]))
+        dh_vs_base = degree_hours_abs_delta(flex_temp_native, base_temp_native)
+        band = degree_hours_outside_band(flex_temp_native)
         wtp = float(st.session_state.comfort_wtp)
         welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
         d1, d2, d3, d4 = st.columns(4)
-        d1.metric("Baseline peak kW", f"{max(day['baseline_kw']):.2f}")
-        d2.metric("Event peak kW", f"{max(day['event_kw']):.2f}")
+        d1.metric("Baseline peak kW", f"{max(base_kw_native):.2f}")
+        d2.metric("Flex peak kW", f"{max(flex_kw_native):.2f}")
         d3.metric("Bill savings $/day", f"${bill_savings:.2f}")
         d4.metric(
             "Net welfare $/day",
@@ -1253,18 +1491,19 @@ def main() -> None:
         )
         st.caption(
             f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
-            f"**{comfort_ok(list(day['event_temp_f']))}** · "
+            f"**{comfort_ok(flex_temp_native)}** · "
             f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
             f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
-            f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE)."
+            f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE). "
+            "Thermal only — battery co-optimization is scored on the Grid search tab."
         )
         d5, d6 = st.columns(2)
         d5.metric("Baseline day kWh", f"{base_kwh:.1f}")
-        d6.metric("Event day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
-        base_disp = downsample_mean(list(day["baseline_kw"]), block)
-        event_disp = downsample_mean(list(day["event_kw"]), block)
-        base_temp = downsample_mean(list(day["baseline_temp_f"]), block)
-        event_temp = downsample_mean(list(day["event_temp_f"]), block)
+        d6.metric("Flex day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
+        base_disp = downsample_mean(base_kw_native, block)
+        event_disp = downsample_mean(flex_kw_native, block)
+        base_temp = downsample_mean(base_temp_native, block)
+        event_temp = downsample_mean(flex_temp_native, block)
         base_cum = cumulative_kwh(base_disp, dt_hours=dt_hours)
         event_cum = cumulative_kwh(event_disp, dt_hours=dt_hours)
         hx = hours[:end]
@@ -1276,13 +1515,13 @@ def main() -> None:
             subplot_titles=("Power (kW)", "Cumulative energy (kWh)", "Zone °F"),
         )
         fig.add_trace(go.Scatter(x=hx, y=base_disp[:end], name="Baseline kW", line=dict(color="#9AA7B8")), row=1, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="DR event kW", line=dict(color="#E8A838")), row=1, col=1)
+        fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="Flex kW", line=dict(color="#E8A838")), row=1, col=1)
         fig.add_trace(go.Scatter(x=hx, y=base_cum[:end], name="Baseline kWh", line=dict(color="#9AA7B8")), row=2, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="DR kWh", line=dict(color="#E8A838")), row=2, col=1)
+        fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="Flex kWh", line=dict(color="#E8A838")), row=2, col=1)
         fig.add_trace(go.Scatter(x=hx, y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="DR °F", line=dict(color="#FF6B6B")), row=3, col=1)
+        fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="Flex °F", line=dict(color="#FF6B6B")), row=3, col=1)
         if season_key == "summer":
-            fig.add_vrect(x0=15, x1=20, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
+            fig.add_vrect(x0=16, x1=21, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
         else:
             fig.add_vrect(x0=6, x1=9, fillcolor="#8FB8FF", opacity=0.12, line_width=0, row=1, col=1)
         vline_x = hours[dr_step] if hours else 0.0

@@ -52,6 +52,8 @@ def test_studio_app_features() -> None:
         "comfort_wtp",
         "econ_target",
         "grid_max_candidates",
+        "comfort_low_f",
+        "comfort_high_f",
     }
     assert at.get("select_slider") or any(getattr(s, "key", None) == "dsm_minutes" for s in at.select_slider), (
         "expected DSM interval select_slider"
@@ -64,7 +66,7 @@ def test_studio_app_features() -> None:
     assert "trace" not in {r.key for r in at.radio}, "trace radio must stay removed"
 
     tab_labels = [getattr(t, "label", None) for t in at.tabs]
-    assert tab_labels == ["Inputs", "Twin replay", "Grid search", "DR event", "Economics"], tab_labels
+    assert tab_labels == ["Inputs", "Grid search", "Twin replay", "Grid flex calculator", "Economics"], tab_labels
 
     # Seed independent axis values, then advance twin only.
     at.session_state.dr_step = 7
@@ -138,6 +140,9 @@ def test_studio_app_features() -> None:
     assert run_btns, "expected Run search button on Grid search tab"
     run_btns[0].click().run()
     _assert_no_exceptions(at, "Run search click")
+
+    promotes = [b for b in at.button if b.label == "Promote winner to Twin"]
+    assert promotes, "expected Promote winner to Twin button on Grid search tab"
 
     plays = [b for b in at.button if b.label == "Play" and getattr(b, "key", None) == "btn_play_twin"]
     if not plays:

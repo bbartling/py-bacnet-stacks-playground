@@ -6,6 +6,8 @@ from typing import Any, Mapping
 
 from .. import plotting
 from .constants import (
+    DEFAULT_COOL_F,
+    DEFAULT_HEAT_F,
     DT_HOURS,
     SUMMER_DEMO_DAY,
     SUMMER_DEMO_MONTH,

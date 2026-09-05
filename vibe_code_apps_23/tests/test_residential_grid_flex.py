@@ -1,11 +1,8 @@
 """Unit tests for battery-cooptimized grid flex campaign (no live EnergyPlus)."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from vibe23.residential.campaign import run_thermostat_grid
 from vibe23.residential.constants import INTERVALS_PER_DAY

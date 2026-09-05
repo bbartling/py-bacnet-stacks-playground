@@ -421,20 +421,6 @@ def qtable_heatmap_figure(
             )
         ]
     )
-    shapes = []
-    if current is not None and current[0] in pre_centers and current[1] in event_centers:
-        shapes.append(
-            dict(
-                type="rect",
-                xref="x",
-                yref="y",
-                x0=str(current[1]),
-                x1=str(current[1]),
-                y0=str(current[0]),
-                y1=str(current[0]),
-                line=dict(color="#DC2626", width=2),
-            )
-        )
     layout = chart_layout(theme=theme)
     fig.update_layout(
         title=title,
@@ -443,8 +429,15 @@ def qtable_heatmap_figure(
         yaxis_title="Pre-window center °F",
         **{k: v for k, v in layout.items() if k != "margin"},
         margin=dict(l=64, r=24, t=56, b=56),
-        paper_bgcolor=layout["paper_bgcolor"],
     )
+    if current is not None and current[0] in tuple(pre_centers) and current[1] in tuple(event_centers):
+        fig.add_annotation(
+            x=f"{current[1]:g}",
+            y=f"{current[0]:g}",
+            text="◉",
+            showarrow=False,
+            font=dict(size=16, color="#DC2626"),
+        )
     if best is not None:
         fig.add_annotation(
             x=f"{best[1]:g}",

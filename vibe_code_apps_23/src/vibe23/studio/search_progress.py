@@ -101,6 +101,35 @@ def load_grid_ranking(season: str = "summer", *, path: Path | str | None = None)
     return payload
 
 
+TWIN_EXPORT_SCHEMA = "vibe23.residential_grid_twin_export.v1"
+
+
+def load_twin_export(season: str = "summer", *, path: Path | str | None = None) -> dict[str, Any]:
+    """Load winner/baseline 288-point traces for Twin promote."""
+    if path is not None:
+        export_path = Path(path)
+    else:
+        key = season.strip().lower()
+        name = (
+            "winter_twin_export.json"
+            if key in {"winter", "jan", "january"}
+            else "summer_twin_export.json"
+        )
+        export_path = FIXTURES / name
+    if not export_path.is_file():
+        raise FileNotFoundError(f"twin export missing: {export_path}")
+    payload = json.loads(export_path.read_text(encoding="utf-8"))
+    if payload.get("schema") not in {TWIN_EXPORT_SCHEMA, None} and "baseline" not in payload:
+        raise ValueError(f"unexpected twin export schema: {payload.get('schema')!r}")
+    for role in ("baseline", "winner"):
+        block = payload.get(role) or {}
+        for key in ("facility_kw", "zone_temp_f"):
+            series = block.get(key)
+            if not isinstance(series, list) or len(series) < 24:
+                raise ValueError(f"twin export {role}.{key} must be a series")
+    return payload
+
+
 def candidate_rows_for_animation(ranking: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Return non-BASELINE rows in enumeration (ordinal) order for search replay."""
     rows = [dict(r) for r in ranking.get("rows") or [] if str(r.get("candidate_id")) != "BASELINE"]
@@ -306,6 +335,7 @@ __all__ = [
     "form_matches_fixture_catalog",
     "format_dimension_values",
     "load_grid_ranking",
+    "load_twin_export",
     "parse_dimension_values",
     "qtable_matrix",
     "search_progress_state",
