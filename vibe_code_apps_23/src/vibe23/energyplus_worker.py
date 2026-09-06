@@ -63,11 +63,58 @@ def _request(
     except urllib.error.HTTPError as exc:
         body = exc.read()
         raise EnergyPlusWorkerError(f"{method} {url} -> HTTP {exc.code}: {body[:500]!r}") from exc
+    except urllib.error.URLError as exc:
+        raise EnergyPlusWorkerError(f"{method} {url} -> network error: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise EnergyPlusWorkerError(f"{method} {url} -> timed out after {timeout}s") from exc
 
 
 def healthz(*, timeout: float = 60.0) -> dict[str, Any]:
     _, body = _request("GET", f"{worker_base_url()}/healthz", timeout=timeout)
     return json.loads(body)
+
+
+def ensure_worker_awake(
+    *,
+    attempts: int = 4,
+    per_try_timeout: float = 90.0,
+    pause_seconds: float = 3.0,
+) -> dict[str, Any]:
+    """Ping ``/healthz`` until the Render free-tier worker answers (or fail).
+
+    Sleeping free instances often need 30–90s on the first request. A successful
+    health check both detects sleep and wakes the service before job submit.
+    """
+    if not worker_configured():
+        raise EnergyPlusWorkerError("EPLUS_WORKER_URL / EPLUS_WORKER_API_KEY not configured")
+    started = time.perf_counter()
+    last_error: Exception | None = None
+    for attempt in range(1, max(1, attempts) + 1):
+        try_started = time.perf_counter()
+        try:
+            payload = healthz(timeout=per_try_timeout)
+            wall = round(time.perf_counter() - started, 3)
+            try_wall = round(time.perf_counter() - try_started, 3)
+            # Heuristic: first response that took a long time was a cold start.
+            woke_from_sleep = attempt > 1 or try_wall >= 8.0
+            return {
+                "ok": bool(payload.get("ok")),
+                "awake": True,
+                "woke_from_sleep": woke_from_sleep,
+                "attempt": attempt,
+                "wall_seconds": wall,
+                "try_seconds": try_wall,
+                "health": payload,
+            }
+        except (EnergyPlusWorkerError, json.JSONDecodeError, OSError) as exc:
+            last_error = exc
+            if attempt < attempts:
+                time.sleep(pause_seconds)
+    wall = round(time.perf_counter() - started, 3)
+    raise EnergyPlusWorkerError(
+        f"Render worker did not wake after {attempts} health checks "
+        f"({wall}s). Last error: {last_error}"
+    )
 
 
 def _multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes]]) -> tuple[bytes, str]:
@@ -180,6 +227,7 @@ def run_day_via_worker(
 ) -> dict[str, Any]:
     """Submit → poll → download → extract. Returns job metadata."""
     started = time.perf_counter()
+    wake = ensure_worker_awake()
     created = submit_job(idf_path=idf_path, epw_path=epw_path, expand_objects=expand_objects)
     job_id = str(created["job_id"])
     meta = wait_for_job(job_id, timeout_seconds=timeout_seconds)
@@ -188,12 +236,14 @@ def run_day_via_worker(
     meta = dict(meta)
     meta["worker_job_id"] = job_id
     meta["worker_wall_seconds"] = round(time.perf_counter() - started, 3)
+    meta["worker_wake"] = wake
     (output_dir / "worker_job.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return meta
 
 
 __all__ = [
     "EnergyPlusWorkerError",
+    "ensure_worker_awake",
     "extract_results_zip",
     "get_job",
     "healthz",

@@ -90,6 +90,8 @@ EPLUS_BACKEND = "worker"
 
 On Community Cloud without a native exe, choose `worker` (or `auto` once URL+key are set). Keep candidate counts low on free Render tiers; a full 169-cell campaign is a paid-instance / overnight job.
 
+**Render free-tier sleep:** idle workers stop. Studio pings `GET /healthz` (sidebar **Wake / check Render worker**, and automatically before each live job) with retries so a cold start can take 30–90s instead of failing the first submit. Paid always-on instances skip this delay.
+
 `.env` / `.env.local` are for local native EnergyPlus and worker keys — never commit secrets.
 
 ### Fixture rankings are a proxy, not simulation output

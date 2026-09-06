@@ -817,7 +817,36 @@ def main() -> None:
             live_ready, live_label = _live_sim_ready()
             st.caption(f"Active: **{live_label}**")
             if os.environ.get("EPLUS_WORKER_URL"):
-                st.caption(f"Worker URL configured · API key {'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'}")
+                st.caption(
+                    f"Worker URL configured · API key "
+                    f"{'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'}"
+                )
+                st.caption(
+                    "Free Render tiers sleep after idle time. The first request can take "
+                    "30–90s; Studio pings `/healthz` before each live job to wake it."
+                )
+                if st.button("Wake / check Render worker", key="wake_eplus_worker"):
+                    from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
+
+                    with st.spinner("Pinging worker /healthz (cold start may take up to ~90s)…"):
+                        try:
+                            wake = ensure_worker_awake()
+                            health = wake.get("health") or {}
+                            if wake.get("woke_from_sleep"):
+                                st.success(
+                                    f"Worker woke in {wake['wall_seconds']}s "
+                                    f"(attempt {wake['attempt']}) · "
+                                    f"E+ {health.get('energyplus_version', '?')} · "
+                                    f"api_key_configured={health.get('api_key_configured')}"
+                                )
+                            else:
+                                st.success(
+                                    f"Worker already awake ({wake['try_seconds']}s) · "
+                                    f"E+ {health.get('energyplus_version', '?')} · "
+                                    f"api_key_configured={health.get('api_key_configured')}"
+                                )
+                        except EnergyPlusWorkerError as exc:
+                            st.error(f"Worker wake failed: {exc}")
         st.divider()
         st.header("Demo day")
         st.radio(
