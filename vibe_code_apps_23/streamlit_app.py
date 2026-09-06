@@ -1,16 +1,13 @@
 """Vibe 23 Residential DSM Studio — Streamlit console.
 
-Replay a 24h EnergyPlus demo day in ~60s (summer Jul 15 / winter design Jan 3),
-browse IDF massing + energy-modeler dashboard, tweak battery sizing, upload
-IDF / EPW / tariff files, and inspect the thermostat + battery grid-search story.
-
-Cross-platform EnergyPlus paths come from ``.env`` (see ``.env.example``).
-Without EnergyPlus the app runs fixture-only demo mode.
+Live EnergyPlus (local or Render worker) powers Grid search / Twin / Flex.
+No synthetic proxy rankings are shown as results — without a live backend or
+session run those tabs say EnergyPlus not ready.
 
 Launch (Windows / Linux / macOS)::
 
     pip install -e ".[studio]"
-    cp .env.example .env   # edit ENERGYPLUS_* for live runs
+    cp .env.example .env   # edit ENERGYPLUS_* / EPLUS_WORKER_* for live runs
     # Preferred on Windows (pins Python 3.12 + Streamlit 1.59.2):
     .\\scripts\\run_studio.ps1
     # Or:
@@ -34,7 +31,7 @@ from plotly.subplots import make_subplots
 from vibe23.battery import BatteryParams
 from vibe23.energyplus import resolve_native_energyplus
 from vibe23.envfile import load_energyplus_env
-from vibe23.residential.constants import MAX_COOL_F, MAX_HEAT_F
+from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
 from vibe23.residential.model import MODEL_IDF, equipment_provenance, find_denver_epw
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
 from vibe23.studio.charts import (
@@ -62,7 +59,6 @@ from vibe23.studio.demo_data import (
     f_to_c,
     hourly_cost,
     hourly_kwh,
-    illustrative_grid_ranking,
     interval_clock,
     load_outdoor_day,
     load_season_day,
@@ -73,11 +69,8 @@ from vibe23.studio.idf_geometry import idf_massing_figure, parse_idf_geometry
 from vibe23.studio.idf_inspect import inspect_idf
 from vibe23.studio.idf_preflight import preflight_idf
 from vibe23.studio.search_progress import (
-    algorithm_pseudocode,
     candidate_rows_for_animation,
-    dimensions_from_form,
-    enumerate_from_form,
-    form_matches_fixture_catalog,
+    enumerate_grid,
     format_dimension_values,
     load_grid_ranking,
     load_twin_export,
@@ -99,10 +92,8 @@ PLAY_SECONDS = 60.0
 CAND_SECONDS = 0.4
 AXES = ("twin", "dr", "cand")
 
-# Committed fixture rankings are an algebraic proxy, not simulation output. Anything shown
-# from them must be labelled as such — see scripts/generate_grid_flex_fixtures.py.
+# Reject any ranking/twin payload that self-declares as algebraic proxy (never show as results).
 PROXY_FIXTURE_KIND = "ILLUSTRATIVE_PHYSICS_PROXY"
-PROXY_WARNING = "SYNTHETIC / ILLUSTRATIVE_PHYSICS_PROXY — not EnergyPlus simulations"
 
 load_energyplus_env()
 
@@ -442,11 +433,6 @@ def _geom_from_text(text: str):
 
 
 @st.cache_data(show_spinner=False)
-def _board() -> dict:
-    return illustrative_grid_ranking()
-
-
-@st.cache_data(show_spinner=False)
 def _default_idf_text() -> str:
     return MODEL_IDF.read_text(encoding="utf-8", errors="replace")
 
@@ -578,37 +564,46 @@ def _is_live_ranking() -> bool:
     return bool(st.session_state.get("session_ranking_path"))
 
 
-def _is_proxy_ranking(ranking: dict | None) -> bool:
-    """True when the displayed ranking is synthetic rather than EnergyPlus output.
+def _payload_is_proxy(payload: dict | None) -> bool:
+    return str((payload or {}).get("fixture_kind") or "") == PROXY_FIXTURE_KIND
 
-    Two independent signals, either of which is disqualifying: the payload self-declares
-    ``fixture_kind == ILLUSTRATIVE_PHYSICS_PROXY``, or there is no live session run behind
-    it (so whatever is on screen came off disk as a committed fixture).
-    """
-    if str((ranking or {}).get("fixture_kind") or "") == PROXY_FIXTURE_KIND:
-        return True
-    return not _is_live_ranking()
+
+def _eplus_status_banner(live_ready: bool, live_label: str) -> None:
+    if live_ready:
+        st.success(f"EnergyPlus ready · {live_label}")
+    else:
+        st.error(
+            "EnergyPlus not ready — set local `ENERGYPLUS_EXE`, or configure "
+            "`EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY` (sidebar backend = worker/auto)."
+        )
 
 
 def _load_session_ranking(season_key: str) -> dict | None:
+    """Live session ranking only — never fall back to committed proxy fixtures."""
+    path = st.session_state.get("session_ranking_path")
+    if not path:
+        return None
     try:
-        path = st.session_state.get("session_ranking_path")
-        if path:
-            return load_grid_ranking(season_key, path=path)
-        return load_grid_ranking(season_key)
+        payload = load_grid_ranking(season_key, path=path)
     except Exception:  # noqa: BLE001
         return None
+    if _payload_is_proxy(payload):
+        return None
+    return payload
 
 
 def _load_session_twin_export(season_key: str) -> dict | None:
-    """Winner/baseline 288-point traces from the live session run or the committed fixture."""
+    """Live session twin traces only — never fall back to committed proxy fixtures."""
+    path = st.session_state.get("session_twin_export_path")
+    if not path:
+        return None
     try:
-        path = st.session_state.get("session_twin_export_path")
-        if path:
-            return load_twin_export(season_key, path=path)
-        return load_twin_export(season_key)
+        payload = load_twin_export(season_key, path=path)
     except Exception:  # noqa: BLE001
         return None
+    if _payload_is_proxy(payload):
+        return None
+    return payload
 
 
 def _centers_from_row(row: object) -> tuple[float, float] | None:
@@ -699,39 +694,18 @@ def _render_battery_lab(day: dict, season_key: str) -> None:
 
 
 def _render_grid_board(session_id: str, season_key: str, eplus) -> None:
-    st.subheader("Two-stage optimizer board")
-    board = _board()
-    winner = board.get("winner") or {}
-    g1, g2, g3 = st.columns(3)
-    g1.metric("Winner", str(winner.get("candidate_id", "—")))
-    g2.metric("Illustrative $/day", f"${float(winner.get('billing_cost', 0)):.2f}" if winner else "—")
-    g3.metric("Catalog size", str(board.get("catalog_size", "—")))
-    st.table(
-        [
-            {
-                "rank": row["rank"],
-                "candidate": row["candidate_id"],
-                "stage": row["stage"],
-                "$/day": None if row["billing_cost"] is None else round(float(row["billing_cost"]), 2),
-                "Δ vs baseline": None
-                if row["delta_vs_baseline"] is None
-                else round(float(row["delta_vs_baseline"]), 2),
-                "note": row["note"][:80],
-            }
-            for row in board["rows"]
-        ]
-    )
+    st.subheader("Legacy live EnergyPlus grid")
     live_ready, live_label = _live_sim_ready()
-    st.markdown("**Legacy live run (optional)**")
     st.caption(
         f"Backend: {live_label} · "
         f"max candidates {int(st.session_state.grid_max_candidates)} · comfort band "
-        f"{float(st.session_state.comfort_low_f):.1f}–{float(st.session_state.comfort_high_f):.1f}°F."
+        f"{float(st.session_state.comfort_low_f):.1f}–{float(st.session_state.comfort_high_f):.1f}°F. "
+        "No synthetic ranking board — results only after a live run."
     )
     if st.button("Run thermostat grid for selected season", key="legacy_run_grid"):
         if not live_ready:
             st.error(
-                "No live EnergyPlus backend. Set ENERGYPLUS_EXE for local, or "
+                "EnergyPlus not ready. Set ENERGYPLUS_EXE for local, or "
                 "EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY (+ EPLUS_BACKEND=worker) for Render."
             )
         else:
@@ -786,7 +760,7 @@ def main() -> None:
     st.caption(
         "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · Carrier 50EZ060 · "
         f"~{DEMO_FLOOR_FT2:,.0f} ft² · {sys.platform} · "
-        f"{'EnergyPlus ready' if live_ready else 'fixture demo mode'} · backend={live_label}."
+        f"{'EnergyPlus ready' if live_ready else 'EnergyPlus not ready'} · backend={live_label}."
     )
 
     with st.sidebar:
@@ -799,7 +773,7 @@ def main() -> None:
             options=list(DSM_INTERVAL_MINUTES),
             format_func=_dsm_label,
             key="dsm_minutes",
-            help="Coarsen twin replay for DSM viewing. Native fixture stays 5-min / 288.",
+            help="Coarsen twin replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
         )
         st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
         st.divider()
@@ -928,7 +902,7 @@ def main() -> None:
                 key="grid_max_candidates",
                 help="Truncates the front of the 169-cell catalog for live EnergyPlus smoke runs.",
             )
-            st.caption("Comfort band gates live EnergyPlus runs; fixture replay uses the committed gate.")
+            st.caption("Comfort band gates live EnergyPlus ranking (FAIL, not a soft penalty).")
         st.divider()
         st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
         with st.expander("EnergyPlus environment", expanded=False):
@@ -968,7 +942,7 @@ def main() -> None:
     ranking = _load_session_ranking(season_key)
     anim_rows = candidate_rows_for_animation(ranking) if ranking else []
     n_cand = len(anim_rows)
-    ranking_is_proxy = _is_proxy_ranking(ranking)
+    has_live_ranking = ranking is not None and _is_live_ranking()
 
     if st.session_state.pop("_reset_step", False):
         st.session_state.step = 0
@@ -991,21 +965,34 @@ def main() -> None:
 
     hours = hour_axis(n)
 
-    # Twin replay animates the baseline day unless a promoted winner carries EnergyPlus traces.
+    # Twin / flex animate only live EnergyPlus twin_export from this session.
     twin_export = _load_session_twin_export(season_key)
-    twin_export_is_proxy = str((twin_export or {}).get("fixture_kind") or "") == PROXY_FIXTURE_KIND or not bool(
-        st.session_state.get("session_twin_export_path")
-    )
-    trace_kind = "fixture proxy" if twin_export_is_proxy else "EnergyPlus"
+    has_live_twin = twin_export is not None and bool(st.session_state.get("session_twin_export_path"))
     winner_trace = (twin_export or {}).get("winner") or {}
-    house_kw_native = list(day["baseline_kw"])
-    temp_f_native = list(day["baseline_temp_f"])
+    baseline_trace = (twin_export or {}).get("baseline") or {}
     zone_name = "ZONE ONE"
-    n_native = len(house_kw_native)
     twin_trace_id: str | None = None
     purchased_trace = None
     soc_trace = None
-    if st.session_state.promoted_has_trace and len(winner_trace.get("facility_kw") or []) == n_native:
+
+    if has_live_twin and len(baseline_trace.get("facility_kw") or []) == INTERVALS_PER_DAY:
+        house_kw_native = [float(v) for v in baseline_trace["facility_kw"]]
+        temps = baseline_trace.get("zone_temp_f") or []
+        temp_f_native = (
+            [float(v) for v in temps]
+            if len(temps) == INTERVALS_PER_DAY
+            else list(day["baseline_temp_f"])
+        )
+    else:
+        house_kw_native = list(day["baseline_kw"])
+        temp_f_native = list(day["baseline_temp_f"])
+    n_native = len(house_kw_native)
+
+    if (
+        has_live_twin
+        and st.session_state.promoted_has_trace
+        and len(winner_trace.get("facility_kw") or []) == n_native
+    ):
         house_kw_native = [float(v) for v in winner_trace["facility_kw"]]
         temps = winner_trace.get("zone_temp_f") or []
         if len(temps) == n_native:
@@ -1075,7 +1062,7 @@ def main() -> None:
         st.subheader("Upload model + weather + tariff")
         st.caption(
             "Bring your own IDF (assumed calibrated), EPW weather, and pricing. "
-            "Fixture demo mode still works with no EnergyPlus."
+            "Live EnergyPlus (local or Render worker) is required for Grid search / Twin / Flex results."
         )
         u1, u2, u3 = st.columns(3)
         with u1:
@@ -1309,96 +1296,99 @@ def main() -> None:
             st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed.")
 
     with tab_twin:
-        if twin_trace_id:
-            st.caption(
-                f"Animating the **promoted winner** `{twin_trace_id}` {trace_kind} traces. "
-                "Baseline vs winner comparison lives on the **Grid flex calculator** tab."
-            )
-        else:
-            st.caption(
-                "Animates the **normal (baseline) day**. Promote a winner on **Grid search** to animate its "
-                "traces here; flex comparisons live on the **Grid flex calculator** tab."
-            )
-        if twin_export_is_proxy:
-            st.warning(f"**{PROXY_WARNING}.** Replayed traces are fixtures, not simulation output.")
-        _transport("twin", n)
-        m1, m2, m3, m4, m5, m6 = st.columns(6)
-        m1.metric("House kW", f"{house_kw[step]:.2f}")
-        m2.metric("Purchased kW", f"{(purchased or house_kw)[step]:.2f}")
-        m3.metric("kWh to now", f"{(purchased_cum_kwh or house_cum_kwh)[step]:.1f}")
-        m4.metric("Daily house kWh", f"{house_day_kwh:.1f}")
-        m5.metric("Zone °F", f"{temp_f[step]:.2f}")
-        m6.metric("Cost to now", f"${bill_series[step]:.2f}", delta=f"day ${net_bill:.2f}")
-        st.caption(
-            f"Full-day house **{house_day_kwh:.1f} kWh** · purchased **{purchased_day_kwh:.1f} kWh** · "
-            f"~{intensity:.3f} kWh/ft²-day · outdoor now ~{outdoor_f[outdoor_hour_index(step, minutes=minutes)]:.1f}°F · "
-            f"DSM {_dsm_label(minutes)} ({n} steps)"
-        )
-        if st.session_state.promoted_candidate_id:
-            action = st.session_state.promoted_action or {}
-            if twin_trace_id:
-                st.success(
-                    f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                    f"Series above are the winner's {trace_kind} facility kW / zone °F"
-                    + (
-                        " with the co-optimized battery dispatch (purchased kW / SOC)."
-                        if purchased_trace is not None
-                        else " (battery re-dispatched from sidebar sizing)."
-                    )
-                )
-            else:
+        _eplus_status_banner(live_ready, live_label)
+        if not has_live_twin:
+            if live_ready:
                 st.info(
-                    f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                    "Twin still animates the baseline trajectory — no winner traces are available for this "
-                    f"candidate (has_trace={bool(st.session_state.promoted_has_trace)})."
+                    "No live EnergyPlus twin traces in this session yet. "
+                    "Run **live EnergyPlus search** on the Grid search tab."
                 )
-        st.plotly_chart(
-            playback_figure(
-                hours=hours,
-                house_kw=house_kw,
-                purchased_kw=purchased,
-                temp_f=temp_f,
-                price=rates,
-                soc_pct=soc_pct,
-                cumulative_house_kwh=house_cum_kwh,
-                cumulative_purchased_kwh=purchased_cum_kwh,
-                step=step,
-                title=(
-                    f"{st.session_state.season} · "
-                    f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline (normal day)'} · "
-                    f"{interval_clock(step, intervals=n)} · {_dsm_label(minutes)}"
-                ),
-            ),
-            width="stretch",
-        )
-        with st.expander("Temperature-colored massing", expanded=False):
-            if pf.can_visualize:
-                geom = _geom_from_text(idf_text)
-                mass = idf_massing_figure(
-                    geom,
-                    zone_temps={zone_name: f_to_c(temp_f[step])},
-                    title=f"IDF massing · {st.session_state.idf_name}",
-                    height=520,
-                )
-                st.plotly_chart(mass, width="stretch")
             else:
-                st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed. See Inputs → IDF compatibility.")
+                st.error("EnergyPlus not ready — twin replay stays empty until a live backend is configured.")
+        else:
+            if twin_trace_id:
+                st.caption(
+                    f"Animating the **promoted winner** `{twin_trace_id}` EnergyPlus traces. "
+                    "Baseline vs winner comparison lives on the **Grid flex calculator** tab."
+                )
+            else:
+                st.caption(
+                    "Animating the **EnergyPlus baseline** from this session's live search. "
+                    "Promote a winner on **Grid search** to animate its traces here."
+                )
+            _transport("twin", n)
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
+            m1.metric("House kW", f"{house_kw[step]:.2f}")
+            m2.metric("Purchased kW", f"{(purchased or house_kw)[step]:.2f}")
+            m3.metric("kWh to now", f"{(purchased_cum_kwh or house_cum_kwh)[step]:.1f}")
+            m4.metric("Daily house kWh", f"{house_day_kwh:.1f}")
+            m5.metric("Zone °F", f"{temp_f[step]:.2f}")
+            m6.metric("Cost to now", f"${bill_series[step]:.2f}", delta=f"day ${net_bill:.2f}")
+            st.caption(
+                f"Full-day house **{house_day_kwh:.1f} kWh** · purchased **{purchased_day_kwh:.1f} kWh** · "
+                f"~{intensity:.3f} kWh/ft²-day · outdoor now ~{outdoor_f[outdoor_hour_index(step, minutes=minutes)]:.1f}°F · "
+                f"DSM {_dsm_label(minutes)} ({n} steps)"
+            )
+            if st.session_state.promoted_candidate_id:
+                action = st.session_state.promoted_action or {}
+                if twin_trace_id:
+                    st.success(
+                        f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
+                        "Series above are the winner's EnergyPlus facility kW / zone °F"
+                        + (
+                            " with the co-optimized battery dispatch (purchased kW / SOC)."
+                            if purchased_trace is not None
+                            else " (battery re-dispatched from sidebar sizing)."
+                        )
+                    )
+                else:
+                    st.info(
+                        f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
+                        "Twin still animates the baseline trajectory — no winner traces are available for this "
+                        f"candidate (has_trace={bool(st.session_state.promoted_has_trace)})."
+                    )
+            st.plotly_chart(
+                playback_figure(
+                    hours=hours,
+                    house_kw=house_kw,
+                    purchased_kw=purchased,
+                    temp_f=temp_f,
+                    price=rates,
+                    soc_pct=soc_pct,
+                    cumulative_house_kwh=house_cum_kwh,
+                    cumulative_purchased_kwh=purchased_cum_kwh,
+                    step=step,
+                    title=(
+                        f"{st.session_state.season} · "
+                        f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline (EnergyPlus)'} · "
+                        f"{interval_clock(step, intervals=n)} · {_dsm_label(minutes)}"
+                    ),
+                ),
+                width="stretch",
+            )
+            with st.expander("Temperature-colored massing", expanded=False):
+                if pf.can_visualize:
+                    geom = _geom_from_text(idf_text)
+                    mass = idf_massing_figure(
+                        geom,
+                        zone_temps={zone_name: f_to_c(temp_f[step])},
+                        title=f"IDF massing · {st.session_state.idf_name}",
+                        height=520,
+                    )
+                    st.plotly_chart(mass, width="stretch")
+                else:
+                    st.warning(
+                        "Massing unavailable — IDF lacks BuildingSurface:Detailed. See Inputs → IDF compatibility."
+                    )
 
     with tab_grid:
         st.subheader("Grid flex calculator — 13×13 thermostat center search")
         st.markdown(
-            "The search is intentionally boring and honest: **freeze** experiment state "
-            "(model / weather / tariff / EnergyPlus version) → **enumerate** a 13×13 grid of "
-            "pre-window × event **center** setpoints (69.0–75.0°F in 0.5°F steps, fixed 2°F deadband so "
-            "heat = center−1 and cool = center+1) → **simulate** each of the 169 cells as one EnergyPlus "
-            "day → **gate** on the hard comfort band (FAIL, not a penalty) → **co-optimize** the battery on "
-            "purchased-grid kW and rank by illustrative $/day. No gradient, no pruning; `max_candidates` only "
-            "truncates from the front of the catalog for smoke runs."
+            "Freeze experiment state → enumerate a 13×13 grid of pre-window × event **center** setpoints "
+            "(69.0–75.0°F @ 0.5°F, fixed 2°F deadband) → **simulate** each cell as one EnergyPlus day → "
+            "gate on the hard comfort band → co-optimize battery on purchased-grid kW → rank by illustrative $/day."
         )
-        st.caption(
-            "That is the **live** path. Replaying committed fixtures runs no simulation at all — the "
-            "banner below says which one you are looking at."
-        )
+        _eplus_status_banner(live_ready, live_label)
         if season_key == "summer":
             st.caption("Fixed TOU-aligned hours · pre-window starts 13:00 · event 16–21 · recovery to 23:00.")
         else:
@@ -1421,25 +1411,6 @@ def main() -> None:
                 "the stale live ranking was dropped. Re-run the search to score the new configuration."
             )
 
-        if ranking is None:
-            st.warning("No ranking JSON available for this season.")
-        else:
-            src = (
-                st.session_state.get("session_ranking_path")
-                or f"fixtures/studio/{season_key}_thermostat_grid_ranking.json"
-            )
-            st.caption(f"Ranking source: `{src}` · catalog N = {n_cand}")
-            if ranking_is_proxy:
-                st.warning(f"**{PROXY_WARNING}.**")
-                st.caption(
-                    (str(ranking.get("schema_note")) if ranking.get("schema_note") else "")
-                    or "Committed fixture scores come from an algebraic scaling of the demo-day "
-                    "baseline series, not from an EnergyPlus run."
-                )
-            else:
-                st.success("Live EnergyPlus ranking from this session's search.")
-
-        live_ready, live_label = _live_sim_ready()
         if live_ready:
             if st.button("Run live EnergyPlus search", type="primary", key="grid_run_live"):
                 try:
@@ -1473,230 +1444,155 @@ def main() -> None:
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"Live grid failed: {exc}")
             st.caption(
-                f"Live path ({live_label}) writes `ranking.json` + `twin_export.json` under the session "
-                f"workspace · max candidates {int(st.session_state.grid_max_candidates)} of 169."
+                f"Live path ({live_label}) writes `ranking.json` + `twin_export.json` · "
+                f"max candidates {int(st.session_state.grid_max_candidates)} of 169."
             )
         else:
-            st.caption(
-                "No live EnergyPlus backend — **Run search** below replays the committed fixture "
-                "ranking. Set `ENERGYPLUS_EXE` for local, or worker URL/API key + `EPLUS_BACKEND=worker` "
-                "for Render (Streamlit Cloud: paste into Secrets)."
+            st.error(
+                "EnergyPlus not ready — configure local ENERGYPLUS_EXE or Render worker "
+                "(sidebar backend), then run a live search. Synthetic fixture rankings are not shown."
             )
 
-        evaluated = int(st.session_state.get("cand_step", 0))
-        if evaluated < 0:
-            evaluated = 0
-        if evaluated > n_cand:
-            evaluated = n_cand
-            st.session_state.cand_step = n_cand
+        if not has_live_ranking:
+            st.info("No live EnergyPlus ranking in this session yet.")
+        else:
+            src = st.session_state.get("session_ranking_path")
+            st.success(f"Live EnergyPlus ranking · `{src}` · catalog N = {n_cand}")
 
-        _transport(
-            "cand",
-            n_cand,
-            play_label="Run search",
-            step_label="Candidates evaluated",
-            metric_label="Progress",
-            inclusive_end=True,
-            show_clock=False,
-        )
+            evaluated = int(st.session_state.get("cand_step", 0))
+            if evaluated < 0:
+                evaluated = 0
+            if evaluated > n_cand:
+                evaluated = n_cand
+                st.session_state.cand_step = n_cand
 
-        progress = search_progress_state(anim_rows, evaluated)
-        ring_col, conv_col = st.columns([1, 1.4])
-        with ring_col:
-            st.plotly_chart(
-                search_progress_ring(
-                    progress["fraction"],
-                    label=f"{evaluated} / {n_cand} candidates",
-                    sublabel="Fixture proxy replay" if ranking_is_proxy else "EnergyPlus search",
-                ),
-                width="stretch",
+            _transport(
+                "cand",
+                n_cand,
+                play_label="Reveal results",
+                step_label="Candidates evaluated",
+                metric_label="Progress",
+                inclusive_end=True,
+                show_clock=False,
             )
-        with conv_col:
-            costs: list[float | None] = []
-            best_so_far: list[float | None] = []
-            rejected_indices: list[int] = []
-            running_best = float("inf")
-            for i, row in enumerate(anim_rows[:evaluated]):
-                try:
-                    cost_v = float(row.get("billing_cost"))
-                except (TypeError, ValueError):
-                    cost_v = float("inf")
-                feasible = (
-                    math.isfinite(cost_v)
-                    and bool(row.get("soft_ok"))
-                    and bool(row.get("comfort_ok"))
+
+            progress = search_progress_state(anim_rows, evaluated)
+            ring_col, conv_col = st.columns([1, 1.4])
+            with ring_col:
+                st.plotly_chart(
+                    search_progress_ring(
+                        progress["fraction"],
+                        label=f"{evaluated} / {n_cand} candidates",
+                        sublabel="EnergyPlus search",
+                    ),
+                    width="stretch",
                 )
-                if not feasible:
-                    costs.append(None)
-                    rejected_indices.append(i)
-                else:
-                    costs.append(cost_v)
-                    if cost_v < running_best:
-                        running_best = cost_v
-                best_so_far.append(None if running_best == float("inf") else running_best)
-            st.plotly_chart(
-                search_convergence_figure(
-                    costs=costs,
-                    best_so_far=best_so_far,
-                    current_index=max(evaluated - 1, 0),
-                    rejected_indices=rejected_indices,
-                    title="Search convergence ($/day)",
-                ),
-                width="stretch",
-            )
+            with conv_col:
+                costs: list[float | None] = []
+                best_so_far: list[float | None] = []
+                rejected_indices: list[int] = []
+                running_best = float("inf")
+                for i, row in enumerate(anim_rows[:evaluated]):
+                    try:
+                        cost_v = float(row.get("billing_cost"))
+                    except (TypeError, ValueError):
+                        cost_v = float("inf")
+                    feasible = (
+                        math.isfinite(cost_v)
+                        and bool(row.get("soft_ok"))
+                        and bool(row.get("comfort_ok"))
+                    )
+                    if not feasible:
+                        costs.append(None)
+                        rejected_indices.append(i)
+                    else:
+                        costs.append(cost_v)
+                        if cost_v < running_best:
+                            running_best = cost_v
+                    best_so_far.append(None if running_best == float("inf") else running_best)
+                st.plotly_chart(
+                    search_convergence_figure(
+                        costs=costs,
+                        best_so_far=best_so_far,
+                        current_index=max(evaluated - 1, 0),
+                        rejected_indices=rejected_indices,
+                        title="Search convergence ($/day)",
+                    ),
+                    width="stretch",
+                )
 
-        p1, p2, p3, p4 = st.columns(4)
-        p1.metric("EnergyPlus runs", f"{progress['eplus_runs']} / {progress['total_runs']}")
-        p2.metric("Feasible / rejected", f"{progress['feasible']} / {progress['rejected']}")
-        wall = progress["wall_seconds_so_far"]
-        proj = progress["wall_seconds_projected"]
-        p3.metric(
-            "Wall time",
-            f"{wall:.1f}s",
-            delta=None if proj is None else f"~{proj:.0f}s projected",
-        )
-        best_cost = progress["best_cost"]
-        p4.metric("Best cost", "—" if best_cost is None else f"${best_cost:.2f}")
-
-        if ranking_is_proxy:
-            st.caption(
-                "What is an iteration? Here it is **one pre-computed proxy score being revealed**, "
-                f"not a simulation: {PROXY_WARNING}. The `wall_seconds` behind the wall-time metric "
-                "are fixture placeholders. Run a live search for real EnergyPlus iterations."
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("EnergyPlus runs", f"{progress['eplus_runs']} / {progress['total_runs']}")
+            p2.metric("Feasible / rejected", f"{progress['feasible']} / {progress['rejected']}")
+            wall = progress["wall_seconds_so_far"]
+            proj = progress["wall_seconds_projected"]
+            p3.metric(
+                "Wall time",
+                f"{wall:.1f}s",
+                delta=None if proj is None else f"~{proj:.0f}s projected",
             )
-        else:
+            best_cost = progress["best_cost"]
+            p4.metric("Best cost", "—" if best_cost is None else f"${best_cost:.2f}")
             st.caption(
                 "What is an iteration? One catalog candidate = one full EnergyPlus day simulation "
-                "(plus a shared baseline run). The progress slider is candidates evaluated, not clock time."
+                "(plus a shared baseline run)."
             )
 
-        qt = qtable_matrix(anim_rows, evaluated=evaluated)
-        current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
-        best = _centers_from_row(progress.get("best_row"))
-        if qt["pre_centers"] and qt["event_centers"]:
-            st.plotly_chart(
-                qtable_heatmap_figure(
-                    pre_centers=qt["pre_centers"],
-                    event_centers=qt["event_centers"],
-                    costs=qt["costs"],
-                    current=current,
-                    best=best,
-                    title=(
-                        f"Grid flex Q-table ($/day) · {evaluated}/{n_cand} cells evaluated · "
-                        f"{'battery co-optimized' if st.session_state.attach_battery else 'thermal only'}"
-                        f"{' · PROXY' if ranking_is_proxy else ' · live E+'}"
+            qt = qtable_matrix(anim_rows, evaluated=evaluated)
+            current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
+            best = _centers_from_row(progress.get("best_row"))
+            if qt["pre_centers"] and qt["event_centers"]:
+                st.plotly_chart(
+                    qtable_heatmap_figure(
+                        pre_centers=qt["pre_centers"],
+                        event_centers=qt["event_centers"],
+                        costs=qt["costs"],
+                        current=current,
+                        best=best,
+                        title=(
+                            f"Grid flex Q-table ($/day) · {evaluated}/{n_cand} cells · "
+                            f"{'battery co-optimized' if st.session_state.attach_battery else 'thermal only'}"
+                            " · live E+"
+                        ),
                     ),
-                ),
-                width="stretch",
-            )
-            st.caption(
-                "Rows = pre-window center °F, columns = event center °F. Blank cells are not yet "
-                "evaluated or were rejected by the comfort / acceptance gate. "
-                + (
-                    f"Filled cells are **proxy scores** ({PROXY_WARNING}) — each one is an algebraic "
-                    "scaling of the baseline day, not an EnergyPlus day. Load a live E+ ranking to "
-                    "read these as simulations."
-                    if ranking_is_proxy
-                    else "Each filled cell is one live EnergyPlus day."
+                    width="stretch",
                 )
-            )
-        else:
-            st.info("No Q-table cells yet — press **Run search** (or run a live search) to evaluate candidates.")
-
-        st.code("\n".join(progress["log_lines"]) or "(press Run search)", language="text")
-
-        if st.button("Promote winner to Twin", type="primary", key="promote_winner"):
-            row = progress.get("best_row")
-            if row is None and ranking:
-                win = ranking.get("winner") or {}
-                if str(win.get("candidate_id")) == "BASELINE":
-                    for cand in ranking.get("rows") or []:
-                        if str(cand.get("candidate_id")) != "BASELINE":
-                            row = cand
-                            break
-                else:
-                    row = win
-            if not row:
-                st.warning("No feasible winner yet — advance the search or load a ranking.")
-            else:
-                promoted_id = str(row.get("candidate_id"))
-                st.session_state.promoted_candidate_id = row.get("candidate_id")
-                st.session_state.promoted_action = _parse_action(row.get("action_json"))
-                export_winner = (_load_session_twin_export(season_key) or {}).get("winner") or {}
-                trace_id = str(export_winner.get("candidate_id") or "")
-                has_trace = bool(export_winner.get("facility_kw")) and trace_id == promoted_id
-                st.session_state.promoted_has_trace = has_trace
-                if has_trace:
-                    kind = "fixture proxy" if ranking_is_proxy else "EnergyPlus"
-                    st.success(
-                        f"Promoted `{promoted_id}`. Twin replay will animate the winner {kind} traces "
-                        "(facility kW / zone °F, plus the co-optimized purchased kW / SOC when battery is on)."
-                    )
-                else:
-                    st.warning(
-                        f"Promoted `{promoted_id}`, but the twin export only carries traces for "
-                        f"`{trace_id or '—'}` — Twin keeps the baseline series. Finish the search (or run a "
-                        "live EnergyPlus search) so the promoted candidate is the exported winner."
-                    )
-                st.rerun()
-
-        with st.expander("Advanced: edit dimensions / legacy board", expanded=False):
-            st.caption(
-                "Legacy UX kept for transparency: the raw Cartesian dimension form, the enumerated catalog, "
-                "and the old two-stage optimizer board. Editing dimensions beyond the committed catalog "
-                "invalidates fixture replay scores."
-            )
-            dims = season_dimension_defaults(season_key)
-            for dim in dims:
-                dim_key = f"grid_dim_{dim.name}"
-                if dim_key not in st.session_state:
-                    st.session_state[dim_key] = format_dimension_values(dim.values)
-                st.text_input(
-                    f"{dim.name} (comma-separated)",
-                    key=dim_key,
-                    help="Edit values to re-enumerate the catalog. Fixture replay scores require a catalog match.",
+                st.caption(
+                    "Rows = pre-window center °F, columns = event center °F. "
+                    "Filled cells are live EnergyPlus scores from this session."
                 )
-            form = {dim.name: str(st.session_state.get(f"grid_dim_{dim.name}", "")) for dim in dims}
-            try:
-                form_dims = dimensions_from_form(form, season=season_key)
-                candidates = enumerate_from_form(form, season=season_key)
-                enum_ok = True
-                enum_err = None
-            except ValueError as exc:
-                form_dims = dims
-                candidates = ()
-                enum_ok = False
-                enum_err = str(exc)
-            st.code(
-                algorithm_pseudocode(season=season_key, dims=form_dims, n=len(candidates)),
-                language="text",
-            )
-            if not enum_ok:
-                st.error(f"Dimension form invalid: {enum_err}")
-            else:
-                st.metric("Enumerated catalog N", len(candidates))
-                head = candidates[:24]
-                st.table(
-                    [
-                        {
-                            "ordinal": c.ordinal,
-                            "id": c.candidate_id,
-                            "action": dict(c.action),
-                        }
-                        for c in head
-                    ]
+
+            if progress.get("best_row"):
+                br = progress["best_row"]
+                st.success(
+                    f"Best so far: `{br.get('candidate_id')}` · ${float(br.get('billing_cost')):.2f}/day"
                 )
-                if len(candidates) > len(head):
-                    st.caption(f"Showing first {len(head)} of {len(candidates)} enumerated candidates.")
-                if form_matches_fixture_catalog(form, season=season_key):
-                    st.caption("Form matches the committed catalog — fixture replay scores apply.")
-                else:
-                    st.caption(
-                        "Form does **not** match the committed catalog — live EnergyPlus scores are required; "
-                        "the replay above still shows the committed ranking."
+                if st.button("Promote best candidate to Twin / Flex", key="promote_best"):
+                    st.session_state.promoted_candidate_id = br.get("candidate_id")
+                    st.session_state.promoted_action = _parse_action(br.get("action_json"))
+                    st.session_state.promoted_has_trace = has_live_twin and bool(
+                        ((twin_export or {}).get("winner") or {}).get("facility_kw")
                     )
-            st.divider()
-            _render_grid_board(session_id, season_key, eplus)
+                    st.rerun()
+
+        with st.expander("Enumerate catalog (no scores)", expanded=False):
+            candidates = enumerate_grid(season_dimension_defaults(season_key))
+            head = candidates[:25]
+            st.write(
+                [
+                    {
+                        "ordinal": c.ordinal,
+                        "id": c.candidate_id,
+                        "action": dict(c.action),
+                    }
+                    for c in head
+                ]
+            )
+            if len(candidates) > len(head):
+                st.caption(f"Showing first {len(head)} of {len(candidates)} enumerated candidates.")
+            st.caption("Enumeration only — scores require a live EnergyPlus search.")
+        st.divider()
+        _render_grid_board(session_id, season_key, eplus)
 
     with tab_dr:
         from vibe23.comfort import degree_hours_abs_delta, degree_hours_outside_band, net_welfare_usd
@@ -1705,102 +1601,101 @@ def main() -> None:
         flex_export = twin_export or {}
         fx_base = flex_export.get("baseline") or {}
         fx_win = flex_export.get("winner") or {}
+        _eplus_status_banner(live_ready, live_label)
         use_export = (
-            len(fx_base.get("facility_kw") or []) == n_native
+            has_live_twin
+            and len(fx_base.get("facility_kw") or []) == n_native
             and len(fx_win.get("facility_kw") or []) == n_native
             and len(fx_base.get("zone_temp_f") or []) == n_native
             and len(fx_win.get("zone_temp_f") or []) == n_native
         )
-        if use_export:
+        if not use_export:
+            if live_ready:
+                st.info(
+                    "No live EnergyPlus baseline/winner pair in this session yet. "
+                    "Run **live EnergyPlus search** on the Grid search tab."
+                )
+            else:
+                st.error(
+                    "EnergyPlus not ready — grid flex calculator stays empty until a live backend is configured."
+                )
+        else:
             base_kw_native = [float(v) for v in fx_base["facility_kw"]]
             flex_kw_native = [float(v) for v in fx_win["facility_kw"]]
             base_temp_native = [float(v) for v in fx_base["zone_temp_f"]]
             flex_temp_native = [float(v) for v in fx_win["zone_temp_f"]]
             flex_id = str(fx_win.get("candidate_id") or "winner")
-            twin_is_proxy = str(flex_export.get("fixture_kind") or "") == PROXY_FIXTURE_KIND or not bool(
-                st.session_state.get("session_twin_export_path")
+            source_note = f"grid winner `{flex_id}` vs paired EnergyPlus baseline"
+
+            st.subheader(f"Grid flex calculator — {day.get('label', season_key)}")
+            window = "16–21" if season_key == "summer" else "6–9"
+            st.caption(
+                f"Winner-vs-baseline flex on the TOU peak window **{window}** · {source_note}. "
+                "Independent playhead from Twin replay — scrub or Play this comparison on its own clock."
             )
-            basis = "synthetic proxy baseline" if twin_is_proxy else "paired EnergyPlus baseline"
-            source_note = f"grid winner `{flex_id}` vs its {basis}"
-        else:
-            base_kw_native = list(day["baseline_kw"])
-            flex_kw_native = list(day["event_kw"])
-            base_temp_native = list(day["baseline_temp_f"])
-            flex_temp_native = list(day["event_temp_f"])
-            twin_is_proxy = True
-            source_note = "fixture flex day vs baseline day"
+            _transport("dr", n)
+            dr_step = int(st.session_state.dr_step)
+            end = dr_step + 1
 
-        st.subheader(f"Grid flex calculator — {day.get('label', season_key)}")
-        window = "16–21" if season_key == "summer" else "6–9"
-        st.caption(
-            f"Winner-vs-baseline flex on the TOU peak window **{window}** · {source_note}. "
-            "Independent playhead from Twin replay — scrub or Play this comparison on its own clock."
-        )
-        if twin_is_proxy:
-            st.warning(f"**{PROXY_WARNING}.** These traces are fixture replay, not simulation output.")
-        _transport("dr", n)
-        dr_step = int(st.session_state.dr_step)
-        end = dr_step + 1
-
-        base_kwh = daily_kwh(base_kw_native)
-        event_kwh = daily_kwh(flex_kw_native)
-        base_bill = day_bill(base_kw_native, season=season_key)
-        event_bill = day_bill(flex_kw_native, season=season_key)
-        bill_savings = base_bill - event_bill
-        dh_vs_base = degree_hours_abs_delta(flex_temp_native, base_temp_native)
-        band = degree_hours_outside_band(flex_temp_native)
-        wtp = float(st.session_state.comfort_wtp)
-        welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
-        d1, d2, d3, d4 = st.columns(4)
-        d1.metric("Baseline peak kW", f"{max(base_kw_native):.2f}")
-        d2.metric("Flex peak kW", f"{max(flex_kw_native):.2f}")
-        d3.metric("Bill savings $/day", f"${bill_savings:.2f}")
-        d4.metric(
-            "Net welfare $/day",
-            f"${welfare['net_welfare_usd']:.2f}",
-            delta=f"comfort −${welfare['comfort_cost_usd']:.2f}",
-        )
-        st.caption(
-            f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
-            f"**{comfort_ok(flex_temp_native)}** · "
-            f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
-            f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
-            f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE). "
-            "Thermal only — battery co-optimization is scored on the Grid search tab."
-        )
-        d5, d6 = st.columns(2)
-        d5.metric("Baseline day kWh", f"{base_kwh:.1f}")
-        d6.metric("Flex day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
-        base_disp = downsample_mean(base_kw_native, block)
-        event_disp = downsample_mean(flex_kw_native, block)
-        base_temp = downsample_mean(base_temp_native, block)
-        event_temp = downsample_mean(flex_temp_native, block)
-        base_cum = cumulative_kwh(base_disp, dt_hours=dt_hours)
-        event_cum = cumulative_kwh(event_disp, dt_hours=dt_hours)
-        hx = hours[:end]
-        fig = make_subplots(
-            rows=3,
-            cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.07,
-            subplot_titles=("Power (kW)", "Cumulative energy (kWh)", "Zone °F"),
-        )
-        fig.add_trace(go.Scatter(x=hx, y=base_disp[:end], name="Baseline kW", line=dict(color="#9AA7B8")), row=1, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="Flex kW", line=dict(color="#E8A838")), row=1, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=base_cum[:end], name="Baseline kWh", line=dict(color="#9AA7B8")), row=2, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="Flex kWh", line=dict(color="#E8A838")), row=2, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
-        fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="Flex °F", line=dict(color="#FF6B6B")), row=3, col=1)
-        if season_key == "summer":
-            fig.add_vrect(x0=16, x1=21, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
-        else:
-            fig.add_vrect(x0=6, x1=9, fillcolor="#8FB8FF", opacity=0.12, line_width=0, row=1, col=1)
-        vline_x = hours[dr_step] if hours else 0.0
-        for r in (1, 2, 3):
-            fig.add_vline(x=vline_x, line=dict(color="#64748B", width=1, dash="dot"), row=r, col=1)
-        fig.update_layout(height=560, legend=dict(orientation="h"), paper_bgcolor="rgba(0,0,0,0)")
-        fig.update_xaxes(range=[0, 24])
-        st.plotly_chart(fig, width="stretch")
+            base_kwh = daily_kwh(base_kw_native)
+            event_kwh = daily_kwh(flex_kw_native)
+            base_bill = day_bill(base_kw_native, season=season_key)
+            event_bill = day_bill(flex_kw_native, season=season_key)
+            bill_savings = base_bill - event_bill
+            dh_vs_base = degree_hours_abs_delta(flex_temp_native, base_temp_native)
+            band = degree_hours_outside_band(flex_temp_native)
+            wtp = float(st.session_state.comfort_wtp)
+            welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
+            d1, d2, d3, d4 = st.columns(4)
+            d1.metric("Baseline peak kW", f"{max(base_kw_native):.2f}")
+            d2.metric("Flex peak kW", f"{max(flex_kw_native):.2f}")
+            d3.metric("Bill savings $/day", f"${bill_savings:.2f}")
+            d4.metric(
+                "Net welfare $/day",
+                f"${welfare['net_welfare_usd']:.2f}",
+                delta=f"comfort −${welfare['comfort_cost_usd']:.2f}",
+            )
+            st.caption(
+                f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
+                f"**{comfort_ok(flex_temp_native)}** · "
+                f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
+                f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
+                f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE). "
+                "Thermal only — battery co-optimization is scored on the Grid search tab."
+            )
+            d5, d6 = st.columns(2)
+            d5.metric("Baseline day kWh", f"{base_kwh:.1f}")
+            d6.metric("Flex day kWh", f"{event_kwh:.1f}", delta=f"{event_kwh - base_kwh:+.1f}")
+            base_disp = downsample_mean(base_kw_native, block)
+            event_disp = downsample_mean(flex_kw_native, block)
+            base_temp = downsample_mean(base_temp_native, block)
+            event_temp = downsample_mean(flex_temp_native, block)
+            base_cum = cumulative_kwh(base_disp, dt_hours=dt_hours)
+            event_cum = cumulative_kwh(event_disp, dt_hours=dt_hours)
+            hx = hours[:end]
+            fig = make_subplots(
+                rows=3,
+                cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.07,
+                subplot_titles=("Power (kW)", "Cumulative energy (kWh)", "Zone °F"),
+            )
+            fig.add_trace(go.Scatter(x=hx, y=base_disp[:end], name="Baseline kW", line=dict(color="#9AA7B8")), row=1, col=1)
+            fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="Flex kW", line=dict(color="#E8A838")), row=1, col=1)
+            fig.add_trace(go.Scatter(x=hx, y=base_cum[:end], name="Baseline kWh", line=dict(color="#9AA7B8")), row=2, col=1)
+            fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="Flex kWh", line=dict(color="#E8A838")), row=2, col=1)
+            fig.add_trace(go.Scatter(x=hx, y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
+            fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="Flex °F", line=dict(color="#FF6B6B")), row=3, col=1)
+            if season_key == "summer":
+                fig.add_vrect(x0=16, x1=21, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
+            else:
+                fig.add_vrect(x0=6, x1=9, fillcolor="#8FB8FF", opacity=0.12, line_width=0, row=1, col=1)
+            vline_x = hours[dr_step] if hours else 0.0
+            for r in (1, 2, 3):
+                fig.add_vline(x=vline_x, line=dict(color="#64748B", width=1, dash="dot"), row=r, col=1)
+            fig.update_layout(height=560, legend=dict(orientation="h"), paper_bgcolor="rgba(0,0,0,0)")
+            fig.update_xaxes(range=[0, 24])
+            st.plotly_chart(fig, width="stretch")
 
     with tab_econ:
         from vibe23.economics import (
