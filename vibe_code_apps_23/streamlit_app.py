@@ -70,7 +70,6 @@ from vibe23.studio.idf_inspect import inspect_idf
 from vibe23.studio.idf_preflight import preflight_idf
 from vibe23.studio.search_progress import (
     candidate_rows_for_animation,
-    enumerate_grid,
     format_dimension_values,
     load_grid_ranking,
     load_twin_export,
@@ -308,10 +307,11 @@ def _init_state() -> None:
         "econ_annual_arb": 400.0,
         "econ_incl_dr": True,
         "econ_incl_res": False,
-        "grid_max_candidates": 2,
+        "grid_max_candidates": 169,
         "comfort_low_f": MAX_HEAT_F,
         "comfort_high_f": MAX_COOL_F,
-        "eplus_backend": (os.environ.get("EPLUS_BACKEND") or "auto").strip().lower() or "auto",
+        "eplus_backend": "worker",
+        "idf_uploaded": False,
         "epw_upload_name": None,
         "tariff_upload_name": None,
     }
@@ -499,11 +499,10 @@ def _sidebar_battery_params() -> BatteryParams:
 
 
 def _live_idf_arg(session_id: str) -> str | None:
-    """Path to the IDF a live run should simulate: the upload if present, else the default.
-
-    ``run_thermostat_grid`` takes a path, so an uploaded IDF held only in session state is
-    staged into the session export workspace first.
+    """Path to the browser-uploaded IDF (required). Never falls back to the package model.
     """
+    if not st.session_state.get("idf_uploaded"):
+        return None
     text = st.session_state.get("idf_text")
     if not text:
         return None
@@ -528,7 +527,7 @@ def _grid_config_fingerprint(season_key: str) -> str:
         "battery": _sidebar_battery_params().to_dict(),
         "comfort_low_f": float(st.session_state.comfort_low_f),
         "comfort_high_f": float(st.session_state.comfort_high_f),
-        "max_candidates": int(st.session_state.grid_max_candidates),
+        "max_candidates": 169,
         "idf": idf_id,
     }
     return hashlib.sha256(
@@ -693,52 +692,6 @@ def _render_battery_lab(day: dict, season_key: str) -> None:
             )
 
 
-def _render_grid_board(session_id: str, season_key: str, eplus) -> None:
-    st.subheader("Legacy live EnergyPlus grid")
-    live_ready, live_label = _live_sim_ready()
-    st.caption(
-        f"Backend: {live_label} · "
-        f"max candidates {int(st.session_state.grid_max_candidates)} · comfort band "
-        f"{float(st.session_state.comfort_low_f):.1f}–{float(st.session_state.comfort_high_f):.1f}°F. "
-        "No synthetic ranking board — results only after a live run."
-    )
-    if st.button("Run thermostat grid for selected season", key="legacy_run_grid"):
-        if not live_ready:
-            st.error(
-                "EnergyPlus not ready. Set ENERGYPLUS_EXE for local, or "
-                "EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY (+ EPLUS_BACKEND=worker) for Render."
-            )
-        else:
-            try:
-                from vibe23.residential.campaign import run_thermostat_grid
-
-                out = exports_dir(session_id) / "studio_grid" / season_key
-                with st.spinner(f"Running EnergyPlus candidates via {live_label}…"):
-                    result = run_thermostat_grid(
-                        season=season_key,
-                        output_root=out,
-                        max_candidates=int(st.session_state.grid_max_candidates),
-                        comfort_low_f=float(st.session_state.comfort_low_f),
-                        comfort_high_f=float(st.session_state.comfort_high_f),
-                        attach_battery=bool(st.session_state.attach_battery),
-                        battery_params=_sidebar_battery_params(),
-                        idf=_live_idf_arg(session_id),
-                        store_traces=True,
-                    )
-                _record_live_run(season_key, out)
-                ranking_payload = result.get("ranking") or {}
-                win = ranking_payload.get("winner") or {}
-                if win:
-                    st.session_state.promoted_candidate_id = win.get("candidate_id")
-                    st.session_state.promoted_action = _parse_action(win.get("action_json"))
-                    st.session_state.promoted_has_trace = bool(
-                        ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
-                    )
-                st.success(f"Grid finished · {out}")
-                st.rerun()
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"Live grid failed: {exc}")
-
 
 def main() -> None:
     _init_state()
@@ -778,18 +731,14 @@ def main() -> None:
         st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
         st.divider()
         with st.expander("EnergyPlus backend", expanded=True):
-            st.radio(
-                "Live simulation backend",
-                ["auto", "local", "worker"],
-                key="eplus_backend",
-                help=(
-                    "auto = native EnergyPlus if installed, else Render worker. "
-                    "worker = always use EPLUS_WORKER_URL (Streamlit Cloud secrets / .env). "
-                    "local = native ENERGYPLUS_EXE only."
-                ),
-            )
+            st.session_state.eplus_backend = "worker"
+            os.environ["EPLUS_BACKEND"] = "worker"
             live_ready, live_label = _live_sim_ready()
-            st.caption(f"Active: **{live_label}**")
+            st.caption(f"Backend locked to **Render worker** · {live_label}")
+            st.markdown(
+                "[Open Render worker](https://vibe23-energyplus-worker.onrender.com/) "
+                "(wake free-tier sleep) · docs at `/docs`"
+            )
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
                     f"Worker URL configured · API key "
@@ -894,15 +843,10 @@ def main() -> None:
                 key="comfort_high_f",
                 help="Hard comfort gate for the 13×13 center search. Cells that drift above FAIL.",
             )
-            st.slider(
-                "Max candidates",
-                1,
-                169,
-                step=1,
-                key="grid_max_candidates",
-                help="Truncates the front of the 169-cell catalog for live EnergyPlus smoke runs.",
+            st.caption(
+                "Full **169-cell** catalog every live run (no smoke truncate). "
+                "Comfort band gates ranking (FAIL, not a soft penalty)."
             )
-            st.caption("Comfort band gates live EnergyPlus ranking (FAIL, not a soft penalty).")
         st.divider()
         st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
         with st.expander("EnergyPlus environment", expanded=False):
@@ -1054,15 +998,21 @@ def main() -> None:
     dashboard = inspect_idf(idf_text, source_name=str(st.session_state.idf_name))
     pf = _preflight(idf_text, str(st.session_state.idf_name))
 
-    tab_inputs, tab_grid, tab_twin, tab_dr, tab_econ = st.tabs(
-        ["Inputs", "Grid search", "Twin replay", "Grid flex calculator", "Economics"]
+    tab_inputs, tab_twin, tab_dr, tab_econ = st.tabs(
+        ["Inputs", "Twin replay", "Grid flex calculator", "Economics"]
     )
 
     with tab_inputs:
         st.subheader("Upload model + weather + tariff")
         st.caption(
-            "Bring your own IDF (assumed calibrated), EPW weather, and pricing. "
-            "Live EnergyPlus (local or Render worker) is required for Grid search / Twin / Flex results."
+            "Upload an EnergyPlus **IDF in the browser** (required for any live run). "
+            "Optional EPW / tariff. Twin and Grid flex stay empty until a **full 169-cell** "
+            "Render worker campaign finishes."
+        )
+        st.markdown(
+            "Render worker: [https://vibe23-energyplus-worker.onrender.com/]"
+            "(https://vibe23-energyplus-worker.onrender.com/) — open to wake a sleeping free-tier "
+            "instance, or use **Wake / check Render worker** in the sidebar."
         )
         u1, u2, u3 = st.columns(3)
         with u1:
@@ -1096,6 +1046,7 @@ def main() -> None:
                 st.session_state.idf_text = idf_up.getvalue().decode("utf-8", errors="replace")
                 st.session_state.idf_name = idf_up.name
                 st.rerun()
+            st.session_state.idf_uploaded = True
             st.success(f"IDF loaded · {st.session_state.idf_name}")
         if epw_up is not None:
             token = (epw_up.name, int(epw_up.size), int(st.session_state.epw_month), int(st.session_state.epw_day))
@@ -1134,6 +1085,7 @@ def main() -> None:
         if st.button("Clear uploads", key="inputs_clear_uploads"):
             st.session_state.idf_text = None
             st.session_state.idf_name = MODEL_IDF.name
+            st.session_state.idf_uploaded = False
             st.session_state.outdoor_override = None
             st.session_state.rates_override = None
             st.session_state.epw_upload_name = None
@@ -1287,6 +1239,154 @@ def main() -> None:
         )
         st.caption("Parsed with Pydantic · geometry from BuildingSurface:Detailed (vibe20-style massing).")
 
+
+        st.divider()
+        st.subheader("Full 13×13 EnergyPlus campaign (Render)")
+        _eplus_status_banner(live_ready, live_label)
+        st.caption(
+            "Always runs the full **169** thermostat-center catalog on the Render worker "
+            "([https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)). "
+            "Browser IDF upload is mandatory — no package-model fallback."
+        )
+        if season_key == "summer":
+            st.caption("TOU hours · pre-window 13:00 · event 16–21 · recovery to 23:00.")
+        else:
+            st.caption("TOU hours · pre-window 05:00 · event 6–9 · recovery to 12:00.")
+        if stale_live_run:
+            st.info("Sidebar / season / IDF changed since the last live search — re-run required.")
+
+        idf_path = _live_idf_arg(session_id)
+        if not idf_path:
+            st.error("Upload an IDF above before running EnergyPlus on Render.")
+        if not live_ready:
+            st.error(
+                "EnergyPlus worker not ready — set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY "
+                "and wake [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
+            )
+        if st.button("Run full 169-cell EnergyPlus search on Render", type="primary", key="grid_run_live"):
+            idf_path = _live_idf_arg(session_id)
+            if not idf_path:
+                st.error("Upload an IDF in the browser first — live runs do not use the package model.")
+            elif not live_ready:
+                st.error("Render worker not ready — wake it and check API key secrets.")
+            else:
+                try:
+                    from vibe23.residential.campaign import run_thermostat_grid
+
+                    out = exports_dir(session_id) / "studio_grid" / season_key
+                    with st.spinner(
+                        "Full 169-cell campaign on Render — free tier can take a long time; "
+                        "wake the worker first if it was sleeping…"
+                    ):
+                        result = run_thermostat_grid(
+                            season=season_key,
+                            output_root=out,
+                            max_candidates=None,
+                            comfort_low_f=float(st.session_state.comfort_low_f),
+                            comfort_high_f=float(st.session_state.comfort_high_f),
+                            attach_battery=bool(st.session_state.attach_battery),
+                            battery_params=_sidebar_battery_params(),
+                            idf=idf_path,
+                            store_traces=True,
+                        )
+                    _record_live_run(season_key, out)
+                    ranking_payload = result.get("ranking") or {}
+                    st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
+                    win = ranking_payload.get("winner") or {}
+                    if win:
+                        st.session_state.promoted_candidate_id = win.get("candidate_id")
+                        st.session_state.promoted_action = _parse_action(win.get("action_json"))
+                        st.session_state.promoted_has_trace = bool(
+                            ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
+                        )
+                    st.success(f"Live search finished via {live_label} · {out}")
+                    st.rerun()
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Live grid failed: {exc}")
+
+        if has_live_ranking:
+            src = st.session_state.get("session_ranking_path")
+            st.success(f"Live EnergyPlus ranking · `{src}` · N = {n_cand}")
+            evaluated = int(st.session_state.get("cand_step", 0))
+            if evaluated < 0:
+                evaluated = 0
+            if evaluated > n_cand:
+                evaluated = n_cand
+                st.session_state.cand_step = n_cand
+            _transport(
+                "cand",
+                n_cand,
+                play_label="Reveal results",
+                step_label="Candidates evaluated",
+                metric_label="Progress",
+                inclusive_end=True,
+                show_clock=False,
+            )
+            progress = search_progress_state(anim_rows, evaluated)
+            ring_col, conv_col = st.columns([1, 1.4])
+            with ring_col:
+                st.plotly_chart(
+                    search_progress_ring(
+                        progress["fraction"],
+                        label=f"{evaluated} / {n_cand} candidates",
+                        sublabel="EnergyPlus (Render)",
+                    ),
+                    width="stretch",
+                )
+            with conv_col:
+                costs: list[float | None] = []
+                best_so_far: list[float | None] = []
+                rejected_indices: list[int] = []
+                running_best = float("inf")
+                for i, row in enumerate(anim_rows[:evaluated]):
+                    try:
+                        cost_v = float(row.get("billing_cost"))
+                    except (TypeError, ValueError):
+                        cost_v = float("inf")
+                    feasible = (
+                        math.isfinite(cost_v)
+                        and bool(row.get("soft_ok"))
+                        and bool(row.get("comfort_ok"))
+                    )
+                    if not feasible:
+                        costs.append(None)
+                        rejected_indices.append(i)
+                    else:
+                        costs.append(cost_v)
+                        if cost_v < running_best:
+                            running_best = cost_v
+                    best_so_far.append(None if running_best == float("inf") else running_best)
+                st.plotly_chart(
+                    search_convergence_figure(
+                        costs=costs,
+                        best_so_far=best_so_far,
+                        current_index=max(evaluated - 1, 0),
+                        rejected_indices=rejected_indices,
+                        title="Search convergence ($/day)",
+                    ),
+                    width="stretch",
+                )
+            qt = qtable_matrix(anim_rows, evaluated=evaluated)
+            current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
+            best = _centers_from_row(progress.get("best_row"))
+            if qt["pre_centers"] and qt["event_centers"]:
+                st.plotly_chart(
+                    qtable_heatmap_figure(
+                        pre_centers=qt["pre_centers"],
+                        event_centers=qt["event_centers"],
+                        costs=qt["costs"],
+                        current=current,
+                        best=best,
+                        title=f"Q-table ($/day) · {evaluated}/{n_cand} · live Render E+",
+                    ),
+                    width="stretch",
+                )
+            if progress.get("best_row"):
+                br = progress["best_row"]
+                st.success(
+                    f"Best so far: `{br.get('candidate_id')}` · ${float(br.get('billing_cost')):.2f}/day"
+                )
+
         st.subheader("IDF massing (static)")
         if pf.can_visualize:
             geom = _geom_from_text(idf_text)
@@ -1301,7 +1401,7 @@ def main() -> None:
             if live_ready:
                 st.info(
                     "No live EnergyPlus twin traces in this session yet. "
-                    "Run **live EnergyPlus search** on the Grid search tab."
+                    "Upload an IDF on **Inputs** and run the full Render campaign."
                 )
             else:
                 st.error("EnergyPlus not ready — twin replay stays empty until a live backend is configured.")
@@ -1314,7 +1414,7 @@ def main() -> None:
             else:
                 st.caption(
                     "Animating the **EnergyPlus baseline** from this session's live search. "
-                    "Promote a winner on **Grid search** to animate its traces here."
+                    "A live Render campaign winner promotes automatically when traces are available."
                 )
             _transport("twin", n)
             m1, m2, m3, m4, m5, m6 = st.columns(6)
@@ -1381,219 +1481,6 @@ def main() -> None:
                         "Massing unavailable — IDF lacks BuildingSurface:Detailed. See Inputs → IDF compatibility."
                     )
 
-    with tab_grid:
-        st.subheader("Grid flex calculator — 13×13 thermostat center search")
-        st.markdown(
-            "Freeze experiment state → enumerate a 13×13 grid of pre-window × event **center** setpoints "
-            "(69.0–75.0°F @ 0.5°F, fixed 2°F deadband) → **simulate** each cell as one EnergyPlus day → "
-            "gate on the hard comfort band → co-optimize battery on purchased-grid kW → rank by illustrative $/day."
-        )
-        _eplus_status_banner(live_ready, live_label)
-        if season_key == "summer":
-            st.caption("Fixed TOU-aligned hours · pre-window starts 13:00 · event 16–21 · recovery to 23:00.")
-        else:
-            st.caption("Fixed TOU-aligned hours · pre-window starts 05:00 · event 6–9 · recovery to 12:00.")
-        st.caption(
-            f"Comfort FAIL band (sidebar): **{float(st.session_state.comfort_low_f):.1f}–"
-            f"{float(st.session_state.comfort_high_f):.1f}°F** · battery co-optimization "
-            f"**{'ON' if st.session_state.attach_battery else 'OFF'}** · "
-            f"claim boundary HYPOTHETICAL_GL14_TUNED_DEMO_MODEL / ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF."
-        )
-        st.caption(
-            "Acceptance is the strict gate: a candidate is only rankable when EnergyPlus finished "
-            "with **zero fatals and zero severes** (`ok`), and battery scoring restores the day's "
-            "closing SOC so no cell can win by draining the battery."
-        )
-
-        if stale_live_run:
-            st.info(
-                "Sidebar battery / comfort band / season / IDF changed since the last live search — "
-                "the stale live ranking was dropped. Re-run the search to score the new configuration."
-            )
-
-        if live_ready:
-            if st.button("Run live EnergyPlus search", type="primary", key="grid_run_live"):
-                try:
-                    from vibe23.residential.campaign import run_thermostat_grid
-
-                    out = exports_dir(session_id) / "studio_grid" / season_key
-                    with st.spinner(f"Running EnergyPlus candidates via {live_label}…"):
-                        result = run_thermostat_grid(
-                            season=season_key,
-                            output_root=out,
-                            max_candidates=int(st.session_state.grid_max_candidates),
-                            comfort_low_f=float(st.session_state.comfort_low_f),
-                            comfort_high_f=float(st.session_state.comfort_high_f),
-                            attach_battery=bool(st.session_state.attach_battery),
-                            battery_params=_sidebar_battery_params(),
-                            idf=_live_idf_arg(session_id),
-                            store_traces=True,
-                        )
-                    _record_live_run(season_key, out)
-                    ranking_payload = result.get("ranking") or {}
-                    st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
-                    win = ranking_payload.get("winner") or {}
-                    if win:
-                        st.session_state.promoted_candidate_id = win.get("candidate_id")
-                        st.session_state.promoted_action = _parse_action(win.get("action_json"))
-                        st.session_state.promoted_has_trace = bool(
-                            ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
-                        )
-                    st.success(f"Live search finished via {live_label} · {out}")
-                    st.rerun()
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Live grid failed: {exc}")
-            st.caption(
-                f"Live path ({live_label}) writes `ranking.json` + `twin_export.json` · "
-                f"max candidates {int(st.session_state.grid_max_candidates)} of 169."
-            )
-        else:
-            st.error(
-                "EnergyPlus not ready — configure local ENERGYPLUS_EXE or Render worker "
-                "(sidebar backend), then run a live search. Synthetic fixture rankings are not shown."
-            )
-
-        if not has_live_ranking:
-            st.info("No live EnergyPlus ranking in this session yet.")
-        else:
-            src = st.session_state.get("session_ranking_path")
-            st.success(f"Live EnergyPlus ranking · `{src}` · catalog N = {n_cand}")
-
-            evaluated = int(st.session_state.get("cand_step", 0))
-            if evaluated < 0:
-                evaluated = 0
-            if evaluated > n_cand:
-                evaluated = n_cand
-                st.session_state.cand_step = n_cand
-
-            _transport(
-                "cand",
-                n_cand,
-                play_label="Reveal results",
-                step_label="Candidates evaluated",
-                metric_label="Progress",
-                inclusive_end=True,
-                show_clock=False,
-            )
-
-            progress = search_progress_state(anim_rows, evaluated)
-            ring_col, conv_col = st.columns([1, 1.4])
-            with ring_col:
-                st.plotly_chart(
-                    search_progress_ring(
-                        progress["fraction"],
-                        label=f"{evaluated} / {n_cand} candidates",
-                        sublabel="EnergyPlus search",
-                    ),
-                    width="stretch",
-                )
-            with conv_col:
-                costs: list[float | None] = []
-                best_so_far: list[float | None] = []
-                rejected_indices: list[int] = []
-                running_best = float("inf")
-                for i, row in enumerate(anim_rows[:evaluated]):
-                    try:
-                        cost_v = float(row.get("billing_cost"))
-                    except (TypeError, ValueError):
-                        cost_v = float("inf")
-                    feasible = (
-                        math.isfinite(cost_v)
-                        and bool(row.get("soft_ok"))
-                        and bool(row.get("comfort_ok"))
-                    )
-                    if not feasible:
-                        costs.append(None)
-                        rejected_indices.append(i)
-                    else:
-                        costs.append(cost_v)
-                        if cost_v < running_best:
-                            running_best = cost_v
-                    best_so_far.append(None if running_best == float("inf") else running_best)
-                st.plotly_chart(
-                    search_convergence_figure(
-                        costs=costs,
-                        best_so_far=best_so_far,
-                        current_index=max(evaluated - 1, 0),
-                        rejected_indices=rejected_indices,
-                        title="Search convergence ($/day)",
-                    ),
-                    width="stretch",
-                )
-
-            p1, p2, p3, p4 = st.columns(4)
-            p1.metric("EnergyPlus runs", f"{progress['eplus_runs']} / {progress['total_runs']}")
-            p2.metric("Feasible / rejected", f"{progress['feasible']} / {progress['rejected']}")
-            wall = progress["wall_seconds_so_far"]
-            proj = progress["wall_seconds_projected"]
-            p3.metric(
-                "Wall time",
-                f"{wall:.1f}s",
-                delta=None if proj is None else f"~{proj:.0f}s projected",
-            )
-            best_cost = progress["best_cost"]
-            p4.metric("Best cost", "—" if best_cost is None else f"${best_cost:.2f}")
-            st.caption(
-                "What is an iteration? One catalog candidate = one full EnergyPlus day simulation "
-                "(plus a shared baseline run)."
-            )
-
-            qt = qtable_matrix(anim_rows, evaluated=evaluated)
-            current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
-            best = _centers_from_row(progress.get("best_row"))
-            if qt["pre_centers"] and qt["event_centers"]:
-                st.plotly_chart(
-                    qtable_heatmap_figure(
-                        pre_centers=qt["pre_centers"],
-                        event_centers=qt["event_centers"],
-                        costs=qt["costs"],
-                        current=current,
-                        best=best,
-                        title=(
-                            f"Grid flex Q-table ($/day) · {evaluated}/{n_cand} cells · "
-                            f"{'battery co-optimized' if st.session_state.attach_battery else 'thermal only'}"
-                            " · live E+"
-                        ),
-                    ),
-                    width="stretch",
-                )
-                st.caption(
-                    "Rows = pre-window center °F, columns = event center °F. "
-                    "Filled cells are live EnergyPlus scores from this session."
-                )
-
-            if progress.get("best_row"):
-                br = progress["best_row"]
-                st.success(
-                    f"Best so far: `{br.get('candidate_id')}` · ${float(br.get('billing_cost')):.2f}/day"
-                )
-                if st.button("Promote best candidate to Twin / Flex", key="promote_best"):
-                    st.session_state.promoted_candidate_id = br.get("candidate_id")
-                    st.session_state.promoted_action = _parse_action(br.get("action_json"))
-                    st.session_state.promoted_has_trace = has_live_twin and bool(
-                        ((twin_export or {}).get("winner") or {}).get("facility_kw")
-                    )
-                    st.rerun()
-
-        with st.expander("Enumerate catalog (no scores)", expanded=False):
-            candidates = enumerate_grid(season_dimension_defaults(season_key))
-            head = candidates[:25]
-            st.write(
-                [
-                    {
-                        "ordinal": c.ordinal,
-                        "id": c.candidate_id,
-                        "action": dict(c.action),
-                    }
-                    for c in head
-                ]
-            )
-            if len(candidates) > len(head):
-                st.caption(f"Showing first {len(head)} of {len(candidates)} enumerated candidates.")
-            st.caption("Enumeration only — scores require a live EnergyPlus search.")
-        st.divider()
-        _render_grid_board(session_id, season_key, eplus)
-
     with tab_dr:
         from vibe23.comfort import degree_hours_abs_delta, degree_hours_outside_band, net_welfare_usd
         from vibe23.residential.thermostat import comfort_ok
@@ -1613,7 +1500,7 @@ def main() -> None:
             if live_ready:
                 st.info(
                     "No live EnergyPlus baseline/winner pair in this session yet. "
-                    "Run **live EnergyPlus search** on the Grid search tab."
+                    "Upload an IDF on **Inputs** and run the full Render campaign."
                 )
             else:
                 st.error(
