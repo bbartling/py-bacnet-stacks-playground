@@ -77,7 +77,8 @@ Studio is **Render-worker only** for live sims (no native EnergyPlus on Cloud). 
 2. [share.streamlit.io](https://share.streamlit.io/) → **New app** → this repo → set:
    - **Main file path:** `vibe_code_apps_23/streamlit_app.py`
    - **Python version:** 3.12
-3. **App settings → Secrets** (TOML):
+   - Branch: **`develop`**
+3. **App settings → Secrets** (TOML) — paste into the editor, Save, then Reboot app:
 
 ```toml
 EPLUS_BACKEND = "worker"

@@ -1,13 +1,10 @@
-# Studio dependencies under the filename Streamlit Community Cloud auto-detects.
+# Studio dependencies — Streamlit Community Cloud auto-detects this file next to
+# streamlit_app.py. Cloud's pip CWD is the *GitHub repo root*, so the editable
+# install must be `-e ./vibe_code_apps_23` (not `-e .`).
 #
-# Nested -r paths are resolved relative to this file, so the pinned studio set stays in
-# one place (requirements-studio.txt) and cannot drift from this file.
+# Nested -r paths are resolved relative to this file.
+# Local editable install from this directory:  pip install -e ".[studio]"
 #
-# EnergyPlus is NOT installable via this file (pip only). Live sims need a full native
-# EnergyPlus 26.1 tree — see README "Deployment note" and packages.txt.
+# EnergyPlus is NOT installable via pip. Live sims use the Render worker.
 -r requirements-studio.txt
-
-# The app imports `vibe23`, so the package itself must be installed. pip resolves this
-# relative path against the working directory, which must be this app directory
-# (vibe_code_apps_23). Locally: `py -3.12 -m pip install -r requirements.txt` from here.
--e .
+-e ./vibe_code_apps_23
