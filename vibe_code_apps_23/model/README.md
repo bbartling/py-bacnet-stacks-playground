@@ -28,7 +28,11 @@ loudly — fix the IDF, not the parser.
 
 ## Weather
 
-Default EPW: Golden/NREL TMY3 (`USA_CO_Golden-NREL.724666_TMY3.epw`) as Denver-type climate.
+Default EPW (committed next to the IDF):
+
+[`USA_CO_Golden-NREL.724666_TMY3.epw`](USA_CO_Golden-NREL.724666_TMY3.epw) — Golden/NREL TMY3 as Denver-type climate.
+
+Studio uploads can override weather for the hourly editor; live Render campaigns use the worker’s EPW staging from the residential runner (package Golden file when present).
 
 ## Simplifications you must know before reading results
 

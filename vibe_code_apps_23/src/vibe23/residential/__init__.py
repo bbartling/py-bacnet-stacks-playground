@@ -12,7 +12,7 @@ from .constants import (
     MAX_COOL_F,
     MAX_HEAT_F,
 )
-from .model import MODEL_IDF, PACKAGE_ROOT, equipment_provenance, find_denver_epw
+from .model import DEFAULT_EPW, MODEL_IDF, PACKAGE_ROOT, equipment_provenance, find_denver_epw
 from .thermostat import (
     apply_setpoint_schedules_to_idf,
     baseline_setpoints_f,
@@ -28,6 +28,7 @@ __all__ = [
     "CLAIM_ASSUMPTIONS",
     "CLAIM_MODEL",
     "CLAIM_TARIFF",
+    "DEFAULT_EPW",
     "DEFAULT_COOL_F",
     "DEFAULT_HEAT_F",
     "DT_HOURS",

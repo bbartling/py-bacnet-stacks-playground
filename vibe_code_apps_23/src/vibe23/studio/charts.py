@@ -24,10 +24,11 @@ def playback_figure(
     cumulative_purchased_kwh: Sequence[float] | None,
     step: int,
     title: str,
+    temp_unit_label: str = "°F",
 ) -> go.Figure:
     rows = 4 if soc_pct is not None else 3
     specs = [[{"secondary_y": True}], [{"secondary_y": False}], [{"secondary_y": False}]]
-    row_titles = ["Power (kW) / TOU price", "Cumulative energy (kWh)", "Zone °F"]
+    row_titles = ["Power (kW) / TOU price", "Cumulative energy (kWh)", f"Zone {temp_unit_label}"]
     if soc_pct is not None:
         specs.append([{"secondary_y": False}])
         row_titles.append("Battery SOC %")
@@ -95,7 +96,12 @@ def playback_figure(
         )
 
     fig.add_trace(
-        go.Scatter(x=x, y=list(temp_f[:end]), name="Zone °F", line=dict(color="#FF6B6B", width=2)),
+        go.Scatter(
+            x=x,
+            y=list(temp_f[:end]),
+            name=f"Zone {temp_unit_label}",
+            line=dict(color="#FF6B6B", width=2),
+        ),
         row=3,
         col=1,
     )
@@ -120,7 +126,7 @@ def playback_figure(
     fig.update_yaxes(title_text="kW", row=1, col=1, secondary_y=False)
     fig.update_yaxes(title_text="$/kWh", row=1, col=1, secondary_y=True)
     fig.update_yaxes(title_text="kWh", row=2, col=1)
-    fig.update_yaxes(title_text="°F", row=3, col=1)
+    fig.update_yaxes(title_text=temp_unit_label, row=3, col=1)
     fig.update_xaxes(title_text="Hour of day", row=rows, col=1)
     fig.update_layout(
         title=title,
@@ -205,11 +211,12 @@ def outdoor_kwh_cost_figure(
     hourly_cost: Sequence[float],
     title: str,
     theme: str = "light",
+    temp_unit_label: str = "°F",
 ):
     """Static 24-hour plot (does not follow the playhead).
 
     Top: house kWh/hour (left) and illustrative $/hour (right).
-    Bottom: outdoor dry-bulb °F used by the weather file for this extreme day.
+    Bottom: outdoor dry-bulb used by the weather file for this extreme day.
     """
     hours = list(range(24))
     dark = theme == "dark"
@@ -222,7 +229,7 @@ def outdoor_kwh_cost_figure(
         shared_xaxes=True,
         vertical_spacing=0.12,
         specs=[[{"secondary_y": True}], [{"secondary_y": False}]],
-        subplot_titles=("Hourly energy and illustrative cost", "Outdoor dry-bulb (weather file)"),
+        subplot_titles=("Hourly energy and illustrative cost", f"Outdoor dry-bulb ({temp_unit_label})"),
     )
     fig.add_trace(
         go.Scatter(x=hours, y=list(hourly_kwh), name="House kWh / hour", line=dict(color=kwh_color, width=2.5)),
@@ -242,7 +249,13 @@ def outdoor_kwh_cost_figure(
         secondary_y=True,
     )
     fig.add_trace(
-        go.Scatter(x=hours, y=list(outdoor_f), name="Outdoor °F", line=dict(color=temp_color, width=2.5), fill="tozeroy"),
+        go.Scatter(
+            x=hours,
+            y=list(outdoor_f),
+            name=f"Outdoor {temp_unit_label}",
+            line=dict(color=temp_color, width=2.5),
+            fill="tozeroy",
+        ),
         row=2,
         col=1,
     )
@@ -250,7 +263,7 @@ def outdoor_kwh_cost_figure(
     fig.update_layout(title=title, height=420, **{k: v for k, v in layout.items() if k != "margin"})
     fig.update_yaxes(title_text="kWh / hour", row=1, col=1, secondary_y=False)
     fig.update_yaxes(title_text="$ / hour", row=1, col=1, secondary_y=True)
-    fig.update_yaxes(title_text="Outdoor °F", row=2, col=1)
+    fig.update_yaxes(title_text=f"Outdoor {temp_unit_label}", row=2, col=1)
     fig.update_xaxes(title_text="Hour of day", row=2, col=1, dtick=2)
     return fig
 

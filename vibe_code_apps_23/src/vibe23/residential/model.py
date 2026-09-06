@@ -7,13 +7,17 @@ from pathlib import Path
 PACKAGE_ROOT = Path(__file__).resolve().parents[3]
 MODEL_IDF = PACKAGE_ROOT / "model" / "residential_heat_pump_home.idf"
 DEFAULT_EPW_NAME = "USA_CO_Golden-NREL.724666_TMY3.epw"
+# Packaged Golden/NREL EPW lives next to the demo IDF (committed). Local EnergyPlus
+# install paths remain as optional fallbacks for CLI/dev only — Studio uses Render.
+DEFAULT_EPW = PACKAGE_ROOT / "model" / DEFAULT_EPW_NAME
 DEFAULT_EPW_CANDIDATES = (
+    DEFAULT_EPW,
+    PACKAGE_ROOT / "weather" / DEFAULT_EPW_NAME,
+    PACKAGE_ROOT / "fixtures" / "weather" / DEFAULT_EPW_NAME,
     Path(r"C:\EnergyPlusV26-1-0\WeatherData") / DEFAULT_EPW_NAME,
     Path("/usr/local/EnergyPlus-26-1-0/WeatherData") / DEFAULT_EPW_NAME,
     Path("/opt/EnergyPlus-26-1-0/WeatherData") / DEFAULT_EPW_NAME,
     Path("/Applications/EnergyPlus-26-1-0/WeatherData") / DEFAULT_EPW_NAME,
-    PACKAGE_ROOT / "weather" / DEFAULT_EPW_NAME,
-    PACKAGE_ROOT / "fixtures" / "weather" / DEFAULT_EPW_NAME,
 )
 
 
@@ -37,11 +41,17 @@ def equipment_provenance() -> dict[str, str]:
             "(~0.6 kW average on 325 m2; RECS-scale non-HVAC order — not ALWAYS_ON phantom)"
         ),
         "note": "Curves copied into repo IDF; install DataSets files are not modified.",
+        "package_idf": str(MODEL_IDF),
+        "package_epw": str(DEFAULT_EPW),
     }
 
 
 def find_denver_epw(explicit: Path | str | None = None) -> Path | None:
-    """Locate the Golden/NREL TMY3 EPW used as the Denver-type weather file."""
+    """Locate the Golden/NREL TMY3 EPW used as the Denver-type weather file.
+
+    Prefers the committed package copy under ``model/`` so Studio/CLI do not
+    depend on a local EnergyPlus install path.
+    """
 
     from ..envfile import load_energyplus_env
 
@@ -49,6 +59,8 @@ def find_denver_epw(explicit: Path | str | None = None) -> Path | None:
     candidates: list[Path] = []
     if explicit:
         candidates.append(Path(explicit).expanduser())
+    # Packaged EPW before ENERGYPLUS_WEATHER so .env install paths do not win.
+    candidates.append(DEFAULT_EPW)
     weather = os.environ.get("ENERGYPLUS_WEATHER", "").strip()
     if weather:
         candidates.append(Path(weather).expanduser())
@@ -58,11 +70,16 @@ def find_denver_epw(explicit: Path | str | None = None) -> Path | None:
         if folder:
             candidates.append(Path(folder).expanduser() / DEFAULT_EPW_NAME)
     candidates.extend(DEFAULT_EPW_CANDIDATES)
+    seen: set[str] = set()
     for candidate in candidates:
         try:
             resolved = candidate.resolve()
         except OSError:
             continue
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
         if resolved.is_file():
             return resolved
     return None

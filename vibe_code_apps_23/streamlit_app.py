@@ -1,17 +1,19 @@
 """Vibe 23 Residential DSM Studio — Streamlit console.
 
-Live EnergyPlus (local or Render worker) powers Grid search / Twin / Flex.
-No synthetic proxy rankings are shown as results — without a live backend or
-session run those tabs say EnergyPlus not ready.
+Live EnergyPlus on the Render worker powers Grid search / Twin / Flex.
+No synthetic proxy rankings are shown as results — without a configured
+worker or session run those tabs say EnergyPlus not ready.
 
 Launch (Windows / Linux / macOS)::
 
     pip install -e ".[studio]"
-    cp .env.example .env   # edit ENERGYPLUS_* / EPLUS_WORKER_* for live runs
+    cp .env.example .env   # set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY
     # Preferred on Windows (pins Python 3.12 + Streamlit 1.59.2):
     .\\scripts\\run_studio.ps1
     # Or:
     streamlit run streamlit_app.py
+
+Human guide: AGENTS.md · demo IDF/EPW under model/
 """
 from __future__ import annotations
 
@@ -20,7 +22,6 @@ import io
 import json
 import math
 import os
-import sys
 import time
 
 import pandas as pd
@@ -29,10 +30,9 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from vibe23.battery import BatteryParams
-from vibe23.energyplus import resolve_native_energyplus
 from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
-from vibe23.residential.model import MODEL_IDF, equipment_provenance, find_denver_epw
+from vibe23.residential.model import DEFAULT_EPW, MODEL_IDF, equipment_provenance
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
 from vibe23.studio.charts import (
     cost_bar_figure,
@@ -55,7 +55,6 @@ from vibe23.studio.demo_data import (
     dsm_block_size,
     dsm_dt_hours,
     dsm_steps_per_day,
-    energy_intensity_kwh_per_ft2,
     f_to_c,
     hourly_cost,
     hourly_kwh,
@@ -64,6 +63,18 @@ from vibe23.studio.demo_data import (
     load_season_day,
     outdoor_hour_index,
     run_battery_on_load,
+)
+from vibe23.studio.units import (
+    area_unit,
+    c_to_f,
+    comfort_wtp_label,
+    display_area,
+    display_temp,
+    display_temp_series,
+    energy_intensity,
+    intensity_unit,
+    normalize_units,
+    temp_unit,
 )
 from vibe23.studio.idf_geometry import idf_massing_figure, parse_idf_geometry
 from vibe23.studio.idf_inspect import inspect_idf
@@ -123,30 +134,20 @@ def _apply_cloud_secrets() -> None:
 
 
 def _sync_eplus_backend_env() -> str:
-    """Mirror sidebar backend choice into os.environ (do not mutate widget state)."""
-    backend = str(st.session_state.get("eplus_backend") or os.environ.get("EPLUS_BACKEND") or "auto").strip().lower()
-    if backend not in {"auto", "local", "worker"}:
-        backend = "auto"
-    os.environ["EPLUS_BACKEND"] = backend
-    return backend
+    """Studio is Render-only — always pin worker backend."""
+    os.environ["EPLUS_BACKEND"] = "worker"
+    st.session_state.eplus_backend = "worker"
+    return "worker"
 
 
 def _live_sim_ready() -> tuple[bool, str]:
     """Return (ready, human label) for live EnergyPlus search buttons."""
     from vibe23.energyplus_worker import worker_configured
 
-    backend = _sync_eplus_backend_env()
-    local = resolve_native_energyplus() is not None
-    remote = worker_configured()
-    if backend == "worker":
-        return remote, "Render EnergyPlus worker" if remote else "worker URL/API key missing"
-    if backend == "local":
-        return local, "native EnergyPlus" if local else "ENERGYPLUS_EXE not found"
-    if local:
-        return True, "native EnergyPlus (auto)"
-    if remote:
-        return True, "Render EnergyPlus worker (auto)"
-    return False, "no native EnergyPlus and no worker configured"
+    _sync_eplus_backend_env()
+    if worker_configured():
+        return True, "Render EnergyPlus worker"
+    return False, "worker URL/API key missing"
 
 
 _apply_cloud_secrets()
@@ -307,11 +308,12 @@ def _init_state() -> None:
         "econ_annual_arb": 400.0,
         "econ_incl_dr": True,
         "econ_incl_res": False,
-        "grid_max_candidates": 169,
+        "grid_max_candidates": 5,
         "comfort_low_f": MAX_HEAT_F,
         "comfort_high_f": MAX_COOL_F,
         "eplus_backend": "worker",
         "idf_uploaded": False,
+        "units": "imperial",
         "epw_upload_name": None,
         "tariff_upload_name": None,
     }
@@ -354,6 +356,7 @@ def _clear_session() -> None:
     st.session_state.grid_config_fp = None
     st.session_state.comfort_low_f = MAX_HEAT_F
     st.session_state.comfort_high_f = MAX_COOL_F
+    st.session_state.grid_max_candidates = 5
     st.session_state.idf_text = None
     st.session_state.idf_name = MODEL_IDF.name
     st.session_state.outdoor_override = None
@@ -513,6 +516,19 @@ def _live_idf_arg(session_id: str) -> str | None:
     return str(target)
 
 
+def _grid_max_candidates() -> int | None:
+    """Catalog truncate for live Render runs. None = full 169."""
+    n = int(st.session_state.get("grid_max_candidates") or 169)
+    if n >= 169:
+        return None
+    return max(1, n)
+
+
+def _grid_candidate_count_label() -> str:
+    n = _grid_max_candidates()
+    return "169" if n is None else str(n)
+
+
 def _grid_config_fingerprint(season_key: str) -> str:
     """Identity of every input a live grid search consumes.
 
@@ -527,12 +543,56 @@ def _grid_config_fingerprint(season_key: str) -> str:
         "battery": _sidebar_battery_params().to_dict(),
         "comfort_low_f": float(st.session_state.comfort_low_f),
         "comfort_high_f": float(st.session_state.comfort_high_f),
-        "max_candidates": 169,
+        "max_candidates": _grid_max_candidates() or 169,
         "idf": idf_id,
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def _render_zone_drift_sliders(*, units: str, t_unit: str) -> None:
+    """Unit-aware allowable zone temp band (stored internally as °F)."""
+    st.caption(
+        f"Hard FAIL gate for Render ranking — zone must stay inside this band "
+        f"(display {t_unit}; EnergyPlus scoring stays °F)."
+    )
+    if units == "metric":
+        low_c = st.slider(
+            f"Allowable zone low {t_unit} (FAIL below)",
+            display_temp(60.0, "metric"),
+            display_temp(72.0, "metric"),
+            value=display_temp(float(st.session_state.comfort_low_f), "metric"),
+            step=0.25,
+            help="Cells whose zone temp dips below this FAIL comfort.",
+        )
+        high_c = st.slider(
+            f"Allowable zone high {t_unit} (FAIL above)",
+            display_temp(72.0, "metric"),
+            display_temp(85.0, "metric"),
+            value=display_temp(float(st.session_state.comfort_high_f), "metric"),
+            step=0.25,
+            help="Cells whose zone temp drifts above this FAIL comfort.",
+        )
+        st.session_state.comfort_low_f = c_to_f(float(low_c))
+        st.session_state.comfort_high_f = c_to_f(float(high_c))
+    else:
+        st.slider(
+            f"Allowable zone low {t_unit} (FAIL below)",
+            60.0,
+            72.0,
+            step=0.5,
+            key="comfort_low_f",
+            help="Cells whose zone temp dips below this FAIL comfort.",
+        )
+        st.slider(
+            f"Allowable zone high {t_unit} (FAIL above)",
+            72.0,
+            85.0,
+            step=0.5,
+            key="comfort_high_f",
+            help="Cells whose zone temp drifts above this FAIL comfort.",
+        )
 
 
 def _invalidate_stale_live_run(season_key: str) -> bool:
@@ -705,15 +765,27 @@ def main() -> None:
     rates_native = _rates_for_season(season_key)
     outdoor = st.session_state.outdoor_override or _outdoor(season_key)
 
-    eplus = resolve_native_energyplus()
-    epw = find_denver_epw()
     live_ready, live_label = _live_sim_ready()
+
+    units = normalize_units(st.session_state.get("units"))
+    t_unit = temp_unit(units)
+    a_unit = area_unit(units)
+    i_unit = intensity_unit(units)
+    prov = equipment_provenance()
 
     st.title("Vibe 23 — Residential DSM Studio")
     st.caption(
-        "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · Carrier 50EZ060 · "
-        f"~{DEMO_FLOOR_FT2:,.0f} ft² · {sys.platform} · "
-        f"{'EnergyPlus ready' if live_ready else 'EnergyPlus not ready'} · backend={live_label}."
+        "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · "
+        f"{prov['equipment']} · ~{display_area(DEMO_FLOOR_FT2, units):,.0f} {a_unit} · "
+        f"{'Render EnergyPlus ready' if live_ready else 'Render EnergyPlus not ready'} · "
+        f"backend={live_label} · display={units}."
+    )
+    st.markdown(
+        "[AGENTS.md — human guide (IDF, EPW, Render, catalog size)]"
+        "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
+        " · "
+        f"`model/{MODEL_IDF.name}` · `model/{DEFAULT_EPW.name}` · "
+        "[Render worker](https://vibe23-energyplus-worker.onrender.com/)"
     )
 
     with st.sidebar:
@@ -729,6 +801,14 @@ def main() -> None:
             help="Coarsen twin replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
         )
         st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
+        st.radio(
+            "Display units",
+            ["imperial", "metric"],
+            format_func=lambda u: "Imperial (°F, ft²)" if u == "imperial" else "Metric (°C, m²)",
+            key="units",
+            horizontal=True,
+            help="Display only — EnergyPlus traces stay native; charts/metrics convert for viewing.",
+        )
         st.divider()
         with st.expander("EnergyPlus backend", expanded=True):
             st.session_state.eplus_backend = "worker"
@@ -803,7 +883,7 @@ def main() -> None:
             st.caption("Typical wall-pack: 13.5 kWh · ±5 kW · η≈0.95 · SOC 10–95%.")
         with st.expander("Comfort WTP", expanded=False):
             st.slider(
-                "ILLUSTRATIVE comfort WTP ($/°F·h vs baseline)",
+                comfort_wtp_label(units),
                 min_value=0.0,
                 max_value=0.50,
                 step=0.05,
@@ -826,48 +906,28 @@ def main() -> None:
             )
             st.toggle("Include DR incentive layer", key="econ_incl_dr")
             st.toggle("Include resilience layer", key="econ_incl_res")
-        with st.expander("Grid search", expanded=False):
-            st.slider(
-                "Comfort band low °F (FAIL below)",
-                60.0,
-                72.0,
-                step=0.5,
-                key="comfort_low_f",
-                help="Hard comfort gate for the 13×13 center search. Cells that dip below FAIL.",
-            )
-            st.slider(
-                "Comfort band high °F (FAIL above)",
-                72.0,
-                85.0,
-                step=0.5,
-                key="comfort_high_f",
-                help="Hard comfort gate for the 13×13 center search. Cells that drift above FAIL.",
+        with st.expander("Allowable zone temp drift + Render search size", expanded=True):
+            _render_zone_drift_sliders(units=units, t_unit=t_unit)
+            st.select_slider(
+                "Render catalog size (cells)",
+                options=[2, 5, 13, 26, 169],
+                key="grid_max_candidates",
+                help=(
+                    "Each cell is one EnergyPlus day on the Render worker. "
+                    "Default 5 for smoke; 169 = full 13×13 center catalog."
+                ),
             )
             st.caption(
-                "Full **169-cell** catalog every live run (no smoke truncate). "
-                "Comfort band gates ranking (FAIL, not a soft penalty)."
+                f"Next live run → **{_grid_candidate_count_label()}** Render EnergyPlus day(s) "
+                "(plus baseline). Drift band gates ranking (FAIL, not a soft penalty)."
             )
         st.divider()
         st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
-        with st.expander("EnergyPlus environment", expanded=False):
-            st.code(
-                "\n".join(
-                    [
-                        f"platform = {sys.platform}",
-                        f"ENERGYPLUS_EXE = {os.environ.get('ENERGYPLUS_EXE') or '(unset)'}",
-                        f"ENERGYPLUS_ROOT = {os.environ.get('ENERGYPLUS_ROOT') or '(unset)'}",
-                        f"ENERGYPLUS_WEATHER = {os.environ.get('ENERGYPLUS_WEATHER') or '(unset)'}",
-                        f"resolved_exe = {eplus}",
-                        f"resolved_epw = {epw}",
-                        f"session_id = {session_id}",
-                        f"session_root = {session_root(session_id)}",
-                    ]
-                ),
-                language="text",
-            )
-            st.caption("Copy `.env.example` → `.env` on Windows, Linux, or macOS.")
-        prov = equipment_provenance()
-        st.caption(f"{prov['equipment']} · {prov['nominal_tons']} ton · COP c/h {prov['cooling_cop']}/{prov['heating_cop']}")
+        st.caption(
+            f"{prov['equipment']} · {prov['nominal_tons']} ton · "
+            f"COP c/h {prov['cooling_cop']}/{prov['heating_cop']} · "
+            f"session `{session_id[:8]}…`"
+        )
 
     minutes = int(st.session_state.dsm_minutes)
     block = dsm_block_size(minutes)
@@ -989,7 +1049,7 @@ def main() -> None:
         net_bill = day_bill(purchased_native, season=season_key)
     else:
         net_bill = house_bill
-    intensity = energy_intensity_kwh_per_ft2(house_day_kwh)
+    intensity = energy_intensity(house_day_kwh, floor_ft2=DEMO_FLOOR_FT2, units=units)
     h_kwh = hourly_kwh(house_kw_native)
     h_cost = hourly_cost(house_kw_native, rates_native)
     outdoor_f = list(outdoor["drybulb_f"])
@@ -1005,9 +1065,22 @@ def main() -> None:
     with tab_inputs:
         st.subheader("Upload model + weather + tariff")
         st.caption(
-            "Upload an EnergyPlus **IDF in the browser** (required for any live run). "
-            "Optional EPW / tariff. Twin and Grid flex stay empty until a **full 169-cell** "
-            "Render worker campaign finishes."
+            "Package demo IDF / EPW (upload or one-click load): "
+            f"`{MODEL_IDF.name}` + `{DEFAULT_EPW.name}` under `model/` · see "
+            "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md). "
+            "Browser IDF upload required for Render runs."
+        )
+        if st.button("Load package residential demo IDF", key="load_package_idf"):
+            st.session_state.idf_text = MODEL_IDF.read_text(encoding="utf-8", errors="replace")
+            st.session_state.idf_name = MODEL_IDF.name
+            st.session_state.idf_uploaded = True
+            st.session_state._last_idf_token = ("package", MODEL_IDF.name, MODEL_IDF.stat().st_size)
+            st.rerun()
+        if st.session_state.get("idf_uploaded"):
+            st.success(f"IDF ready · {st.session_state.idf_name}")
+        st.caption(
+            "Optional EPW / tariff. Twin and Grid flex stay empty until a live Render "
+            "EnergyPlus campaign finishes (sidebar sets catalog size)."
         )
         st.markdown(
             "Render worker: [https://vibe23-energyplus-worker.onrender.com/]"
@@ -1178,16 +1251,18 @@ def main() -> None:
         idf_src = st.session_state.idf_name
         st.caption(
             f"**Data vintage:** IDF `{idf_src}` · outdoor `{outdoor_src}` · rates `{rate_src}`. "
-            "Outdoor °F and $/kWh refresh immediately after EPW/tariff upload or Apply. "
+            f"Outdoor {t_unit} and $/kWh refresh immediately after EPW/tariff upload or Apply. "
             "Hourly kWh still comes from the fixture EnergyPlus day and only changes after a re-simulation."
         )
+        outdoor_disp = display_temp_series(list(outdoor_f), units)
         st.plotly_chart(
             outdoor_kwh_cost_figure(
                 hourly_kwh=h_kwh,
-                outdoor_f=outdoor_f,
+                outdoor_f=outdoor_disp,
                 hourly_cost=h_cost,
                 title=f"Static extreme-day context · {day.get('label', season_key)}",
                 theme="light",
+                temp_unit_label=t_unit,
             ),
             width="stretch",
         )
@@ -1207,7 +1282,7 @@ def main() -> None:
         st.subheader("Energy-modeler dashboard")
         e = dashboard.envelope
         c1, c2, c3, c4, c5, c6 = st.columns(6)
-        c1.metric("Floor area", f"{e.floor_ft2:,.0f} ft²")
+        c1.metric("Floor area", f"{display_area(float(e.floor_ft2), units):,.0f} {a_unit}")
         c2.metric("WWR", f"{e.wwr_pct:.1f}%" if e.wwr_pct is not None else "—")
         c3.metric("Zones", str(e.n_zones))
         c4.metric("HVAC autosize", "Yes" if dashboard.hvac_autosize else "No")
@@ -1241,11 +1316,13 @@ def main() -> None:
 
 
         st.divider()
-        st.subheader("Full 13×13 EnergyPlus campaign (Render)")
+        n_run = _grid_candidate_count_label()
+        st.subheader(f"EnergyPlus campaign on Render ({n_run}-cell)")
         _eplus_status_banner(live_ready, live_label)
         st.caption(
-            "Always runs the full **169** thermostat-center catalog on the Render worker "
+            f"Runs **{n_run}** thermostat-center candidate day(s) + baseline on the Render worker "
             "([https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)). "
+            "Catalog size + allowable zone drift are in the sidebar. "
             "Browser IDF upload is mandatory — no package-model fallback."
         )
         if season_key == "summer":
@@ -1263,7 +1340,8 @@ def main() -> None:
                 "EnergyPlus worker not ready — set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY "
                 "and wake [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
             )
-        if st.button("Run full 169-cell EnergyPlus search on Render", type="primary", key="grid_run_live"):
+        run_label = f"Run {n_run}-cell EnergyPlus search on Render"
+        if st.button(run_label, type="primary", key="grid_run_live"):
             idf_path = _live_idf_arg(session_id)
             if not idf_path:
                 st.error("Upload an IDF in the browser first — live runs do not use the package model.")
@@ -1273,15 +1351,16 @@ def main() -> None:
                 try:
                     from vibe23.residential.campaign import run_thermostat_grid
 
+                    max_c = _grid_max_candidates()
                     out = exports_dir(session_id) / "studio_grid" / season_key
                     with st.spinner(
-                        "Full 169-cell campaign on Render — free tier can take a long time; "
+                        f"{n_run}-cell campaign on Render — free tier can take a while; "
                         "wake the worker first if it was sleeping…"
                     ):
                         result = run_thermostat_grid(
                             season=season_key,
                             output_root=out,
-                            max_candidates=None,
+                            max_candidates=max_c,
                             comfort_low_f=float(st.session_state.comfort_low_f),
                             comfort_high_f=float(st.session_state.comfort_high_f),
                             attach_battery=bool(st.session_state.attach_battery),
@@ -1422,11 +1501,12 @@ def main() -> None:
             m2.metric("Purchased kW", f"{(purchased or house_kw)[step]:.2f}")
             m3.metric("kWh to now", f"{(purchased_cum_kwh or house_cum_kwh)[step]:.1f}")
             m4.metric("Daily house kWh", f"{house_day_kwh:.1f}")
-            m5.metric("Zone °F", f"{temp_f[step]:.2f}")
+            m5.metric(f"Zone {t_unit}", f"{display_temp(temp_f[step], units):.2f}")
             m6.metric("Cost to now", f"${bill_series[step]:.2f}", delta=f"day ${net_bill:.2f}")
+            outdoor_now = outdoor_f[outdoor_hour_index(step, minutes=minutes)]
             st.caption(
                 f"Full-day house **{house_day_kwh:.1f} kWh** · purchased **{purchased_day_kwh:.1f} kWh** · "
-                f"~{intensity:.3f} kWh/ft²-day · outdoor now ~{outdoor_f[outdoor_hour_index(step, minutes=minutes)]:.1f}°F · "
+                f"~{intensity:.3f} {i_unit} · outdoor now ~{display_temp(outdoor_now, units):.1f}{t_unit} · "
                 f"DSM {_dsm_label(minutes)} ({n} steps)"
             )
             if st.session_state.promoted_candidate_id:
@@ -1434,7 +1514,7 @@ def main() -> None:
                 if twin_trace_id:
                     st.success(
                         f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                        "Series above are the winner's EnergyPlus facility kW / zone °F"
+                        "Series above are the winner's EnergyPlus facility kW / zone temperature"
                         + (
                             " with the co-optimized battery dispatch (purchased kW / SOC)."
                             if purchased_trace is not None
@@ -1452,7 +1532,7 @@ def main() -> None:
                     hours=hours,
                     house_kw=house_kw,
                     purchased_kw=purchased,
-                    temp_f=temp_f,
+                    temp_f=display_temp_series(list(temp_f), units),
                     price=rates,
                     soc_pct=soc_pct,
                     cumulative_house_kwh=house_cum_kwh,
@@ -1463,6 +1543,7 @@ def main() -> None:
                         f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline (EnergyPlus)'} · "
                         f"{interval_clock(step, intervals=n)} · {_dsm_label(minutes)}"
                     ),
+                    temp_unit_label=t_unit,
                 ),
                 width="stretch",
             )
@@ -1542,12 +1623,17 @@ def main() -> None:
                 f"${welfare['net_welfare_usd']:.2f}",
                 delta=f"comfort −${welfare['comfort_cost_usd']:.2f}",
             )
+            dh_scale = (5.0 / 9.0) if units == "metric" else 1.0
+            wtp_disp = (wtp / dh_scale) if units == "metric" else wtp
+            dh_label = f"{t_unit}·h"
             st.caption(
-                f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
+                f"Comfort OK (hard band {display_temp(band['low_f'], units):.1f}–"
+                f"{display_temp(band['high_f'], units):.1f}{t_unit}): "
                 f"**{comfort_ok(flex_temp_native)}** · "
-                f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
-                f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
-                f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE). "
+                f"|ΔT| vs baseline = **{dh_vs_base * dh_scale:.2f} {dh_label}** · "
+                f"band exceedance = **{band['total_degree_hours'] * dh_scale:.2f} {dh_label}**. "
+                f"WTP = ${wtp_disp:.2f}/{dh_label} (sidebar). "
+                f"Net welfare = bill savings − WTP×{dh_label} (ILLUSTRATIVE). "
                 "Thermal only — battery co-optimization is scored on the Grid search tab."
             )
             d5, d6 = st.columns(2)
@@ -1565,14 +1651,32 @@ def main() -> None:
                 cols=1,
                 shared_xaxes=True,
                 vertical_spacing=0.07,
-                subplot_titles=("Power (kW)", "Cumulative energy (kWh)", "Zone °F"),
+                subplot_titles=("Power (kW)", "Cumulative energy (kWh)", f"Zone {t_unit}"),
             )
             fig.add_trace(go.Scatter(x=hx, y=base_disp[:end], name="Baseline kW", line=dict(color="#9AA7B8")), row=1, col=1)
             fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="Flex kW", line=dict(color="#E8A838")), row=1, col=1)
             fig.add_trace(go.Scatter(x=hx, y=base_cum[:end], name="Baseline kWh", line=dict(color="#9AA7B8")), row=2, col=1)
             fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="Flex kWh", line=dict(color="#E8A838")), row=2, col=1)
-            fig.add_trace(go.Scatter(x=hx, y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
-            fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="Flex °F", line=dict(color="#FF6B6B")), row=3, col=1)
+            fig.add_trace(
+                go.Scatter(
+                    x=hx,
+                    y=display_temp_series(list(base_temp[:end]), units),
+                    name=f"Baseline {t_unit}",
+                    line=dict(color="#8FB8FF"),
+                ),
+                row=3,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=hx,
+                    y=display_temp_series(list(event_temp[:end]), units),
+                    name=f"Flex {t_unit}",
+                    line=dict(color="#FF6B6B"),
+                ),
+                row=3,
+                col=1,
+            )
             if season_key == "summer":
                 fig.add_vrect(x0=16, x1=21, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
             else:
