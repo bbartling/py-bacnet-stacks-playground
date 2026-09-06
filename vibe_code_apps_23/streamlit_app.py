@@ -471,9 +471,15 @@ def _clear_session() -> None:
     st.session_state.rates_override = None
     st.session_state.epw_upload_name = None
     st.session_state.tariff_upload_name = None
+    st.session_state.epw_bytes = None
+    st.session_state.worker_jobs = []
+    st.session_state.pop("_worker_jobs_remote", None)
     st.session_state.epw_month = 7
     st.session_state.epw_day = 15
     st.session_state._season_key_for_epw = None
+    st.session_state.idf_uploaded = False
+    for tok in ("_last_idf_token", "_last_epw_token", "_last_tariff_token"):
+        st.session_state.pop(tok, None)
     for dim in season_dimension_defaults("summer"):
         st.session_state[f"grid_dim_{dim.name}"] = format_dimension_values(dim.values)
 
@@ -1070,15 +1076,13 @@ def main() -> None:
             with st.expander("How to use Swagger /docs", expanded=False):
                 st.markdown(
                     "1. Wake the worker (stoplight green) or open `/docs` and wait through cold start.\n"
-                    "2. Click **Authorize**, paste the bearer token below (Swagger adds `Bearer`).\n"
+                    "2. Click **Authorize**, paste `EPLUS_WORKER_API_KEY` from Streamlit secrets / "
+                    "`.env.local` (Swagger adds `Bearer`).\n"
                     "3. Try `GET /healthz` (no auth) or `POST /v1/jobs` with an IDF + EPW upload.\n"
-                    "4. Poll `GET /v1/jobs/{id}` then download `/v1/jobs/{id}/results`."
+                    "4. Poll `GET /v1/jobs/{id}` then download `/v1/jobs/{id}/results`.\n\n"
+                    "The bearer key is **not** shown here — shared Cloud demos must not leak it to visitors."
                 )
-                api_key = (os.environ.get("EPLUS_WORKER_API_KEY") or "").strip()
-                if api_key:
-                    st.caption("Learning hint — worker API key for Authorize (do not share publicly):")
-                    st.code(api_key, language=None)
-                else:
+                if not (os.environ.get("EPLUS_WORKER_API_KEY") or "").strip():
                     st.warning("EPLUS_WORKER_API_KEY missing — set it in `.env.local` or Streamlit secrets.")
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
@@ -1135,7 +1139,8 @@ def main() -> None:
             with st.expander("Worker job queue", expanded=False):
                 st.caption(
                     "Worker runs **one job at a time** (queued → running → done). "
-                    "Campaign cells enqueue sequentially; this session lists recent job ids."
+                    "This panel lists **this browser session's** job ids only "
+                    "(not the global worker queue)."
                 )
                 session_jobs = list(st.session_state.get("worker_jobs") or [])
                 if session_jobs:
@@ -1146,32 +1151,32 @@ def main() -> None:
                     )
                 else:
                     st.caption("No jobs from this browser session yet.")
-                if st.button("Refresh worker queue", key="refresh_worker_jobs"):
-                    try:
-                        payload = _eplus_worker.list_jobs(limit=15)
-                        queue = payload.get("queue") or {}
-                        st.session_state._worker_jobs_remote = payload
-                        st.info(
-                            f"Queue · queued={queue.get('queued')} · running={queue.get('running')} · "
-                            f"max={queue.get('max_concurrent')}"
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        st.warning(
-                            f"Could not list remote jobs (worker may need redeploy with GET /v1/jobs): {exc}"
-                        )
-                remote = st.session_state.get("_worker_jobs_remote") or {}
-                remote_jobs = remote.get("jobs") or []
-                if remote_jobs:
-                    rows = [
-                        {
-                            "status": j.get("status"),
-                            "job_id": str(j.get("job_id") or "")[:8] + "…",
-                            "created": str(j.get("created_at") or "")[:19],
-                            "wall_s": j.get("wall_seconds"),
-                        }
-                        for j in remote_jobs[:12]
-                    ]
-                    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+                # Opt-in ops view: never expose worker-wide jobs on shared Streamlit Cloud by default.
+                if os.environ.get("VIBE23_SHOW_WORKER_QUEUE", "").strip().lower() in {"1", "true", "yes"}:
+                    if st.button("Refresh worker queue (ops)", key="refresh_worker_jobs"):
+                        try:
+                            payload = _eplus_worker.list_jobs(limit=15)
+                            queue = payload.get("queue") or {}
+                            st.session_state._worker_jobs_remote = payload
+                            st.info(
+                                f"Queue · queued={queue.get('queued')} · running={queue.get('running')} · "
+                                f"max={queue.get('max_concurrent')}"
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            st.warning(f"Could not list remote jobs: {exc}")
+                    remote = st.session_state.get("_worker_jobs_remote") or {}
+                    remote_jobs = remote.get("jobs") or []
+                    if remote_jobs:
+                        rows = [
+                            {
+                                "status": j.get("status"),
+                                "job_id": str(j.get("job_id") or "")[:8] + "…",
+                                "created": str(j.get("created_at") or "")[:19],
+                                "wall_s": j.get("wall_seconds"),
+                            }
+                            for j in remote_jobs[:12]
+                        ]
+                        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         st.divider()
         st.header("Demo day")
         st.radio(

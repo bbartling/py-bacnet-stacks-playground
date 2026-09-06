@@ -6,8 +6,6 @@ import zipfile
 from pathlib import Path
 
 from vibe23.energyplus_worker import (
-    EnergyPlusWorkerError,
-    ensure_worker_awake,
     extract_results_zip,
     prefer_worker_backend,
     worker_configured,

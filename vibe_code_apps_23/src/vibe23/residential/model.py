@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[3]
@@ -63,7 +64,8 @@ def _download_asset(name: str, target: Path, *, timeout: float = 120.0) -> Path:
     """Fetch a missing demo asset from the public GitHub raw URL into target."""
     target.parent.mkdir(parents=True, exist_ok=True)
     url = f"{_GITHUB_ASSETS_BASE}/{name}"
-    temporary = target.with_suffix(target.suffix + ".partial")
+    # Unique per-request temp path so concurrent Streamlit recoveries cannot clash.
+    temporary = target.parent / f".{target.name}.{uuid.uuid4().hex}.partial"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             data = resp.read()
@@ -123,13 +125,22 @@ def find_denver_epw(explicit: Path | str | None = None) -> Path | None:
     from ..envfile import load_energyplus_env
 
     load_energyplus_env()
-    try:
-        ensure_demo_assets(download_if_missing=True)
-    except FileNotFoundError:
-        pass
-    candidates: list[Path] = []
+    # Honor a valid explicit EPW immediately — do not block on demo-asset downloads.
     if explicit:
-        candidates.append(Path(explicit).expanduser())
+        try:
+            explicit_path = Path(explicit).expanduser().resolve()
+        except OSError:
+            explicit_path = None
+        if explicit_path is not None and explicit_path.is_file():
+            return explicit_path
+
+    needs_package = not DEFAULT_EPW.is_file() and not (PACKAGE_ROOT / "model" / DEFAULT_EPW_NAME).is_file()
+    if needs_package:
+        try:
+            ensure_demo_assets(download_if_missing=True)
+        except FileNotFoundError:
+            pass
+    candidates: list[Path] = []
     # Packaged EPW before ENERGYPLUS_WEATHER so .env install paths do not win.
     candidates.append(DEFAULT_EPW)
     candidates.append(PACKAGE_ROOT / "model" / DEFAULT_EPW_NAME)
