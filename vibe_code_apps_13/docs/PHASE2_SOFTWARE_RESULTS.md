@@ -50,8 +50,8 @@ Historical captures with `19d205d` / `e3b9edb` / `bbartling` fork are **not** ev
 |------|--------|----------|
 | Passive sniff 60s @ 38400 | PASS (tokens 2835, MAC 0+7, no TX) | `captures/mstp-passive-af4e886-60s.json` |
 | Gate 3 FEC AI:1173 one-shot | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
-| Haystack Gate 4b (after ~2 min settle) | PASS | `captures/haystack-trunk/` |
-| Mini-device MAC 3 @ 38400 | PASS (read-only-ai ok) | `captures/mstp-mini-device-af4e886.log` |
+| Haystack Gate 4b (after ~2 min settle) | PASS (manual/external) | zinc not committed — see PHASE2_HARDWARE_EVIDENCE |
+| Mini-device MAC 3 @ 38400 | PASS (manual/external) | operator log not committed |
 | 1h soak script | **NOT RUN** — scripts ready | [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) |
 | 24h continuity (same PID) | **PASS** — process continuity + discoverability only (not instrumented CRC/token soak) — PID 646770, etimes>86400 at 2026-09-01T20:09:35Z | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |
 | USB unplug gate | **DEFERRED** — operator gate | [`scripts/run_mstp_usb_unplug_gate.sh`](../scripts/run_mstp_usb_unplug_gate.sh) |

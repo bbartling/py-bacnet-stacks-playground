@@ -1,25 +1,28 @@
 ---
-# Validate inventory allowlist; refuse localhost/tower; TX default false.
+# Validate trusted hosts via controller allowlist; refuse localhost/tower; TX default false.
+# lab_allowed_hosts in inventory is documentation only — TRUSTED_HOSTS is authoritative.
 - name: Vibe13 Pi lab preflight
   hosts: vibe13_pi_lab
   gather_facts: false
   any_errors_fatal: true
+  vars:
+    lab_scripts: "{{ playbook_dir }}/../scripts"
   tasks:
-    - name: Reject non-allowlisted inventory hostname
-      ansible.builtin.assert:
-        that:
-          - inventory_hostname in lab_allowed_hosts
-        fail_msg: >-
-          Host {{ inventory_hostname }} is not in lab_allowed_hosts.
-          Tower/localhost are not Pi-lab targets.
-
-    - name: Reject unexpected ansible_host address
-      ansible.builtin.assert:
-        that:
-          - ansible_host == lab_allowed_hosts[inventory_hostname]
-        fail_msg: >-
-          ansible_host={{ ansible_host }} does not match allowlist
-          {{ lab_allowed_hosts[inventory_hostname] }} for {{ inventory_hostname }}.
+    - name: Trusted host allowlist (controller code)
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [
+              'python3',
+              lab_scripts + '/lab_ids.py',
+              'check-host',
+              inventory_hostname,
+              ansible_host
+            ] + (['--ci-doc'] if (lab_ci_doc | default(false) | bool) else [])
+          }}
+      delegate_to: localhost
+      become: false
+      changed_when: false
 
     - name: Reject controller as target
       ansible.builtin.assert:
@@ -53,6 +56,8 @@
         state: started
       delegate_to: localhost
       become: false
+      when: not (lab_ci_doc | default(false) | bool)
 
     - name: Ansible ping (SSH + Python)
       ansible.builtin.ping:
+      when: not (lab_ci_doc | default(false) | bool)

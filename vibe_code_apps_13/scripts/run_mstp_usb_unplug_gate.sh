@@ -13,6 +13,7 @@ RECOVERY_DEADLINE_S="${RECOVERY_DEADLINE_S:-60}"
 MAC="${MSTP_MAC:-1}"
 INSTANCE="${MSTP_INSTANCE:-123101}"
 REPORT_DIR=""
+SYSTEMD_UNIT="${SYSTEMD_UNIT:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --peer-check) PEER_CHECK_CMD="$2"; shift 2 ;;
     --mac) MAC="$2"; shift 2 ;;
     --instance) INSTANCE="$2"; shift 2 ;;
+    --unit) SYSTEMD_UNIT="$2"; shift 2 ;;
     --no-haystack) shift ;;
     *) echo "unknown arg: $1"; exit 1 ;;
   esac
@@ -45,6 +47,10 @@ RESTORE_MS="0"
 PROCESS_EXIT_CODE=""
 PATH_DISAPPEARED=0
 PATH_RETURNED=0
+UNIT_PID=""
+UNIT_NRESTARTS_BEFORE=""
+UNIT_NRESTARTS_AFTER=""
+OWNERSHIP_MODE="foreground_bin"
 
 write_final_report() {
   local end_utc
@@ -68,10 +74,18 @@ write_final_report() {
   GATE_INSTANCE="$INSTANCE" \
   GATE_START_UTC="$START_UTC" \
   GATE_END_UTC="$end_utc" \
+  GATE_UNIT="${SYSTEMD_UNIT}" \
+  GATE_UNIT_PID="${UNIT_PID}" \
+  GATE_NRESTARTS_BEFORE="${UNIT_NRESTARTS_BEFORE}" \
+  GATE_NRESTARTS_AFTER="${UNIT_NRESTARTS_AFTER}" \
+  GATE_OWNERSHIP_MODE="$OWNERSHIP_MODE" \
   python3 - <<'PY'
 import json, os, pathlib
 report_dir = os.environ["GATE_REPORT_DIR"]
 proc = os.environ.get("GATE_PROCESS_EXIT_CODE", "")
+n_before = os.environ.get("GATE_NRESTARTS_BEFORE", "")
+n_after = os.environ.get("GATE_NRESTARTS_AFTER", "")
+pid = os.environ.get("GATE_UNIT_PID", "")
 pathlib.Path(report_dir, "gate-report.json").write_text(json.dumps({
     "gate": "usb_unplug_pi",
     "result": os.environ["GATE_RESULT"],
@@ -84,8 +98,14 @@ pathlib.Path(report_dir, "gate-report.json").write_text(json.dumps({
     "unplug_elapsed_ms": int(os.environ.get("GATE_UNPLUG_MS") or 0),
     "restore_wait_ms": int(os.environ.get("GATE_RESTORE_MS") or 0),
     "process_exit_code": (int(proc) if proc.isdigit() else None),
+    "expected_recovery_exit_code": 75,
     "path_disappeared": os.environ.get("GATE_PATH_DISAPPEARED") == "1",
     "path_returned": os.environ.get("GATE_PATH_RETURNED") == "1",
+    "ownership_mode": os.environ.get("GATE_OWNERSHIP_MODE", ""),
+    "systemd_unit": os.environ.get("GATE_UNIT") or None,
+    "systemd_main_pid": (int(pid) if pid.isdigit() else None),
+    "systemd_nrestarts_before": (int(n_before) if n_before.isdigit() else None),
+    "systemd_nrestarts_after": (int(n_after) if n_after.isdigit() else None),
     "project_git_sha": os.environ["GATE_PROJECT_SHA"],
     "rusty_bacnet_rev": os.environ["GATE_RUSTY_REV"],
     "serial_by_id": os.environ["GATE_SERIAL"],
@@ -97,9 +117,6 @@ pathlib.Path(report_dir, "gate-report.json").write_text(json.dumps({
 PY
 }
 trap write_final_report EXIT
-
-cargo build --release --locked -p mstp-mini-device
-BIN="$ROOT/target/release/mstp-mini-device"
 
 peer_check() {
   if [[ -z "$PEER_CHECK_CMD" ]]; then
@@ -131,17 +148,37 @@ else
 fi
 
 T0="$(date +%s%3N)"
-"$BIN" \
-  --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
-  --device-instance "$INSTANCE" --vendor-id 999 \
-  >"$REPORT_DIR/mini-device-before.log" 2>&1 &
-MINI_PID=$!
+BIN=""
+MINI_PID=""
+if [[ -n "$SYSTEMD_UNIT" ]]; then
+  OWNERSHIP_MODE="systemd_unit"
+  UNIT_NRESTARTS_BEFORE="$(systemctl show -p NRestarts --value "$SYSTEMD_UNIT" 2>/dev/null || echo "")"
+  systemctl restart "$SYSTEMD_UNIT"
+  sleep 15
+  UNIT_PID="$(systemctl show -p MainPID --value "$SYSTEMD_UNIT")"
+  systemctl is-active --quiet "$SYSTEMD_UNIT" || {
+    EXIT_REASON="unit_not_active"; RESULT="fail"; exit 1;
+  }
+  journalctl -u "$SYSTEMD_UNIT" -n 50 --no-pager >"$REPORT_DIR/mini-device-before.log" || true
+  grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-before.log" || {
+    EXIT_REASON="no_ready_marker"; RESULT="fail"; exit 1;
+  }
+else
+  cargo build --release --locked -p mstp-mini-device
+  BIN="$ROOT/target/release/mstp-mini-device"
+  "$BIN" \
+    --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
+    --device-instance "$INSTANCE" --vendor-id 999 \
+    >"$REPORT_DIR/mini-device-before.log" 2>&1 &
+  MINI_PID=$!
+  UNIT_PID="$MINI_PID"
 
-sleep 15
-kill -0 "$MINI_PID" || { EXIT_REASON="mini_died_early"; RESULT="fail"; exit 1; }
-grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-before.log" || {
-  EXIT_REASON="no_ready_marker"; RESULT="fail"; exit 1;
-}
+  sleep 15
+  kill -0 "$MINI_PID" || { EXIT_REASON="mini_died_early"; RESULT="fail"; exit 1; }
+  grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-before.log" || {
+    EXIT_REASON="no_ready_marker"; RESULT="fail"; exit 1;
+  }
+fi
 
 echo ">>> OPERATOR: unplug Waveshare USB now, then press Enter <<<"
 read -r _
@@ -152,29 +189,49 @@ else
   PATH_DISAPPEARED=0
   EXIT_REASON="path_still_present_after_unplug_prompt"
   RESULT="fail"
-  kill -TERM "$MINI_PID" 2>/dev/null || true
-  wait "$MINI_PID" 2>/dev/null || true
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    systemctl stop "$SYSTEMD_UNIT" 2>/dev/null || true
+  else
+    kill -TERM "$MINI_PID" 2>/dev/null || true
+    wait "$MINI_PID" 2>/dev/null || true
+  fi
   exit 1
 fi
 
 EXIT_OK=0
 for _ in $(seq 1 "$WAIT_EXIT"); do
-  if ! kill -0 "$MINI_PID" 2>/dev/null; then
-    EXIT_OK=1
-    break
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    if ! systemctl is-active --quiet "$SYSTEMD_UNIT"; then
+      EXIT_OK=1
+      break
+    fi
+  else
+    if ! kill -0 "$MINI_PID" 2>/dev/null; then
+      EXIT_OK=1
+      break
+    fi
   fi
   sleep 1
 done
 
 if [[ "$EXIT_OK" != "1" ]]; then
-  kill -KILL "$MINI_PID" 2>/dev/null || true
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    systemctl kill -s KILL "$SYSTEMD_UNIT" 2>/dev/null || true
+  else
+    kill -KILL "$MINI_PID" 2>/dev/null || true
+  fi
   RESULT="fail"
   EXIT_REASON="hung_after_unplug"
 else
-  set +e
-  wait "$MINI_PID"
-  PROCESS_EXIT_CODE=$?
-  set -e
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    PROCESS_EXIT_CODE="$(systemctl show -p ExecMainStatus --value "$SYSTEMD_UNIT" 2>/dev/null || true)"
+    UNIT_NRESTARTS_AFTER="$(systemctl show -p NRestarts --value "$SYSTEMD_UNIT" 2>/dev/null || echo "")"
+  else
+    set +e
+    wait "$MINI_PID"
+    PROCESS_EXIT_CODE=$?
+    set -e
+  fi
   if grep -q 'serial device path disappeared' "$REPORT_DIR/mini-device-before.log"; then
     EXIT_REASON="watchdog_exit"
   else
@@ -204,18 +261,38 @@ fi
 RESTORE_MS="$(( ($(date +%s) - T_RECOVER) * 1000 ))"
 
 if [[ -e "$SERIAL" ]]; then
-  "$BIN" \
-    --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
-    --device-instance "$INSTANCE" --vendor-id 999 \
-    >"$REPORT_DIR/mini-device-after.log" 2>&1 &
-  MINI_PID=$!
-  sleep 15
-  if kill -0 "$MINI_PID" && grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-after.log"; then
-    RESTART="pass"
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    systemctl restart "$SYSTEMD_UNIT"
+    sleep 15
+    if systemctl is-active --quiet "$SYSTEMD_UNIT"; then
+      journalctl -u "$SYSTEMD_UNIT" -n 50 --no-pager >"$REPORT_DIR/mini-device-after.log" || true
+      if grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-after.log"; then
+        RESTART="pass"
+      else
+        RESTART="fail"
+        RESULT="fail"
+        EXIT_REASON="${EXIT_REASON};restart_failed"
+      fi
+    else
+      RESTART="fail"
+      RESULT="fail"
+      EXIT_REASON="${EXIT_REASON};restart_failed"
+    fi
   else
-    RESTART="fail"
-    RESULT="fail"
-    EXIT_REASON="${EXIT_REASON};restart_failed"
+    [[ -n "$BIN" ]] || BIN="$ROOT/target/release/mstp-mini-device"
+    "$BIN" \
+      --serial "$SERIAL" --baud 38400 --mac "$MAC" --max-master 2 --max-info-frames 1 \
+      --device-instance "$INSTANCE" --vendor-id 999 \
+      >"$REPORT_DIR/mini-device-after.log" 2>&1 &
+    MINI_PID=$!
+    sleep 15
+    if kill -0 "$MINI_PID" && grep -q 'MS/TP device up' "$REPORT_DIR/mini-device-after.log"; then
+      RESTART="pass"
+    else
+      RESTART="fail"
+      RESULT="fail"
+      EXIT_REASON="${EXIT_REASON};restart_failed"
+    fi
   fi
 
   if peer_check; then
@@ -227,8 +304,12 @@ if [[ -e "$SERIAL" ]]; then
     EXIT_REASON="${EXIT_REASON};peer_unreachable_after_restore"
   fi
 
-  kill -TERM "$MINI_PID" 2>/dev/null || true
-  wait "$MINI_PID" 2>/dev/null || true
+  if [[ -n "$SYSTEMD_UNIT" ]]; then
+    systemctl stop "$SYSTEMD_UNIT" 2>/dev/null || true
+  else
+    kill -TERM "$MINI_PID" 2>/dev/null || true
+    wait "$MINI_PID" 2>/dev/null || true
+  fi
 fi
 
 echo "USB unplug gate $RESULT — artifacts in $REPORT_DIR"

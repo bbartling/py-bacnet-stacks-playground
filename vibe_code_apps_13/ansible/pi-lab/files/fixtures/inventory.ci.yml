@@ -9,6 +9,8 @@ all:
         lab_max_master: 2
         lab_allow_serial_tx: false
         lab_orientation: workerpi1-server
+        # Documentation IPs — controller check-host uses --ci-doc.
+        lab_ci_doc: true
         lab_allowed_hosts:
           workerpi1: "198.51.100.59"
           workerpi2: "198.51.100.60"

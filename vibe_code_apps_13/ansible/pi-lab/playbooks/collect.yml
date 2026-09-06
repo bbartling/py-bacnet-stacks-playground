@@ -5,18 +5,42 @@
   become: true
   vars:
     lab_run_id: "{{ run_id | mandatory }}"
+    lab_profile: "{{ profile | default('') }}"
+    lab_scripts: "{{ playbook_dir }}/../scripts"
   pre_tasks:
     - name: Validate run_id allowlist
       ansible.builtin.command:
         argv:
           - python3
-          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - "{{ lab_scripts }}/lab_ids.py"
           - check-run-id
           - "{{ lab_run_id }}"
       delegate_to: localhost
       become: false
       run_once: true
       changed_when: false
+
+    - name: Trusted host allowlist
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [
+              'python3',
+              lab_scripts + '/lab_ids.py',
+              'check-host',
+              inventory_hostname,
+              ansible_host
+            ] + (['--ci-doc'] if (lab_ci_doc | default(false) | bool) else [])
+          }}
+      delegate_to: localhost
+      become: false
+      changed_when: false
+
+    - name: Refuse contacting lab LAN from CI controllers
+      ansible.builtin.assert:
+        that:
+          - not (ansible_host is match('^192\\.168\\.204\\.')) or not (lab_ci_doc | default(false) | bool)
+        fail_msg: CI must never contact 192.168.204.0/24
   tasks:
     - name: Ensure controller evidence dir
       ansible.builtin.file:
@@ -26,15 +50,53 @@
       delegate_to: localhost
       become: false
 
-    - name: Fetch required artifacts (privileged read)
+    - name: Resolve mandatory artifacts for profile
+      ansible.builtin.set_fact:
+        lab_mandatory_artifacts: >-
+          {{
+            [lab_state_root + '/runs/' + lab_run_id + '/summary.json']
+            + (
+              [lab_state_root + '/runs/' + lab_run_id + '/raw.log']
+              if (lab_profile is match('^raw-')) else (
+                [
+                  lab_state_root + '/runs/' + lab_run_id + '/mini-device.log',
+                  lab_state_root + '/runs/' + lab_run_id + '/probe.log',
+                  lab_state_root + '/runs/' + lab_run_id + '/probe-report.json'
+                ]
+                if (lab_profile is match('^mstp-')) else
+                [lab_state_root + '/runs/' + lab_run_id + '/summary.json']
+              )
+            )
+          }}
+        lab_optional_artifacts:
+          - "{{ lab_state_root }}/runs/{{ lab_run_id }}/server-process.json"
+          - "{{ lab_state_root }}/runs/{{ lab_run_id }}/probe-process.json"
+          - "{{ lab_state_root }}/runs/{{ lab_run_id }}/release_sha.txt"
+          - "{{ lab_state_root }}/observer/status.json"
+
+    - name: Fetch mandatory artifacts (fail if missing)
       ansible.builtin.fetch:
         src: "{{ item }}"
         dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}/"
         flat: true
         fail_on_missing: true
-      loop:
-        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/summary.json"
-        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/mini-device.log"
-        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/probe.log"
-        - "{{ lab_state_root }}/runs/{{ lab_run_id }}/raw.log"
-      # Missing required evidence fails the collection (not silent skip).
+      loop: "{{ lab_mandatory_artifacts | unique | list }}"
+
+    - name: Fetch optional artifacts (marked optional)
+      ansible.builtin.fetch:
+        src: "{{ item }}"
+        dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}/"
+        flat: true
+        fail_on_missing: false
+      loop: "{{ lab_optional_artifacts }}"
+
+    - name: Write SHA256SUMS on controller
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id }}/{{ inventory_hostname }}"
+        sha256sum * > SHA256SUMS 2>/dev/null || true
+      args:
+        executable: /bin/bash
+      delegate_to: localhost
+      become: false
+      changed_when: false

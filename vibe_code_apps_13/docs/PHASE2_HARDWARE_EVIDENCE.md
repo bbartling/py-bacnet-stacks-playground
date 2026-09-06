@@ -12,8 +12,8 @@ Historical captures (`19d205d`, `e3b9edb`, `6a70b85`, `bbartling` fork) are **no
 |------|--------|----------|-------------------------------|
 | 2 — passive sniff 60s | PASS | [`captures/mstp-passive-af4e886-60s.json`](../captures/mstp-passive-af4e886-60s.json) | yes |
 | 3 — FEC client RP AI:1173 | PASS | [`captures/mstp-fec-ai1173-af4e886-oneshot.json`](../captures/mstp-fec-ai1173-af4e886-oneshot.json) | yes |
-| 4 — mini-device server | PASS | [`captures/mstp-mini-device-af4e886.log`](../captures/mstp-mini-device-af4e886.log) | log line |
-| 4b — Haystack trunk | PASS | [`captures/haystack-trunk/`](../captures/haystack-trunk/) | N/A (supervisory) |
+| 4 — mini-device server | PASS (manual/external) | Operator log — `captures/mstp-mini-device-af4e886.log` **not in tree** (gitignored / never committed); do not fabricate |
+| 4b — Haystack trunk | PASS (manual/external) | Operator zinc under `captures/haystack-trunk/` **not in tree**; supervisory observation only |
 
 **Serial path (all gates):** `/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_BH001FQ0-if00-port0`
 

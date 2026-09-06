@@ -7,6 +7,7 @@ cd "$ROOT"
 INV="${PI_LAB_INVENTORY:-$ROOT/inventory.local.yml}"
 CFG="$ROOT/ansible.cfg"
 export ANSIBLE_CONFIG="$CFG"
+SCRIPTS="$ROOT/scripts"
 
 usage() {
   cat <<'EOF'
@@ -15,15 +16,20 @@ Usage: ./scripts/pi-lab <command> [args]
   preflight [--ask-pass]
   bootstrap [--ask-pass] [--ask-become-pass]
   discover
-  build --revision <SHA>
-  deploy --revision <SHA>
-  confirm-wiring [--confirmed]
-  run --profile <raw-wire|mstp-smoke|mstp-soak> [--pair cb] [--duration 1h] --allow-tx
+  build --revision <40-char-SHA>
+  deploy --revision <40-char-SHA>
+  confirm-wiring --confirmed --ohm-pi1 N --ohm-pi2 N --ohm-combined N \
+      --bias verified|unknown|not_measured --orientation workerpi1-server|workerpi2-server \
+      --profile <profile> [--resistance-override-reason TEXT] [--pair cb]
+  run --profile <raw-smoke|raw-gate|mstp-smoke|mstp-gate|mstp-soak> \
+      [--pair cb] [--orientation workerpi1-server|workerpi2-server] \
+      [--duration Ns|Nm|Nh] --allow-tx
   status [--run <RUN_ID>]
-  collect --run <RUN_ID>
+  collect --run <RUN_ID> [--profile <profile>]
   stop [--run <RUN_ID>]
-  rollback --release <RELEASE_ID>
+  rollback --release <40-char-SHA>
 
+Profiles: raw-smoke, raw-gate, mstp-smoke, mstp-gate, mstp-soak (raw-wire → raw-smoke).
 Requires inventory.local.yml (copy from inventory.example.yml).
 Never stores SSH passwords. Tower BACnet is not a target.
 TX requires confirm-wiring + run --allow-tx (wiring file alone is insufficient).
@@ -45,12 +51,9 @@ ansible_bin() {
   fi
 }
 
-ansible_cmd() {
-  if [[ -x "$ROOT/.venv/bin/ansible" ]]; then
-    echo "$ROOT/.venv/bin/ansible"
-  else
-    echo "ansible"
-  fi
+die_unknown() {
+  echo "unknown argument: $1" >&2
+  exit 2
 }
 
 cmd="${1:-}"
@@ -75,63 +78,94 @@ case "$cmd" in
     ;;
   run)
     need_inv
-    PROFILE="mstp-smoke"
+    PROFILE=""
     PAIR="cb"
+    ORIENT="workerpi1-server"
     DUR=""
     ALLOW_TX=false
     EXTRA=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --profile) PROFILE="$2"; shift 2 ;;
-        --pair) PAIR="$2"; shift 2 ;;
-        --duration) DUR="$2"; shift 2 ;;
+        --profile)
+          [[ $# -ge 2 ]] || { echo "--profile needs value"; exit 2; }
+          PROFILE="$2"; shift 2 ;;
+        --pair)
+          [[ $# -ge 2 ]] || { echo "--pair needs value"; exit 2; }
+          PAIR="$2"; shift 2 ;;
+        --orientation)
+          [[ $# -ge 2 ]] || { echo "--orientation needs value"; exit 2; }
+          ORIENT="$2"; shift 2 ;;
+        --duration)
+          [[ $# -ge 2 ]] || { echo "--duration needs value"; exit 2; }
+          DUR="$2"; shift 2 ;;
         --allow-tx) ALLOW_TX=true; shift ;;
-        *) EXTRA+=("$1"); shift ;;
+        -e|--extra-vars) EXTRA+=("$1" "$2"); shift 2 ;;
+        *) die_unknown "$1" ;;
       esac
     done
+    [[ -n "$PROFILE" ]] || { echo "--profile required"; exit 2; }
+    [[ "$PAIR" == "cb" ]] || { echo "--pair must be cb (got $PAIR)"; exit 2; }
+    PROFILE="$(python3 "$SCRIPTS/wiring_contract.py" normalize-profile "$PROFILE")"
+    DUR_SECS="$(python3 "$SCRIPTS/wiring_contract.py" parse-duration "$PROFILE" "${DUR:-}")"
     RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$RUN_ID" >/dev/null
-    EV=(-e "profile=$PROFILE" -e "pair=$PAIR" -e "run_id=$RUN_ID" -e "lab_allow_tx=$ALLOW_TX")
-    [[ -n "$DUR" ]] && EV+=(-e "lab_duration=$DUR")
+    python3 "$SCRIPTS/lab_ids.py" check-run-id "$RUN_ID" >/dev/null
+    EV=(-e "profile=$PROFILE" -e "pair=$PAIR" -e "orientation=$ORIENT"
+        -e "run_id=$RUN_ID" -e "lab_allow_tx=$ALLOW_TX" -e "lab_duration=$DUR_SECS"
+        -e "lab_duration_secs=$DUR_SECS")
     "$(ansible_bin)" -i "$INV" playbooks/run.yml "${EV[@]}" "${EXTRA[@]}"
     echo "RUN_ID=$RUN_ID"
     ;;
   collect)
     need_inv
     RUN=""
+    PROFILE=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --run) RUN="$2"; shift 2 ;;
-        *) shift ;;
+        --run)
+          [[ $# -ge 2 ]] || { echo "--run needs value"; exit 2; }
+          RUN="$2"; shift 2 ;;
+        --profile)
+          [[ $# -ge 2 ]] || { echo "--profile needs value"; exit 2; }
+          PROFILE="$2"; shift 2 ;;
+        *) die_unknown "$1" ;;
       esac
     done
     [[ -n "$RUN" ]] || { echo "--run required"; exit 2; }
-    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$RUN" >/dev/null
-    "$(ansible_bin)" -i "$INV" playbooks/collect.yml -e "run_id=$RUN"
+    python3 "$SCRIPTS/lab_ids.py" check-run-id "$RUN" >/dev/null
+    EV=(-e "run_id=$RUN")
+    if [[ -n "$PROFILE" ]]; then
+      PROFILE="$(python3 "$SCRIPTS/wiring_contract.py" normalize-profile "$PROFILE")"
+      EV+=(-e "profile=$PROFILE")
+    fi
+    "$(ansible_bin)" -i "$INV" playbooks/collect.yml "${EV[@]}"
     ;;
   rollback)
     need_inv
     REL=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --release) REL="$2"; shift 2 ;;
-        *) shift ;;
+        --release)
+          [[ $# -ge 2 ]] || { echo "--release needs value"; exit 2; }
+          REL="$2"; shift 2 ;;
+        *) die_unknown "$1" ;;
       esac
     done
     [[ -n "$REL" ]] || { echo "--release required"; exit 2; }
-    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REL" >/dev/null
+    python3 "$SCRIPTS/lab_ids.py" check-git-sha "$REL" >/dev/null
     "$(ansible_bin)" -i "$INV" playbooks/rollback.yml -e "release_id=$REL"
     ;;
   build)
     REV=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --revision) REV="$2"; shift 2 ;;
-        *) echo "unknown: $1"; exit 2 ;;
+        --revision)
+          [[ $# -ge 2 ]] || { echo "--revision needs value"; exit 2; }
+          REV="$2"; shift 2 ;;
+        *) die_unknown "$1" ;;
       esac
     done
     [[ -n "$REV" ]] || { echo "--revision required"; exit 2; }
-    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REV" >/dev/null
+    python3 "$SCRIPTS/lab_ids.py" check-git-sha "$REV" >/dev/null
     "$ROOT/scripts/build_release.sh" "$REV"
     ;;
   deploy)
@@ -140,23 +174,75 @@ case "$cmd" in
     EXTRA=()
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --revision) REV="$2"; shift 2 ;;
-        *) EXTRA+=("$1"); shift ;;
+        --revision)
+          [[ $# -ge 2 ]] || { echo "--revision needs value"; exit 2; }
+          REV="$2"; shift 2 ;;
+        -e|--extra-vars) EXTRA+=("$1" "$2"); shift 2 ;;
+        --ask-become-pass|--ask-pass) EXTRA+=("$1"); shift ;;
+        *) die_unknown "$1" ;;
       esac
     done
     [[ -n "$REV" ]] || { echo "--revision required"; exit 2; }
-    python3 "$ROOT/scripts/lab_ids.py" check-run-id "$REV" >/dev/null
+    python3 "$SCRIPTS/lab_ids.py" check-git-sha "$REV" >/dev/null
     "$(ansible_bin)" -i "$INV" playbooks/deploy.yml -e "lab_revision=$REV" "${EXTRA[@]}"
     ;;
   confirm-wiring)
     CONFIRMED=false
+    OHM1="" OHM2="" OHMC="" BIAS="" ORIENT="" PROFILE="" PAIR="cb" OVERRIDE=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --confirmed) CONFIRMED=true; shift ;;
-        *) shift ;;
+        --ohm-pi1)
+          [[ $# -ge 2 ]] || { echo "--ohm-pi1 needs value"; exit 2; }
+          OHM1="$2"; shift 2 ;;
+        --ohm-pi2)
+          [[ $# -ge 2 ]] || { echo "--ohm-pi2 needs value"; exit 2; }
+          OHM2="$2"; shift 2 ;;
+        --ohm-combined)
+          [[ $# -ge 2 ]] || { echo "--ohm-combined needs value"; exit 2; }
+          OHMC="$2"; shift 2 ;;
+        --bias)
+          [[ $# -ge 2 ]] || { echo "--bias needs value"; exit 2; }
+          BIAS="$2"; shift 2 ;;
+        --orientation)
+          [[ $# -ge 2 ]] || { echo "--orientation needs value"; exit 2; }
+          ORIENT="$2"; shift 2 ;;
+        --profile)
+          [[ $# -ge 2 ]] || { echo "--profile needs value"; exit 2; }
+          PROFILE="$2"; shift 2 ;;
+        --pair)
+          [[ $# -ge 2 ]] || { echo "--pair needs value"; exit 2; }
+          PAIR="$2"; shift 2 ;;
+        --resistance-override-reason)
+          [[ $# -ge 2 ]] || { echo "--resistance-override-reason needs value"; exit 2; }
+          OVERRIDE="$2"; shift 2 ;;
+        *) die_unknown "$1" ;;
       esac
     done
-    "$(ansible_bin)" -i "$INV" playbooks/confirm_wiring.yml -e "lab_wiring_confirmed=$CONFIRMED" "$@"
+    [[ "$CONFIRMED" == true ]] || { echo "--confirmed required"; exit 2; }
+    [[ -n "$OHM1" && -n "$OHM2" && -n "$OHMC" ]] || {
+      echo "--ohm-pi1 --ohm-pi2 --ohm-combined required"; exit 2
+    }
+    [[ -n "$BIAS" && -n "$ORIENT" && -n "$PROFILE" ]] || {
+      echo "--bias --orientation --profile required"; exit 2
+    }
+    [[ "$PAIR" == "cb" ]] || { echo "--pair must be cb"; exit 2; }
+    PROFILE="$(python3 "$SCRIPTS/wiring_contract.py" normalize-profile "$PROFILE")"
+    EV=(
+      -e "lab_wiring_confirmed=true"
+      -e "lab_workerpi1_ohm=$OHM1"
+      -e "lab_workerpi2_ohm=$OHM2"
+      -e "lab_combined_ohm=$OHMC"
+      -e "lab_bias_status=$BIAS"
+      -e "lab_orientation=$ORIENT"
+      -e "lab_requested_profile=$PROFILE"
+      -e "lab_pair=$PAIR"
+      -e "lab_polarity_confirmed=true"
+      -e "lab_no_vcc_confirmed=true"
+    )
+    [[ -n "$OVERRIDE" ]] && EV+=(-e "lab_resistance_override_reason=$OVERRIDE")
+    need_inv
+    "$(ansible_bin)" -i "$INV" playbooks/confirm_wiring.yml "${EV[@]}"
     ;;
   status)
     need_inv

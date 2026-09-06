@@ -1,4 +1,5 @@
 ---
+# Fresh run orchestration — stop first, prove release, start, require report JSON.
 - name: Create run directory
   ansible.builtin.file:
     path: "{{ lab_state_root }}/runs/{{ lab_run_id }}"
@@ -16,38 +17,122 @@
   args:
     executable: /bin/bash
 
-- name: Validate pair roles (one server, one probe)
+- name: Ensure observer state dir
+  ansible.builtin.file:
+    path: "{{ lab_state_root }}/observer"
+    state: directory
+    owner: "{{ lab_service_user }}"
+    group: "{{ lab_service_user }}"
+    mode: "0750"
+
+- name: Validate pair size
   ansible.builtin.assert:
     that:
       - groups['vibe13_pi_lab'] | length == 2
     fail_msg: Pair must be exactly two hosts.
   run_once: true
 
-- name: Map profile to units and duration
+- name: Map profile flags + runtime
   ansible.builtin.set_fact:
-    lab_is_raw: "{{ lab_profile is search('raw') }}"
-    lab_is_soak: "{{ lab_profile is search('soak') }}"
-    lab_runtime_secs: "{{ 3600 if (lab_profile is search('soak')) else 120 }}"
-
-- name: Override duration when --duration provided (seconds or Nm/Nh)
-  ansible.builtin.set_fact:
-    lab_runtime_secs: >-
+    lab_is_raw: "{{ lab_profile is match('^raw-') }}"
+    lab_is_soak: "{{ lab_profile == 'mstp-soak' }}"
+    lab_runtime_secs: "{{ lab_duration_secs | default(120) | int }}"
+    lab_probe_profile: >-
       {{
-        lab_duration | regex_replace('^(\\d+)h$', '\\1') | int * 3600
-        if lab_duration is match('^\\d+h$') else (
-          lab_duration | regex_replace('^(\\d+)m$', '\\1') | int * 60
-          if lab_duration is match('^\\d+m$') else (
-            lab_duration | int if lab_duration is match('^\\d+$') else lab_runtime_secs
-          )
+        'soak' if lab_profile == 'mstp-soak' else (
+          'gate' if lab_profile is search('gate') else 'smoke'
         )
       }}
-  when: lab_duration is defined and (lab_duration | string | length) > 0
+
+- name: Stop vibe13 units first (absent unit is OK)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    unit="{{ item }}"
+    if systemctl cat "$unit" >/dev/null 2>&1; then
+      systemctl stop "$unit" || true
+      echo "stopped:$unit"
+    else
+      echo "absent:$unit"
+    fi
+  args:
+    executable: /bin/bash
+  loop:
+    - vibe13-mini-device.service
+    - vibe13-probe.service
+    - vibe13-raw-peer.service
+    - vibe13-observer.service
+  register: stop_units
+  changed_when: "'stopped:' in stop_units.stdout"
+
+- name: Fail if tty has unexpected owner (fuser without -k)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    serial="{{ lab_serial_by_id }}"
+    if [[ ! -e "$serial" ]]; then
+      echo "serial path missing: $serial" >&2
+      exit 1
+    fi
+    out="$(fuser -v "$serial" 2>&1 || true)"
+    if [[ -n "${out//[[:space:]]/}" ]]; then
+      echo "FAIL: unexpected tty owners on $serial:" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+    echo "tty_clear"
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Prove /opt/vibe13/current matches expected release
+  ansible.builtin.shell: |
+    set -euo pipefail
+    cur="{{ lab_install_root }}/current"
+    test -L "$cur"
+    target="$(readlink -f "$cur")"
+    want="{{ lab_install_root }}/releases/{{ lab_revision }}"
+    test -d "$want"
+    test "$target" = "$(readlink -f "$want")"
+    echo "release_ok={{ lab_revision }}"
+  args:
+    executable: /bin/bash
+  when: lab_revision is defined and (lab_revision | string | length) == 40
+  changed_when: false
+
+- name: Record release identity into run dir
+  ansible.builtin.shell: |
+    set -euo pipefail
+    cur="{{ lab_install_root }}/current"
+    sha=""
+    if [[ -f "$cur/MANIFEST.json" ]]; then
+      sha="$(python3 -c 'import json,pathlib; print(json.loads(pathlib.Path("'"$cur"'/MANIFEST.json").read_text()).get("release_id",""))')"
+    fi
+    printf '%s\n' "$sha" > "{{ lab_state_root }}/runs/{{ lab_run_id }}/release_sha.txt"
+    readlink -f "$cur" > "{{ lab_state_root }}/runs/{{ lab_run_id }}/release_path.txt"
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Render probe unit with profile + run-scoped report path
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/deploy_release/templates/vibe13-probe.service.j2"
+    dest: /etc/systemd/system/vibe13-probe.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: not (lab_is_raw | bool) and lab_role == 'probe'
+  register: probe_unit_rendered
+
+- name: Reload systemd after probe unit update
+  ansible.builtin.command: systemctl daemon-reload
+  when: probe_unit_rendered is changed
+  changed_when: true
 
 - name: Start server first
   ansible.builtin.systemd:
     name: "{{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-mini-device.service' }}"
     state: started
   when: lab_role == 'server'
+  register: srv_start
 
 - name: Wait for server active
   ansible.builtin.command: systemctl is-active {{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-mini-device.service' }}
@@ -61,7 +146,7 @@
 - name: Wait for server log readiness marker
   ansible.builtin.shell: |
     set -euo pipefail
-    log="{{ lab_state_root }}/runs/current/{{ 'raw.log' if lab_is_raw | bool else 'mini-device.log' }}"
+    log="{{ lab_state_root }}/runs/{{ lab_run_id }}/{{ 'raw.log' if lab_is_raw | bool else 'mini-device.log' }}"
     for i in $(seq 1 30); do
       if [[ -f "$log" ]] && grep -E 'raw peer starting|MS/TP device up' "$log" >/dev/null 2>&1; then
         exit 0
@@ -70,6 +155,19 @@
     done
     echo "FAIL: readiness marker missing in $log" >&2
     exit 1
+  args:
+    executable: /bin/bash
+  when: lab_role == 'server'
+  changed_when: false
+
+- name: Record server PID/path
+  ansible.builtin.shell: |
+    set -euo pipefail
+    unit="{{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-mini-device.service' }}"
+    pid="$(systemctl show -p MainPID --value "$unit")"
+    exe="$(readlink -f /proc/$pid/exe 2>/dev/null || true)"
+    printf '{"unit":"%s","pid":%s,"exe":"%s"}\n' "$unit" "${pid:-0}" "$exe" \
+      > "{{ lab_state_root }}/runs/{{ lab_run_id }}/server-process.json"
   args:
     executable: /bin/bash
   when: lab_role == 'server'
@@ -90,47 +188,146 @@
   when: lab_role == 'probe'
   changed_when: false
 
+- name: Record probe PID/path
+  ansible.builtin.shell: |
+    set -euo pipefail
+    unit="{{ 'vibe13-raw-peer.service' if lab_is_raw | bool else 'vibe13-probe.service' }}"
+    pid="$(systemctl show -p MainPID --value "$unit")"
+    exe="$(readlink -f /proc/$pid/exe 2>/dev/null || true)"
+    printf '{"unit":"%s","pid":%s,"exe":"%s"}\n' "$unit" "${pid:-0}" "$exe" \
+      > "{{ lab_state_root }}/runs/{{ lab_run_id }}/probe-process.json"
+  args:
+    executable: /bin/bash
+  when: lab_role == 'probe'
+  changed_when: false
+
+- name: Write observer status.json producer (thin)
+  ansible.builtin.copy:
+    dest: "{{ lab_state_root }}/observer/status.json"
+    content: |
+      {
+        "ok": true,
+        "freshness": "live",
+        "run_id": "{{ lab_run_id }}",
+        "profile": "{{ lab_profile }}",
+        "host": "{{ inventory_hostname }}",
+        "role": "{{ lab_role }}",
+        "pid": {{ ansible_pid | default(0) | int }},
+        "observed_utc_ms": {{ (ansible_date_time.epoch | int) * 1000 }},
+        "tty_owner": false,
+        "note": "produced by run_orchestrate; observer is a read-only viewer"
+      }
+    owner: "{{ lab_service_user }}"
+    group: "{{ lab_service_user }}"
+    mode: "0640"
+
 - name: Optionally start observer (no tty)
   ansible.builtin.systemd:
     name: vibe13-observer.service
     state: started
   when: lab_enable_observer | default(true) | bool
 
-- name: Bounded profile wait (smoke vs soak)
+- name: Bounded profile wait (smoke / gate / soak)
   ansible.builtin.pause:
     seconds: "{{ lab_runtime_secs | int }}"
   when: lab_role == 'server'
 
-- name: Collect unit exit/active for summary
-  ansible.builtin.command: systemctl is-active {{ item }}
-  register: final_units
-  loop: >-
-    {{
-      ['vibe13-raw-peer.service']
-      if lab_is_raw | bool
-      else (
-        ['vibe13-mini-device.service']
-        if lab_role == 'server'
-        else ['vibe13-probe.service']
-      )
-    }}
-  failed_when: false
+- name: Evaluate finite-profile evidence (never PASS on is-active alone)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    RUN="{{ lab_state_root }}/runs/{{ lab_run_id }}"
+    PROFILE="{{ lab_profile }}"
+    ROLE="{{ lab_role }}"
+    STATUS="NOT_RUN"
+    DETAIL=""
+
+    if [[ "$PROFILE" == raw-* ]]; then
+      # Raw peers log completion; treat active+log marker as PARTIAL unless fail line.
+      if [[ -f "$RUN/raw.log" ]] && grep -q 'raw peer finished' "$RUN/raw.log"; then
+        if grep -q 'raw peer failures=' "$RUN/raw.log"; then
+          STATUS="FAIL"; DETAIL="raw failures"
+        else
+          STATUS="PASS"; DETAIL="raw finished"
+        fi
+      elif systemctl is-active --quiet vibe13-raw-peer.service; then
+        STATUS="PARTIAL"; DETAIL="raw still active without finished marker"
+      else
+        STATUS="FAIL"; DETAIL="raw not finished"
+      fi
+    else
+      REPORT="$RUN/probe-report.json"
+      if [[ "$ROLE" == "probe" ]]; then
+        if [[ -f "$REPORT" ]]; then
+          ST="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("status",""))' "$REPORT")"
+          case "$ST" in
+            Passed|passed|PASS) STATUS="PASS"; DETAIL="report $ST" ;;
+            Failed|failed|FAIL) STATUS="FAIL"; DETAIL="report $ST" ;;
+            *) STATUS="PARTIAL"; DETAIL="report status=$ST" ;;
+          esac
+        else
+          if systemctl is-active --quiet vibe13-probe.service; then
+            STATUS="PARTIAL"; DETAIL="probe active but probe-report.json missing"
+          else
+            STATUS="FAIL"; DETAIL="probe-report.json missing"
+          fi
+        fi
+      else
+        # Server host: defer to probe report if present via shared run dir, else PARTIAL/NOT_RUN
+        if [[ -f "$REPORT" ]]; then
+          ST="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("status",""))' "$REPORT")"
+          case "$ST" in
+            Passed|passed|PASS) STATUS="PASS"; DETAIL="shared report $ST" ;;
+            Failed|failed|FAIL) STATUS="FAIL"; DETAIL="shared report $ST" ;;
+            *) STATUS="PARTIAL"; DETAIL="shared report status=$ST" ;;
+          esac
+        else
+          if systemctl is-active --quiet vibe13-mini-device.service; then
+            STATUS="PARTIAL"; DETAIL="server active; waiting probe report on pair"
+          else
+            STATUS="FAIL"; DETAIL="server inactive and no report"
+          fi
+        fi
+      fi
+    fi
+
+    # Never leave RUNNING
+    python3 - <<PY
+    import json
+    status = "$STATUS"
+    assert status in ("PASS", "FAIL", "PARTIAL", "NOT_RUN"), status
+    out = {
+      "run_id": "{{ lab_run_id }}",
+      "profile": "{{ lab_profile }}",
+      "host": "{{ inventory_hostname }}",
+      "role": "{{ lab_role }}",
+      "status": status,
+      "detail": """$DETAIL""",
+      "runtime_secs": {{ lab_runtime_secs | int }},
+      "serial_by_id": "{{ lab_serial_by_id }}",
+      "started_utc": "{{ ansible_date_time.iso8601 | default('') }}",
+    }
+    open("$RUN/summary.json", "w").write(json.dumps(out, indent=2) + "\n")
+    print(status)
+    PY
+  args:
+    executable: /bin/bash
+  register: summary_eval
   changed_when: false
 
-- name: Write terminal summary (not RUNNING-only)
+- name: Refresh observer status with terminal summary
   ansible.builtin.copy:
-    dest: "{{ lab_state_root }}/runs/{{ lab_run_id }}/summary.json"
+    dest: "{{ lab_state_root }}/observer/status.json"
     content: |
       {
+        "ok": {{ 'true' if summary_eval.stdout == 'PASS' else 'false' }},
+        "freshness": "terminal",
         "run_id": "{{ lab_run_id }}",
         "profile": "{{ lab_profile }}",
         "host": "{{ inventory_hostname }}",
         "role": "{{ lab_role }}",
-        "status": "{{ 'PASS' if (final_units.results | map(attribute='stdout') | list | unique | length == 1 and (final_units.results[0].stdout | default('')) == 'active') else 'FAIL' }}",
-        "runtime_secs": {{ lab_runtime_secs | int }},
-        "serial_by_id": "{{ lab_serial_by_id }}",
-        "started_utc": "{{ ansible_date_time.iso8601 | default('') }}",
-        "units": {{ final_units.results | map(attribute='item') | list | to_json }}
+        "status": "{{ summary_eval.stdout }}",
+        "observed_utc_ms": {{ (ansible_date_time.epoch | int) * 1000 }},
+        "tty_owner": false
       }
     owner: "{{ lab_service_user }}"
     group: "{{ lab_service_user }}"

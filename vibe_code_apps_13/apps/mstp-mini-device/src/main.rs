@@ -175,7 +175,16 @@ async fn main() -> Result<()> {
     wait_shutdown_signal(Arc::clone(&shutdown)).await;
     let usb_gone = usb_gone_latch.load(Ordering::Relaxed);
     info!("Shutting down…");
-    server.stop().await.context("stop server")?;
+    // Bound stop so unplug path cannot hang forever on server.stop().
+    match tokio::time::timeout(Duration::from_secs(5), server.stop()).await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            error!(error = %e, "server.stop failed");
+        }
+        Err(_) => {
+            error!("server.stop timed out after 5s");
+        }
+    }
     if usb_gone {
         const EXIT_USB_GONE: i32 = 75;
         error!(
