@@ -49,6 +49,67 @@ def test_cyclic_lp_feasible_and_peak_capped():
     assert float(greedy["purchased_peak_kw"]) <= float(greedy["house_peak_kw"]) + 1e-9
 
 
+def test_restore_final_soc_closes_the_day_at_initial():
+    params = BatteryParams(
+        capacity_kwh=13.5,
+        max_charge_kw=5.0,
+        max_discharge_kw=5.0,
+        soc_min=0.1,
+        soc_max=0.95,
+        initial_soc=0.5,
+    )
+    # Cheap morning then an expensive tail, so greedy ends the day drained.
+    prices = [0.08] * 192 + [0.55] * 96
+    load = [2.0] * 288
+
+    free = simulate_dispatch(load, prices, params, mode="price_arbitrage")
+    assert abs(float(free["final_soc"]) - params.initial_soc) > 1e-2, (
+        "expected greedy to end away from initial SOC on this price shape"
+    )
+    assert free["soc_restored"] is False
+
+    fair = simulate_dispatch(load, prices, params, mode="price_arbitrage", restore_final_soc=True)
+    assert fair["soc_restored"] is True
+    assert abs(float(fair["final_soc"]) - params.initial_soc) < 1e-3
+    # Restoration must not break the physical invariants the greedy loop enforces.
+    assert all(params.soc_min - 1e-9 <= s <= params.soc_max + 1e-9 for s in fair["soc"])
+    for c, d in zip(fair["charge_kw"], fair["discharge_kw"], strict=True):
+        assert not (c > 1e-9 and d > 1e-9)
+    assert all(p >= -1e-9 for p in fair["purchased_kw"])
+    assert float(fair["purchased_peak_kw"]) <= float(fair["house_peak_kw"]) + 1e-9
+
+
+def test_restore_final_soc_removes_the_drain_discount():
+    """Ending drained is a free lunch; restoring SOC must not make the bill cheaper."""
+    params = BatteryParams(capacity_kwh=13.5, max_charge_kw=5.0, max_discharge_kw=5.0, initial_soc=0.5)
+    prices = [0.08] * 96 + [0.20] * 96 + [0.55] * 96
+    load = [2.5] * 288
+
+    def bill(out) -> float:
+        return sum(p * k * (1 / 12) for p, k in zip(prices, out["purchased_kw"], strict=True))
+
+    free = simulate_dispatch(load, prices, params, mode="price_arbitrage")
+    fair = simulate_dispatch(load, prices, params, mode="price_arbitrage", restore_final_soc=True)
+    assert float(fair["final_soc"]) > float(free["final_soc"])
+    assert bill(fair) >= bill(free) - 1e-9
+
+
+def test_restore_final_soc_sheds_a_surplus():
+    """A day that ends over-charged is closed back down, not just topped up."""
+    params = BatteryParams(capacity_kwh=10.0, max_charge_kw=4.0, max_discharge_kw=4.0, initial_soc=0.5)
+    prices = [0.55] * 96 + [0.08] * 192  # expensive first, cheap tail → greedy ends high
+    # Load must fall in the cheap tail, or the house-peak cap leaves no charging headroom.
+    load = [4.0] * 96 + [1.0] * 192
+
+    free = simulate_dispatch(load, prices, params, mode="price_arbitrage")
+    assert float(free["final_soc"]) > params.initial_soc + 1e-2
+
+    fair = simulate_dispatch(load, prices, params, mode="price_arbitrage", restore_final_soc=True)
+    assert fair["soc_restored"] is True
+    assert abs(float(fair["final_soc"]) - params.initial_soc) < 1e-3
+    assert all(params.soc_min - 1e-9 <= s <= params.soc_max + 1e-9 for s in fair["soc"])
+
+
 def test_net_welfare_can_go_negative():
     dh = degree_hours_abs_delta([74.0] * 12, [72.0] * 12, dt_hours=1.0)
     assert dh == pytest.approx(24.0)

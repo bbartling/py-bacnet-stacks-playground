@@ -18,6 +18,7 @@ Launch (Windows / Linux / macOS)::
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import math
@@ -30,6 +31,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
+from vibe23.battery import BatteryParams
 from vibe23.energyplus import resolve_native_energyplus
 from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import MAX_COOL_F, MAX_HEAT_F
@@ -96,6 +98,11 @@ from vibe23.studio.uploads import expand_tariff_to_288, parse_epw_day, parse_tar
 PLAY_SECONDS = 60.0
 CAND_SECONDS = 0.4
 AXES = ("twin", "dr", "cand")
+
+# Committed fixture rankings are an algebraic proxy, not simulation output. Anything shown
+# from them must be labelled as such — see scripts/generate_grid_flex_fixtures.py.
+PROXY_FIXTURE_KIND = "ILLUSTRATIVE_PHYSICS_PROXY"
+PROXY_WARNING = "SYNTHETIC / ILLUSTRATIVE_PHYSICS_PROXY — not EnergyPlus simulations"
 
 load_energyplus_env()
 
@@ -229,6 +236,7 @@ def _init_state() -> None:
         "promoted_has_trace": False,
         "session_ranking_path": None,
         "session_twin_export_path": None,
+        "grid_config_fp": None,
         "dsm_minutes": 5,
         "_dsm_minutes_prev": 5,
         "season": "Summer hot day (Jul 15)",
@@ -296,6 +304,7 @@ def _clear_session() -> None:
     st.session_state.promoted_has_trace = False
     st.session_state.session_ranking_path = None
     st.session_state.session_twin_export_path = None
+    st.session_state.grid_config_fp = None
     st.session_state.comfort_low_f = MAX_HEAT_F
     st.session_state.comfort_high_f = MAX_COOL_F
     st.session_state.idf_text = None
@@ -426,6 +435,103 @@ def _parse_action(action_json: object) -> dict:
         except json.JSONDecodeError:
             return {}
     return {}
+
+
+def _sidebar_battery_params() -> BatteryParams:
+    """Battery sized from the sidebar, so a live search scores the box the user configured."""
+    power = float(st.session_state.max_power_kw)
+    eta = float(st.session_state.eta)
+    soc_min = float(st.session_state.soc_min)
+    soc_max = float(st.session_state.soc_max)
+    initial = min(max(float(st.session_state.initial_soc), soc_min), soc_max)
+    return BatteryParams(
+        capacity_kwh=float(st.session_state.capacity_kwh),
+        max_charge_kw=power,
+        max_discharge_kw=power,
+        eta_c=eta,
+        eta_d=eta,
+        soc_min=soc_min,
+        soc_max=soc_max,
+        initial_soc=initial,
+    )
+
+
+def _live_idf_arg(session_id: str) -> str | None:
+    """Path to the IDF a live run should simulate: the upload if present, else the default.
+
+    ``run_thermostat_grid`` takes a path, so an uploaded IDF held only in session state is
+    staged into the session export workspace first.
+    """
+    text = st.session_state.get("idf_text")
+    if not text:
+        return None
+    staged = exports_dir(session_id) / "live_idf"
+    staged.mkdir(parents=True, exist_ok=True)
+    target = staged / "uploaded.idf"
+    target.write_text(str(text), encoding="utf-8")
+    return str(target)
+
+
+def _grid_config_fingerprint(season_key: str) -> str:
+    """Identity of every input a live grid search consumes.
+
+    Stored alongside a live run so stale session ranking / twin paths can be dropped when
+    the user changes the battery, comfort band, season, or IDF underneath them.
+    """
+    idf_text = st.session_state.get("idf_text")
+    idf_id = hashlib.sha256(str(idf_text).encode("utf-8")).hexdigest()[:16] if idf_text else "default"
+    payload = {
+        "season": season_key,
+        "attach_battery": bool(st.session_state.attach_battery),
+        "battery": _sidebar_battery_params().to_dict(),
+        "comfort_low_f": float(st.session_state.comfort_low_f),
+        "comfort_high_f": float(st.session_state.comfort_high_f),
+        "max_candidates": int(st.session_state.grid_max_candidates),
+        "idf": idf_id,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _invalidate_stale_live_run(season_key: str) -> bool:
+    """Drop live-run artifact paths whose inputs no longer match the sidebar.
+
+    Returns True when a stale live run was cleared, so the caller can say so.
+    """
+    if not st.session_state.get("session_ranking_path"):
+        return False
+    current = _grid_config_fingerprint(season_key)
+    if st.session_state.get("grid_config_fp") == current:
+        return False
+    st.session_state.session_ranking_path = None
+    st.session_state.session_twin_export_path = None
+    st.session_state.grid_config_fp = None
+    st.session_state.promoted_has_trace = False
+    return True
+
+
+def _record_live_run(season_key: str, out_root) -> None:
+    st.session_state.session_ranking_path = str(out_root / "ranking.json")
+    st.session_state.session_twin_export_path = str(out_root / "twin_export.json")
+    st.session_state.grid_config_fp = _grid_config_fingerprint(season_key)
+
+
+def _is_live_ranking() -> bool:
+    """True when the loaded ranking came from this session's live EnergyPlus run."""
+    return bool(st.session_state.get("session_ranking_path"))
+
+
+def _is_proxy_ranking(ranking: dict | None) -> bool:
+    """True when the displayed ranking is synthetic rather than EnergyPlus output.
+
+    Two independent signals, either of which is disqualifying: the payload self-declares
+    ``fixture_kind == ILLUSTRATIVE_PHYSICS_PROXY``, or there is no live session run behind
+    it (so whatever is on screen came off disk as a committed fixture).
+    """
+    if str((ranking or {}).get("fixture_kind") or "") == PROXY_FIXTURE_KIND:
+        return True
+    return not _is_live_ranking()
 
 
 def _load_session_ranking(season_key: str) -> dict | None:
@@ -581,10 +687,11 @@ def _render_grid_board(session_id: str, season_key: str, eplus) -> None:
                         comfort_low_f=float(st.session_state.comfort_low_f),
                         comfort_high_f=float(st.session_state.comfort_high_f),
                         attach_battery=bool(st.session_state.attach_battery),
+                        battery_params=_sidebar_battery_params(),
+                        idf=_live_idf_arg(session_id),
                         store_traces=True,
                     )
-                st.session_state.session_ranking_path = str(out / "ranking.json")
-                st.session_state.session_twin_export_path = str(out / "twin_export.json")
+                _record_live_run(season_key, out)
                 ranking_payload = result.get("ranking") or {}
                 win = ranking_payload.get("winner") or {}
                 if win:
@@ -751,9 +858,11 @@ def main() -> None:
         st.session_state._reset_step = True
     st.session_state._dsm_minutes_prev = minutes
 
+    stale_live_run = _invalidate_stale_live_run(season_key)
     ranking = _load_session_ranking(season_key)
     anim_rows = candidate_rows_for_animation(ranking) if ranking else []
     n_cand = len(anim_rows)
+    ranking_is_proxy = _is_proxy_ranking(ranking)
 
     if st.session_state.pop("_reset_step", False):
         st.session_state.step = 0
@@ -778,6 +887,10 @@ def main() -> None:
 
     # Twin replay animates the baseline day unless a promoted winner carries EnergyPlus traces.
     twin_export = _load_session_twin_export(season_key)
+    twin_export_is_proxy = str((twin_export or {}).get("fixture_kind") or "") == PROXY_FIXTURE_KIND or not bool(
+        st.session_state.get("session_twin_export_path")
+    )
+    trace_kind = "fixture proxy" if twin_export_is_proxy else "EnergyPlus"
     winner_trace = (twin_export or {}).get("winner") or {}
     house_kw_native = list(day["baseline_kw"])
     temp_f_native = list(day["baseline_temp_f"])
@@ -1092,14 +1205,16 @@ def main() -> None:
     with tab_twin:
         if twin_trace_id:
             st.caption(
-                f"Animating the **promoted winner** `{twin_trace_id}` EnergyPlus traces. "
+                f"Animating the **promoted winner** `{twin_trace_id}` {trace_kind} traces. "
                 "Baseline vs winner comparison lives on the **Grid flex calculator** tab."
             )
         else:
             st.caption(
                 "Animates the **normal (baseline) day**. Promote a winner on **Grid search** to animate its "
-                "EnergyPlus traces here; flex comparisons live on the **Grid flex calculator** tab."
+                "traces here; flex comparisons live on the **Grid flex calculator** tab."
             )
+        if twin_export_is_proxy:
+            st.warning(f"**{PROXY_WARNING}.** Replayed traces are fixtures, not simulation output.")
         _transport("twin", n)
         m1, m2, m3, m4, m5, m6 = st.columns(6)
         m1.metric("House kW", f"{house_kw[step]:.2f}")
@@ -1118,7 +1233,7 @@ def main() -> None:
             if twin_trace_id:
                 st.success(
                     f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                    "Series above are the winner's EnergyPlus facility kW / zone °F"
+                    f"Series above are the winner's {trace_kind} facility kW / zone °F"
                     + (
                         " with the co-optimized battery dispatch (purchased kW / SOC)."
                         if purchased_trace is not None
@@ -1174,6 +1289,10 @@ def main() -> None:
             "purchased-grid kW and rank by illustrative $/day. No gradient, no pruning; `max_candidates` only "
             "truncates from the front of the catalog for smoke runs."
         )
+        st.caption(
+            "That is the **live** path. Replaying committed fixtures runs no simulation at all — the "
+            "banner below says which one you are looking at."
+        )
         if season_key == "summer":
             st.caption("Fixed TOU-aligned hours · pre-window starts 13:00 · event 16–21 · recovery to 23:00.")
         else:
@@ -1184,6 +1303,17 @@ def main() -> None:
             f"**{'ON' if st.session_state.attach_battery else 'OFF'}** · "
             f"claim boundary HYPOTHETICAL_GL14_TUNED_DEMO_MODEL / ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF."
         )
+        st.caption(
+            "Acceptance is the strict gate: a candidate is only rankable when EnergyPlus finished "
+            "with **zero fatals and zero severes** (`ok`), and battery scoring restores the day's "
+            "closing SOC so no cell can win by draining the battery."
+        )
+
+        if stale_live_run:
+            st.info(
+                "Sidebar battery / comfort band / season / IDF changed since the last live search — "
+                "the stale live ranking was dropped. Re-run the search to score the new configuration."
+            )
 
         if ranking is None:
             st.warning("No ranking JSON available for this season.")
@@ -1193,6 +1323,15 @@ def main() -> None:
                 or f"fixtures/studio/{season_key}_thermostat_grid_ranking.json"
             )
             st.caption(f"Ranking source: `{src}` · catalog N = {n_cand}")
+            if ranking_is_proxy:
+                st.warning(f"**{PROXY_WARNING}.**")
+                st.caption(
+                    (str(ranking.get("schema_note")) if ranking.get("schema_note") else "")
+                    or "Committed fixture scores come from an algebraic scaling of the demo-day "
+                    "baseline series, not from an EnergyPlus run."
+                )
+            else:
+                st.success("Live EnergyPlus ranking from this session's search.")
 
         if eplus is not None:
             if st.button("Run live EnergyPlus search", type="primary", key="grid_run_live"):
@@ -1207,11 +1346,12 @@ def main() -> None:
                             max_candidates=int(st.session_state.grid_max_candidates),
                             comfort_low_f=float(st.session_state.comfort_low_f),
                             comfort_high_f=float(st.session_state.comfort_high_f),
-                            attach_battery=True,
+                            attach_battery=bool(st.session_state.attach_battery),
+                            battery_params=_sidebar_battery_params(),
+                            idf=_live_idf_arg(session_id),
                             store_traces=True,
                         )
-                    st.session_state.session_ranking_path = str(out / "ranking.json")
-                    st.session_state.session_twin_export_path = str(out / "twin_export.json")
+                    _record_live_run(season_key, out)
                     ranking_payload = result.get("ranking") or {}
                     st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
                     win = ranking_payload.get("winner") or {}
@@ -1259,7 +1399,7 @@ def main() -> None:
                 search_progress_ring(
                     progress["fraction"],
                     label=f"{evaluated} / {n_cand} candidates",
-                    sublabel="EnergyPlus search replay",
+                    sublabel="Fixture proxy replay" if ranking_is_proxy else "EnergyPlus search",
                 ),
                 width="stretch",
             )
@@ -1310,10 +1450,17 @@ def main() -> None:
         best_cost = progress["best_cost"]
         p4.metric("Best cost", "—" if best_cost is None else f"${best_cost:.2f}")
 
-        st.caption(
-            "What is an iteration? One catalog candidate = one full EnergyPlus day simulation "
-            "(plus a shared baseline run). The progress slider is candidates evaluated, not clock time."
-        )
+        if ranking_is_proxy:
+            st.caption(
+                "What is an iteration? Here it is **one pre-computed proxy score being revealed**, "
+                f"not a simulation: {PROXY_WARNING}. The `wall_seconds` behind the wall-time metric "
+                "are fixture placeholders. Run a live search for real EnergyPlus iterations."
+            )
+        else:
+            st.caption(
+                "What is an iteration? One catalog candidate = one full EnergyPlus day simulation "
+                "(plus a shared baseline run). The progress slider is candidates evaluated, not clock time."
+            )
 
         qt = qtable_matrix(anim_rows, evaluated=evaluated)
         current = _centers_from_row(anim_rows[evaluated - 1]) if evaluated > 0 else None
@@ -1329,13 +1476,21 @@ def main() -> None:
                     title=(
                         f"Grid flex Q-table ($/day) · {evaluated}/{n_cand} cells evaluated · "
                         f"{'battery co-optimized' if st.session_state.attach_battery else 'thermal only'}"
+                        f"{' · PROXY' if ranking_is_proxy else ' · live E+'}"
                     ),
                 ),
                 width="stretch",
             )
             st.caption(
-                "Rows = pre-window center °F, columns = event center °F. Blank cells are not yet evaluated or "
-                "were rejected by the comfort / soft gate. Each filled cell is one EnergyPlus day."
+                "Rows = pre-window center °F, columns = event center °F. Blank cells are not yet "
+                "evaluated or were rejected by the comfort / acceptance gate. "
+                + (
+                    f"Filled cells are **proxy scores** ({PROXY_WARNING}) — each one is an algebraic "
+                    "scaling of the baseline day, not an EnergyPlus day. Load a live E+ ranking to "
+                    "read these as simulations."
+                    if ranking_is_proxy
+                    else "Each filled cell is one live EnergyPlus day."
+                )
             )
         else:
             st.info("No Q-table cells yet — press **Run search** (or run a live search) to evaluate candidates.")
@@ -1364,8 +1519,9 @@ def main() -> None:
                 has_trace = bool(export_winner.get("facility_kw")) and trace_id == promoted_id
                 st.session_state.promoted_has_trace = has_trace
                 if has_trace:
+                    kind = "fixture proxy" if ranking_is_proxy else "EnergyPlus"
                     st.success(
-                        f"Promoted `{promoted_id}`. Twin replay will animate the winner EnergyPlus traces "
+                        f"Promoted `{promoted_id}`. Twin replay will animate the winner {kind} traces "
                         "(facility kW / zone °F, plus the co-optimized purchased kW / SOC when battery is on)."
                     )
                 else:
@@ -1453,12 +1609,17 @@ def main() -> None:
             base_temp_native = [float(v) for v in fx_base["zone_temp_f"]]
             flex_temp_native = [float(v) for v in fx_win["zone_temp_f"]]
             flex_id = str(fx_win.get("candidate_id") or "winner")
-            source_note = f"grid winner `{flex_id}` vs its paired EnergyPlus baseline"
+            twin_is_proxy = str(flex_export.get("fixture_kind") or "") == PROXY_FIXTURE_KIND or not bool(
+                st.session_state.get("session_twin_export_path")
+            )
+            basis = "synthetic proxy baseline" if twin_is_proxy else "paired EnergyPlus baseline"
+            source_note = f"grid winner `{flex_id}` vs its {basis}"
         else:
             base_kw_native = list(day["baseline_kw"])
             flex_kw_native = list(day["event_kw"])
             base_temp_native = list(day["baseline_temp_f"])
             flex_temp_native = list(day["event_temp_f"])
+            twin_is_proxy = True
             source_note = "fixture flex day vs baseline day"
 
         st.subheader(f"Grid flex calculator — {day.get('label', season_key)}")
@@ -1467,6 +1628,8 @@ def main() -> None:
             f"Winner-vs-baseline flex on the TOU peak window **{window}** · {source_note}. "
             "Independent playhead from Twin replay — scrub or Play this comparison on its own clock."
         )
+        if twin_is_proxy:
+            st.warning(f"**{PROXY_WARNING}.** These traces are fixture replay, not simulation output.")
         _transport("dr", n)
         dr_step = int(st.session_state.dr_step)
         end = dr_step + 1

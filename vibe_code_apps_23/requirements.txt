@@ -1,0 +1,10 @@
+# Studio dependencies under the filename Streamlit Community Cloud auto-detects.
+#
+# Nested -r paths are resolved relative to this file, so the pinned studio set stays in
+# one place (requirements-studio.txt) and cannot drift from this file.
+-r requirements-studio.txt
+
+# The app imports `vibe23`, so the package itself must be installed. pip resolves this
+# relative path against the working directory, which must be this app directory
+# (vibe_code_apps_23). Locally: `py -3.12 -m pip install -r requirements.txt` from here.
+-e .

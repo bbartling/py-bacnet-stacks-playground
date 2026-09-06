@@ -8,13 +8,29 @@ from vibe23.residential.campaign import run_thermostat_grid
 from vibe23.residential.constants import INTERVALS_PER_DAY
 
 
-def _fake_day(*, soft_ok: bool, zone_temp: float, facility_kw: float, cid: str = "x") -> dict:
+def _fake_day(
+    *,
+    soft_ok: bool,
+    zone_temp: float,
+    facility_kw: float,
+    cid: str = "x",
+    severe_count: int = 0,
+    ok: bool | None = None,
+) -> dict:
+    """One fake ``run_residential_day`` payload.
+
+    ``ok`` is the strict acceptance gate (no severes); it defaults to ``soft_ok and no
+    severes`` so callers can construct a soft-OK-but-severe run by passing
+    ``severe_count``.
+    """
     n = INTERVALS_PER_DAY
+    hard_ok = (soft_ok and severe_count == 0) if ok is None else bool(ok)
     return {
         "soft_ok": soft_ok,
+        "ok": hard_ok,
         "process_returncode": 0 if soft_ok else 1,
         "fatal_count": 0,
-        "severe_count": 0,
+        "severe_count": int(severe_count),
         "warning_count": 0,
         "wall_seconds": 0.5,
         "facility_kw": [facility_kw] * n,
@@ -28,7 +44,6 @@ def _fake_day(*, soft_ok: bool, zone_temp: float, facility_kw: float, cid: str =
         "day": 15,
         "energyplus_version": "fake",
         "equipment": {},
-        "ok": soft_ok,
         "inspection": {},
     }
 
@@ -78,9 +93,71 @@ def test_run_thermostat_grid_battery_coopt_and_comfort_gate(tmp_path: Path) -> N
     assert result["attach_battery"] is True
     assert result["catalog_size"] == 4
 
-    # Feasible rows should have finite purchased billing when soft+comfort OK.
-    feasible = [r for r in rows if r["soft_ok"] and r["comfort_ok"]]
+    # Feasible rows should have finite purchased billing when the strict gate + comfort pass.
+    feasible = [r for r in rows if r["ok"] and r["comfort_ok"]]
     assert feasible
     for row in feasible:
         assert row["billing_cost"] < float("inf")
         assert "thermal_cost" in row
+        assert row["soft_ok"] is True
+
+
+def test_severe_runs_are_rejected_even_when_soft_ok(tmp_path: Path) -> None:
+    """A run with severe errors is soft_ok but not `ok`, so it must never be rankable."""
+
+    def fake_run(source, *, output_dir, eplus_path=None, month=7, day=15, heat_f=None, cool_f=None):
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        if out.name == "baseline":
+            return _fake_day(soft_ok=True, zone_temp=72.0, facility_kw=3.0)
+        # Cheapest possible load, but EnergyPlus reported severes: still must be rejected.
+        return _fake_day(soft_ok=True, zone_temp=72.0, facility_kw=0.5, severe_count=4)
+
+    with patch("vibe23.residential.campaign.run_residential_day", side_effect=fake_run):
+        with patch("vibe23.residential.campaign.save_baseline_vs_winner_png", return_value=tmp_path / "x.png"):
+            result = run_thermostat_grid(
+                season="summer",
+                output_root=tmp_path / "grid_severe",
+                max_candidates=3,
+                attach_battery=True,
+                store_traces=False,
+            )
+
+    rows = result["ranking"]["rows"]
+    candidates = [r for r in rows if r["candidate_id"] != "BASELINE"]
+    assert candidates
+    for row in candidates:
+        assert row["soft_ok"] is True, "fixture asserts the permissive gate passed"
+        assert row["ok"] is False
+        assert row["comfort_ok"] is True, "comfort is fine; only the severe gate rejects"
+        assert row["billing_cost"] == float("inf")
+        assert row["thermal_cost"] == float("inf")
+
+    # The clean baseline must win over any severe candidate, however cheap it looked.
+    assert result["ranking"]["winner"]["candidate_id"] == "BASELINE"
+
+
+def test_baseline_severes_reject_baseline_cost(tmp_path: Path) -> None:
+    """The baseline row is gated on `ok` too, not merely on `soft_ok`."""
+
+    def fake_run(source, *, output_dir, eplus_path=None, month=7, day=15, heat_f=None, cool_f=None):
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        if out.name == "baseline":
+            return _fake_day(soft_ok=True, zone_temp=72.0, facility_kw=3.0, severe_count=1)
+        return _fake_day(soft_ok=True, zone_temp=72.0, facility_kw=2.8)
+
+    with patch("vibe23.residential.campaign.run_residential_day", side_effect=fake_run):
+        with patch("vibe23.residential.campaign.save_baseline_vs_winner_png", return_value=tmp_path / "x.png"):
+            result = run_thermostat_grid(
+                season="summer",
+                output_root=tmp_path / "grid_base_severe",
+                max_candidates=2,
+                attach_battery=True,
+                store_traces=False,
+            )
+
+    base = next(r for r in result["ranking"]["rows"] if r["candidate_id"] == "BASELINE")
+    assert base["soft_ok"] is True
+    assert base["ok"] is False
+    assert base["billing_cost"] == float("inf")

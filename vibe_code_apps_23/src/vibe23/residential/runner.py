@@ -28,7 +28,15 @@ def _sha256_text(text: str) -> str:
 
 
 def parse_eplus_csv(run_dir: Path | str) -> pd.DataFrame:
-    """Parse eplusout.csv into facility_kw, zone_temp_f, optional hvac_kw."""
+    """Parse eplusout.csv into facility_kw, zone_temp_f, optional hvac_kw.
+
+    Meter columns are joules per reporting interval, so the J→kW divisor is only correct
+    when the reporting interval matches ``DT_HOURS``. This function therefore requires
+    exactly ``INTERVALS_PER_DAY`` (288) rows and refuses anything else rather than
+    silently mis-scaling power: hourly output divided by a 5-minute ``DT_HOURS`` inflates
+    kW (and therefore kWh and $) by 12×. Fix the IDF's ``Timestep`` /
+    ``Output:Meter`` reporting frequency instead of resampling after the fact.
+    """
 
     root = Path(run_dir)
     csv_path = root / "eplusout.csv"
@@ -37,6 +45,22 @@ def parse_eplus_csv(run_dir: Path | str) -> pd.DataFrame:
     frame = pd.read_csv(csv_path)
     if frame.empty:
         raise ValueError("eplusout.csv has no data rows")
+
+    n_rows = int(len(frame.index))
+    if n_rows != INTERVALS_PER_DAY:
+        if n_rows == 24:
+            raise ValueError(
+                f"eplusout.csv in {root} has 24 rows (hourly output). Hourly reporting is "
+                f"unsupported: the joules-per-interval columns would be divided by "
+                f"DT_HOURS={DT_HOURS:.6f} h, inflating kW/kWh/$ by 12x. Request "
+                f"Timestep-frequency output (Timestep,12 → {INTERVALS_PER_DAY} rows/day)."
+            )
+        raise ValueError(
+            f"eplusout.csv in {root} has {n_rows} rows; expected exactly {INTERVALS_PER_DAY} "
+            f"(one weather-file day at Timestep,12). Refusing to pad or truncate because the "
+            f"J→kW conversion assumes a {DT_HOURS:.6f} h reporting interval."
+        )
+
     cols = list(frame.columns)
     facility_col = next((c for c in cols if _FACILITY_RE.search(str(c))), None)
     zone_col = next((c for c in cols if _ZONE_TEMP_RE.search(str(c))), None)
@@ -63,16 +87,17 @@ def parse_eplus_csv(run_dir: Path | str) -> pd.DataFrame:
     return out
 
 
-def _resample_288(values: Sequence[float], n: int = INTERVALS_PER_DAY) -> list[float]:
+def _require_288(values: Sequence[float], *, label: str, n: int = INTERVALS_PER_DAY) -> list[float]:
+    """Return ``values`` as a list, refusing any length other than ``n``.
+
+    Padding or truncating a day-length series hides a reporting-frequency mismatch and
+    corrupts every downstream kWh / $ / peak-kW number, so this fails loudly instead.
+    """
+
     arr = np.asarray(list(values), dtype=float)
-    if len(arr) == n:
-        return arr.tolist()
-    if len(arr) == 0:
-        return [0.0] * n
-    if len(arr) > n:
-        return arr[:n].tolist()
-    pad = np.full(n - len(arr), arr[-1], dtype=float)
-    return np.concatenate([arr, pad]).tolist()
+    if len(arr) != n:
+        raise ValueError(f"{label} has {len(arr)} intervals; expected exactly {n}")
+    return arr.tolist()
 
 
 def run_residential_day(
@@ -149,8 +174,8 @@ def run_residential_day(
     total_kwh = 0.0
     if csv_ok:
         parsed = parse_eplus_csv(out)
-        facility_kw = _resample_288(parsed["facility_kw"].tolist())
-        zone_temp_f = _resample_288(parsed["zone_temp_f"].tolist())
+        facility_kw = _require_288(parsed["facility_kw"].tolist(), label="facility_kw")
+        zone_temp_f = _require_288(parsed["zone_temp_f"].tolist(), label="zone_temp_f")
         peak_kw = float(max(facility_kw)) if facility_kw else 0.0
         total_kwh = float(sum(v * DT_HOURS for v in facility_kw))
 

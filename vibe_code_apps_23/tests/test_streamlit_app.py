@@ -158,3 +158,82 @@ def test_studio_app_features() -> None:
     twin_reset.click().run()
     _assert_no_exceptions(at, "Reset twin")
     assert int(at.session_state["step"]) == 0
+
+
+def test_fixture_replay_is_labelled_synthetic() -> None:
+    """With no live run loaded, the studio must not present fixtures as EnergyPlus days."""
+    at = AppTest.from_file(str(APP_PATH), default_timeout=90)
+    at.run()
+    _assert_no_exceptions(at, "initial run")
+
+    assert at.session_state["session_ranking_path"] is None, "no live run in a fresh session"
+    warnings = " | ".join(str(w.value) for w in at.warning)
+    assert "ILLUSTRATIVE_PHYSICS_PROXY" in warnings, warnings
+    assert "not EnergyPlus simulations" in warnings, warnings
+
+    captions = " | ".join(str(c.value) for c in at.caption)
+    assert "not a simulation" in captions, "expected the iteration prose to distinguish fixture replay"
+    assert "synthetic proxy baseline" in captions, "expected the flex tab to disclaim its traces"
+
+    # Reveal some Q-table cells so the heatmap (and its caption) render.
+    at.session_state.cand_step = 12
+    at.run()
+    _assert_no_exceptions(at, "fixture cells revealed")
+    captions = " | ".join(str(c.value) for c in at.caption)
+    assert "proxy scores" in captions, "expected the Q-table caption to disclaim proxy cells"
+
+
+def test_grid_config_fingerprint_tracks_sidebar() -> None:
+    """The live-run fingerprint must move when battery sizing or the comfort band moves."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_vibe23_studio_app", APP_PATH)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    import streamlit as stlib
+
+    state = {
+        "attach_battery": True,
+        "capacity_kwh": 13.5,
+        "max_power_kw": 5.0,
+        "eta": 0.95,
+        "soc_min": 0.10,
+        "soc_max": 0.95,
+        "initial_soc": 0.50,
+        "comfort_low_f": 69.5,
+        "comfort_high_f": 74.5,
+        "grid_max_candidates": 2,
+        "idf_text": None,
+    }
+
+    class _State(dict):
+        def __getattr__(self, name):
+            return self[name]
+
+    original = stlib.session_state
+    try:
+        stlib.session_state = _State(state)  # type: ignore[assignment]
+        base = module._grid_config_fingerprint("summer")
+        assert module._grid_config_fingerprint("summer") == base, "fingerprint must be stable"
+        assert module._grid_config_fingerprint("winter") != base, "season must change identity"
+
+        params = module._sidebar_battery_params()
+        assert params.capacity_kwh == 13.5
+        assert params.max_charge_kw == params.max_discharge_kw == 5.0
+        assert params.eta_c == params.eta_d == 0.95
+        assert params.initial_soc == 0.50
+
+        stlib.session_state["capacity_kwh"] = 20.0
+        assert module._grid_config_fingerprint("summer") != base, "battery capacity must change identity"
+
+        stlib.session_state["capacity_kwh"] = 13.5
+        stlib.session_state["comfort_high_f"] = 78.0
+        assert module._grid_config_fingerprint("summer") != base, "comfort band must change identity"
+
+        stlib.session_state["comfort_high_f"] = 74.5
+        stlib.session_state["idf_text"] = "Version,26.1;"
+        assert module._grid_config_fingerprint("summer") != base, "IDF identity must change identity"
+    finally:
+        stlib.session_state = original  # type: ignore[assignment]
