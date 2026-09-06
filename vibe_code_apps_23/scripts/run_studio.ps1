@@ -28,4 +28,4 @@ Get-NetTCPConnection -LocalPort 8501 -ErrorAction SilentlyContinue |
 Start-Sleep -Seconds 1
 
 $env:PYTHONPATH = "src"
-& $Py -m streamlit run streamlit_app.py --server.headless true --browser.gatherUsageStats false
+& $Py -m streamlit run streamlit_app.py --server.headless true --server.address 127.0.0.1 --server.port 8501 --browser.gatherUsageStats false
