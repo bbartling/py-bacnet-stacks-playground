@@ -41,8 +41,8 @@ def equipment_provenance() -> dict[str, str]:
             "(~0.6 kW average on 325 m2; RECS-scale non-HVAC order — not ALWAYS_ON phantom)"
         ),
         "note": "Curves copied into repo IDF; install DataSets files are not modified.",
-        "package_idf": str(MODEL_IDF),
-        "package_epw": str(DEFAULT_EPW),
+        "package_idf": f"model/{MODEL_IDF.name}",
+        "package_epw": f"model/{DEFAULT_EPW_NAME}",
     }
 
 
@@ -76,10 +76,13 @@ def find_denver_epw(explicit: Path | str | None = None) -> Path | None:
             resolved = candidate.resolve()
         except OSError:
             continue
-        key = str(resolved).lower()
+        # Case-preserving dedupe; only remember paths that exist so a missing
+        # explicit path cannot shadow the packaged EPW on case-sensitive hosts.
+        key = str(resolved)
         if key in seen:
             continue
-        seen.add(key)
         if resolved.is_file():
+            seen.add(key)
             return resolved
+        seen.add(key)
     return None

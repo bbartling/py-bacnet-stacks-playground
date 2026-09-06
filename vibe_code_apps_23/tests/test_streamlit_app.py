@@ -61,6 +61,9 @@ def test_studio_app_features() -> None:
 
     tab_labels = [getattr(t, "label", None) for t in at.tabs]
     assert tab_labels == ["Inputs", "Twin replay", "Grid flex calculator", "Economics"], tab_labels
+    # Streamlit executes every tab body each run — outdoor_kwh_cost_figure must not TypeError.
+    assert len(at.get("plotly_chart")) >= 1
+    assert not at.exception
 
     blob = " | ".join(
         [
@@ -79,6 +82,7 @@ def test_studio_app_features() -> None:
     assert "Allowable zone" in blob or any("Allowable zone" in str(getattr(e, "label", "")) for e in at.slider)
     assert "EnergyPlus environment" not in blob
     assert "ENERGYPLUS_EXE" not in blob
+    assert "ENERGYPLUS_EXE" not in " | ".join(str(e.value) for e in at.error)
     md_blob = " | ".join(str(getattr(m, "value", m)) for m in at.markdown)
     assert "AGENTS.md" in md_blob
 

@@ -1,0 +1,7 @@
+# Ship demo IDF + Golden EPW with sdists (repo-root assets next to src/).
+include model/*.idf
+include model/*.epw
+include model/README.md
+include AGENTS.md
+graft fixtures
+global-exclude *.py[cod] __pycache__

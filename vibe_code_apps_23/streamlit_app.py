@@ -632,8 +632,11 @@ def _eplus_status_banner(live_ready: bool, live_label: str) -> None:
         st.success(f"EnergyPlus ready · {live_label}")
     else:
         st.error(
-            "EnergyPlus not ready — set local `ENERGYPLUS_EXE`, or configure "
-            "`EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY` (sidebar backend = worker/auto)."
+            "Render EnergyPlus worker not ready — set `EPLUS_WORKER_URL` + "
+            "`EPLUS_WORKER_API_KEY`, then wake "
+            "[https://vibe23-energyplus-worker.onrender.com/]"
+            "(https://vibe23-energyplus-worker.onrender.com/) "
+            "or use **Wake / check Render worker** in the sidebar."
         )
 
 
@@ -1611,7 +1614,11 @@ def main() -> None:
             event_bill = day_bill(flex_kw_native, season=season_key)
             bill_savings = base_bill - event_bill
             dh_vs_base = degree_hours_abs_delta(flex_temp_native, base_temp_native)
-            band = degree_hours_outside_band(flex_temp_native)
+            comfort_low = float(st.session_state.comfort_low_f)
+            comfort_high = float(st.session_state.comfort_high_f)
+            band = degree_hours_outside_band(
+                flex_temp_native, low_f=comfort_low, high_f=comfort_high
+            )
             wtp = float(st.session_state.comfort_wtp)
             welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
             d1, d2, d3, d4 = st.columns(4)
@@ -1629,7 +1636,7 @@ def main() -> None:
             st.caption(
                 f"Comfort OK (hard band {display_temp(band['low_f'], units):.1f}–"
                 f"{display_temp(band['high_f'], units):.1f}{t_unit}): "
-                f"**{comfort_ok(flex_temp_native)}** · "
+                f"**{comfort_ok(flex_temp_native, low=comfort_low, high=comfort_high)}** · "
                 f"|ΔT| vs baseline = **{dh_vs_base * dh_scale:.2f} {dh_label}** · "
                 f"band exceedance = **{band['total_degree_hours'] * dh_scale:.2f} {dh_label}**. "
                 f"WTP = ${wtp_disp:.2f}/{dh_label} (sidebar). "

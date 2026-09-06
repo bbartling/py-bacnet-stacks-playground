@@ -38,7 +38,12 @@ def main() -> int:
             meta = run_day_via_worker(idf_path=idf, epw_path=epw, output_dir=out, timeout_seconds=960.0)
             csv_ok = (out / "eplusout.csv").is_file()
             status = meta.get("status")
-            ok = status == "succeeded" and csv_ok and int(meta.get("fatal_count") or 0) == 0
+            ok = (
+                status == "succeeded"
+                and csv_ok
+                and int(meta.get("fatal_count") or 0) == 0
+                and int(meta.get("severe_count") or 0) == 0
+            )
             row = {
                 "idf": idf_name,
                 "epw": epw_name,
