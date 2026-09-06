@@ -35,11 +35,13 @@ from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
 from vibe23.residential.model import DEFAULT_EPW_NAME, MODEL_IDF, equipment_provenance
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
+import vibe23.energyplus_worker as _eplus_worker
 import vibe23.studio.charts as _studio_charts
 import vibe23.studio.units as _studio_units
 
-# Long-lived Streamlit processes cache package imports; reload so chart/unit
-# signature changes apply without requiring a full process restart.
+# Long-lived Streamlit processes cache package imports; reload so helper
+# signature / symbol changes apply without a full process restart.
+_eplus_worker = importlib.reload(_eplus_worker)
 _studio_charts = importlib.reload(_studio_charts)
 _studio_units = importlib.reload(_studio_units)
 
@@ -174,12 +176,12 @@ _WORKER_LIGHT_LABELS = {
 
 def _worker_status_cached(*, force: bool = False, quick_timeout: float = 2.5) -> dict:
     """Probe worker with a short TTL so Streamlit reruns stay responsive."""
-    from vibe23.energyplus_worker import probe_worker_status
+    # Use reloaded module attribute so long-lived Streamlit picks up new symbols.
+    probe_worker_status = getattr(_eplus_worker, "probe_worker_status", None)
+    worker_configured = getattr(_eplus_worker, "worker_configured")
 
     # AppTest / CI: never hit the network.
     if os.environ.get("VIBE23_STUDIO_PLAY_ONCE") == "1":
-        from vibe23.energyplus_worker import worker_configured
-
         if worker_configured():
             return {
                 "light": "green",
@@ -195,6 +197,16 @@ def _worker_status_cached(*, force: bool = False, quick_timeout: float = 2.5) ->
             "try_seconds": 0.0,
             "health": None,
             "error": "missing worker env",
+            "cached": True,
+        }
+
+    if probe_worker_status is None:
+        return {
+            "light": "red",
+            "label": "unconfigured",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": "probe_worker_status missing — restart Studio",
             "cached": True,
         }
 
@@ -906,9 +918,15 @@ def main() -> None:
             st.caption(
                 "Green = live · Yellow = starting · Red = sleeping / missing config"
             )
+            st.info(
+                "EnergyPlus worker runs on **Render free tier** and sleeps when idle — "
+                "use **Wake worker** (cold start ~30–90s). Source: "
+                "[vibe23-energyplus-worker](https://github.com/bbartling/vibe23-energyplus-worker)."
+            )
             st.markdown(
                 "[https://vibe23-energyplus-worker.onrender.com/]"
-                "(https://vibe23-energyplus-worker.onrender.com/)"
+                "(https://vibe23-energyplus-worker.onrender.com/) · "
+                "[API docs](https://vibe23-energyplus-worker.onrender.com/docs)"
             )
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
@@ -923,7 +941,8 @@ def main() -> None:
                         st.rerun()
                 with c_wake:
                     if st.button("Wake worker", key="wake_eplus_worker"):
-                        from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
+                        EnergyPlusWorkerError = _eplus_worker.EnergyPlusWorkerError
+                        ensure_worker_awake = _eplus_worker.ensure_worker_awake
 
                         st.session_state._worker_light_override = "yellow"
                         with st.spinner("Waking worker (yellow = starting)…"):
