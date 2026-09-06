@@ -60,7 +60,7 @@ def test_studio_app_features() -> None:
     assert at.file_uploader
 
     tab_labels = [getattr(t, "label", None) for t in at.tabs]
-    assert tab_labels == ["Inputs", "Twin replay", "Grid flex calculator", "Economics"], tab_labels
+    assert tab_labels == ["Inputs", "Campaign", "Grid flex", "Economics"], tab_labels
     # Streamlit executes every tab body each run — outdoor_kwh_cost_figure must not TypeError.
     assert len(at.get("plotly_chart")) >= 1
     assert not at.exception
@@ -73,6 +73,7 @@ def test_studio_app_features() -> None:
         ]
     )
     assert "ILLUSTRATIVE_PHYSICS_PROXY" not in blob
+    assert "Twin replay" not in tab_labels
     assert "Grid search" not in tab_labels
     assert "Legacy" not in blob
     assert "vibe23-energyplus-worker.onrender.com" in blob or any(
@@ -87,8 +88,8 @@ def test_studio_app_features() -> None:
     assert "AGENTS.md" in md_blob
     assert "onrender.com" in md_blob
     assert "EnergyPlus worker" in md_blob or "Worker:" in md_blob
-    assert any("EnergyPlus search" in str(b.label) for b in at.button)
-    assert any("5-cell" in str(b.label) for b in at.button)
+    assert any("5-cell catalog" in str(b.label) or "catalog (sidebar)" in str(b.label) for b in at.button)
+    assert any("169-cell" in str(b.label) for b in at.button)
     assert "Render" not in " | ".join(str(c.value) for c in at.caption)
     # Stoplight markdown (green/live under AppTest stub)
     assert any("Worker" in str(getattr(m, "value", m)) for m in at.markdown)
@@ -121,6 +122,7 @@ def test_studio_app_features() -> None:
         raise AssertionError("missing grid_max_candidates")
     _assert_no_exceptions(at, "catalog 169")
     assert any("169-cell" in str(b.label) for b in at.button)
+    assert any("catalog (sidebar)" in str(b.label) for b in at.button)
 
 
 def test_units_toggle_and_load_package_idf() -> None:

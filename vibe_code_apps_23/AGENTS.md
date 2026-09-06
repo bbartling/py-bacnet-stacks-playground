@@ -33,7 +33,7 @@ Demo days: **Jul 15** (summer TOU) and **Jan 3** (winter design cold), both from
 - **Greedy battery scoring uses `restore_final_soc=True`** (`vibe23.battery.simulate_dispatch`), closing the day back to `initial_soc` so no candidate wins by draining stored energy it never bought. Do not remove this from `campaign._score_kw` or from the fixture generator
 - `parse_eplus_csv` accepts **exactly 288 rows** and raises otherwise (hourly output would mis-scale kW by 12×). Never pad or truncate to make a run parse
 - Committed `fixtures/studio/*_ranking.json` / `*_twin_export.json` are `ILLUSTRATIVE_PHYSICS_PROXY` — synthetic, no EnergyPlus. Never present them as simulations; see [`model/README.md`](model/README.md) for model simplifications
-- Studio tabs: **Inputs** (browser IDF required for live Render campaigns) | **Twin replay** | **Grid flex calculator** | **Economics**. No synthetic proxy rankings in Twin/Flex.
+- Studio tabs: **Inputs** (IDF/EPW/tariff + static massing) | **Campaign** (sidebar catalog or full 169 + search heatmap) | **Grid flex** (day replay + baseline vs winner) | **Economics**. Live sims are locked to the [Render EnergyPlus worker](https://vibe23-energyplus-worker.onrender.com/). No synthetic proxy rankings in Flex.
 - Tariff/reward interval count is configurable (288 for 5-min residential)
 - Record compute telemetry for campaigns (`reports/compute/`, campaign `compute/`)
 - After IDF edits: run EnergyPlus (Render or local CLI), read `.err`, then tests
