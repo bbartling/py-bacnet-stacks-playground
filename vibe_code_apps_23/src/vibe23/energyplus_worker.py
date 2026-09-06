@@ -222,6 +222,21 @@ def get_job(job_id: str) -> dict[str, Any]:
     return json.loads(raw)
 
 
+def list_jobs(*, limit: int = 25) -> dict[str, Any]:
+    """List recent worker jobs (queued / running / finished). Requires worker ``GET /v1/jobs``."""
+    if not worker_configured():
+        raise EnergyPlusWorkerError("EPLUS_WORKER_URL / EPLUS_WORKER_API_KEY not configured")
+    headers = {"Authorization": f"Bearer {worker_api_key()}"}
+    limit = max(1, min(int(limit), 100))
+    _, raw = _request(
+        "GET",
+        f"{worker_base_url()}/v1/jobs?limit={limit}",
+        headers=headers,
+        timeout=60.0,
+    )
+    return json.loads(raw)
+
+
 def download_results_zip(job_id: str) -> bytes:
     headers = {"Authorization": f"Bearer {worker_api_key()}"}
     _, raw = _request(
@@ -301,6 +316,7 @@ __all__ = [
     "extract_results_zip",
     "get_job",
     "healthz",
+    "list_jobs",
     "prefer_worker_backend",
     "probe_worker_status",
     "run_day_via_worker",

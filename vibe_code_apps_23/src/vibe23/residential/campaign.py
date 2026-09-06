@@ -75,6 +75,8 @@ def run_thermostat_grid(
     eplus_path: Path | str | None = None,
     max_candidates: int | None = None,
     idf: Path | str | None = None,
+    epw: Path | str | None = None,
+    tariff: Any | None = None,
     comfort_low_f: float = MAX_HEAT_F,
     comfort_high_f: float = MAX_COOL_F,
     attach_battery: bool = True,
@@ -88,7 +90,7 @@ def run_thermostat_grid(
     root.mkdir(parents=True, exist_ok=True)
     write_host_json(root / "compute" / "host.json", collect_host_info())
     source = Path(idf) if idf else MODEL_IDF
-    tariff = cfg["tariff"]
+    tariff = tariff if tariff is not None else cfg["tariff"]
     prices = list(tariff.energy_rates_per_kwh)
     params = battery_params or _default_battery_params()
     campaign_start = time.perf_counter()
@@ -97,6 +99,7 @@ def run_thermostat_grid(
         source,
         output_dir=root / "baseline",
         eplus_path=eplus_path,
+        epw=epw,
         month=cfg["month"],
         day=cfg["day"],
     )
@@ -141,6 +144,7 @@ def run_thermostat_grid(
         "action_json": json.dumps({"mode": "baseline", "pre_center_f": 72.0, "event_center_f": 72.0}),
         "idf_sha256": baseline["idf_sha256"],
         "attach_battery": bool(attach_battery),
+        "worker_job_id": baseline.get("worker_job_id"),
     }
     if store_traces:
         base_row["facility_kw"] = list(baseline["facility_kw"])
@@ -176,6 +180,7 @@ def run_thermostat_grid(
                 "total": n_cand,
                 "candidate_id": "BASELINE",
                 "wall_seconds": float(baseline["wall_seconds"]),
+                "worker_job_id": baseline.get("worker_job_id"),
             }
         )
 
@@ -187,6 +192,7 @@ def run_thermostat_grid(
             source,
             output_dir=root / "candidates" / candidate.candidate_id,
             eplus_path=eplus_path,
+            epw=epw,
             month=cfg["month"],
             day=cfg["day"],
             heat_f=heat,
@@ -224,6 +230,7 @@ def run_thermostat_grid(
             "attach_battery": bool(attach_battery),
             "pre_center_f": float(action.get("pre_center_f", 72.0)),
             "event_center_f": float(action.get("event_center_f", 72.0)),
+            "worker_job_id": metrics.get("worker_job_id"),
         }
         if store_traces and facility:
             row["facility_kw"] = facility
@@ -256,6 +263,7 @@ def run_thermostat_grid(
                     "comfort_ok": ok_comfort,
                     "soft_ok": soft,
                     "ok": hard_ok,
+                    "worker_job_id": metrics.get("worker_job_id"),
                 }
             )
 

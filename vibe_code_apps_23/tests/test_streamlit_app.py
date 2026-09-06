@@ -87,9 +87,19 @@ def test_studio_app_features() -> None:
     md_blob = " | ".join(str(getattr(m, "value", m)) for m in at.markdown)
     assert "AGENTS.md" in md_blob
     assert "onrender.com" in md_blob
-    assert "EnergyPlus worker" in md_blob or "Worker:" in md_blob
-    assert any("5-cell catalog" in str(b.label) or "catalog (sidebar)" in str(b.label) for b in at.button)
-    assert any("169-cell" in str(b.label) for b in at.button)
+    assert "EnergyPlus worker" in md_blob or "Worker API" in md_blob or "Swagger" in md_blob
+    assert "/docs" in md_blob
+    assert any(
+        "per-browser" in str(getattr(c, "value", c)) or "session" in str(getattr(c, "value", c)).lower()
+        for c in at.caption
+    )
+    assert any("smoke catalog" in str(b.label) or "catalog (sidebar)" in str(b.label) for b in at.button)
+    assert any("169" in str(b.label) and "grid" in str(b.label).lower() for b in at.button) or any(
+        "169-cell" in str(b.label) or "169 cells" in str(b.label) for b in at.button
+    )
+    assert any("Tutorial" in str(getattr(e, "label", "")) or "169-cell" in str(getattr(e, "label", "")) for e in at.expander) or any(
+        "13 × 13" in str(getattr(m, "value", m)) or "13×13" in str(getattr(m, "value", m)) for m in at.markdown
+    )
     assert "Render" not in " | ".join(str(c.value) for c in at.caption)
     # Stoplight markdown (green/live under AppTest stub)
     assert any("Worker" in str(getattr(m, "value", m)) for m in at.markdown)
@@ -121,8 +131,8 @@ def test_studio_app_features() -> None:
     else:
         raise AssertionError("missing grid_max_candidates")
     _assert_no_exceptions(at, "catalog 169")
-    assert any("169-cell" in str(b.label) for b in at.button)
-    assert any("catalog (sidebar)" in str(b.label) for b in at.button)
+    assert any("smoke catalog" in str(b.label) or "sidebar catalog" in str(b.label) for b in at.button)
+    assert any("169" in str(b.label) for b in at.button)
 
 
 def test_units_toggle_and_load_package_idf() -> None:

@@ -31,6 +31,9 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+vibe23 = ["assets/*.idf", "assets/*.epw", "assets/README.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --tb=short"

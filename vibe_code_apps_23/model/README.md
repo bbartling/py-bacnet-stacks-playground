@@ -28,11 +28,11 @@ loudly — fix the IDF, not the parser.
 
 ## Weather
 
-Default EPW (committed next to the IDF):
+Canonical EPW (packaged for wheels / Streamlit Cloud):
 
-[`USA_CO_Golden-NREL.724666_TMY3.epw`](USA_CO_Golden-NREL.724666_TMY3.epw) — Golden/NREL TMY3 as Denver-type climate.
+[`../src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw`](../src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw)
 
-Studio uploads can override weather for the hourly editor; live Render campaigns use the worker’s EPW staging from the residential runner (package Golden file when present).
+This folder mirrors the same filenames for humans browsing the repo. Studio Inputs can upload an alternate EPW for live campaigns; otherwise the packaged Golden file is used.
 
 ## Simplifications you must know before reading results
 

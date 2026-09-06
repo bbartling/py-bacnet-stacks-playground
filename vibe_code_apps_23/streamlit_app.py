@@ -13,7 +13,7 @@ Launch (Windows / Linux / macOS)::
     # Or:
     streamlit run streamlit_app.py
 
-Human guide: AGENTS.md · demo IDF/EPW under model/
+Human guide: AGENTS.md · demo IDF/EPW under ``src/vibe23/assets/`` (mirrored in ``model/``)
 """
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ import json
 import math
 import os
 import time
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -33,8 +34,14 @@ from plotly.subplots import make_subplots
 from vibe23.battery import BatteryParams
 from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
-from vibe23.residential.model import DEFAULT_EPW_NAME, MODEL_IDF, equipment_provenance
+from vibe23.residential.model import (
+    DEFAULT_EPW_NAME,
+    MODEL_IDF,
+    ensure_demo_assets,
+    equipment_provenance,
+)
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
+from vibe23.tariff import TariffEvidence, TariffScenario
 import vibe23.energyplus_worker as _eplus_worker
 import vibe23.studio.charts as _studio_charts
 import vibe23.studio.units as _studio_units
@@ -415,6 +422,8 @@ def _init_state() -> None:
         "units": "imperial",
         "epw_upload_name": None,
         "tariff_upload_name": None,
+        "epw_bytes": None,
+        "worker_jobs": [],
     }
     for dim in season_dimension_defaults("summer"):
         defaults[f"grid_dim_{dim.name}"] = format_dimension_values(dim.values)
@@ -628,6 +637,55 @@ def _grid_candidate_count_label() -> str:
     return "169" if n is None else str(n)
 
 
+def _live_epw_arg(session_id: str) -> str | None:
+    """Stage an uploaded EPW for live runs; None → package Golden EPW via find_denver_epw."""
+    raw = st.session_state.get("epw_bytes")
+    name = st.session_state.get("epw_upload_name") or "upload.epw"
+    if not raw:
+        return None
+    staged = exports_dir(session_id) / "live_epw"
+    staged.mkdir(parents=True, exist_ok=True)
+    target = staged / Path(str(name)).name
+    if not str(target).lower().endswith(".epw"):
+        target = staged / "upload.epw"
+    target.write_bytes(bytes(raw))
+    return str(target)
+
+
+def _live_tariff_override():
+    """Build a TariffScenario from the Inputs editor rates, when present."""
+    rates = st.session_state.get("rates_override")
+    if not rates:
+        return None
+    values = [float(v) for v in rates]
+    if len(values) != INTERVALS_PER_DAY:
+        return None
+    return TariffScenario(
+        tariff_id="studio_upload_override",
+        evidence=TariffEvidence.ILLUSTRATIVE,
+        energy_rates_per_kwh=tuple(values),
+        demand_rate_per_kw=0.0,
+        source_reference="Streamlit Inputs tariff / hourly editor",
+        notes="ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+    )
+
+
+def _remember_worker_job(job_id: str | None, *, candidate_id: str | None = None, status: str = "submitted") -> None:
+    if not job_id:
+        return
+    jobs = list(st.session_state.get("worker_jobs") or [])
+    jobs.insert(
+        0,
+        {
+            "job_id": str(job_id),
+            "candidate_id": candidate_id,
+            "status": status,
+            "at": time.strftime("%H:%M:%S"),
+        },
+    )
+    st.session_state.worker_jobs = jobs[:40]
+
+
 def _grid_config_fingerprint(season_key: str) -> str:
     """Identity of every input a live grid search consumes.
 
@@ -636,6 +694,14 @@ def _grid_config_fingerprint(season_key: str) -> str:
     """
     idf_text = st.session_state.get("idf_text")
     idf_id = hashlib.sha256(str(idf_text).encode("utf-8")).hexdigest()[:16] if idf_text else "default"
+    epw_raw = st.session_state.get("epw_bytes")
+    epw_id = hashlib.sha256(bytes(epw_raw)).hexdigest()[:16] if epw_raw else "package"
+    rates = st.session_state.get("rates_override")
+    rates_id = (
+        hashlib.sha256(json.dumps([float(v) for v in rates]).encode("utf-8")).hexdigest()[:16]
+        if rates
+        else "season_default"
+    )
     payload = {
         "season": season_key,
         "attach_battery": bool(st.session_state.attach_battery),
@@ -644,6 +710,8 @@ def _grid_config_fingerprint(season_key: str) -> str:
         "comfort_high_f": float(st.session_state.comfort_high_f),
         "max_candidates": _grid_max_candidates() or 169,
         "idf": idf_id,
+        "epw": epw_id,
+        "rates": rates_id,
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -738,6 +806,16 @@ def _run_live_campaign(
 
         n_label = "169" if max_candidates is None or int(max_candidates) >= 169 else str(int(max_candidates))
         out = exports_dir(session_id) / "studio_grid" / season_key
+        epw_path = _live_epw_arg(session_id)
+        tariff = _live_tariff_override()
+
+        def _on_progress(event: dict) -> None:
+            _remember_worker_job(
+                event.get("worker_job_id"),
+                candidate_id=str(event.get("candidate_id") or ""),
+                status=str(event.get("phase") or "running"),
+            )
+
         with st.spinner(f"{n_label}-cell campaign on EnergyPlus worker…"):
             result = run_thermostat_grid(
                 season=season_key,
@@ -748,7 +826,10 @@ def _run_live_campaign(
                 attach_battery=bool(st.session_state.attach_battery),
                 battery_params=_sidebar_battery_params(),
                 idf=idf_path,
+                epw=epw_path,
+                tariff=tariff,
                 store_traces=True,
+                progress_callback=_on_progress,
             )
         _record_live_run(season_key, out)
         ranking_payload = result.get("ranking") or {}
@@ -907,6 +988,10 @@ def main() -> None:
     if st.session_state.pop("_pending_clear", False):
         _clear_session()
     session_id = _ensure_session()
+    try:
+        ensure_demo_assets(download_if_missing=True)
+    except FileNotFoundError as exc:
+        st.warning(f"Demo IDF/EPW not available yet: {exc}")
 
     season_key = _season_key()
     _sync_epw_day_defaults(season_key)
@@ -933,7 +1018,7 @@ def main() -> None:
     st.markdown(
         "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
         f" · `{MODEL_IDF.name}` · `{DEFAULT_EPW_NAME}` · "
-        "[EnergyPlus worker](https://vibe23-energyplus-worker.onrender.com/)"
+        "[Worker API docs](https://vibe23-energyplus-worker.onrender.com/docs)"
     )
 
     with st.sidebar:
@@ -946,9 +1031,13 @@ def main() -> None:
             options=list(DSM_INTERVAL_MINUTES),
             format_func=_dsm_label,
             key="dsm_minutes",
-            help="Coarsen twin replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
+            help="Coarsen day replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
         )
-        st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
+        st.caption(
+            f"Session `{session_id[:8]}…` · per-browser workspace under temp "
+            f"`vibe23/{session_id[:8]}…` (uploads/exports isolated; Clear session rotates id). "
+            "Shared Streamlit process — isolation, not a login wall."
+        )
         st.radio(
             "Display units",
             ["imperial", "metric"],
@@ -973,13 +1062,28 @@ def main() -> None:
                 "[vibe23-energyplus-worker](https://github.com/bbartling/vibe23-energyplus-worker)."
             )
             st.markdown(
-                "[https://vibe23-energyplus-worker.onrender.com/]"
-                "(https://vibe23-energyplus-worker.onrender.com/) · "
-                "[API docs](https://vibe23-energyplus-worker.onrender.com/docs)"
+                "**API UI (Swagger):** "
+                "[https://vibe23-energyplus-worker.onrender.com/docs]"
+                "(https://vibe23-energyplus-worker.onrender.com/docs)  \n"
+                "Health: [ /healthz ](https://vibe23-energyplus-worker.onrender.com/healthz)"
             )
+            with st.expander("How to use Swagger /docs", expanded=False):
+                st.markdown(
+                    "1. Wake the worker (stoplight green) or open `/docs` and wait through cold start.\n"
+                    "2. Click **Authorize**, paste the bearer token below (Swagger adds `Bearer`).\n"
+                    "3. Try `GET /healthz` (no auth) or `POST /v1/jobs` with an IDF + EPW upload.\n"
+                    "4. Poll `GET /v1/jobs/{id}` then download `/v1/jobs/{id}/results`."
+                )
+                api_key = (os.environ.get("EPLUS_WORKER_API_KEY") or "").strip()
+                if api_key:
+                    st.caption("Learning hint — worker API key for Authorize (do not share publicly):")
+                    st.code(api_key, language=None)
+                else:
+                    st.warning("EPLUS_WORKER_API_KEY missing — set it in `.env.local` or Streamlit secrets.")
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
-                    f"API key {'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'} · "
+                    f"Worker URL configured · API key "
+                    f"{'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'} · "
                     "cold start ~30–90s"
                 )
                 c_wake, c_refresh = st.columns(2)
@@ -1028,6 +1132,46 @@ def main() -> None:
                                 }
                                 st.session_state._worker_status_at = time.time()
                                 st.error(f"Wake failed: {exc}")
+            with st.expander("Worker job queue", expanded=False):
+                st.caption(
+                    "Worker runs **one job at a time** (queued → running → done). "
+                    "Campaign cells enqueue sequentially; this session lists recent job ids."
+                )
+                session_jobs = list(st.session_state.get("worker_jobs") or [])
+                if session_jobs:
+                    st.dataframe(
+                        pd.DataFrame(session_jobs)[["at", "status", "candidate_id", "job_id"]],
+                        hide_index=True,
+                        width="stretch",
+                    )
+                else:
+                    st.caption("No jobs from this browser session yet.")
+                if st.button("Refresh worker queue", key="refresh_worker_jobs"):
+                    try:
+                        payload = _eplus_worker.list_jobs(limit=15)
+                        queue = payload.get("queue") or {}
+                        st.session_state._worker_jobs_remote = payload
+                        st.info(
+                            f"Queue · queued={queue.get('queued')} · running={queue.get('running')} · "
+                            f"max={queue.get('max_concurrent')}"
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        st.warning(
+                            f"Could not list remote jobs (worker may need redeploy with GET /v1/jobs): {exc}"
+                        )
+                remote = st.session_state.get("_worker_jobs_remote") or {}
+                remote_jobs = remote.get("jobs") or []
+                if remote_jobs:
+                    rows = [
+                        {
+                            "status": j.get("status"),
+                            "job_id": str(j.get("job_id") or "")[:8] + "…",
+                            "created": str(j.get("created_at") or "")[:19],
+                            "wall_s": j.get("wall_seconds"),
+                        }
+                        for j in remote_jobs[:12]
+                    ]
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         st.divider()
         st.header("Demo day")
         st.radio(
@@ -1088,10 +1232,14 @@ def main() -> None:
                 "Catalog size (cells)",
                 options=[2, 5, 13, 26, 169],
                 key="grid_max_candidates",
-                help="Each cell is one EnergyPlus day on the worker. Default 5; 169 = full catalog.",
+                help=(
+                    "Smoke sizes (2–26) for testing; 169 = full 13×13 grid. "
+                    "Each cell is one EnergyPlus day on the worker (+ baseline)."
+                ),
             )
             st.caption(
-                f"Next run → **{_grid_candidate_count_label()}** candidate day(s) + baseline."
+                f"Sidebar smoke button → **{_grid_candidate_count_label()}** candidate day(s) + baseline. "
+                "Full-grid button always runs **169**."
             )
         st.divider()
         st.info("Upload IDF / EPW / tariff on **Inputs**.")
@@ -1249,8 +1397,9 @@ def main() -> None:
             st.success(f"IDF ready · {st.session_state.idf_name}")
         st.caption("Campaign / Grid flex fill after a live EnergyPlus search finishes.")
         st.markdown(
-            "Worker: [https://vibe23-energyplus-worker.onrender.com/]"
-            "(https://vibe23-energyplus-worker.onrender.com/)"
+            "Worker API UI: [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) "
+            "· wake via sidebar if sleeping · Authorize with the same bearer key as Streamlit secrets "
+            "(session workspace isolates uploads per browser — see sidebar caption)."
         )
         u1, u2, u3 = st.columns(3)
         with u1:
@@ -1299,6 +1448,7 @@ def main() -> None:
                     st.session_state._last_epw_token = token
                     st.session_state.outdoor_override = outdoor_model.model_dump()
                     st.session_state.epw_upload_name = epw_up.name
+                    st.session_state.epw_bytes = epw_up.getvalue()
                     st.rerun()
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"EPW parse failed: {exc}")
@@ -1328,6 +1478,7 @@ def main() -> None:
             st.session_state.rates_override = None
             st.session_state.epw_upload_name = None
             st.session_state.tariff_upload_name = None
+            st.session_state.epw_bytes = None
             st.session_state._last_idf_token = None
             st.session_state._last_epw_token = None
             st.session_state._last_tariff_token = None
@@ -1490,18 +1641,44 @@ def main() -> None:
 
     with tab_campaign:
         n_run = _grid_candidate_count_label()
+        is_smoke = n_run != "169"
         st.subheader("EnergyPlus campaign")
         _eplus_status_banner(live_ready, live_label)
-        st.caption(
-            "Thermostat center search on the EnergyPlus worker. "
-            "Sidebar sets zone drift + optional catalog size; use the buttons below to run a smoke catalog or the full 169."
+        st.markdown(
+            "**Smoke vs full search:** left button runs the **sidebar catalog** "
+            f"(now **{n_run}** cells — default **5** for worker testing). "
+            "Right button always runs the **full 169-cell** grid search."
         )
         if season_key == "summer":
             st.caption("TOU hours · pre-window 13:00 · event 16–21 · recovery to 23:00.")
         else:
             st.caption("TOU hours · pre-window 05:00 · event 6–9 · recovery to 12:00.")
+        with st.expander("Tutorial — what is the 169-cell thermostat search?", expanded=False):
+            st.markdown(
+                """
+Each **cell** is one EnergyPlus weather-day on the worker with a different thermostat
+**center** schedule (heat/cool pair around that center, 2°F deadband).
+
+**How 169 is calculated**
+
+1. Centers are **69.0 … 75.0 °F** in **0.5 °F** steps → **13** values (±3 °F from 72 °F).
+2. Search dimensions: **pre-event center** × **event center** → **13 × 13 = 169** candidates.
+3. Event hours are fixed to the season TOU peak (not searched). Recovery returns toward 72 °F.
+4. Plus one **BASELINE** day (default 71/73) for comparison.
+5. Each successful day is scored as **$/day purchased from the grid** (optional battery arbitrage with `restore_final_soc=True`). Comfort FAIL if zone drifts outside the sidebar band. Ranking requires **strict** EnergyPlus `ok` (no fatals/severes).
+
+**When to use which button**
+
+| Button | Use |
+|--------|-----|
+| Sidebar catalog (2 / 5 / 13 / 26) | Smoke / learn the UI; default **5** for Streamlit.io + free Render |
+| Full **169** | Complete grid search — slow on free-tier (baseline + 169 jobs, serial) |
+
+Uploads on **Inputs** (IDF required; EPW + tariff optional) and sidebar battery/drift change the fingerprint — re-run after edits.
+                """
+            )
         if stale_live_run:
-            st.info("Sidebar / season / IDF changed since the last live search — re-run required.")
+            st.info("Sidebar / season / IDF / weather / tariff changed since the last live search — re-run required.")
 
         idf_path = _live_idf_arg(session_id)
         if not idf_path:
@@ -1514,11 +1691,16 @@ def main() -> None:
 
         b1, b2 = st.columns(2)
         with b1:
+            smoke_label = (
+                f"Run smoke catalog ({n_run} cells)"
+                if is_smoke
+                else "Run sidebar catalog (169)"
+            )
             if st.button(
-                f"Run {n_run}-cell catalog (sidebar)",
+                smoke_label,
                 type="primary",
                 key="grid_run_sidebar",
-                help="Uses the sidebar Catalog size slider (default 5).",
+                help="Uses sidebar Catalog size. Prefer 5 while testing the worker / Streamlit.io.",
             ):
                 _run_live_campaign(
                     session_id=session_id,
@@ -1529,9 +1711,9 @@ def main() -> None:
                 )
         with b2:
             if st.button(
-                "Run full 169-cell catalog",
+                "Run full grid search (169 cells)",
                 key="grid_run_full_169",
-                help="Full 13×13 center search — long on free-tier Render.",
+                help="Full 13×13 center search — long on free-tier Render (queued one job at a time).",
             ):
                 _run_live_campaign(
                     session_id=session_id,

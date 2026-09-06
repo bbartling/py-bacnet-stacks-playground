@@ -1,4 +1,5 @@
-# Ship demo IDF + Golden EPW with sdists (repo-root assets next to src/).
+# Ship demo IDF + Golden EPW with sdists/wheels (canonical under src/vibe23/assets/).
+recursive-include src/vibe23/assets *.idf *.epw README.md
 include model/*.idf
 include model/*.epw
 include model/README.md

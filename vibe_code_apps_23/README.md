@@ -86,9 +86,10 @@ EPLUS_WORKER_API_KEY = "same-as-Render-service-API_KEY"
 ```
 
 4. Deploy. Open the app → sidebar **EnergyPlus worker** → confirm stoplight → **Wake worker** if red (free tier sleeps; ~30–90s).
-5. Upload/load an IDF on **Inputs**, set catalog size (start with 5), run the campaign.
+5. On **Inputs**, click **Load package residential demo IDF** (assets ship in-repo under `src/vibe23/assets/`; if missing, Studio downloads them from GitHub `develop` automatically).
+6. Set catalog size to **5** (smoke), run Campaign; only then try **169** on a paid/always-on worker.
 
-Worker docs: [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) · [healthz](https://vibe23-energyplus-worker.onrender.com/healthz) · [source](https://github.com/bbartling/vibe23-energyplus-worker).
+Worker docs: [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) · [healthz](https://vibe23-energyplus-worker.onrender.com/healthz) · [source](https://github.com/bbartling/vibe23-energyplus-worker). Job queue: `GET /v1/jobs` (Bearer) — Streamlit sidebar **Worker job queue**.
 
 Native EnergyPlus cannot be installed via `requirements.txt` on Community Cloud; keep sims on the worker. Free Render sleep + CPU limits make large 169-cell campaigns slow or fragile — use a small catalog first or a paid always-on instance.
 
@@ -104,8 +105,8 @@ A candidate is only rankable when its EnergyPlus run passes the **strict** gate 
 
 ## Model
 
-- [`model/residential_heat_pump_home.idf`](model/residential_heat_pump_home.idf) — Carrier 50EZ060 curves, `Timestep=12` (5-min / 288 intervals/day)
-- Weather: Golden/NREL TMY3 (Denver-type) from the EnergyPlus install
+- [`src/vibe23/assets/residential_heat_pump_home.idf`](src/vibe23/assets/residential_heat_pump_home.idf) — Carrier 50EZ060 curves, `Timestep=12` (5-min / 288 intervals/day); mirrored under [`model/`](model/)
+- Weather: Golden/NREL TMY3 packaged next to the IDF in `src/vibe23/assets/`
 - Default thermostat: **71°F heat / 73°F cool** (2°F deadband around center **72°F**); hard envelope 69.5–74.5°F
 - Grid flex search: **13×13 = 169** center setpoints (69.0…75.0 @ 0.5°F) with fixed TOU event hours; ranking is **battery-co-optimized** purchased-grid $/day
 

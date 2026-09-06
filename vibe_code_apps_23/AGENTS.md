@@ -8,11 +8,12 @@
 
 | Asset | Path in this package |
 |---|---|
-| Residential demo IDF | [`model/residential_heat_pump_home.idf`](model/residential_heat_pump_home.idf) |
-| Golden/NREL TMY3 EPW | [`model/USA_CO_Golden-NREL.724666_TMY3.epw`](model/USA_CO_Golden-NREL.724666_TMY3.epw) |
+| Residential demo IDF | [`src/vibe23/assets/residential_heat_pump_home.idf`](src/vibe23/assets/residential_heat_pump_home.idf) (mirrored under [`model/`](model/)) |
+| Golden/NREL TMY3 EPW | [`src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw`](src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw) |
 | Model notes | [`model/README.md`](model/README.md) |
 | Studio app | [`streamlit_app.py`](streamlit_app.py) |
 | Render worker | https://vibe23-energyplus-worker.onrender.com/ |
+| Worker Swagger UI | https://vibe23-energyplus-worker.onrender.com/docs |
 
 Demo days: **Jul 15** (summer TOU) and **Jan 3** (winter design cold), both from the Golden EPW.
 
@@ -24,7 +25,7 @@ Demo days: **Jul 15** (summer TOU) and **Jan 3** (winter design cold), both from
 5. [`../lessons/grid_search/INDEX.md`](../lessons/grid_search/INDEX.md) (preserve Day 10 BESS ideas)
 
 ## Hard rules
-- Studio live sims are locked to the [Render EnergyPlus worker](https://vibe23-energyplus-worker.onrender.com/) (`EPLUS_BACKEND=worker` + `EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY`). Do not surface local `ENERGYPLUS_EXE` / install paths in the Studio UI.
+- Studio live sims are locked to the [Render EnergyPlus worker](https://vibe23-energyplus-worker.onrender.com/) (`EPLUS_BACKEND=worker` + `EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY`). Do not surface local `ENERGYPLUS_EXE` / install paths in the Studio UI. Point humans at [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) (Authorize with the same bearer key). Studio uses **per-browser session workspaces** (`session_id` under temp `vibe23/…`) — isolation for multi-user Cloud, not a login wall; **Clear session** rotates the id.
 - Do not resurrect LBNL B59 calibration as the active product
 - Do not duplicate grid-search engines; reuse `vibe23.grid`
 - Default thermostat is **71/73°F** (2°F deadband); full catalog is **13×13 centers** (169). Sidebar **Render catalog size** can truncate (default 5) for smoke; 169 = full search.
