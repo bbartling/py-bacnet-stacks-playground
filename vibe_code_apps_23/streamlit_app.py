@@ -159,6 +159,84 @@ def _live_sim_ready() -> tuple[bool, str]:
     return False, "worker URL/API key missing"
 
 
+_WORKER_LIGHT_COLORS = {
+    "green": "#22C55E",
+    "yellow": "#EAB308",
+    "red": "#EF4444",
+}
+_WORKER_LIGHT_LABELS = {
+    "live": "live",
+    "starting": "starting",
+    "sleeping": "sleeping",
+    "unconfigured": "not configured",
+}
+
+
+def _worker_status_cached(*, force: bool = False, quick_timeout: float = 2.5) -> dict:
+    """Probe worker with a short TTL so Streamlit reruns stay responsive."""
+    from vibe23.energyplus_worker import probe_worker_status
+
+    # AppTest / CI: never hit the network.
+    if os.environ.get("VIBE23_STUDIO_PLAY_ONCE") == "1":
+        from vibe23.energyplus_worker import worker_configured
+
+        if worker_configured():
+            return {
+                "light": "green",
+                "label": "live",
+                "try_seconds": 0.0,
+                "health": {"ok": True},
+                "error": None,
+                "cached": True,
+            }
+        return {
+            "light": "red",
+            "label": "unconfigured",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": "missing worker env",
+            "cached": True,
+        }
+
+    now = time.time()
+    cached = st.session_state.get("_worker_status_cache")
+    cache_at = float(st.session_state.get("_worker_status_at") or 0.0)
+    if st.session_state.get("_worker_light_override") == "yellow":
+        return {
+            "light": "yellow",
+            "label": "starting",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": None,
+            "cached": True,
+        }
+    if (not force) and cached and (now - cache_at) < 20.0:
+        return {**cached, "cached": True}
+    status = probe_worker_status(quick_timeout=quick_timeout)
+    st.session_state._worker_status_cache = status
+    st.session_state._worker_status_at = now
+    return {**status, "cached": False}
+
+
+def _render_worker_stoplight(status: dict, *, compact: bool = False) -> None:
+    light = str(status.get("light") or "red")
+    label = _WORKER_LIGHT_LABELS.get(str(status.get("label") or ""), str(status.get("label") or light))
+    color = _WORKER_LIGHT_COLORS.get(light, _WORKER_LIGHT_COLORS["red"])
+    size = 12 if compact else 16
+    detail = ""
+    if not compact and status.get("try_seconds"):
+        detail = f" · {float(status['try_seconds']):.1f}s"
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:0.5rem;margin:0.15rem 0 0.35rem 0;">'
+        f'<span style="width:{size}px;height:{size}px;border-radius:50%;'
+        f'background:{color};box-shadow:0 0 0 2px rgba(0,0,0,0.08);'
+        f'display:inline-block;flex-shrink:0;" title="EnergyPlus worker"></span>'
+        f'<span style="font-size:0.9rem;">Worker <strong>{label}</strong>{detail}</span>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
 _apply_cloud_secrets()
 
 st.set_page_config(
@@ -784,6 +862,8 @@ def main() -> None:
     prov = equipment_provenance()
 
     st.title("Vibe 23 — Residential DSM Studio")
+    worker_status = _worker_status_cached()
+    _render_worker_stoplight(worker_status, compact=True)
     st.caption(
         f"HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · {prov['equipment']} · "
         f"~{display_area(DEMO_FLOOR_FT2, units):,.0f} {a_unit} · "
@@ -821,7 +901,11 @@ def main() -> None:
             st.session_state.eplus_backend = "worker"
             os.environ["EPLUS_BACKEND"] = "worker"
             live_ready, live_label = _live_sim_ready()
-            st.caption(live_label if live_ready else "URL / API key missing")
+            worker_status = _worker_status_cached()
+            _render_worker_stoplight(worker_status)
+            st.caption(
+                "Green = live · Yellow = starting · Red = sleeping / missing config"
+            )
             st.markdown(
                 "[https://vibe23-energyplus-worker.onrender.com/]"
                 "(https://vibe23-energyplus-worker.onrender.com/)"
@@ -831,25 +915,51 @@ def main() -> None:
                     f"API key {'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'} · "
                     "cold start ~30–90s"
                 )
-                if st.button("Wake worker", key="wake_eplus_worker"):
-                    from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
+                c_wake, c_refresh = st.columns(2)
+                with c_refresh:
+                    if st.button("Refresh status", key="refresh_worker_status"):
+                        st.session_state.pop("_worker_light_override", None)
+                        _worker_status_cached(force=True)
+                        st.rerun()
+                with c_wake:
+                    if st.button("Wake worker", key="wake_eplus_worker"):
+                        from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
 
-                    with st.spinner("Pinging /healthz…"):
-                        try:
-                            wake = ensure_worker_awake()
-                            health = wake.get("health") or {}
-                            if wake.get("woke_from_sleep"):
-                                st.success(
-                                    f"Woke in {wake['wall_seconds']}s · "
-                                    f"E+ {health.get('energyplus_version', '?')}"
-                                )
-                            else:
-                                st.success(
-                                    f"Awake ({wake['try_seconds']}s) · "
-                                    f"E+ {health.get('energyplus_version', '?')}"
-                                )
-                        except EnergyPlusWorkerError as exc:
-                            st.error(f"Wake failed: {exc}")
+                        st.session_state._worker_light_override = "yellow"
+                        with st.spinner("Waking worker (yellow = starting)…"):
+                            try:
+                                wake = ensure_worker_awake()
+                                health = wake.get("health") or {}
+                                st.session_state.pop("_worker_light_override", None)
+                                st.session_state._worker_status_cache = {
+                                    "light": "green",
+                                    "label": "live",
+                                    "try_seconds": float(wake.get("try_seconds") or 0.0),
+                                    "health": health,
+                                    "error": None,
+                                }
+                                st.session_state._worker_status_at = time.time()
+                                if wake.get("woke_from_sleep"):
+                                    st.success(
+                                        f"Woke in {wake['wall_seconds']}s · "
+                                        f"E+ {health.get('energyplus_version', '?')}"
+                                    )
+                                else:
+                                    st.success(
+                                        f"Awake ({wake['try_seconds']}s) · "
+                                        f"E+ {health.get('energyplus_version', '?')}"
+                                    )
+                            except EnergyPlusWorkerError as exc:
+                                st.session_state.pop("_worker_light_override", None)
+                                st.session_state._worker_status_cache = {
+                                    "light": "red",
+                                    "label": "sleeping",
+                                    "try_seconds": 0.0,
+                                    "health": None,
+                                    "error": str(exc)[:300],
+                                }
+                                st.session_state._worker_status_at = time.time()
+                                st.error(f"Wake failed: {exc}")
         st.divider()
         st.header("Demo day")
         st.radio(

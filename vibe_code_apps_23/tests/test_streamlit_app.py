@@ -90,6 +90,8 @@ def test_studio_app_features() -> None:
     assert any("EnergyPlus search" in str(b.label) for b in at.button)
     assert any("5-cell" in str(b.label) for b in at.button)
     assert "Render" not in " | ".join(str(c.value) for c in at.caption)
+    # Stoplight markdown (green/live under AppTest stub)
+    assert any("Worker" in str(getattr(m, "value", m)) for m in at.markdown)
 
     clears = [b for b in at.button if b.label == "Clear session"]
     assert clears

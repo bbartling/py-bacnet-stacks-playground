@@ -40,6 +40,57 @@ def test_prefer_worker_backend_modes(monkeypatch):
     assert prefer_worker_backend() is True
 
 
+def test_probe_worker_status_lights(monkeypatch):
+    monkeypatch.delenv("EPLUS_WORKER_URL", raising=False)
+    monkeypatch.delenv("EPLUS_WORKER_API_KEY", raising=False)
+    from vibe23 import energyplus_worker as mod
+
+    red = mod.probe_worker_status()
+    assert red["light"] == "red"
+    assert red["label"] == "unconfigured"
+
+    monkeypatch.setenv("EPLUS_WORKER_URL", "https://example.test")
+    monkeypatch.setenv("EPLUS_WORKER_API_KEY", "secret")
+
+    ticks = {"t": 0.0}
+
+    def tick():
+        cur = ticks["t"]
+        ticks["t"] += 0.2
+        return cur
+
+    def slow_tick():
+        cur = ticks["t"]
+        ticks["t"] += 6.0
+        return cur
+
+    def fast_ok(*, timeout: float = 60.0):
+        return {"ok": True, "energyplus_version": "26.1.0"}
+
+    monkeypatch.setattr(mod, "healthz", fast_ok)
+    monkeypatch.setattr(mod.time, "perf_counter", tick)
+    ticks["t"] = 0.0
+    live = mod.probe_worker_status(quick_timeout=2.5)
+    assert live["light"] == "green"
+    assert live["label"] == "live"
+
+    monkeypatch.setattr(mod.time, "perf_counter", slow_tick)
+    ticks["t"] = 0.0
+    starting = mod.probe_worker_status(quick_timeout=10.0)
+    assert starting["light"] == "yellow"
+    assert starting["label"] == "starting"
+
+    def boom(*, timeout: float = 60.0):
+        raise EnergyPlusWorkerError("connection refused")
+
+    monkeypatch.setattr(mod, "healthz", boom)
+    monkeypatch.setattr(mod.time, "perf_counter", tick)
+    ticks["t"] = 0.0
+    sleeping = mod.probe_worker_status(quick_timeout=2.5)
+    assert sleeping["light"] == "red"
+    assert sleeping["label"] == "sleeping"
+
+
 def test_ensure_worker_awake_retries_then_succeeds(monkeypatch):
     monkeypatch.setenv("EPLUS_WORKER_URL", "https://example.test")
     monkeypatch.setenv("EPLUS_WORKER_API_KEY", "secret")

@@ -74,6 +74,60 @@ def healthz(*, timeout: float = 60.0) -> dict[str, Any]:
     return json.loads(body)
 
 
+def probe_worker_status(*, quick_timeout: float = 2.5) -> dict[str, Any]:
+    """Classify worker as live / starting / sleeping for UI stoplight.
+
+    Heuristic (single short ``/healthz``):
+    - green / live — configured and responds quickly
+    - yellow / starting — responds but slowly (cold start finishing)
+    - red / sleeping — timeout, network error, or not configured
+    """
+    if not worker_configured():
+        return {
+            "light": "red",
+            "label": "unconfigured",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": "EPLUS_WORKER_URL / EPLUS_WORKER_API_KEY not configured",
+        }
+    started = time.perf_counter()
+    try:
+        payload = healthz(timeout=quick_timeout)
+        try_wall = round(time.perf_counter() - started, 3)
+        ok = bool(payload.get("ok"))
+        if not ok:
+            return {
+                "light": "red",
+                "label": "sleeping",
+                "try_seconds": try_wall,
+                "health": payload,
+                "error": "healthz returned ok=false",
+            }
+        # Slow first byte usually means the free tier was waking up.
+        if try_wall >= 5.0:
+            light, label = "yellow", "starting"
+        else:
+            light, label = "green", "live"
+        return {
+            "light": light,
+            "label": label,
+            "try_seconds": try_wall,
+            "health": payload,
+            "error": None,
+        }
+    except (EnergyPlusWorkerError, json.JSONDecodeError, OSError, TimeoutError) as exc:
+        try_wall = round(time.perf_counter() - started, 3)
+        # A timeout near the budget often means cold start in progress.
+        starting = try_wall >= max(1.5, quick_timeout * 0.8)
+        return {
+            "light": "yellow" if starting else "red",
+            "label": "starting" if starting else "sleeping",
+            "try_seconds": try_wall,
+            "health": None,
+            "error": str(exc)[:300],
+        }
+
+
 def ensure_worker_awake(
     *,
     attempts: int = 4,
@@ -248,6 +302,7 @@ __all__ = [
     "get_job",
     "healthz",
     "prefer_worker_backend",
+    "probe_worker_status",
     "run_day_via_worker",
     "submit_job",
     "wait_for_job",
