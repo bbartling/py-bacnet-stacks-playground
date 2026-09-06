@@ -104,7 +104,16 @@ def run_thermostat_grid(
 
     def _score_kw(facility_kw: list[float]) -> tuple[float, list[float], list[float]]:
         if attach_battery:
-            dispatch = simulate_dispatch(facility_kw, prices, params, mode="price_arbitrage")
+            # restore_final_soc keeps the ranking honest: otherwise a candidate can win by
+            # ending the day with a drained battery, i.e. by spending stored energy it did
+            # not buy inside the scored window.
+            dispatch = simulate_dispatch(
+                facility_kw,
+                prices,
+                params,
+                mode="price_arbitrage",
+                restore_final_soc=True,
+            )
             purchased = list(dispatch["purchased_kw"])  # type: ignore[arg-type]
             soc = list(dispatch["soc"])  # type: ignore[arg-type]
             bill = billing_cost(purchased, tariff=tariff, opening_state=opening)
@@ -114,9 +123,12 @@ def run_thermostat_grid(
 
     baseline_cost, baseline_purchased, baseline_soc = _score_kw(list(baseline["facility_kw"]))
     ok_comfort_base = comfort_ok(baseline["zone_temp_f"], low=comfort_low_f, high=comfort_high_f)
+    # Acceptance requires the strict gate (`ok` == returncode 0, no fatals, no severes, CSV
+    # present), not the permissive `soft_ok`, which tolerates severe errors.
+    base_hard_ok = bool(baseline.get("ok"))
     base_row: dict[str, Any] = {
         "candidate_id": "BASELINE",
-        "billing_cost": baseline_cost if baseline.get("soft_ok") and ok_comfort_base else float("inf"),
+        "billing_cost": baseline_cost if base_hard_ok and ok_comfort_base else float("inf"),
         "thermal_cost": float(
             billing_cost(baseline["facility_kw"], tariff=tariff, opening_state=opening)["total_cost_usd"]
         ),
@@ -124,6 +136,7 @@ def run_thermostat_grid(
         "total_kwh": float(baseline["total_kwh"]),
         "comfort_ok": bool(ok_comfort_base),
         "soft_ok": bool(baseline.get("soft_ok")),
+        "ok": base_hard_ok,
         "wall_seconds": float(baseline["wall_seconds"]),
         "action_json": json.dumps({"mode": "baseline", "pre_center_f": 72.0, "event_center_f": 72.0}),
         "idf_sha256": baseline["idf_sha256"],
@@ -185,8 +198,9 @@ def run_thermostat_grid(
             else False
         )
         soft = bool(metrics.get("soft_ok"))
+        hard_ok = bool(metrics.get("ok"))
         facility = list(metrics.get("facility_kw") or [])
-        if soft and facility:
+        if hard_ok and facility:
             thermal_bill = billing_cost(facility, tariff=tariff, opening_state=opening)
             thermal_cost = float(thermal_bill["total_cost_usd"])
             purchased_cost, purchased, soc = _score_kw(facility)
@@ -194,7 +208,7 @@ def run_thermostat_grid(
             thermal_cost = float("inf")
             purchased_cost = float("inf")
             purchased, soc = [], []
-        cost = purchased_cost if soft and ok_comfort else float("inf")
+        cost = purchased_cost if hard_ok and ok_comfort else float("inf")
         row: dict[str, Any] = {
             "candidate_id": candidate.candidate_id,
             "billing_cost": cost,
@@ -203,6 +217,7 @@ def run_thermostat_grid(
             "total_kwh": float(metrics.get("total_kwh") or 0.0),
             "comfort_ok": ok_comfort,
             "soft_ok": soft,
+            "ok": hard_ok,
             "wall_seconds": float(metrics.get("wall_seconds") or 0.0),
             "action_json": json.dumps(action, sort_keys=True),
             "idf_sha256": metrics.get("idf_sha256"),
@@ -240,6 +255,7 @@ def run_thermostat_grid(
                     "billing_cost": cost,
                     "comfort_ok": ok_comfort,
                     "soft_ok": soft,
+                    "ok": hard_ok,
                 }
             )
 
@@ -355,10 +371,10 @@ def run_battery_grid(
     if winner_id == "BASELINE" or not (winner_dir / "eplusout.csv").is_file():
         combined_house_kw = thermal_only_kw
     else:
-        from .runner import _resample_288, parse_eplus_csv
+        from .runner import _require_288, parse_eplus_csv
 
         parsed = parse_eplus_csv(winner_dir)
-        combined_house_kw = _resample_288(parsed["facility_kw"].tolist())
+        combined_house_kw = _require_288(parsed["facility_kw"].tolist(), label="winner facility_kw")
     combined = simulate_dispatch(combined_house_kw, prices, params, mode="price_arbitrage")
 
     def _cost(kw: list[float]) -> float:

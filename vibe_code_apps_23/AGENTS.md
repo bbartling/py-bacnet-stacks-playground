@@ -16,6 +16,10 @@
 - Do not resurrect LBNL B59 calibration as the active product
 - Do not duplicate grid-search engines; reuse `vibe23.grid`
 - Default thermostat is **71/73°F** (2°F deadband); search is **13×13 centers** (169) with battery-co-optimized ranking
+- **Ranking acceptance is `metrics["ok"]`, not `soft_ok`**: a candidate is only scored when EnergyPlus returned 0 with zero fatals **and zero severes**. `soft_ok` tolerates severes and must never gate a rank. Store both flags on rows; non-`ok` rows get `billing_cost = inf`
+- **Greedy battery scoring uses `restore_final_soc=True`** (`vibe23.battery.simulate_dispatch`), closing the day back to `initial_soc` so no candidate wins by draining stored energy it never bought. Do not remove this from `campaign._score_kw` or from the fixture generator
+- `parse_eplus_csv` accepts **exactly 288 rows** and raises otherwise (hourly output would mis-scale kW by 12×). Never pad or truncate to make a run parse
+- Committed `fixtures/studio/*_ranking.json` / `*_twin_export.json` are `ILLUSTRATIVE_PHYSICS_PROXY` — synthetic, no EnergyPlus. Never present them as simulations; see [`model/README.md`](model/README.md) for model simplifications
 - Studio tabs: `Inputs | Grid search | Twin replay | Grid flex calculator | Economics`
 - Tariff/reward interval count is configurable (288 for 5-min residential)
 - Record compute telemetry for campaigns (`reports/compute/`, campaign `compute/`)

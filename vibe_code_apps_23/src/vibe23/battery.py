@@ -46,6 +46,7 @@ def simulate_dispatch(
     *,
     dt_hours: float = DT_HOURS,
     cap_purchased_to_house_peak: bool = True,
+    restore_final_soc: bool = False,
 ) -> dict[str, list[float] | float]:
     """Greedy battery dispatch on purchased-grid load.
 
@@ -55,6 +56,13 @@ def simulate_dispatch(
     This is a heuristic — compare against ``vibe23.dispatch.cyclic_lp_dispatch``
     for an optimality gap. When ``cap_purchased_to_house_peak`` is True, charging
     cannot create a purchased peak above the house facility peak.
+
+    When ``restore_final_soc`` is True the day is closed back to ``initial_soc`` so a
+    candidate cannot look cheap merely by selling stored energy it never bought. This
+    matters for ranking: without it, a comparison across candidates silently rewards
+    draining the battery. Restoration buys back the deficit in the cheapest remaining
+    intervals (or sheds a surplus in the most expensive ones), subject to the same SOC
+    and power bounds; ``soc_restored`` reports whether the close actually converged.
     """
 
     load = np.asarray(facility_kw, dtype=float)
@@ -124,12 +132,28 @@ def simulate_dispatch(
         purchased[i] = max(0.0, kw + c_kw - d_kw)
         soc_series[i] = soc
 
+    soc_restored = False
+    if restore_final_soc:
+        soc_restored = _restore_soc_to_initial(
+            load=load,
+            price=price,
+            charge=charge,
+            discharge=discharge,
+            soc_series=soc_series,
+            params=params,
+            dt_hours=dt_hours,
+            house_peak=house_peak,
+            cap_purchased_to_house_peak=cap_purchased_to_house_peak,
+        )
+        purchased = np.maximum(0.0, load + charge - discharge)
+
     return {
         "purchased_kw": purchased.tolist(),
         "soc": soc_series.tolist(),
         "charge_kw": charge.tolist(),
         "discharge_kw": discharge.tolist(),
         "final_soc": float(soc_series[-1]),
+        "initial_soc": float(params.initial_soc),
         "intervals": float(n),
         "dt_hours": float(dt_hours),
         "mode": mode,
@@ -137,4 +161,104 @@ def simulate_dispatch(
         "purchased_peak_kw": float(np.max(purchased)),
         "house_peak_kw": house_peak,
         "cap_purchased_to_house_peak": bool(cap_purchased_to_house_peak),
+        "restore_final_soc": bool(restore_final_soc),
+        "soc_restored": bool(soc_restored),
     }
+
+
+_SOC_EPS = 1e-12
+_SOC_TOL = 1e-9
+
+
+def _restore_soc_to_initial(
+    *,
+    load: np.ndarray,
+    price: np.ndarray,
+    charge: np.ndarray,
+    discharge: np.ndarray,
+    soc_series: np.ndarray,
+    params: BatteryParams,
+    dt_hours: float,
+    house_peak: float,
+    cap_purchased_to_house_peak: bool,
+) -> bool:
+    """Close the day back to ``params.initial_soc`` in place; return True on convergence.
+
+    A deficit is bought back in the cheapest intervals first (and, if headroom runs out,
+    by walking back the least valuable discharges). A surplus is shed in the most
+    expensive intervals first (then by walking back the most expensive charges). Every
+    adjustment respects the SOC band over the whole remaining horizon, the per-interval
+    power limits, the no-export rule, and the house-peak cap on charging.
+    """
+
+    cap = float(params.capacity_kwh)
+    gap = float(params.initial_soc) - float(soc_series[-1])
+    cheap_first = [int(i) for i in np.argsort(price, kind="stable")]
+
+    def soc_headroom(i: int) -> float:
+        return float(params.soc_max) - float(np.max(soc_series[i:]))
+
+    def soc_footroom(i: int) -> float:
+        return float(np.min(soc_series[i:])) - float(params.soc_min)
+
+    if gap > _SOC_TOL:
+        for i in cheap_first:
+            if gap <= _SOC_TOL:
+                break
+            if discharge[i] > 0.0:
+                continue  # cannot charge and discharge in the same interval
+            room_kw = float(params.max_charge_kw) - float(charge[i])
+            if cap_purchased_to_house_peak:
+                room_kw = min(room_kw, house_peak - float(load[i]) - float(charge[i]))
+            if room_kw <= _SOC_EPS:
+                continue
+            delta = min(gap, soc_headroom(i), room_kw * dt_hours * params.eta_c / cap)
+            if delta <= _SOC_EPS:
+                continue
+            charge[i] += delta * cap / (params.eta_c * dt_hours)
+            soc_series[i:] += delta
+            gap -= delta
+        for i in cheap_first:
+            if gap <= _SOC_TOL:
+                break
+            if discharge[i] <= 0.0:
+                continue
+            delta = min(gap, soc_headroom(i), float(discharge[i]) * dt_hours / params.eta_d / cap)
+            if delta <= _SOC_EPS:
+                continue
+            discharge[i] -= delta * cap * params.eta_d / dt_hours
+            soc_series[i:] += delta
+            gap -= delta
+    elif gap < -_SOC_TOL:
+        surplus = -gap
+        for i in reversed(cheap_first):
+            if surplus <= _SOC_TOL:
+                break
+            if charge[i] > 0.0:
+                continue
+            room_kw = min(
+                float(params.max_discharge_kw) - float(discharge[i]),
+                float(load[i]) - float(discharge[i]),  # no export
+            )
+            if room_kw <= _SOC_EPS:
+                continue
+            delta = min(surplus, soc_footroom(i), room_kw * dt_hours / params.eta_d / cap)
+            if delta <= _SOC_EPS:
+                continue
+            discharge[i] += delta * cap * params.eta_d / dt_hours
+            soc_series[i:] -= delta
+            surplus -= delta
+        for i in reversed(cheap_first):
+            if surplus <= _SOC_TOL:
+                break
+            if charge[i] <= 0.0:
+                continue
+            delta = min(surplus, soc_footroom(i), float(charge[i]) * dt_hours * params.eta_c / cap)
+            if delta <= _SOC_EPS:
+                continue
+            charge[i] -= delta * cap / (params.eta_c * dt_hours)
+            soc_series[i:] -= delta
+            surplus -= delta
+        gap = -surplus
+
+    return abs(gap) <= 1e-6
