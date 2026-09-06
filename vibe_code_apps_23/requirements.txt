@@ -2,6 +2,9 @@
 #
 # Nested -r paths are resolved relative to this file, so the pinned studio set stays in
 # one place (requirements-studio.txt) and cannot drift from this file.
+#
+# EnergyPlus is NOT installable via this file (pip only). Live sims need a full native
+# EnergyPlus 26.1 tree — see README "Deployment note" and packages.txt.
 -r requirements-studio.txt
 
 # The app imports `vibe23`, so the package itself must be installed. pip resolves this

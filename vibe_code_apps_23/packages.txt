@@ -1,3 +1,10 @@
 # System packages for optional Linux hosts (none required for fixture demo mode).
-# Native EnergyPlus is not installable via apt on Streamlit Community Cloud —
-# run locally or bake EnergyPlus into a Docker image (HF Spaces / Fly.io / Render).
+#
+# Streamlit Community Cloud installs OS deps from this file via Debian apt only.
+# EnergyPlus 26.1 is NOT an apt package and cannot be requested here.
+# Official Linux build targets Ubuntu 24.04 x86-64 (~229 MB compressed tarball) and
+# needs the FULL distribution (energyplus + Energy+.idd + ExpandObjects + libs),
+# not a single binary — see README "Deployment note".
+#
+# For live sims: run locally or bake EnergyPlus into a separate worker image
+# (HF Spaces / Fly.io / Render / Ubuntu 24.04 host). Cloud = fixture demo only.
