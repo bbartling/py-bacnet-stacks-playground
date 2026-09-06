@@ -32,7 +32,7 @@ from plotly.subplots import make_subplots
 from vibe23.battery import BatteryParams
 from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
-from vibe23.residential.model import DEFAULT_EPW, MODEL_IDF, equipment_provenance
+from vibe23.residential.model import DEFAULT_EPW_NAME, MODEL_IDF, equipment_provenance
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
 from vibe23.studio.charts import (
     cost_bar_figure,
@@ -784,7 +784,7 @@ def main() -> None:
         "[AGENTS.md — human guide (IDF, EPW, Render, catalog size)]"
         "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
         " · "
-        f"`model/{MODEL_IDF.name}` · `model/{DEFAULT_EPW.name}` · "
+        f"`model/{MODEL_IDF.name}` · `model/{DEFAULT_EPW_NAME}` · "
         "[Render worker](https://vibe23-energyplus-worker.onrender.com/)"
     )
 
@@ -1066,7 +1066,7 @@ def main() -> None:
         st.subheader("Upload model + weather + tariff")
         st.caption(
             "Package demo IDF / EPW (upload or one-click load): "
-            f"`{MODEL_IDF.name}` + `{DEFAULT_EPW.name}` under `model/` · see "
+            f"`{MODEL_IDF.name}` + `{DEFAULT_EPW_NAME}` under `model/` · see "
             "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md). "
             "Browser IDF upload required for Render runs."
         )
