@@ -54,6 +54,9 @@ def _residential_doctor(args: argparse.Namespace) -> None:
         native.parent if native else DEFAULT_WINDOWS_ENERGYPLUS.parent
     )
     datasets = root / "DataSets"
+    expand = root / ("ExpandObjects.exe" if sys.platform.startswith("win") else "ExpandObjects")
+    idd = root / "Energy+.idd"
+    full_tree_ok = expand.is_file() and idd.is_file()
     result = {
         "schema": "vibe23.residential_doctor.v1",
         "ok": bool(cap.native_version),
@@ -67,6 +70,12 @@ def _residential_doctor(args: argparse.Namespace) -> None:
         "native_executable": cap.native_executable,
         "native_version": cap.native_version,
         "default_eplus_path": str(DEFAULT_WINDOWS_ENERGYPLUS),
+        "energyplus_root": str(root),
+        "expand_objects_path": str(expand),
+        "expand_objects_present": expand.is_file(),
+        "energyplus_idd_path": str(idd),
+        "energyplus_idd_present": idd.is_file(),
+        "full_distribution_ok": full_tree_ok,
         "datasets_path": str(datasets),
         "datasets_present": datasets.is_dir(),
         "rooftop_dataset": str(datasets / "RooftopPackagedHeatPump.idf"),
@@ -80,7 +89,11 @@ def _residential_doctor(args: argparse.Namespace) -> None:
         "claim_assumptions": CLAIM_ASSUMPTIONS,
         "claim_tariff": CLAIM_TARIFF,
         "capability": cap.to_dict(),
-        "note": "Copy .env.example to .env. Docker/WSL is optional; native EnergyPlus is used when present. Streamlit Community Cloud runs fixture-only demo mode.",
+        "note": (
+            "Copy .env.example to .env. Live runs need a FULL EnergyPlus 26.1 tree "
+            "(energyplus + Energy+.idd + ExpandObjects); pip/requirements.txt cannot install it. "
+            "Streamlit Community Cloud = fixture demo only; use a separate E+ worker for sims."
+        ),
     }
     _emit_json(result, args.out)
     if not result["ok"]:

@@ -60,17 +60,27 @@ up the studio dependency set; it pulls in [`requirements-studio.txt`](requiremen
 plus an editable install of this package (the app imports `vibe23`). Run it with
 `vibe_code_apps_23` as the working directory so `-e .` resolves.
 
+**EnergyPlus is not a Python package.** Putting it in `requirements.txt` does nothing useful —
+that file only installs pip deps. Live runs need a **full native EnergyPlus 26.1 distribution**
+(executable + `Energy+.idd` + `ExpandObjects` + bundled libs/weather), because the runner invokes
+`energyplus -x -w … -d … -r in.idf`. Copying only the `energyplus` binary is insufficient.
+
 Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `kWh = Σ(kW × 5/60 h)`. Twin replay can coarsen the playhead to **5 / 15 / 30 / 60 min** DSM viewing levels (native fixture stays 5-min). Studio tabs: **Inputs** → **Grid search** (13×13 center-setpoint Q-table, live EnergyPlus with fixture fallback) → **Twin replay** (baseline or promoted winner traces) → **Grid flex calculator** (baseline vs winner flex) → **Economics**. Regenerated fixtures (diurnal lights/plugs, no ALWAYS_ON phantom): Jul-15 ≈ **28 kWh**; Jan-3 winter design-cold ≈ **245 kWh**; mild Jan-15 ≈ **41 kWh** (`winter_typical_jan15_dr_day.json`). ~**3,500 ft²** / 5-ton box.
 
 Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (Clear session wipes only that visitor). Isolation is not a password gate.
 
 ### Deployment note (Streamlit Community Cloud)
 
-**Live EnergyPlus on Community Cloud is not verified here, and we do not believe it is practical.** EnergyPlus is not in the Debian apt set that `packages.txt` draws from, so it cannot be requested that way; there is no sudo for a runtime install; and the Ubuntu x86_64 tarball is ~234 MB against a ~1 GB-class container. We have not attempted or measured a workaround, so treat "EnergyPlus on Cloud" as untested rather than proven impossible.
+**Live EnergyPlus on Community Cloud is not verified here, and we do not believe it is practical.** Reasons:
+
+1. **pip vs native install** — `requirements.txt` cannot provision EnergyPlus; Cloud installs OS software only via Debian apt entries in `packages.txt`, and EnergyPlus 26.1 is not an apt package there.
+2. **OS mismatch** — Community Cloud documents a Debian 11-class runtime; the official EnergyPlus 26.1 Linux build targets **Ubuntu 24.04 x86-64**. Community Cloud also does not let the app supply its own Docker image.
+3. **Size / process limits** — the official Linux tarball is ~229 MB compressed (~234 MB class); a full 13×13 search is up to **170 sequential** day sims at up to **600 s** timeout each, which will block the Streamlit web process if run in-process.
+4. Startup download/commit of the full distribution is an unverified experiment, not a dependable deployment.
 
 What *is* supported on Community Cloud is the **fixture demo**: the Studio opens, every tab renders, and the grid-search Q-table replays committed fixtures. Those fixtures are `ILLUSTRATIVE_PHYSICS_PROXY` (see below), so the demo is a UI/UX artifact, not a source of engineering results.
 
-**Recommended architecture** if you want both: keep the Streamlit frontend on Community Cloud and run EnergyPlus in a **separate worker** with the binary baked into its image (Docker on Hugging Face Spaces / Fly.io / Render, or a local machine), having the frontend read the worker's `ranking.json` / `twin_export.json`. Running frontend and simulator in one Community Cloud container is the option we do not recommend.
+**Recommended architecture** if you want both: keep the Streamlit frontend on Community Cloud (or any Python host) and run EnergyPlus in a **separate worker** whose image bakes the full 26.1 tree (Docker on Hugging Face Spaces / Fly.io / Render, Ubuntu 24.04 host, or a local machine). The worker needs writable per-job temp dirs, subprocess permission, Golden/NREL EPW (or uploaded EPW), and `ENERGYPLUS_EXE` / `ENERGYPLUS_ROOT` / `ENERGYPLUS_WEATHER`. The frontend should consume that worker's `ranking.json` / `twin_export.json` rather than launching 170 sims inside the Streamlit process.
 
 `.env` is for local native EnergyPlus on Windows, Linux, or macOS — never commit secrets.
 
