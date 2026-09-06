@@ -69,7 +69,10 @@ jobs:
         working-directory: vibe_code_apps_13/ansible/pi-lab
         run: |
           python3 -m pip install --user 'ansible-core==2.17.9'
+          export PATH="$HOME/.local/bin:$PATH"
           export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+          # ansible.cfg collections_path starts with .collections/
+          ansible-galaxy collection install -r requirements.yml -p .collections
           # Never contact 192.168.204.0/24 — fixture uses 198.51.100.* only.
           for pb in playbooks/*.yml; do
             echo "syntax-check $pb"
