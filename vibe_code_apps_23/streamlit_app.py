@@ -106,6 +106,61 @@ PROXY_WARNING = "SYNTHETIC / ILLUSTRATIVE_PHYSICS_PROXY — not EnergyPlus simul
 
 load_energyplus_env()
 
+
+def _apply_cloud_secrets() -> None:
+    """Pull Streamlit Cloud secrets into os.environ when present (no-op locally)."""
+    try:
+        secrets = st.secrets  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        return
+    for key in (
+        "EPLUS_WORKER_URL",
+        "EPLUS_WORKER_API_KEY",
+        "EPLUS_BACKEND",
+        "ENERGYPLUS_EXE",
+        "ENERGYPLUS_ROOT",
+        "ENERGYPLUS_WEATHER",
+    ):
+        try:
+            value = secrets.get(key)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            value = None
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and not os.environ.get(key):
+            os.environ[key] = text
+
+
+def _sync_eplus_backend_env() -> str:
+    """Mirror sidebar backend choice into os.environ (do not mutate widget state)."""
+    backend = str(st.session_state.get("eplus_backend") or os.environ.get("EPLUS_BACKEND") or "auto").strip().lower()
+    if backend not in {"auto", "local", "worker"}:
+        backend = "auto"
+    os.environ["EPLUS_BACKEND"] = backend
+    return backend
+
+
+def _live_sim_ready() -> tuple[bool, str]:
+    """Return (ready, human label) for live EnergyPlus search buttons."""
+    from vibe23.energyplus_worker import worker_configured
+
+    backend = _sync_eplus_backend_env()
+    local = resolve_native_energyplus() is not None
+    remote = worker_configured()
+    if backend == "worker":
+        return remote, "Render EnergyPlus worker" if remote else "worker URL/API key missing"
+    if backend == "local":
+        return local, "native EnergyPlus" if local else "ENERGYPLUS_EXE not found"
+    if local:
+        return True, "native EnergyPlus (auto)"
+    if remote:
+        return True, "Render EnergyPlus worker (auto)"
+    return False, "no native EnergyPlus and no worker configured"
+
+
+_apply_cloud_secrets()
+
 st.set_page_config(
     page_title="Vibe 23 Residential DSM Studio",
     layout="wide",
@@ -265,6 +320,7 @@ def _init_state() -> None:
         "grid_max_candidates": 2,
         "comfort_low_f": MAX_HEAT_F,
         "comfort_high_f": MAX_COOL_F,
+        "eplus_backend": (os.environ.get("EPLUS_BACKEND") or "auto").strip().lower() or "auto",
         "epw_upload_name": None,
         "tariff_upload_name": None,
     }
@@ -665,21 +721,25 @@ def _render_grid_board(session_id: str, season_key: str, eplus) -> None:
             for row in board["rows"]
         ]
     )
+    live_ready, live_label = _live_sim_ready()
     st.markdown("**Legacy live run (optional)**")
     st.caption(
-        "Requires ENERGYPLUS_EXE on this machine · "
+        f"Backend: {live_label} · "
         f"max candidates {int(st.session_state.grid_max_candidates)} · comfort band "
         f"{float(st.session_state.comfort_low_f):.1f}–{float(st.session_state.comfort_high_f):.1f}°F."
     )
     if st.button("Run thermostat grid for selected season", key="legacy_run_grid"):
-        if eplus is None:
-            st.error("No native EnergyPlus found. Set ENERGYPLUS_EXE in .env.")
+        if not live_ready:
+            st.error(
+                "No live EnergyPlus backend. Set ENERGYPLUS_EXE for local, or "
+                "EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY (+ EPLUS_BACKEND=worker) for Render."
+            )
         else:
             try:
                 from vibe23.residential.campaign import run_thermostat_grid
 
                 out = exports_dir(session_id) / "studio_grid" / season_key
-                with st.spinner("Running EnergyPlus candidates…"):
+                with st.spinner(f"Running EnergyPlus candidates via {live_label}…"):
                     result = run_thermostat_grid(
                         season=season_key,
                         output_root=out,
@@ -720,12 +780,13 @@ def main() -> None:
 
     eplus = resolve_native_energyplus()
     epw = find_denver_epw()
+    live_ready, live_label = _live_sim_ready()
 
     st.title("Vibe 23 — Residential DSM Studio")
     st.caption(
         "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · Carrier 50EZ060 · "
         f"~{DEMO_FLOOR_FT2:,.0f} ft² · {sys.platform} · "
-        f"{'EnergyPlus ready' if eplus else 'fixture demo mode (no EnergyPlus on this machine)'}."
+        f"{'EnergyPlus ready' if live_ready else 'fixture demo mode'} · backend={live_label}."
     )
 
     with st.sidebar:
@@ -741,6 +802,22 @@ def main() -> None:
             help="Coarsen twin replay for DSM viewing. Native fixture stays 5-min / 288.",
         )
         st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
+        st.divider()
+        with st.expander("EnergyPlus backend", expanded=True):
+            st.radio(
+                "Live simulation backend",
+                ["auto", "local", "worker"],
+                key="eplus_backend",
+                help=(
+                    "auto = native EnergyPlus if installed, else Render worker. "
+                    "worker = always use EPLUS_WORKER_URL (Streamlit Cloud secrets / .env). "
+                    "local = native ENERGYPLUS_EXE only."
+                ),
+            )
+            live_ready, live_label = _live_sim_ready()
+            st.caption(f"Active: **{live_label}**")
+            if os.environ.get("EPLUS_WORKER_URL"):
+                st.caption(f"Worker URL configured · API key {'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'}")
         st.divider()
         st.header("Demo day")
         st.radio(
@@ -1333,13 +1410,14 @@ def main() -> None:
             else:
                 st.success("Live EnergyPlus ranking from this session's search.")
 
-        if eplus is not None:
+        live_ready, live_label = _live_sim_ready()
+        if live_ready:
             if st.button("Run live EnergyPlus search", type="primary", key="grid_run_live"):
                 try:
                     from vibe23.residential.campaign import run_thermostat_grid
 
                     out = exports_dir(session_id) / "studio_grid" / season_key
-                    with st.spinner("Running EnergyPlus candidates…"):
+                    with st.spinner(f"Running EnergyPlus candidates via {live_label}…"):
                         result = run_thermostat_grid(
                             season=season_key,
                             output_root=out,
@@ -1361,18 +1439,19 @@ def main() -> None:
                         st.session_state.promoted_has_trace = bool(
                             ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
                         )
-                    st.success(f"Live search finished · {out}")
+                    st.success(f"Live search finished via {live_label} · {out}")
                     st.rerun()
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"Live grid failed: {exc}")
             st.caption(
-                f"Live path writes `ranking.json` + `twin_export.json` under the session workspace · "
-                f"max candidates {int(st.session_state.grid_max_candidates)} of 169."
+                f"Live path ({live_label}) writes `ranking.json` + `twin_export.json` under the session "
+                f"workspace · max candidates {int(st.session_state.grid_max_candidates)} of 169."
             )
         else:
             st.caption(
-                "No native EnergyPlus on this machine — **Run search** below replays the committed fixture "
-                "ranking (same schema, pre-computed scores). Set `ENERGYPLUS_EXE` in `.env` for live runs."
+                "No live EnergyPlus backend — **Run search** below replays the committed fixture "
+                "ranking. Set `ENERGYPLUS_EXE` for local, or worker URL/API key + `EPLUS_BACKEND=worker` "
+                "for Render (Streamlit Cloud: paste into Secrets)."
             )
 
         evaluated = int(st.session_state.get("cand_step", 0))

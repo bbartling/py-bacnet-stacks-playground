@@ -11,16 +11,22 @@ _ENV_KEYS = (
     "ENERGYPLUS_ROOT",
     "ENERGYPLUS_WEATHER",
     "ENERGYPLUS_WEATHER_DIR",
+    "EPLUS_WORKER_URL",
+    "EPLUS_WORKER_API_KEY",
+    "EPLUS_BACKEND",
+    "EPLUS_WORKER_FORCE",
 )
 
 
 def env_file_candidates() -> tuple[Path, ...]:
     cwd = Path.cwd()
+    home_worker = Path.home() / "Documents" / "vibe23-energyplus-worker" / ".env.render.local"
     return (
         cwd / ".env",
         cwd / ".env.local",
         PACKAGE_ROOT / ".env",
         PACKAGE_ROOT / ".env.local",
+        home_worker,
     )
 
 
@@ -44,7 +50,11 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 
 def load_energyplus_env(*, override: bool = False) -> dict[str, str]:
-    """Populate os.environ from the first existing .env (does not override by default)."""
+    """Populate os.environ from .env candidates (does not override by default).
+
+    Scans all candidates so ENERGYPLUS_* and EPLUS_WORKER_* can come from
+    different files (e.g. package ``.env`` + worker ``.env.render.local``).
+    """
     loaded: dict[str, str] = {}
     for path in env_file_candidates():
         parsed = parse_env_file(path)
@@ -56,7 +66,6 @@ def load_energyplus_env(*, override: bool = False) -> dict[str, str]:
             if override or not os.environ.get(key):
                 os.environ[key] = value
             loaded[key] = os.environ.get(key, value)
-        break
     for key in _ENV_KEYS:
         if os.environ.get(key):
             loaded[key] = os.environ[key]

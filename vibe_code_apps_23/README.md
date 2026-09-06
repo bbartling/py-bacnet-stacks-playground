@@ -80,9 +80,17 @@ Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (
 
 What *is* supported on Community Cloud is the **fixture demo**: the Studio opens, every tab renders, and the grid-search Q-table replays committed fixtures. Those fixtures are `ILLUSTRATIVE_PHYSICS_PROXY` (see below), so the demo is a UI/UX artifact, not a source of engineering results.
 
-**Recommended architecture** if you want both: keep the Streamlit frontend on Community Cloud (or any Python host) and run EnergyPlus in a **separate worker** whose image bakes the full 26.1 tree (Docker on Hugging Face Spaces / Fly.io / Render, Ubuntu 24.04 host, or a local machine). The worker needs writable per-job temp dirs, subprocess permission, Golden/NREL EPW (or uploaded EPW), and `ENERGYPLUS_EXE` / `ENERGYPLUS_ROOT` / `ENERGYPLUS_WEATHER`. The frontend should consume that worker's `ranking.json` / `twin_export.json` rather than launching 170 sims inside the Streamlit process.
+**Recommended architecture** if you want both: keep the Streamlit frontend on Community Cloud (or any Python host) and run EnergyPlus on the **Render worker** (`bbartling/vibe23-energyplus-worker`). Studio sidebar **EnergyPlus backend**: `auto` | `local` | `worker`. Live grid search calls `run_residential_day` → either native `energyplus` or `POST /v1/jobs` on the worker. Set secrets (local `.env.local` or Streamlit Cloud Secrets):
 
-`.env` is for local native EnergyPlus on Windows, Linux, or macOS — never commit secrets.
+```toml
+EPLUS_WORKER_URL = "https://vibe23-energyplus-worker.onrender.com"
+EPLUS_WORKER_API_KEY = "same-as-Render-service-API_KEY"
+EPLUS_BACKEND = "worker"
+```
+
+On Community Cloud without a native exe, choose `worker` (or `auto` once URL+key are set). Keep candidate counts low on free Render tiers; a full 169-cell campaign is a paid-instance / overnight job.
+
+`.env` / `.env.local` are for local native EnergyPlus and worker keys — never commit secrets.
 
 ### Fixture rankings are a proxy, not simulation output
 

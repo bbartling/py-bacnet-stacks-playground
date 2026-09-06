@@ -112,11 +112,21 @@ def run_residential_day(
     cool_f: Sequence[float] | None = None,
     timeout_seconds: int = 600,
 ) -> dict[str, Any]:
-    """Run one weather-file day and return metrics with provenance hashes."""
+    """Run one weather-file day and return metrics with provenance hashes.
 
+    When ``EPLUS_BACKEND=worker`` (or auto + ``EPLUS_WORKER_FORCE``) and worker
+    URL/API key are configured, the day is executed on the remote Render worker.
+    Otherwise a native EnergyPlus executable is required.
+    """
+    from ..energyplus_worker import prefer_worker_backend, run_day_via_worker
+
+    use_worker = prefer_worker_backend()
     exe = resolve_native_energyplus(eplus_path)
-    if exe is None:
-        raise RuntimeError("native EnergyPlus executable not found")
+    if not use_worker and exe is None:
+        raise RuntimeError(
+            "native EnergyPlus executable not found "
+            "(set ENERGYPLUS_EXE, or configure EPLUS_WORKER_URL + EPLUS_BACKEND=worker)"
+        )
     epw_path = find_denver_epw(epw)
     if epw_path is None:
         raise FileNotFoundError("Denver/Golden EPW not found")
@@ -144,29 +154,55 @@ def run_residential_day(
     staged_idf = out / "in.idf"
     staged_idf.write_text(patched, encoding="utf-8")
 
-    cmd = [str(exe), "-x", "-w", str(epw_path), "-d", str(out), "-r", str(staged_idf)]
-    started = time.perf_counter()
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds, check=False)
-    wall_seconds = time.perf_counter() - started
-    (out / "console.log").write_text((proc.stdout or "") + "\n" + (proc.stderr or ""), encoding="utf-8")
-
     version = None
-    ver = subprocess.run([str(exe), "--version"], capture_output=True, text=True, check=False)
-    if ver.returncode == 0:
-        version = (ver.stdout or ver.stderr or "").strip() or None
+    worker_meta: dict[str, Any] = {}
+    if use_worker:
+        started = time.perf_counter()
+        worker_meta = run_day_via_worker(
+            idf_path=staged_idf,
+            epw_path=Path(epw_path),
+            output_dir=out,
+            expand_objects=True,
+            timeout_seconds=max(float(timeout_seconds), 960.0),
+        )
+        wall_seconds = time.perf_counter() - started
+        # Re-write staged IDF if extract overwrote the folder oddly; ensure in.idf exists.
+        if not staged_idf.is_file():
+            staged_idf.write_text(patched, encoding="utf-8")
+        proc_rc = int(worker_meta.get("return_code") if worker_meta.get("return_code") is not None else (0 if worker_meta.get("status") == "succeeded" else 1))
+        version = "26.1.0-worker"
+        inspection = {
+            "fatal_count": int(worker_meta.get("fatal_count") or 0),
+            "severe_count": int(worker_meta.get("severe_count") or 0),
+            "warning_count": int(worker_meta.get("warning_count") or 0),
+            "process_returncode": proc_rc,
+            "backend": "worker",
+            "worker_job_id": worker_meta.get("worker_job_id") or worker_meta.get("job_id"),
+        }
+    else:
+        assert exe is not None
+        cmd = [str(exe), "-x", "-w", str(epw_path), "-d", str(out), "-r", str(staged_idf)]
+        started = time.perf_counter()
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds, check=False)
+        wall_seconds = time.perf_counter() - started
+        (out / "console.log").write_text((proc.stdout or "") + "\n" + (proc.stderr or ""), encoding="utf-8")
+        ver = subprocess.run([str(exe), "--version"], capture_output=True, text=True, check=False)
+        if ver.returncode == 0:
+            version = (ver.stdout or ver.stderr or "").strip() or None
+        inspection = inspect_energyplus_run(
+            out,
+            idf=staged_idf,
+            epw=epw_path,
+            energyplus_version=version,
+            process_returncode=proc.returncode,
+            require_zero_warnings=False,
+        )
+        proc_rc = proc.returncode
 
-    inspection = inspect_energyplus_run(
-        out,
-        idf=staged_idf,
-        epw=epw_path,
-        energyplus_version=version,
-        process_returncode=proc.returncode,
-        require_zero_warnings=False,
-    )
     fatal = int(inspection.get("fatal_count") or 0)
     severe = int(inspection.get("severe_count") or 0)
     csv_ok = bool((out / "eplusout.csv").is_file())
-    soft_ok = proc.returncode == 0 and fatal == 0 and csv_ok
+    soft_ok = proc_rc == 0 and fatal == 0 and csv_ok
 
     facility_kw: list[float] = []
     zone_temp_f: list[float] = []
@@ -183,7 +219,7 @@ def run_residential_day(
         "schema": "vibe23.residential_day_metrics.v1",
         "ok": soft_ok and severe == 0,
         "soft_ok": soft_ok,
-        "process_returncode": proc.returncode,
+        "process_returncode": proc_rc,
         "fatal_count": fatal,
         "severe_count": severe,
         "warning_count": int(inspection.get("warning_count") or 0),
@@ -204,4 +240,6 @@ def run_residential_day(
         "equipment": equipment_provenance(),
         "claim_model": "HYPOTHETICAL_GL14_TUNED_DEMO_MODEL",
         "inspection": inspection,
+        "backend": "worker" if use_worker else "local",
+        "worker_job_id": worker_meta.get("worker_job_id") or worker_meta.get("job_id"),
     }
