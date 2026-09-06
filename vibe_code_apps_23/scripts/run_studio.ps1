@@ -23,6 +23,9 @@ if ($Ver -ne $Pin) {
 }
 Write-Host "OK: streamlit $Ver · $Py"
 
+# Keep editable install in sync so chart/helpers signatures match streamlit_app.py
+& $Py -m pip install -e ".[studio]" -q
+
 Get-NetTCPConnection -LocalPort 8501 -ErrorAction SilentlyContinue |
     ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 1

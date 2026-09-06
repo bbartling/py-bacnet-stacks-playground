@@ -53,13 +53,17 @@ def test_studio_app_features() -> None:
         "comfort_low_f",
         "comfort_high_f",
     }
-    assert "grid_max_candidates" not in {s.key for s in at.slider}
+    assert any(getattr(s, "key", None) == "grid_max_candidates" for s in at.select_slider)
+    assert at.session_state["grid_max_candidates"] == 5
     assert at.get("select_slider") or any(getattr(s, "key", None) == "dsm_minutes" for s in at.select_slider)
     assert "session_id" in at.session_state and at.session_state["session_id"]
     assert at.file_uploader
 
     tab_labels = [getattr(t, "label", None) for t in at.tabs]
-    assert tab_labels == ["Inputs", "Twin replay", "Grid flex calculator", "Economics"], tab_labels
+    assert tab_labels == ["Inputs", "Campaign", "Grid flex", "Economics"], tab_labels
+    # Streamlit executes every tab body each run — outdoor_kwh_cost_figure must not TypeError.
+    assert len(at.get("plotly_chart")) >= 1
+    assert not at.exception
 
     blob = " | ".join(
         [
@@ -69,14 +73,36 @@ def test_studio_app_features() -> None:
         ]
     )
     assert "ILLUSTRATIVE_PHYSICS_PROXY" not in blob
+    assert "Twin replay" not in tab_labels
     assert "Grid search" not in tab_labels
     assert "Legacy" not in blob
     assert "vibe23-energyplus-worker.onrender.com" in blob or any(
         "onrender.com" in str(getattr(m, "value", m)) for m in at.markdown
     )
     assert "Upload an IDF" in blob or "Upload an EnergyPlus" in blob
-
-    assert any("169-cell" in str(b.label) for b in at.button)
+    assert "Allowable zone" in blob or any("Allowable zone" in str(getattr(e, "label", "")) for e in at.slider)
+    assert "EnergyPlus environment" not in blob
+    assert "ENERGYPLUS_EXE" not in blob
+    assert "ENERGYPLUS_EXE" not in " | ".join(str(e.value) for e in at.error)
+    md_blob = " | ".join(str(getattr(m, "value", m)) for m in at.markdown)
+    assert "AGENTS.md" in md_blob
+    assert "onrender.com" in md_blob
+    assert "EnergyPlus worker" in md_blob or "Worker API" in md_blob or "Swagger" in md_blob
+    assert "/docs" in md_blob
+    assert any(
+        "per-browser" in str(getattr(c, "value", c)) or "session" in str(getattr(c, "value", c)).lower()
+        for c in at.caption
+    )
+    assert any("smoke catalog" in str(b.label) or "catalog (sidebar)" in str(b.label) for b in at.button)
+    assert any("169" in str(b.label) and "grid" in str(b.label).lower() for b in at.button) or any(
+        "169-cell" in str(b.label) or "169 cells" in str(b.label) for b in at.button
+    )
+    assert any("Tutorial" in str(getattr(e, "label", "")) or "169-cell" in str(getattr(e, "label", "")) for e in at.expander) or any(
+        "13 × 13" in str(getattr(m, "value", m)) or "13×13" in str(getattr(m, "value", m)) for m in at.markdown
+    )
+    assert "Render" not in " | ".join(str(c.value) for c in at.caption)
+    # Stoplight markdown (green/live under AppTest stub)
+    assert any("Worker" in str(getattr(m, "value", m)) for m in at.markdown)
 
     clears = [b for b in at.button if b.label == "Clear session"]
     assert clears
@@ -97,6 +123,39 @@ def test_studio_app_features() -> None:
     _assert_no_exceptions(at, "battery on")
     _slider(at, "capacity_kwh").set_value(20.0).run()
     _assert_no_exceptions(at, "capacity slider")
+
+    for item in at.select_slider:
+        if item.key == "grid_max_candidates":
+            item.set_value(169).run()
+            break
+    else:
+        raise AssertionError("missing grid_max_candidates")
+    _assert_no_exceptions(at, "catalog 169")
+    assert any("smoke catalog" in str(b.label) or "sidebar catalog" in str(b.label) for b in at.button)
+    assert any("169" in str(b.label) for b in at.button)
+
+
+def test_units_toggle_and_load_package_idf() -> None:
+    at = AppTest.from_file(str(APP_PATH), default_timeout=90)
+    at.run()
+    _assert_no_exceptions(at, "initial run")
+    assert at.session_state["units"] == "imperial"
+    _radio(at, "units").set_value("metric").run()
+    _assert_no_exceptions(at, "metric units")
+    assert at.session_state["units"] == "metric"
+    blob = " | ".join(str(c.value) for c in at.caption)
+    assert "m²" in blob or "display=metric" in blob
+    assert any("°C" in str(s.label) for s in at.slider if "Allowable zone" in str(s.label))
+    assert MODEL_IDF.is_file()
+    loaders = [b for b in at.button if "package residential demo IDF" in b.label]
+    assert loaders
+    loaders[0].click().run()
+    _assert_no_exceptions(at, "load package IDF")
+    assert at.session_state["idf_uploaded"] is True
+    assert at.session_state["idf_name"] == MODEL_IDF.name
+    assert at.session_state["idf_text"]
+    _radio(at, "units").set_value("imperial").run()
+    _assert_no_exceptions(at, "imperial units")
 
 
 def test_no_proxy_and_idf_required() -> None:
@@ -129,7 +188,7 @@ def test_grid_config_fingerprint_tracks_sidebar() -> None:
         "initial_soc": 0.50,
         "comfort_low_f": 69.5,
         "comfort_high_f": 74.5,
-        "grid_max_candidates": 169,
+        "grid_max_candidates": 5,
         "idf_text": None,
         "idf_uploaded": False,
     }
@@ -140,3 +199,10 @@ def test_grid_config_fingerprint_tracks_sidebar() -> None:
     stlib.session_state.capacity_kwh = 20.0
     fp2 = module._grid_config_fingerprint("summer")
     assert fp1 != fp2
+    stlib.session_state.capacity_kwh = 13.5
+    stlib.session_state.grid_max_candidates = 169
+    fp3 = module._grid_config_fingerprint("summer")
+    assert fp1 != fp3
+    assert module._grid_max_candidates() is None
+    stlib.session_state.grid_max_candidates = 5
+    assert module._grid_max_candidates() == 5

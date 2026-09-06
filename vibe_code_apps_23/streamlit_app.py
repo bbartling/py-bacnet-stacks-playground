@@ -1,27 +1,30 @@
 """Vibe 23 Residential DSM Studio — Streamlit console.
 
-Live EnergyPlus (local or Render worker) powers Grid search / Twin / Flex.
-No synthetic proxy rankings are shown as results — without a live backend or
-session run those tabs say EnergyPlus not ready.
+Live EnergyPlus on the Render worker powers Grid search / Twin / Flex.
+No synthetic proxy rankings are shown as results — without a configured
+worker or session run those tabs say EnergyPlus not ready.
 
 Launch (Windows / Linux / macOS)::
 
     pip install -e ".[studio]"
-    cp .env.example .env   # edit ENERGYPLUS_* / EPLUS_WORKER_* for live runs
+    cp .env.example .env   # set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY
     # Preferred on Windows (pins Python 3.12 + Streamlit 1.59.2):
     .\\scripts\\run_studio.ps1
     # Or:
     streamlit run streamlit_app.py
+
+Human guide: AGENTS.md · demo IDF/EPW under ``src/vibe23/assets/`` (mirrored in ``model/``)
 """
 from __future__ import annotations
 
 import hashlib
+import importlib
 import io
 import json
 import math
 import os
-import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -29,12 +32,27 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from vibe23.battery import BatteryParams
-from vibe23.energyplus import resolve_native_energyplus
 from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
-from vibe23.residential.model import MODEL_IDF, equipment_provenance, find_denver_epw
+from vibe23.residential.model import (
+    DEFAULT_EPW_NAME,
+    MODEL_IDF,
+    ensure_demo_assets,
+    equipment_provenance,
+)
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
-from vibe23.studio.charts import (
+from vibe23.tariff import TariffEvidence, TariffScenario
+import vibe23.energyplus_worker as _eplus_worker
+import vibe23.studio.charts as _studio_charts
+import vibe23.studio.units as _studio_units
+
+# Long-lived Streamlit processes cache package imports; reload so helper
+# signature / symbol changes apply without a full process restart.
+_eplus_worker = importlib.reload(_eplus_worker)
+_studio_charts = importlib.reload(_studio_charts)
+_studio_units = importlib.reload(_studio_units)
+
+from vibe23.studio.charts import (  # noqa: E402
     cost_bar_figure,
     hour_axis,
     kwh_bar_figure,
@@ -55,7 +73,6 @@ from vibe23.studio.demo_data import (
     dsm_block_size,
     dsm_dt_hours,
     dsm_steps_per_day,
-    energy_intensity_kwh_per_ft2,
     f_to_c,
     hourly_cost,
     hourly_kwh,
@@ -64,6 +81,18 @@ from vibe23.studio.demo_data import (
     load_season_day,
     outdoor_hour_index,
     run_battery_on_load,
+)
+from vibe23.studio.units import (  # noqa: E402
+    area_unit,
+    c_to_f,
+    comfort_wtp_label,
+    display_area,
+    display_temp,
+    display_temp_series,
+    energy_intensity,
+    intensity_unit,
+    normalize_units,
+    temp_unit,
 )
 from vibe23.studio.idf_geometry import idf_massing_figure, parse_idf_geometry
 from vibe23.studio.idf_inspect import inspect_idf
@@ -123,30 +152,108 @@ def _apply_cloud_secrets() -> None:
 
 
 def _sync_eplus_backend_env() -> str:
-    """Mirror sidebar backend choice into os.environ (do not mutate widget state)."""
-    backend = str(st.session_state.get("eplus_backend") or os.environ.get("EPLUS_BACKEND") or "auto").strip().lower()
-    if backend not in {"auto", "local", "worker"}:
-        backend = "auto"
-    os.environ["EPLUS_BACKEND"] = backend
-    return backend
+    """Studio is Render-only — always pin worker backend."""
+    os.environ["EPLUS_BACKEND"] = "worker"
+    st.session_state.eplus_backend = "worker"
+    return "worker"
 
 
 def _live_sim_ready() -> tuple[bool, str]:
     """Return (ready, human label) for live EnergyPlus search buttons."""
     from vibe23.energyplus_worker import worker_configured
 
-    backend = _sync_eplus_backend_env()
-    local = resolve_native_energyplus() is not None
-    remote = worker_configured()
-    if backend == "worker":
-        return remote, "Render EnergyPlus worker" if remote else "worker URL/API key missing"
-    if backend == "local":
-        return local, "native EnergyPlus" if local else "ENERGYPLUS_EXE not found"
-    if local:
-        return True, "native EnergyPlus (auto)"
-    if remote:
-        return True, "Render EnergyPlus worker (auto)"
-    return False, "no native EnergyPlus and no worker configured"
+    _sync_eplus_backend_env()
+    if worker_configured():
+        return True, "EnergyPlus worker"
+    return False, "worker URL/API key missing"
+
+
+_WORKER_LIGHT_COLORS = {
+    "green": "#22C55E",
+    "yellow": "#EAB308",
+    "red": "#EF4444",
+}
+_WORKER_LIGHT_LABELS = {
+    "live": "live",
+    "starting": "starting",
+    "sleeping": "sleeping",
+    "unconfigured": "not configured",
+}
+
+
+def _worker_status_cached(*, force: bool = False, quick_timeout: float = 2.5) -> dict:
+    """Probe worker with a short TTL so Streamlit reruns stay responsive."""
+    # Use reloaded module attribute so long-lived Streamlit picks up new symbols.
+    probe_worker_status = getattr(_eplus_worker, "probe_worker_status", None)
+    worker_configured = getattr(_eplus_worker, "worker_configured")
+
+    # AppTest / CI: never hit the network.
+    if os.environ.get("VIBE23_STUDIO_PLAY_ONCE") == "1":
+        if worker_configured():
+            return {
+                "light": "green",
+                "label": "live",
+                "try_seconds": 0.0,
+                "health": {"ok": True},
+                "error": None,
+                "cached": True,
+            }
+        return {
+            "light": "red",
+            "label": "unconfigured",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": "missing worker env",
+            "cached": True,
+        }
+
+    if probe_worker_status is None:
+        return {
+            "light": "red",
+            "label": "unconfigured",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": "probe_worker_status missing — restart Studio",
+            "cached": True,
+        }
+
+    now = time.time()
+    cached = st.session_state.get("_worker_status_cache")
+    cache_at = float(st.session_state.get("_worker_status_at") or 0.0)
+    if st.session_state.get("_worker_light_override") == "yellow":
+        return {
+            "light": "yellow",
+            "label": "starting",
+            "try_seconds": 0.0,
+            "health": None,
+            "error": None,
+            "cached": True,
+        }
+    if (not force) and cached and (now - cache_at) < 20.0:
+        return {**cached, "cached": True}
+    status = probe_worker_status(quick_timeout=quick_timeout)
+    st.session_state._worker_status_cache = status
+    st.session_state._worker_status_at = now
+    return {**status, "cached": False}
+
+
+def _render_worker_stoplight(status: dict, *, compact: bool = False) -> None:
+    light = str(status.get("light") or "red")
+    label = _WORKER_LIGHT_LABELS.get(str(status.get("label") or ""), str(status.get("label") or light))
+    color = _WORKER_LIGHT_COLORS.get(light, _WORKER_LIGHT_COLORS["red"])
+    size = 12 if compact else 16
+    detail = ""
+    if not compact and status.get("try_seconds"):
+        detail = f" · {float(status['try_seconds']):.1f}s"
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:0.5rem;margin:0.15rem 0 0.35rem 0;">'
+        f'<span style="width:{size}px;height:{size}px;border-radius:50%;'
+        f'background:{color};box-shadow:0 0 0 2px rgba(0,0,0,0.08);'
+        f'display:inline-block;flex-shrink:0;" title="EnergyPlus worker"></span>'
+        f'<span style="font-size:0.9rem;">Worker <strong>{label}</strong>{detail}</span>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 _apply_cloud_secrets()
@@ -307,13 +414,16 @@ def _init_state() -> None:
         "econ_annual_arb": 400.0,
         "econ_incl_dr": True,
         "econ_incl_res": False,
-        "grid_max_candidates": 169,
+        "grid_max_candidates": 5,
         "comfort_low_f": MAX_HEAT_F,
         "comfort_high_f": MAX_COOL_F,
         "eplus_backend": "worker",
         "idf_uploaded": False,
+        "units": "imperial",
         "epw_upload_name": None,
         "tariff_upload_name": None,
+        "epw_bytes": None,
+        "worker_jobs": [],
     }
     for dim in season_dimension_defaults("summer"):
         defaults[f"grid_dim_{dim.name}"] = format_dimension_values(dim.values)
@@ -354,15 +464,22 @@ def _clear_session() -> None:
     st.session_state.grid_config_fp = None
     st.session_state.comfort_low_f = MAX_HEAT_F
     st.session_state.comfort_high_f = MAX_COOL_F
+    st.session_state.grid_max_candidates = 5
     st.session_state.idf_text = None
     st.session_state.idf_name = MODEL_IDF.name
     st.session_state.outdoor_override = None
     st.session_state.rates_override = None
     st.session_state.epw_upload_name = None
     st.session_state.tariff_upload_name = None
+    st.session_state.epw_bytes = None
+    st.session_state.worker_jobs = []
+    st.session_state.pop("_worker_jobs_remote", None)
     st.session_state.epw_month = 7
     st.session_state.epw_day = 15
     st.session_state._season_key_for_epw = None
+    st.session_state.idf_uploaded = False
+    for tok in ("_last_idf_token", "_last_epw_token", "_last_tariff_token"):
+        st.session_state.pop(tok, None)
     for dim in season_dimension_defaults("summer"):
         st.session_state[f"grid_dim_{dim.name}"] = format_dimension_values(dim.values)
 
@@ -513,6 +630,68 @@ def _live_idf_arg(session_id: str) -> str | None:
     return str(target)
 
 
+def _grid_max_candidates() -> int | None:
+    """Catalog truncate for live Render runs. None = full 169."""
+    n = int(st.session_state.get("grid_max_candidates") or 169)
+    if n >= 169:
+        return None
+    return max(1, n)
+
+
+def _grid_candidate_count_label() -> str:
+    n = _grid_max_candidates()
+    return "169" if n is None else str(n)
+
+
+def _live_epw_arg(session_id: str) -> str | None:
+    """Stage an uploaded EPW for live runs; None → package Golden EPW via find_denver_epw."""
+    raw = st.session_state.get("epw_bytes")
+    name = st.session_state.get("epw_upload_name") or "upload.epw"
+    if not raw:
+        return None
+    staged = exports_dir(session_id) / "live_epw"
+    staged.mkdir(parents=True, exist_ok=True)
+    target = staged / Path(str(name)).name
+    if not str(target).lower().endswith(".epw"):
+        target = staged / "upload.epw"
+    target.write_bytes(bytes(raw))
+    return str(target)
+
+
+def _live_tariff_override():
+    """Build a TariffScenario from the Inputs editor rates, when present."""
+    rates = st.session_state.get("rates_override")
+    if not rates:
+        return None
+    values = [float(v) for v in rates]
+    if len(values) != INTERVALS_PER_DAY:
+        return None
+    return TariffScenario(
+        tariff_id="studio_upload_override",
+        evidence=TariffEvidence.ILLUSTRATIVE,
+        energy_rates_per_kwh=tuple(values),
+        demand_rate_per_kw=0.0,
+        source_reference="Streamlit Inputs tariff / hourly editor",
+        notes="ILLUSTRATIVE_HIGH_VALUE_TOU_TARIFF",
+    )
+
+
+def _remember_worker_job(job_id: str | None, *, candidate_id: str | None = None, status: str = "submitted") -> None:
+    if not job_id:
+        return
+    jobs = list(st.session_state.get("worker_jobs") or [])
+    jobs.insert(
+        0,
+        {
+            "job_id": str(job_id),
+            "candidate_id": candidate_id,
+            "status": status,
+            "at": time.strftime("%H:%M:%S"),
+        },
+    )
+    st.session_state.worker_jobs = jobs[:40]
+
+
 def _grid_config_fingerprint(season_key: str) -> str:
     """Identity of every input a live grid search consumes.
 
@@ -521,18 +700,72 @@ def _grid_config_fingerprint(season_key: str) -> str:
     """
     idf_text = st.session_state.get("idf_text")
     idf_id = hashlib.sha256(str(idf_text).encode("utf-8")).hexdigest()[:16] if idf_text else "default"
+    epw_raw = st.session_state.get("epw_bytes")
+    epw_id = hashlib.sha256(bytes(epw_raw)).hexdigest()[:16] if epw_raw else "package"
+    rates = st.session_state.get("rates_override")
+    rates_id = (
+        hashlib.sha256(json.dumps([float(v) for v in rates]).encode("utf-8")).hexdigest()[:16]
+        if rates
+        else "season_default"
+    )
     payload = {
         "season": season_key,
         "attach_battery": bool(st.session_state.attach_battery),
         "battery": _sidebar_battery_params().to_dict(),
         "comfort_low_f": float(st.session_state.comfort_low_f),
         "comfort_high_f": float(st.session_state.comfort_high_f),
-        "max_candidates": 169,
+        "max_candidates": _grid_max_candidates() or 169,
         "idf": idf_id,
+        "epw": epw_id,
+        "rates": rates_id,
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def _render_zone_drift_sliders(*, units: str, t_unit: str) -> None:
+    """Unit-aware allowable zone temp band (stored internally as °F)."""
+    st.caption(
+        f"Hard FAIL gate for ranking — zone must stay inside this band "
+        f"(display {t_unit}; EnergyPlus scoring stays °F)."
+    )
+    if units == "metric":
+        low_c = st.slider(
+            f"Allowable zone low {t_unit} (FAIL below)",
+            display_temp(60.0, "metric"),
+            display_temp(72.0, "metric"),
+            value=display_temp(float(st.session_state.comfort_low_f), "metric"),
+            step=0.25,
+            help="Cells whose zone temp dips below this FAIL comfort.",
+        )
+        high_c = st.slider(
+            f"Allowable zone high {t_unit} (FAIL above)",
+            display_temp(72.0, "metric"),
+            display_temp(85.0, "metric"),
+            value=display_temp(float(st.session_state.comfort_high_f), "metric"),
+            step=0.25,
+            help="Cells whose zone temp drifts above this FAIL comfort.",
+        )
+        st.session_state.comfort_low_f = c_to_f(float(low_c))
+        st.session_state.comfort_high_f = c_to_f(float(high_c))
+    else:
+        st.slider(
+            f"Allowable zone low {t_unit} (FAIL below)",
+            60.0,
+            72.0,
+            step=0.5,
+            key="comfort_low_f",
+            help="Cells whose zone temp dips below this FAIL comfort.",
+        )
+        st.slider(
+            f"Allowable zone high {t_unit} (FAIL above)",
+            72.0,
+            85.0,
+            step=0.5,
+            key="comfort_high_f",
+            help="Cells whose zone temp drifts above this FAIL comfort.",
+        )
 
 
 def _invalidate_stale_live_run(season_key: str) -> bool:
@@ -558,6 +791,68 @@ def _record_live_run(season_key: str, out_root) -> None:
     st.session_state.grid_config_fp = _grid_config_fingerprint(season_key)
 
 
+def _run_live_campaign(
+    *,
+    session_id: str,
+    season_key: str,
+    live_ready: bool,
+    live_label: str,
+    max_candidates: int | None,
+) -> None:
+    """Submit thermostat grid search to the EnergyPlus worker and stash session artifacts."""
+    idf_path = _live_idf_arg(session_id)
+    if not idf_path:
+        st.error("Upload an IDF on **Inputs** first.")
+        return
+    if not live_ready:
+        st.error("Worker not ready — wake it and check API key secrets.")
+        return
+    try:
+        from vibe23.residential.campaign import run_thermostat_grid
+
+        n_label = "169" if max_candidates is None or int(max_candidates) >= 169 else str(int(max_candidates))
+        out = exports_dir(session_id) / "studio_grid" / season_key
+        epw_path = _live_epw_arg(session_id)
+        tariff = _live_tariff_override()
+
+        def _on_progress(event: dict) -> None:
+            _remember_worker_job(
+                event.get("worker_job_id"),
+                candidate_id=str(event.get("candidate_id") or ""),
+                status=str(event.get("phase") or "running"),
+            )
+
+        with st.spinner(f"{n_label}-cell campaign on EnergyPlus worker…"):
+            result = run_thermostat_grid(
+                season=season_key,
+                output_root=out,
+                max_candidates=max_candidates,
+                comfort_low_f=float(st.session_state.comfort_low_f),
+                comfort_high_f=float(st.session_state.comfort_high_f),
+                attach_battery=bool(st.session_state.attach_battery),
+                battery_params=_sidebar_battery_params(),
+                idf=idf_path,
+                epw=epw_path,
+                tariff=tariff,
+                store_traces=True,
+                progress_callback=_on_progress,
+            )
+        _record_live_run(season_key, out)
+        ranking_payload = result.get("ranking") or {}
+        st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
+        win = ranking_payload.get("winner") or {}
+        if win:
+            st.session_state.promoted_candidate_id = win.get("candidate_id")
+            st.session_state.promoted_action = _parse_action(win.get("action_json"))
+            st.session_state.promoted_has_trace = bool(
+                ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
+            )
+        st.success(f"Live search finished via {live_label} · {out}")
+        st.rerun()
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Live grid failed: {exc}")
+
+
 def _is_live_ranking() -> bool:
     """True when the loaded ranking came from this session's live EnergyPlus run."""
     return bool(st.session_state.get("session_ranking_path"))
@@ -572,8 +867,9 @@ def _eplus_status_banner(live_ready: bool, live_label: str) -> None:
         st.success(f"EnergyPlus ready · {live_label}")
     else:
         st.error(
-            "EnergyPlus not ready — set local `ENERGYPLUS_EXE`, or configure "
-            "`EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY` (sidebar backend = worker/auto)."
+            "EnergyPlus worker not ready — set `EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY`, "
+            "then open [https://vibe23-energyplus-worker.onrender.com/]"
+            "(https://vibe23-energyplus-worker.onrender.com/) or use **Wake worker** in the sidebar."
         )
 
 
@@ -698,6 +994,10 @@ def main() -> None:
     if st.session_state.pop("_pending_clear", False):
         _clear_session()
     session_id = _ensure_session()
+    try:
+        ensure_demo_assets(download_if_missing=True)
+    except FileNotFoundError as exc:
+        st.warning(f"Demo IDF/EPW not available yet: {exc}")
 
     season_key = _season_key()
     _sync_epw_day_defaults(season_key)
@@ -705,15 +1005,26 @@ def main() -> None:
     rates_native = _rates_for_season(season_key)
     outdoor = st.session_state.outdoor_override or _outdoor(season_key)
 
-    eplus = resolve_native_energyplus()
-    epw = find_denver_epw()
     live_ready, live_label = _live_sim_ready()
 
+    units = normalize_units(st.session_state.get("units"))
+    t_unit = temp_unit(units)
+    a_unit = area_unit(units)
+    i_unit = intensity_unit(units)
+    prov = equipment_provenance()
+
     st.title("Vibe 23 — Residential DSM Studio")
+    worker_status = _worker_status_cached()
+    _render_worker_stoplight(worker_status, compact=True)
     st.caption(
-        "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · Carrier 50EZ060 · "
-        f"~{DEMO_FLOOR_FT2:,.0f} ft² · {sys.platform} · "
-        f"{'EnergyPlus ready' if live_ready else 'EnergyPlus not ready'} · backend={live_label}."
+        f"HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · {prov['equipment']} · "
+        f"~{display_area(DEMO_FLOOR_FT2, units):,.0f} {a_unit} · "
+        f"{'EnergyPlus ready' if live_ready else 'EnergyPlus not ready'} · {units}"
+    )
+    st.markdown(
+        "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
+        f" · `{MODEL_IDF.name}` · `{DEFAULT_EPW_NAME}` · "
+        "[Worker API docs](https://vibe23-energyplus-worker.onrender.com/docs)"
     )
 
     with st.sidebar:
@@ -726,60 +1037,154 @@ def main() -> None:
             options=list(DSM_INTERVAL_MINUTES),
             format_func=_dsm_label,
             key="dsm_minutes",
-            help="Coarsen twin replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
+            help="Coarsen day replay for DSM viewing when live traces are loaded. Native sim is 5-min / 288.",
         )
-        st.caption(f"Session `{session_id[:8]}…` · per-browser workspace")
+        st.caption(
+            f"Session `{session_id[:8]}…` · per-browser workspace under temp "
+            f"`vibe23/{session_id[:8]}…` (uploads/exports isolated; Clear session rotates id). "
+            "Shared Streamlit process — isolation, not a login wall."
+        )
+        st.radio(
+            "Display units",
+            ["imperial", "metric"],
+            format_func=lambda u: "Imperial (°F, ft²)" if u == "imperial" else "Metric (°C, m²)",
+            key="units",
+            horizontal=True,
+            help="Display only — EnergyPlus traces stay native; charts/metrics convert for viewing.",
+        )
         st.divider()
-        with st.expander("EnergyPlus backend", expanded=True):
+        with st.expander("EnergyPlus worker", expanded=True):
             st.session_state.eplus_backend = "worker"
             os.environ["EPLUS_BACKEND"] = "worker"
             live_ready, live_label = _live_sim_ready()
-            st.caption(f"Backend locked to **Render worker** · {live_label}")
-            st.markdown(
-                "[Open Render worker](https://vibe23-energyplus-worker.onrender.com/) "
-                "(wake free-tier sleep) · docs at `/docs`"
+            worker_status = _worker_status_cached()
+            _render_worker_stoplight(worker_status)
+            st.caption(
+                "Green = live · Yellow = starting · Red = sleeping / missing config"
             )
+            st.info(
+                "EnergyPlus worker runs on **Render free tier** and sleeps when idle — "
+                "use **Wake worker** (cold start ~30–90s). Source: "
+                "[vibe23-energyplus-worker](https://github.com/bbartling/vibe23-energyplus-worker)."
+            )
+            st.markdown(
+                "**API UI (Swagger):** "
+                "[https://vibe23-energyplus-worker.onrender.com/docs]"
+                "(https://vibe23-energyplus-worker.onrender.com/docs)  \n"
+                "Health: [ /healthz ](https://vibe23-energyplus-worker.onrender.com/healthz)"
+            )
+            with st.expander("How to use Swagger /docs", expanded=False):
+                st.markdown(
+                    "1. Wake the worker (stoplight green) or open `/docs` and wait through cold start.\n"
+                    "2. Click **Authorize**, paste `EPLUS_WORKER_API_KEY` from Streamlit secrets / "
+                    "`.env.local` (Swagger adds `Bearer`).\n"
+                    "3. Try `GET /healthz` (no auth) or `POST /v1/jobs` with an IDF + EPW upload.\n"
+                    "4. Poll `GET /v1/jobs/{id}` then download `/v1/jobs/{id}/results`.\n\n"
+                    "The bearer key is **not** shown here — shared Cloud demos must not leak it to visitors."
+                )
+                if not (os.environ.get("EPLUS_WORKER_API_KEY") or "").strip():
+                    st.warning("EPLUS_WORKER_API_KEY missing — set it in `.env.local` or Streamlit secrets.")
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
                     f"Worker URL configured · API key "
-                    f"{'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'}"
+                    f"{'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'} · "
+                    "cold start ~30–90s"
                 )
-                st.caption(
-                    "Free Render tiers sleep after idle time. The first request can take "
-                    "30–90s; Studio pings `/healthz` before each live job to wake it."
-                )
-                if st.button("Wake / check Render worker", key="wake_eplus_worker"):
-                    from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
+                c_wake, c_refresh = st.columns(2)
+                with c_refresh:
+                    if st.button("Refresh status", key="refresh_worker_status"):
+                        st.session_state.pop("_worker_light_override", None)
+                        _worker_status_cached(force=True)
+                        st.rerun()
+                with c_wake:
+                    if st.button("Wake worker", key="wake_eplus_worker"):
+                        EnergyPlusWorkerError = _eplus_worker.EnergyPlusWorkerError
+                        ensure_worker_awake = _eplus_worker.ensure_worker_awake
 
-                    with st.spinner("Pinging worker /healthz (cold start may take up to ~90s)…"):
+                        st.session_state._worker_light_override = "yellow"
+                        with st.spinner("Waking worker (yellow = starting)…"):
+                            try:
+                                wake = ensure_worker_awake()
+                                health = wake.get("health") or {}
+                                st.session_state.pop("_worker_light_override", None)
+                                st.session_state._worker_status_cache = {
+                                    "light": "green",
+                                    "label": "live",
+                                    "try_seconds": float(wake.get("try_seconds") or 0.0),
+                                    "health": health,
+                                    "error": None,
+                                }
+                                st.session_state._worker_status_at = time.time()
+                                if wake.get("woke_from_sleep"):
+                                    st.success(
+                                        f"Woke in {wake['wall_seconds']}s · "
+                                        f"E+ {health.get('energyplus_version', '?')}"
+                                    )
+                                else:
+                                    st.success(
+                                        f"Awake ({wake['try_seconds']}s) · "
+                                        f"E+ {health.get('energyplus_version', '?')}"
+                                    )
+                            except EnergyPlusWorkerError as exc:
+                                st.session_state.pop("_worker_light_override", None)
+                                st.session_state._worker_status_cache = {
+                                    "light": "red",
+                                    "label": "sleeping",
+                                    "try_seconds": 0.0,
+                                    "health": None,
+                                    "error": str(exc)[:300],
+                                }
+                                st.session_state._worker_status_at = time.time()
+                                st.error(f"Wake failed: {exc}")
+            with st.expander("Worker job queue", expanded=False):
+                st.caption(
+                    "Worker runs **one job at a time** (queued → running → done). "
+                    "This panel lists **this browser session's** job ids only "
+                    "(not the global worker queue)."
+                )
+                session_jobs = list(st.session_state.get("worker_jobs") or [])
+                if session_jobs:
+                    st.dataframe(
+                        pd.DataFrame(session_jobs)[["at", "status", "candidate_id", "job_id"]],
+                        hide_index=True,
+                        width="stretch",
+                    )
+                else:
+                    st.caption("No jobs from this browser session yet.")
+                # Opt-in ops view: never expose worker-wide jobs on shared Streamlit Cloud by default.
+                if os.environ.get("VIBE23_SHOW_WORKER_QUEUE", "").strip().lower() in {"1", "true", "yes"}:
+                    if st.button("Refresh worker queue (ops)", key="refresh_worker_jobs"):
                         try:
-                            wake = ensure_worker_awake()
-                            health = wake.get("health") or {}
-                            if wake.get("woke_from_sleep"):
-                                st.success(
-                                    f"Worker woke in {wake['wall_seconds']}s "
-                                    f"(attempt {wake['attempt']}) · "
-                                    f"E+ {health.get('energyplus_version', '?')} · "
-                                    f"api_key_configured={health.get('api_key_configured')}"
-                                )
-                            else:
-                                st.success(
-                                    f"Worker already awake ({wake['try_seconds']}s) · "
-                                    f"E+ {health.get('energyplus_version', '?')} · "
-                                    f"api_key_configured={health.get('api_key_configured')}"
-                                )
-                        except EnergyPlusWorkerError as exc:
-                            st.error(f"Worker wake failed: {exc}")
+                            payload = _eplus_worker.list_jobs(limit=15)
+                            queue = payload.get("queue") or {}
+                            st.session_state._worker_jobs_remote = payload
+                            st.info(
+                                f"Queue · queued={queue.get('queued')} · running={queue.get('running')} · "
+                                f"max={queue.get('max_concurrent')}"
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            st.warning(f"Could not list remote jobs: {exc}")
+                    remote = st.session_state.get("_worker_jobs_remote") or {}
+                    remote_jobs = remote.get("jobs") or []
+                    if remote_jobs:
+                        rows = [
+                            {
+                                "status": j.get("status"),
+                                "job_id": str(j.get("job_id") or "")[:8] + "…",
+                                "created": str(j.get("created_at") or "")[:19],
+                                "wall_s": j.get("wall_seconds"),
+                            }
+                            for j in remote_jobs[:12]
+                        ]
+                        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         st.divider()
         st.header("Demo day")
         st.radio(
             "Season",
             ["Summer hot day (Jul 15)", "Winter design cold (Jan 3)"],
             key="season",
-            help="Jul 15 hot-afternoon flex aligned to TOU peak 16–21 · Jan 3 near-design cold morning shed 6–9. "
-            "Mild Jan 15 is retained as fixtures/studio/winter_typical_jan15_dr_day.json. "
-            "Twin replay animates the baseline day (or the promoted winner traces); "
-            "Grid search and Grid flex calculator have independent playheads.",
+            help="Jul 15 hot-afternoon flex · Jan 3 near-design cold. "
+            "Campaign runs the thermostat search; Grid flex replays the day and compares baseline vs winner.",
         )
         st.divider()
         with st.expander("Battery sizing", expanded=True):
@@ -803,7 +1208,7 @@ def main() -> None:
             st.caption("Typical wall-pack: 13.5 kWh · ±5 kW · η≈0.95 · SOC 10–95%.")
         with st.expander("Comfort WTP", expanded=False):
             st.slider(
-                "ILLUSTRATIVE comfort WTP ($/°F·h vs baseline)",
+                comfort_wtp_label(units),
                 min_value=0.0,
                 max_value=0.50,
                 step=0.05,
@@ -826,48 +1231,27 @@ def main() -> None:
             )
             st.toggle("Include DR incentive layer", key="econ_incl_dr")
             st.toggle("Include resilience layer", key="econ_incl_res")
-        with st.expander("Grid search", expanded=False):
-            st.slider(
-                "Comfort band low °F (FAIL below)",
-                60.0,
-                72.0,
-                step=0.5,
-                key="comfort_low_f",
-                help="Hard comfort gate for the 13×13 center search. Cells that dip below FAIL.",
-            )
-            st.slider(
-                "Comfort band high °F (FAIL above)",
-                72.0,
-                85.0,
-                step=0.5,
-                key="comfort_high_f",
-                help="Hard comfort gate for the 13×13 center search. Cells that drift above FAIL.",
+        with st.expander("Zone drift + catalog size", expanded=True):
+            _render_zone_drift_sliders(units=units, t_unit=t_unit)
+            st.select_slider(
+                "Catalog size (cells)",
+                options=[2, 5, 13, 26, 169],
+                key="grid_max_candidates",
+                help=(
+                    "Smoke sizes (2–26) for testing; 169 = full 13×13 grid. "
+                    "Each cell is one EnergyPlus day on the worker (+ baseline)."
+                ),
             )
             st.caption(
-                "Full **169-cell** catalog every live run (no smoke truncate). "
-                "Comfort band gates ranking (FAIL, not a soft penalty)."
+                f"Sidebar smoke button → **{_grid_candidate_count_label()}** candidate day(s) + baseline. "
+                "Full-grid button always runs **169**."
             )
         st.divider()
-        st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
-        with st.expander("EnergyPlus environment", expanded=False):
-            st.code(
-                "\n".join(
-                    [
-                        f"platform = {sys.platform}",
-                        f"ENERGYPLUS_EXE = {os.environ.get('ENERGYPLUS_EXE') or '(unset)'}",
-                        f"ENERGYPLUS_ROOT = {os.environ.get('ENERGYPLUS_ROOT') or '(unset)'}",
-                        f"ENERGYPLUS_WEATHER = {os.environ.get('ENERGYPLUS_WEATHER') or '(unset)'}",
-                        f"resolved_exe = {eplus}",
-                        f"resolved_epw = {epw}",
-                        f"session_id = {session_id}",
-                        f"session_root = {session_root(session_id)}",
-                    ]
-                ),
-                language="text",
-            )
-            st.caption("Copy `.env.example` → `.env` on Windows, Linux, or macOS.")
-        prov = equipment_provenance()
-        st.caption(f"{prov['equipment']} · {prov['nominal_tons']} ton · COP c/h {prov['cooling_cop']}/{prov['heating_cop']}")
+        st.info("Upload IDF / EPW / tariff on **Inputs**.")
+        st.caption(
+            f"{prov['equipment']} · {prov['nominal_tons']} ton · "
+            f"COP {prov['cooling_cop']}/{prov['heating_cop']}"
+        )
 
     minutes = int(st.session_state.dsm_minutes)
     block = dsm_block_size(minutes)
@@ -989,7 +1373,7 @@ def main() -> None:
         net_bill = day_bill(purchased_native, season=season_key)
     else:
         net_bill = house_bill
-    intensity = energy_intensity_kwh_per_ft2(house_day_kwh)
+    intensity = energy_intensity(house_day_kwh, floor_ft2=DEMO_FLOOR_FT2, units=units)
     h_kwh = hourly_kwh(house_kw_native)
     h_cost = hourly_cost(house_kw_native, rates_native)
     outdoor_f = list(outdoor["drybulb_f"])
@@ -998,21 +1382,29 @@ def main() -> None:
     dashboard = inspect_idf(idf_text, source_name=str(st.session_state.idf_name))
     pf = _preflight(idf_text, str(st.session_state.idf_name))
 
-    tab_inputs, tab_twin, tab_dr, tab_econ = st.tabs(
-        ["Inputs", "Twin replay", "Grid flex calculator", "Economics"]
+    tab_inputs, tab_campaign, tab_flex, tab_econ = st.tabs(
+        ["Inputs", "Campaign", "Grid flex", "Economics"]
     )
 
     with tab_inputs:
         st.subheader("Upload model + weather + tariff")
         st.caption(
-            "Upload an EnergyPlus **IDF in the browser** (required for any live run). "
-            "Optional EPW / tariff. Twin and Grid flex stay empty until a **full 169-cell** "
-            "Render worker campaign finishes."
+            f"Demo: `{MODEL_IDF.name}` · `{DEFAULT_EPW_NAME}` · [AGENTS.md]"
+            "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
         )
+        if st.button("Load package residential demo IDF", key="load_package_idf"):
+            st.session_state.idf_text = MODEL_IDF.read_text(encoding="utf-8", errors="replace")
+            st.session_state.idf_name = MODEL_IDF.name
+            st.session_state.idf_uploaded = True
+            st.session_state._last_idf_token = ("package", MODEL_IDF.name, MODEL_IDF.stat().st_size)
+            st.rerun()
+        if st.session_state.get("idf_uploaded"):
+            st.success(f"IDF ready · {st.session_state.idf_name}")
+        st.caption("Campaign / Grid flex fill after a live EnergyPlus search finishes.")
         st.markdown(
-            "Render worker: [https://vibe23-energyplus-worker.onrender.com/]"
-            "(https://vibe23-energyplus-worker.onrender.com/) — open to wake a sleeping free-tier "
-            "instance, or use **Wake / check Render worker** in the sidebar."
+            "Worker API UI: [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) "
+            "· wake via sidebar if sleeping · Authorize with the same bearer key as Streamlit secrets "
+            "(session workspace isolates uploads per browser — see sidebar caption)."
         )
         u1, u2, u3 = st.columns(3)
         with u1:
@@ -1061,6 +1453,7 @@ def main() -> None:
                     st.session_state._last_epw_token = token
                     st.session_state.outdoor_override = outdoor_model.model_dump()
                     st.session_state.epw_upload_name = epw_up.name
+                    st.session_state.epw_bytes = epw_up.getvalue()
                     st.rerun()
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"EPW parse failed: {exc}")
@@ -1090,6 +1483,7 @@ def main() -> None:
             st.session_state.rates_override = None
             st.session_state.epw_upload_name = None
             st.session_state.tariff_upload_name = None
+            st.session_state.epw_bytes = None
             st.session_state._last_idf_token = None
             st.session_state._last_epw_token = None
             st.session_state._last_tariff_token = None
@@ -1178,16 +1572,18 @@ def main() -> None:
         idf_src = st.session_state.idf_name
         st.caption(
             f"**Data vintage:** IDF `{idf_src}` · outdoor `{outdoor_src}` · rates `{rate_src}`. "
-            "Outdoor °F and $/kWh refresh immediately after EPW/tariff upload or Apply. "
+            f"Outdoor {t_unit} and $/kWh refresh immediately after EPW/tariff upload or Apply. "
             "Hourly kWh still comes from the fixture EnergyPlus day and only changes after a re-simulation."
         )
+        outdoor_disp = display_temp_series(list(outdoor_f), units)
         st.plotly_chart(
             outdoor_kwh_cost_figure(
                 hourly_kwh=h_kwh,
-                outdoor_f=outdoor_f,
+                outdoor_f=outdoor_disp,
                 hourly_cost=h_cost,
                 title=f"Static extreme-day context · {day.get('label', season_key)}",
                 theme="light",
+                temp_unit_label=t_unit,
             ),
             width="stretch",
         )
@@ -1207,7 +1603,7 @@ def main() -> None:
         st.subheader("Energy-modeler dashboard")
         e = dashboard.envelope
         c1, c2, c3, c4, c5, c6 = st.columns(6)
-        c1.metric("Floor area", f"{e.floor_ft2:,.0f} ft²")
+        c1.metric("Floor area", f"{display_area(float(e.floor_ft2), units):,.0f} {a_unit}")
         c2.metric("WWR", f"{e.wwr_pct:.1f}%" if e.wwr_pct is not None else "—")
         c3.metric("Zones", str(e.n_zones))
         c4.metric("HVAC autosize", "Yes" if dashboard.hvac_autosize else "No")
@@ -1239,70 +1635,98 @@ def main() -> None:
         )
         st.caption("Parsed with Pydantic · geometry from BuildingSurface:Detailed (vibe20-style massing).")
 
-
         st.divider()
-        st.subheader("Full 13×13 EnergyPlus campaign (Render)")
+        st.subheader("IDF massing (static)")
+        if pf.can_visualize:
+            geom = _geom_from_text(idf_text)
+            mass = idf_massing_figure(geom, zone_temps={}, title=f"IDF massing · {st.session_state.idf_name}", height=480)
+            st.plotly_chart(mass, width="stretch")
+        else:
+            st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed.")
+
+    with tab_campaign:
+        n_run = _grid_candidate_count_label()
+        is_smoke = n_run != "169"
+        st.subheader("EnergyPlus campaign")
         _eplus_status_banner(live_ready, live_label)
-        st.caption(
-            "Always runs the full **169** thermostat-center catalog on the Render worker "
-            "([https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)). "
-            "Browser IDF upload is mandatory — no package-model fallback."
+        st.markdown(
+            "**Smoke vs full search:** left button runs the **sidebar catalog** "
+            f"(now **{n_run}** cells — default **5** for worker testing). "
+            "Right button always runs the **full 169-cell** grid search."
         )
         if season_key == "summer":
             st.caption("TOU hours · pre-window 13:00 · event 16–21 · recovery to 23:00.")
         else:
             st.caption("TOU hours · pre-window 05:00 · event 6–9 · recovery to 12:00.")
+        with st.expander("Tutorial — what is the 169-cell thermostat search?", expanded=False):
+            st.markdown(
+                """
+Each **cell** is one EnergyPlus weather-day on the worker with a different thermostat
+**center** schedule (heat/cool pair around that center, 2°F deadband).
+
+**How 169 is calculated**
+
+1. Centers are **69.0 … 75.0 °F** in **0.5 °F** steps → **13** values (±3 °F from 72 °F).
+2. Search dimensions: **pre-event center** × **event center** → **13 × 13 = 169** candidates.
+3. Event hours are fixed to the season TOU peak (not searched). Recovery returns toward 72 °F.
+4. Plus one **BASELINE** day (default 71/73) for comparison.
+5. Each successful day is scored as **$/day purchased from the grid** (optional battery arbitrage with `restore_final_soc=True`). Comfort FAIL if zone drifts outside the sidebar band. Ranking requires **strict** EnergyPlus `ok` (no fatals/severes).
+
+**When to use which button**
+
+| Button | Use |
+|--------|-----|
+| Sidebar catalog (2 / 5 / 13 / 26) | Smoke / learn the UI; default **5** for Streamlit.io + free Render |
+| Full **169** | Complete grid search — slow on free-tier (baseline + 169 jobs, serial) |
+
+Uploads on **Inputs** (IDF required; EPW + tariff optional) and sidebar battery/drift change the fingerprint — re-run after edits.
+                """
+            )
         if stale_live_run:
-            st.info("Sidebar / season / IDF changed since the last live search — re-run required.")
+            st.info("Sidebar / season / IDF / weather / tariff changed since the last live search — re-run required.")
 
         idf_path = _live_idf_arg(session_id)
         if not idf_path:
-            st.error("Upload an IDF above before running EnergyPlus on Render.")
+            st.error("Upload an IDF on **Inputs** before running EnergyPlus.")
         if not live_ready:
             st.error(
                 "EnergyPlus worker not ready — set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY "
-                "and wake [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
+                "and open [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
             )
-        if st.button("Run full 169-cell EnergyPlus search on Render", type="primary", key="grid_run_live"):
-            idf_path = _live_idf_arg(session_id)
-            if not idf_path:
-                st.error("Upload an IDF in the browser first — live runs do not use the package model.")
-            elif not live_ready:
-                st.error("Render worker not ready — wake it and check API key secrets.")
-            else:
-                try:
-                    from vibe23.residential.campaign import run_thermostat_grid
 
-                    out = exports_dir(session_id) / "studio_grid" / season_key
-                    with st.spinner(
-                        "Full 169-cell campaign on Render — free tier can take a long time; "
-                        "wake the worker first if it was sleeping…"
-                    ):
-                        result = run_thermostat_grid(
-                            season=season_key,
-                            output_root=out,
-                            max_candidates=None,
-                            comfort_low_f=float(st.session_state.comfort_low_f),
-                            comfort_high_f=float(st.session_state.comfort_high_f),
-                            attach_battery=bool(st.session_state.attach_battery),
-                            battery_params=_sidebar_battery_params(),
-                            idf=idf_path,
-                            store_traces=True,
-                        )
-                    _record_live_run(season_key, out)
-                    ranking_payload = result.get("ranking") or {}
-                    st.session_state.cand_step = len(candidate_rows_for_animation(ranking_payload))
-                    win = ranking_payload.get("winner") or {}
-                    if win:
-                        st.session_state.promoted_candidate_id = win.get("candidate_id")
-                        st.session_state.promoted_action = _parse_action(win.get("action_json"))
-                        st.session_state.promoted_has_trace = bool(
-                            ((result.get("twin_export") or {}).get("winner") or {}).get("facility_kw")
-                        )
-                    st.success(f"Live search finished via {live_label} · {out}")
-                    st.rerun()
-                except Exception as exc:  # noqa: BLE001
-                    st.error(f"Live grid failed: {exc}")
+        b1, b2 = st.columns(2)
+        with b1:
+            smoke_label = (
+                f"Run smoke catalog ({n_run} cells)"
+                if is_smoke
+                else "Run sidebar catalog (169)"
+            )
+            if st.button(
+                smoke_label,
+                type="primary",
+                key="grid_run_sidebar",
+                help="Uses sidebar Catalog size. Prefer 5 while testing the worker / Streamlit.io.",
+            ):
+                _run_live_campaign(
+                    session_id=session_id,
+                    season_key=season_key,
+                    live_ready=live_ready,
+                    live_label=live_label,
+                    max_candidates=_grid_max_candidates(),
+                )
+        with b2:
+            if st.button(
+                "Run full grid search (169 cells)",
+                key="grid_run_full_169",
+                help="Full 13×13 center search — long on free-tier Render (queued one job at a time).",
+            ):
+                _run_live_campaign(
+                    session_id=session_id,
+                    season_key=season_key,
+                    live_ready=live_ready,
+                    live_label=live_label,
+                    max_candidates=None,
+                )
 
         if has_live_ranking:
             src = st.session_state.get("session_ranking_path")
@@ -1329,7 +1753,7 @@ def main() -> None:
                     search_progress_ring(
                         progress["fraction"],
                         label=f"{evaluated} / {n_cand} candidates",
-                        sublabel="EnergyPlus (Render)",
+                        sublabel="EnergyPlus worker",
                     ),
                     width="stretch",
                 )
@@ -1377,7 +1801,7 @@ def main() -> None:
                         costs=qt["costs"],
                         current=current,
                         best=best,
-                        title=f"Q-table ($/day) · {evaluated}/{n_cand} · live Render E+",
+                        title=f"Search heatmap ($/day) · {evaluated}/{n_cand}",
                     ),
                     width="stretch",
                 )
@@ -1386,102 +1810,10 @@ def main() -> None:
                 st.success(
                     f"Best so far: `{br.get('candidate_id')}` · ${float(br.get('billing_cost')):.2f}/day"
                 )
-
-        st.subheader("IDF massing (static)")
-        if pf.can_visualize:
-            geom = _geom_from_text(idf_text)
-            mass = idf_massing_figure(geom, zone_temps={}, title=f"IDF massing · {st.session_state.idf_name}", height=480)
-            st.plotly_chart(mass, width="stretch")
         else:
-            st.warning("Massing unavailable — IDF lacks BuildingSurface:Detailed.")
+            st.info("No live ranking yet — run a catalog above after uploading an IDF on **Inputs**.")
 
-    with tab_twin:
-        _eplus_status_banner(live_ready, live_label)
-        if not has_live_twin:
-            if live_ready:
-                st.info(
-                    "No live EnergyPlus twin traces in this session yet. "
-                    "Upload an IDF on **Inputs** and run the full Render campaign."
-                )
-            else:
-                st.error("EnergyPlus not ready — twin replay stays empty until a live backend is configured.")
-        else:
-            if twin_trace_id:
-                st.caption(
-                    f"Animating the **promoted winner** `{twin_trace_id}` EnergyPlus traces. "
-                    "Baseline vs winner comparison lives on the **Grid flex calculator** tab."
-                )
-            else:
-                st.caption(
-                    "Animating the **EnergyPlus baseline** from this session's live search. "
-                    "A live Render campaign winner promotes automatically when traces are available."
-                )
-            _transport("twin", n)
-            m1, m2, m3, m4, m5, m6 = st.columns(6)
-            m1.metric("House kW", f"{house_kw[step]:.2f}")
-            m2.metric("Purchased kW", f"{(purchased or house_kw)[step]:.2f}")
-            m3.metric("kWh to now", f"{(purchased_cum_kwh or house_cum_kwh)[step]:.1f}")
-            m4.metric("Daily house kWh", f"{house_day_kwh:.1f}")
-            m5.metric("Zone °F", f"{temp_f[step]:.2f}")
-            m6.metric("Cost to now", f"${bill_series[step]:.2f}", delta=f"day ${net_bill:.2f}")
-            st.caption(
-                f"Full-day house **{house_day_kwh:.1f} kWh** · purchased **{purchased_day_kwh:.1f} kWh** · "
-                f"~{intensity:.3f} kWh/ft²-day · outdoor now ~{outdoor_f[outdoor_hour_index(step, minutes=minutes)]:.1f}°F · "
-                f"DSM {_dsm_label(minutes)} ({n} steps)"
-            )
-            if st.session_state.promoted_candidate_id:
-                action = st.session_state.promoted_action or {}
-                if twin_trace_id:
-                    st.success(
-                        f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                        "Series above are the winner's EnergyPlus facility kW / zone °F"
-                        + (
-                            " with the co-optimized battery dispatch (purchased kW / SOC)."
-                            if purchased_trace is not None
-                            else " (battery re-dispatched from sidebar sizing)."
-                        )
-                    )
-                else:
-                    st.info(
-                        f"Promoted candidate `{st.session_state.promoted_candidate_id}` · action = {action}. "
-                        "Twin still animates the baseline trajectory — no winner traces are available for this "
-                        f"candidate (has_trace={bool(st.session_state.promoted_has_trace)})."
-                    )
-            st.plotly_chart(
-                playback_figure(
-                    hours=hours,
-                    house_kw=house_kw,
-                    purchased_kw=purchased,
-                    temp_f=temp_f,
-                    price=rates,
-                    soc_pct=soc_pct,
-                    cumulative_house_kwh=house_cum_kwh,
-                    cumulative_purchased_kwh=purchased_cum_kwh,
-                    step=step,
-                    title=(
-                        f"{st.session_state.season} · "
-                        f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline (EnergyPlus)'} · "
-                        f"{interval_clock(step, intervals=n)} · {_dsm_label(minutes)}"
-                    ),
-                ),
-                width="stretch",
-            )
-            with st.expander("Temperature-colored massing", expanded=False):
-                if pf.can_visualize:
-                    geom = _geom_from_text(idf_text)
-                    mass = idf_massing_figure(
-                        geom,
-                        zone_temps={zone_name: f_to_c(temp_f[step])},
-                        title=f"IDF massing · {st.session_state.idf_name}",
-                        height=520,
-                    )
-                    st.plotly_chart(mass, width="stretch")
-                else:
-                    st.warning(
-                        "Massing unavailable — IDF lacks BuildingSurface:Detailed. See Inputs → IDF compatibility."
-                    )
-
-    with tab_dr:
+    with tab_flex:
         from vibe23.comfort import degree_hours_abs_delta, degree_hours_outside_band, net_welfare_usd
         from vibe23.residential.thermostat import comfort_ok
 
@@ -1489,6 +1821,59 @@ def main() -> None:
         fx_base = flex_export.get("baseline") or {}
         fx_win = flex_export.get("winner") or {}
         _eplus_status_banner(live_ready, live_label)
+
+        st.subheader("Day replay")
+        if not has_live_twin:
+            if live_ready:
+                st.info(
+                    "No live EnergyPlus traces yet. Upload an IDF on **Inputs**, then run a search on **Campaign**."
+                )
+            else:
+                st.error("EnergyPlus not ready — Grid flex stays empty until the worker is configured.")
+        else:
+            if twin_trace_id:
+                st.caption(f"Promoted winner `{twin_trace_id}` EnergyPlus day (playhead below).")
+            else:
+                st.caption("EnergyPlus baseline day from this session's campaign.")
+            _transport("twin", n)
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
+            m1.metric("House kW", f"{house_kw[step]:.2f}")
+            m2.metric("Purchased kW", f"{(purchased or house_kw)[step]:.2f}")
+            m3.metric("kWh to now", f"{(purchased_cum_kwh or house_cum_kwh)[step]:.1f}")
+            m4.metric("Daily house kWh", f"{house_day_kwh:.1f}")
+            m5.metric(f"Zone {t_unit}", f"{display_temp(temp_f[step], units):.2f}")
+            m6.metric("Cost to now", f"${bill_series[step]:.2f}", delta=f"day ${net_bill:.2f}")
+            outdoor_now = outdoor_f[outdoor_hour_index(step, minutes=minutes)]
+            st.caption(
+                f"House **{house_day_kwh:.1f} kWh** · purchased **{purchased_day_kwh:.1f} kWh** · "
+                f"~{intensity:.3f} {i_unit} · outdoor ~{display_temp(outdoor_now, units):.1f}{t_unit}"
+            )
+            if st.session_state.promoted_candidate_id:
+                action = st.session_state.promoted_action or {}
+                st.caption(f"Promoted `{st.session_state.promoted_candidate_id}` · {action}")
+            st.plotly_chart(
+                playback_figure(
+                    hours=hours,
+                    house_kw=house_kw,
+                    purchased_kw=purchased,
+                    temp_f=display_temp_series(list(temp_f), units),
+                    price=rates,
+                    soc_pct=soc_pct,
+                    cumulative_house_kwh=house_cum_kwh,
+                    cumulative_purchased_kwh=purchased_cum_kwh,
+                    step=step,
+                    title=(
+                        f"{st.session_state.season} · "
+                        f"{('Winner ' + twin_trace_id) if twin_trace_id else 'Baseline'} · "
+                        f"{interval_clock(step, intervals=n)}"
+                    ),
+                    temp_unit_label=t_unit,
+                ),
+                width="stretch",
+            )
+
+        st.divider()
+        st.subheader("Baseline vs winner flex")
         use_export = (
             has_live_twin
             and len(fx_base.get("facility_kw") or []) == n_native
@@ -1498,28 +1883,17 @@ def main() -> None:
         )
         if not use_export:
             if live_ready:
-                st.info(
-                    "No live EnergyPlus baseline/winner pair in this session yet. "
-                    "Upload an IDF on **Inputs** and run the full Render campaign."
-                )
+                st.info("Need a campaign with winner traces before baseline-vs-flex charts appear.")
             else:
-                st.error(
-                    "EnergyPlus not ready — grid flex calculator stays empty until a live backend is configured."
-                )
+                st.error("EnergyPlus worker not ready.")
         else:
             base_kw_native = [float(v) for v in fx_base["facility_kw"]]
             flex_kw_native = [float(v) for v in fx_win["facility_kw"]]
             base_temp_native = [float(v) for v in fx_base["zone_temp_f"]]
             flex_temp_native = [float(v) for v in fx_win["zone_temp_f"]]
             flex_id = str(fx_win.get("candidate_id") or "winner")
-            source_note = f"grid winner `{flex_id}` vs paired EnergyPlus baseline"
-
-            st.subheader(f"Grid flex calculator — {day.get('label', season_key)}")
             window = "16–21" if season_key == "summer" else "6–9"
-            st.caption(
-                f"Winner-vs-baseline flex on the TOU peak window **{window}** · {source_note}. "
-                "Independent playhead from Twin replay — scrub or Play this comparison on its own clock."
-            )
+            st.caption(f"Winner `{flex_id}` vs baseline · TOU peak **{window}**.")
             _transport("dr", n)
             dr_step = int(st.session_state.dr_step)
             end = dr_step + 1
@@ -1530,7 +1904,11 @@ def main() -> None:
             event_bill = day_bill(flex_kw_native, season=season_key)
             bill_savings = base_bill - event_bill
             dh_vs_base = degree_hours_abs_delta(flex_temp_native, base_temp_native)
-            band = degree_hours_outside_band(flex_temp_native)
+            comfort_low = float(st.session_state.comfort_low_f)
+            comfort_high = float(st.session_state.comfort_high_f)
+            band = degree_hours_outside_band(
+                flex_temp_native, low_f=comfort_low, high_f=comfort_high
+            )
             wtp = float(st.session_state.comfort_wtp)
             welfare = net_welfare_usd(bill_savings_usd=bill_savings, degree_hours=dh_vs_base, wtp_usd_per_f_h=wtp)
             d1, d2, d3, d4 = st.columns(4)
@@ -1542,13 +1920,16 @@ def main() -> None:
                 f"${welfare['net_welfare_usd']:.2f}",
                 delta=f"comfort −${welfare['comfort_cost_usd']:.2f}",
             )
+            dh_scale = (5.0 / 9.0) if units == "metric" else 1.0
+            wtp_disp = (wtp / dh_scale) if units == "metric" else wtp
+            dh_label = f"{t_unit}·h"
             st.caption(
-                f"Comfort OK (hard band {band['low_f']:.1f}–{band['high_f']:.1f}°F): "
-                f"**{comfort_ok(flex_temp_native)}** · "
-                f"|ΔT| vs baseline = **{dh_vs_base:.2f} °F·h** · "
-                f"band exceedance = **{band['total_degree_hours']:.2f} °F·h**. "
-                f"WTP = ${wtp:.2f}/°F·h (sidebar). Net welfare = bill savings − WTP×°F·h (ILLUSTRATIVE). "
-                "Thermal only — battery co-optimization is scored on the Grid search tab."
+                f"Comfort OK ({display_temp(band['low_f'], units):.1f}–"
+                f"{display_temp(band['high_f'], units):.1f}{t_unit}): "
+                f"**{comfort_ok(flex_temp_native, low=comfort_low, high=comfort_high)}** · "
+                f"|ΔT| = **{dh_vs_base * dh_scale:.2f} {dh_label}** · "
+                f"band = **{band['total_degree_hours'] * dh_scale:.2f} {dh_label}** · "
+                f"WTP ${wtp_disp:.2f}/{dh_label}."
             )
             d5, d6 = st.columns(2)
             d5.metric("Baseline day kWh", f"{base_kwh:.1f}")
@@ -1565,14 +1946,32 @@ def main() -> None:
                 cols=1,
                 shared_xaxes=True,
                 vertical_spacing=0.07,
-                subplot_titles=("Power (kW)", "Cumulative energy (kWh)", "Zone °F"),
+                subplot_titles=("Power (kW)", "Cumulative energy (kWh)", f"Zone {t_unit}"),
             )
             fig.add_trace(go.Scatter(x=hx, y=base_disp[:end], name="Baseline kW", line=dict(color="#9AA7B8")), row=1, col=1)
             fig.add_trace(go.Scatter(x=hx, y=event_disp[:end], name="Flex kW", line=dict(color="#E8A838")), row=1, col=1)
             fig.add_trace(go.Scatter(x=hx, y=base_cum[:end], name="Baseline kWh", line=dict(color="#9AA7B8")), row=2, col=1)
             fig.add_trace(go.Scatter(x=hx, y=event_cum[:end], name="Flex kWh", line=dict(color="#E8A838")), row=2, col=1)
-            fig.add_trace(go.Scatter(x=hx, y=base_temp[:end], name="Baseline °F", line=dict(color="#8FB8FF")), row=3, col=1)
-            fig.add_trace(go.Scatter(x=hx, y=event_temp[:end], name="Flex °F", line=dict(color="#FF6B6B")), row=3, col=1)
+            fig.add_trace(
+                go.Scatter(
+                    x=hx,
+                    y=display_temp_series(list(base_temp[:end]), units),
+                    name=f"Baseline {t_unit}",
+                    line=dict(color="#8FB8FF"),
+                ),
+                row=3,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=hx,
+                    y=display_temp_series(list(event_temp[:end]), units),
+                    name=f"Flex {t_unit}",
+                    line=dict(color="#FF6B6B"),
+                ),
+                row=3,
+                col=1,
+            )
             if season_key == "summer":
                 fig.add_vrect(x0=16, x1=21, fillcolor="#E8A838", opacity=0.12, line_width=0, row=1, col=1)
             else:

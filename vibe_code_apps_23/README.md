@@ -69,30 +69,31 @@ Energy is charted as **kW** and **cumulative kWh**, with full-day totals from `k
 
 Each browser gets a UUID session workspace under `{temp}/vibe23/{session_id}/` (Clear session wipes only that visitor). Isolation is not a password gate.
 
-### Deployment note (Streamlit Community Cloud)
+### Deploy on Streamlit Community Cloud (with Render EnergyPlus worker)
 
-**Live EnergyPlus on Community Cloud is not verified here, and we do not believe it is practical.** Reasons:
+Studio is **Render-worker only** for live sims (no native EnergyPlus on Cloud). Frontend = Streamlit.io; physics = [vibe23-energyplus-worker](https://github.com/bbartling/vibe23-energyplus-worker) on [Render](https://vibe23-energyplus-worker.onrender.com/).
 
-1. **pip vs native install** — `requirements.txt` cannot provision EnergyPlus; Cloud installs OS software only via Debian apt entries in `packages.txt`, and EnergyPlus 26.1 is not an apt package there.
-2. **OS mismatch** — Community Cloud documents a Debian 11-class runtime; the official EnergyPlus 26.1 Linux build targets **Ubuntu 24.04 x86-64**. Community Cloud also does not let the app supply its own Docker image.
-3. **Size / process limits** — the official Linux tarball is ~229 MB compressed (~234 MB class); a full 13×13 search is up to **170 sequential** day sims at up to **600 s** timeout each, which will block the Streamlit web process if run in-process.
-4. Startup download/commit of the full distribution is an unverified experiment, not a dependable deployment.
-
-What *is* supported on Community Cloud without a worker is the **UI shell only**: Inputs / Economics still open, but Grid search / Twin / Flex stay empty with **EnergyPlus not ready** until `EPLUS_WORKER_*` secrets (or a local exe) are configured and a live search is run. Synthetic proxy rankings are **not** shown as results.
-
-**Recommended architecture** if you want both: keep the Streamlit frontend on Community Cloud (or any Python host) and run EnergyPlus on the **Render worker** (`bbartling/vibe23-energyplus-worker`). Studio sidebar **EnergyPlus backend**: `auto` | `local` | `worker`. Live grid search calls `run_residential_day` → either native `energyplus` or `POST /v1/jobs` on the worker. Set secrets (local `.env.local` or Streamlit Cloud Secrets):
+1. Merge/push `vibe_code_apps_23` on GitHub (`develop` or your deploy branch).
+2. [share.streamlit.io](https://share.streamlit.io/) → **New app** → this repo → set:
+   - **Main file path:** `vibe_code_apps_23/streamlit_app.py`
+   - **Python version:** 3.12
+3. **App settings → Secrets** (TOML):
 
 ```toml
+EPLUS_BACKEND = "worker"
 EPLUS_WORKER_URL = "https://vibe23-energyplus-worker.onrender.com"
 EPLUS_WORKER_API_KEY = "same-as-Render-service-API_KEY"
-EPLUS_BACKEND = "worker"
 ```
 
-On Community Cloud without a native exe, choose `worker` (or `auto` once URL+key are set). Keep candidate counts low on free Render tiers; a full 169-cell campaign is a paid-instance / overnight job.
+4. Deploy. Open the app → sidebar **EnergyPlus worker** → confirm stoplight → **Wake worker** if red (free tier sleeps; ~30–90s).
+5. On **Inputs**, click **Load package residential demo IDF** (assets ship in-repo under `src/vibe23/assets/`; if missing, Studio downloads them from GitHub `develop` automatically).
+6. Set catalog size to **5** (smoke), run Campaign; only then try **169** on a paid/always-on worker.
 
-**Render free-tier sleep:** idle workers stop. Studio pings `GET /healthz` (sidebar **Wake / check Render worker**, and automatically before each live job) with retries so a cold start can take 30–90s instead of failing the first submit. Paid always-on instances skip this delay.
+Worker docs: [Swagger `/docs`](https://vibe23-energyplus-worker.onrender.com/docs) · [healthz](https://vibe23-energyplus-worker.onrender.com/healthz) · [source](https://github.com/bbartling/vibe23-energyplus-worker). Job queue: `GET /v1/jobs` (Bearer) — Streamlit sidebar **Worker job queue**.
 
-`.env` / `.env.local` are for local native EnergyPlus and worker keys — never commit secrets.
+Native EnergyPlus cannot be installed via `requirements.txt` on Community Cloud; keep sims on the worker. Free Render sleep + CPU limits make large 169-cell campaigns slow or fragile — use a small catalog first or a paid always-on instance.
+
+`.env` / `.env.local` are for local keys only — never commit secrets.
 
 ### Committed proxy fixtures are not shown in Studio
 
@@ -104,8 +105,8 @@ A candidate is only rankable when its EnergyPlus run passes the **strict** gate 
 
 ## Model
 
-- [`model/residential_heat_pump_home.idf`](model/residential_heat_pump_home.idf) — Carrier 50EZ060 curves, `Timestep=12` (5-min / 288 intervals/day)
-- Weather: Golden/NREL TMY3 (Denver-type) from the EnergyPlus install
+- [`src/vibe23/assets/residential_heat_pump_home.idf`](src/vibe23/assets/residential_heat_pump_home.idf) — Carrier 50EZ060 curves, `Timestep=12` (5-min / 288 intervals/day); mirrored under [`model/`](model/)
+- Weather: Golden/NREL TMY3 packaged next to the IDF in `src/vibe23/assets/`
 - Default thermostat: **71°F heat / 73°F cool** (2°F deadband around center **72°F**); hard envelope 69.5–74.5°F
 - Grid flex search: **13×13 = 169** center setpoints (69.0…75.0 @ 0.5°F) with fixed TOU event hours; ranking is **battery-co-optimized** purchased-grid $/day
 

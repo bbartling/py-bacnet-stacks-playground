@@ -51,7 +51,7 @@ def _fake_day(
 def test_run_thermostat_grid_battery_coopt_and_comfort_gate(tmp_path: Path) -> None:
     calls: list[str] = []
 
-    def fake_run(source, *, output_dir, eplus_path=None, month=7, day=15, heat_f=None, cool_f=None):
+    def fake_run(source, *, output_dir, eplus_path=None, epw=None, month=7, day=15, heat_f=None, cool_f=None, **kwargs):
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         name = out.name
@@ -105,7 +105,7 @@ def test_run_thermostat_grid_battery_coopt_and_comfort_gate(tmp_path: Path) -> N
 def test_severe_runs_are_rejected_even_when_soft_ok(tmp_path: Path) -> None:
     """A run with severe errors is soft_ok but not `ok`, so it must never be rankable."""
 
-    def fake_run(source, *, output_dir, eplus_path=None, month=7, day=15, heat_f=None, cool_f=None):
+    def fake_run(source, *, output_dir, eplus_path=None, epw=None, month=7, day=15, heat_f=None, cool_f=None, **kwargs):
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         if out.name == "baseline":
@@ -140,7 +140,7 @@ def test_severe_runs_are_rejected_even_when_soft_ok(tmp_path: Path) -> None:
 def test_baseline_severes_reject_baseline_cost(tmp_path: Path) -> None:
     """The baseline row is gated on `ok` too, not merely on `soft_ok`."""
 
-    def fake_run(source, *, output_dir, eplus_path=None, month=7, day=15, heat_f=None, cool_f=None):
+    def fake_run(source, *, output_dir, eplus_path=None, epw=None, month=7, day=15, heat_f=None, cool_f=None, **kwargs):
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
         if out.name == "baseline":

@@ -28,7 +28,11 @@ loudly — fix the IDF, not the parser.
 
 ## Weather
 
-Default EPW: Golden/NREL TMY3 (`USA_CO_Golden-NREL.724666_TMY3.epw`) as Denver-type climate.
+Canonical EPW (packaged for wheels / Streamlit Cloud):
+
+[`../src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw`](../src/vibe23/assets/USA_CO_Golden-NREL.724666_TMY3.epw)
+
+This folder mirrors the same filenames for humans browsing the repo. Studio Inputs can upload an alternate EPW for live campaigns; otherwise the packaged Golden file is used.
 
 ## Simplifications you must know before reading results
 
