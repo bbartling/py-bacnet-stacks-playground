@@ -85,9 +85,11 @@ def test_studio_app_features() -> None:
     assert "ENERGYPLUS_EXE" not in " | ".join(str(e.value) for e in at.error)
     md_blob = " | ".join(str(getattr(m, "value", m)) for m in at.markdown)
     assert "AGENTS.md" in md_blob
-
-    assert any("EnergyPlus search on Render" in str(b.label) for b in at.button)
+    assert "onrender.com" in md_blob
+    assert "EnergyPlus worker" in md_blob or "Worker:" in md_blob
+    assert any("EnergyPlus search" in str(b.label) for b in at.button)
     assert any("5-cell" in str(b.label) for b in at.button)
+    assert "Render" not in " | ".join(str(c.value) for c in at.caption)
 
     clears = [b for b in at.button if b.label == "Clear session"]
     assert clears

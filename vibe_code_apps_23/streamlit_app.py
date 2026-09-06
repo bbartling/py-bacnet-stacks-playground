@@ -18,6 +18,7 @@ Human guide: AGENTS.md · demo IDF/EPW under model/
 from __future__ import annotations
 
 import hashlib
+import importlib
 import io
 import json
 import math
@@ -34,7 +35,15 @@ from vibe23.envfile import load_energyplus_env
 from vibe23.residential.constants import INTERVALS_PER_DAY, MAX_COOL_F, MAX_HEAT_F
 from vibe23.residential.model import DEFAULT_EPW_NAME, MODEL_IDF, equipment_provenance
 from vibe23.residential.tariffs import summer_tou_hourly, winter_tou_hourly
-from vibe23.studio.charts import (
+import vibe23.studio.charts as _studio_charts
+import vibe23.studio.units as _studio_units
+
+# Long-lived Streamlit processes cache package imports; reload so chart/unit
+# signature changes apply without requiring a full process restart.
+_studio_charts = importlib.reload(_studio_charts)
+_studio_units = importlib.reload(_studio_units)
+
+from vibe23.studio.charts import (  # noqa: E402
     cost_bar_figure,
     hour_axis,
     kwh_bar_figure,
@@ -64,7 +73,7 @@ from vibe23.studio.demo_data import (
     outdoor_hour_index,
     run_battery_on_load,
 )
-from vibe23.studio.units import (
+from vibe23.studio.units import (  # noqa: E402
     area_unit,
     c_to_f,
     comfort_wtp_label,
@@ -146,7 +155,7 @@ def _live_sim_ready() -> tuple[bool, str]:
 
     _sync_eplus_backend_env()
     if worker_configured():
-        return True, "Render EnergyPlus worker"
+        return True, "EnergyPlus worker"
     return False, "worker URL/API key missing"
 
 
@@ -554,7 +563,7 @@ def _grid_config_fingerprint(season_key: str) -> str:
 def _render_zone_drift_sliders(*, units: str, t_unit: str) -> None:
     """Unit-aware allowable zone temp band (stored internally as °F)."""
     st.caption(
-        f"Hard FAIL gate for Render ranking — zone must stay inside this band "
+        f"Hard FAIL gate for ranking — zone must stay inside this band "
         f"(display {t_unit}; EnergyPlus scoring stays °F)."
     )
     if units == "metric":
@@ -632,11 +641,9 @@ def _eplus_status_banner(live_ready: bool, live_label: str) -> None:
         st.success(f"EnergyPlus ready · {live_label}")
     else:
         st.error(
-            "Render EnergyPlus worker not ready — set `EPLUS_WORKER_URL` + "
-            "`EPLUS_WORKER_API_KEY`, then wake "
-            "[https://vibe23-energyplus-worker.onrender.com/]"
-            "(https://vibe23-energyplus-worker.onrender.com/) "
-            "or use **Wake / check Render worker** in the sidebar."
+            "EnergyPlus worker not ready — set `EPLUS_WORKER_URL` + `EPLUS_WORKER_API_KEY`, "
+            "then open [https://vibe23-energyplus-worker.onrender.com/]"
+            "(https://vibe23-energyplus-worker.onrender.com/) or use **Wake worker** in the sidebar."
         )
 
 
@@ -778,17 +785,14 @@ def main() -> None:
 
     st.title("Vibe 23 — Residential DSM Studio")
     st.caption(
-        "Illustrative TOU · HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · Golden/NREL EPW · "
-        f"{prov['equipment']} · ~{display_area(DEMO_FLOOR_FT2, units):,.0f} {a_unit} · "
-        f"{'Render EnergyPlus ready' if live_ready else 'Render EnergyPlus not ready'} · "
-        f"backend={live_label} · display={units}."
+        f"HYPOTHETICAL_GL14_TUNED_DEMO_MODEL · {prov['equipment']} · "
+        f"~{display_area(DEMO_FLOOR_FT2, units):,.0f} {a_unit} · "
+        f"{'EnergyPlus ready' if live_ready else 'EnergyPlus not ready'} · {units}"
     )
     st.markdown(
-        "[AGENTS.md — human guide (IDF, EPW, Render, catalog size)]"
-        "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
-        " · "
-        f"`model/{MODEL_IDF.name}` · `model/{DEFAULT_EPW_NAME}` · "
-        "[Render worker](https://vibe23-energyplus-worker.onrender.com/)"
+        "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
+        f" · `{MODEL_IDF.name}` · `{DEFAULT_EPW_NAME}` · "
+        "[EnergyPlus worker](https://vibe23-energyplus-worker.onrender.com/)"
     )
 
     with st.sidebar:
@@ -813,46 +817,39 @@ def main() -> None:
             help="Display only — EnergyPlus traces stay native; charts/metrics convert for viewing.",
         )
         st.divider()
-        with st.expander("EnergyPlus backend", expanded=True):
+        with st.expander("EnergyPlus worker", expanded=True):
             st.session_state.eplus_backend = "worker"
             os.environ["EPLUS_BACKEND"] = "worker"
             live_ready, live_label = _live_sim_ready()
-            st.caption(f"Backend locked to **Render worker** · {live_label}")
+            st.caption(live_label if live_ready else "URL / API key missing")
             st.markdown(
-                "[Open Render worker](https://vibe23-energyplus-worker.onrender.com/) "
-                "(wake free-tier sleep) · docs at `/docs`"
+                "[https://vibe23-energyplus-worker.onrender.com/]"
+                "(https://vibe23-energyplus-worker.onrender.com/)"
             )
             if os.environ.get("EPLUS_WORKER_URL"):
                 st.caption(
-                    f"Worker URL configured · API key "
-                    f"{'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'}"
+                    f"API key {'set' if os.environ.get('EPLUS_WORKER_API_KEY') else 'MISSING'} · "
+                    "cold start ~30–90s"
                 )
-                st.caption(
-                    "Free Render tiers sleep after idle time. The first request can take "
-                    "30–90s; Studio pings `/healthz` before each live job to wake it."
-                )
-                if st.button("Wake / check Render worker", key="wake_eplus_worker"):
+                if st.button("Wake worker", key="wake_eplus_worker"):
                     from vibe23.energyplus_worker import EnergyPlusWorkerError, ensure_worker_awake
 
-                    with st.spinner("Pinging worker /healthz (cold start may take up to ~90s)…"):
+                    with st.spinner("Pinging /healthz…"):
                         try:
                             wake = ensure_worker_awake()
                             health = wake.get("health") or {}
                             if wake.get("woke_from_sleep"):
                                 st.success(
-                                    f"Worker woke in {wake['wall_seconds']}s "
-                                    f"(attempt {wake['attempt']}) · "
-                                    f"E+ {health.get('energyplus_version', '?')} · "
-                                    f"api_key_configured={health.get('api_key_configured')}"
+                                    f"Woke in {wake['wall_seconds']}s · "
+                                    f"E+ {health.get('energyplus_version', '?')}"
                                 )
                             else:
                                 st.success(
-                                    f"Worker already awake ({wake['try_seconds']}s) · "
-                                    f"E+ {health.get('energyplus_version', '?')} · "
-                                    f"api_key_configured={health.get('api_key_configured')}"
+                                    f"Awake ({wake['try_seconds']}s) · "
+                                    f"E+ {health.get('energyplus_version', '?')}"
                                 )
                         except EnergyPlusWorkerError as exc:
-                            st.error(f"Worker wake failed: {exc}")
+                            st.error(f"Wake failed: {exc}")
         st.divider()
         st.header("Demo day")
         st.radio(
@@ -909,27 +906,22 @@ def main() -> None:
             )
             st.toggle("Include DR incentive layer", key="econ_incl_dr")
             st.toggle("Include resilience layer", key="econ_incl_res")
-        with st.expander("Allowable zone temp drift + Render search size", expanded=True):
+        with st.expander("Zone drift + catalog size", expanded=True):
             _render_zone_drift_sliders(units=units, t_unit=t_unit)
             st.select_slider(
-                "Render catalog size (cells)",
+                "Catalog size (cells)",
                 options=[2, 5, 13, 26, 169],
                 key="grid_max_candidates",
-                help=(
-                    "Each cell is one EnergyPlus day on the Render worker. "
-                    "Default 5 for smoke; 169 = full 13×13 center catalog."
-                ),
+                help="Each cell is one EnergyPlus day on the worker. Default 5; 169 = full catalog.",
             )
             st.caption(
-                f"Next live run → **{_grid_candidate_count_label()}** Render EnergyPlus day(s) "
-                "(plus baseline). Drift band gates ranking (FAIL, not a soft penalty)."
+                f"Next run → **{_grid_candidate_count_label()}** candidate day(s) + baseline."
             )
         st.divider()
-        st.info("Upload IDF / EPW / tariff and edit hourly weather + pricing on the **Inputs** tab.")
+        st.info("Upload IDF / EPW / tariff on **Inputs**.")
         st.caption(
             f"{prov['equipment']} · {prov['nominal_tons']} ton · "
-            f"COP c/h {prov['cooling_cop']}/{prov['heating_cop']} · "
-            f"session `{session_id[:8]}…`"
+            f"COP {prov['cooling_cop']}/{prov['heating_cop']}"
         )
 
     minutes = int(st.session_state.dsm_minutes)
@@ -1068,10 +1060,8 @@ def main() -> None:
     with tab_inputs:
         st.subheader("Upload model + weather + tariff")
         st.caption(
-            "Package demo IDF / EPW (upload or one-click load): "
-            f"`{MODEL_IDF.name}` + `{DEFAULT_EPW_NAME}` under `model/` · see "
-            "[AGENTS.md](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md). "
-            "Browser IDF upload required for Render runs."
+            f"Demo: `{MODEL_IDF.name}` · `{DEFAULT_EPW_NAME}` · [AGENTS.md]"
+            "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/vibe_code_apps_23/AGENTS.md)"
         )
         if st.button("Load package residential demo IDF", key="load_package_idf"):
             st.session_state.idf_text = MODEL_IDF.read_text(encoding="utf-8", errors="replace")
@@ -1081,14 +1071,10 @@ def main() -> None:
             st.rerun()
         if st.session_state.get("idf_uploaded"):
             st.success(f"IDF ready · {st.session_state.idf_name}")
-        st.caption(
-            "Optional EPW / tariff. Twin and Grid flex stay empty until a live Render "
-            "EnergyPlus campaign finishes (sidebar sets catalog size)."
-        )
+        st.caption("Twin / Grid flex fill after a live campaign finishes.")
         st.markdown(
-            "Render worker: [https://vibe23-energyplus-worker.onrender.com/]"
-            "(https://vibe23-energyplus-worker.onrender.com/) — open to wake a sleeping free-tier "
-            "instance, or use **Wake / check Render worker** in the sidebar."
+            "Worker: [https://vibe23-energyplus-worker.onrender.com/]"
+            "(https://vibe23-energyplus-worker.onrender.com/)"
         )
         u1, u2, u3 = st.columns(3)
         with u1:
@@ -1320,13 +1306,12 @@ def main() -> None:
 
         st.divider()
         n_run = _grid_candidate_count_label()
-        st.subheader(f"EnergyPlus campaign on Render ({n_run}-cell)")
+        st.subheader(f"EnergyPlus campaign ({n_run}-cell)")
         _eplus_status_banner(live_ready, live_label)
         st.caption(
-            f"Runs **{n_run}** thermostat-center candidate day(s) + baseline on the Render worker "
+            f"**{n_run}** candidate day(s) + baseline on the EnergyPlus worker "
             "([https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)). "
-            "Catalog size + allowable zone drift are in the sidebar. "
-            "Browser IDF upload is mandatory — no package-model fallback."
+            "Upload an IDF first. Catalog size + zone drift are in the sidebar."
         )
         if season_key == "summer":
             st.caption("TOU hours · pre-window 13:00 · event 16–21 · recovery to 23:00.")
@@ -1337,29 +1322,26 @@ def main() -> None:
 
         idf_path = _live_idf_arg(session_id)
         if not idf_path:
-            st.error("Upload an IDF above before running EnergyPlus on Render.")
+            st.error("Upload an IDF above before running EnergyPlus.")
         if not live_ready:
             st.error(
                 "EnergyPlus worker not ready — set EPLUS_WORKER_URL + EPLUS_WORKER_API_KEY "
-                "and wake [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
+                "and open [https://vibe23-energyplus-worker.onrender.com/](https://vibe23-energyplus-worker.onrender.com/)."
             )
-        run_label = f"Run {n_run}-cell EnergyPlus search on Render"
+        run_label = f"Run {n_run}-cell EnergyPlus search"
         if st.button(run_label, type="primary", key="grid_run_live"):
             idf_path = _live_idf_arg(session_id)
             if not idf_path:
-                st.error("Upload an IDF in the browser first — live runs do not use the package model.")
+                st.error("Upload an IDF in the browser first.")
             elif not live_ready:
-                st.error("Render worker not ready — wake it and check API key secrets.")
+                st.error("Worker not ready — wake it and check API key secrets.")
             else:
                 try:
                     from vibe23.residential.campaign import run_thermostat_grid
 
                     max_c = _grid_max_candidates()
                     out = exports_dir(session_id) / "studio_grid" / season_key
-                    with st.spinner(
-                        f"{n_run}-cell campaign on Render — free tier can take a while; "
-                        "wake the worker first if it was sleeping…"
-                    ):
+                    with st.spinner(f"{n_run}-cell campaign on EnergyPlus worker…"):
                         result = run_thermostat_grid(
                             season=season_key,
                             output_root=out,
@@ -1411,7 +1393,7 @@ def main() -> None:
                     search_progress_ring(
                         progress["fraction"],
                         label=f"{evaluated} / {n_cand} candidates",
-                        sublabel="EnergyPlus (Render)",
+                        sublabel="EnergyPlus worker",
                     ),
                     width="stretch",
                 )
@@ -1459,7 +1441,7 @@ def main() -> None:
                         costs=qt["costs"],
                         current=current,
                         best=best,
-                        title=f"Q-table ($/day) · {evaluated}/{n_cand} · live Render E+",
+                        title=f"Q-table ($/day) · {evaluated}/{n_cand} · live EnergyPlus",
                     ),
                     width="stretch",
                 )
@@ -1483,7 +1465,7 @@ def main() -> None:
             if live_ready:
                 st.info(
                     "No live EnergyPlus twin traces in this session yet. "
-                    "Upload an IDF on **Inputs** and run the full Render campaign."
+                    "Upload an IDF on **Inputs** and run a live EnergyPlus campaign."
                 )
             else:
                 st.error("EnergyPlus not ready — twin replay stays empty until a live backend is configured.")
@@ -1496,7 +1478,7 @@ def main() -> None:
             else:
                 st.caption(
                     "Animating the **EnergyPlus baseline** from this session's live search. "
-                    "A live Render campaign winner promotes automatically when traces are available."
+                    "A live campaign winner promotes automatically when traces are available."
                 )
             _transport("twin", n)
             m1, m2, m3, m4, m5, m6 = st.columns(6)
@@ -1584,7 +1566,7 @@ def main() -> None:
             if live_ready:
                 st.info(
                     "No live EnergyPlus baseline/winner pair in this session yet. "
-                    "Upload an IDF on **Inputs** and run the full Render campaign."
+                    "Upload an IDF on **Inputs** and run a live EnergyPlus campaign."
                 )
             else:
                 st.error(
