@@ -25,6 +25,10 @@ const TOKEN_SETTLE_MS: u64 = 3500;
 const STEP_TIMEOUT: Duration = Duration::from_secs(30);
 const WHO_IS_WAIT_MS: u64 = 1500;
 const GATE_MIN_REPEATED_READS: u32 = 500;
+const SOAK_MIN_SUCCESSFUL_READS: u32 = 500;
+const SOAK_READ_INTERVAL: Duration = Duration::from_secs(5);
+const SOAK_WHOIS_INTERVAL: Duration = Duration::from_secs(60);
+const DEFAULT_SOAK_DURATION_SECS: u64 = 3600;
 
 /// Validated acceptance / transport configuration (no silent default substitution).
 #[derive(Debug, Clone)]
@@ -37,6 +41,8 @@ pub struct AcceptanceOptions {
     pub max_master: u8,
     pub max_info_frames: u8,
     pub repeated_reads: u32,
+    /// Wall-clock soak budget (seconds). Used by Soak profile only.
+    pub duration_secs: u64,
     pub vendor_id: u16,
     /// Probe USB path (hardware mode only).
     pub probe_serial: Option<String>,
@@ -55,6 +61,7 @@ impl Default for AcceptanceOptions {
             max_master: 10,
             max_info_frames: 1,
             repeated_reads: 10,
+            duration_secs: DEFAULT_SOAK_DURATION_SECS,
             vendor_id: LAB_VENDOR_ID,
             probe_serial: None,
             device_serial: None,
@@ -99,6 +106,12 @@ impl AcceptanceOptions {
             return Err(ConfigError::InvalidInteger(format!(
                 "gate profile requires repeated_reads >= {GATE_MIN_REPEATED_READS}, got {}",
                 self.repeated_reads
+            )));
+        }
+        if self.profile == AcceptanceProfile::Soak && self.duration_secs < 30 {
+            return Err(ConfigError::InvalidInteger(format!(
+                "soak profile requires duration_secs >= 30, got {}",
+                self.duration_secs
             )));
         }
         if self.device_instance == 0 || self.device_instance > 4_194_302 {
@@ -240,6 +253,134 @@ fn is_protocol_error(err: &anyhow::Error, class: ErrorClass, code: ErrorCode) ->
     false
 }
 
+/// Minimum successful paced reads for a soak of `duration_secs`.
+#[must_use]
+pub fn soak_min_successful_reads(duration_secs: u64) -> u32 {
+    if duration_secs >= DEFAULT_SOAK_DURATION_SECS {
+        SOAK_MIN_SUCCESSFUL_READS
+    } else {
+        let n = duration_secs.saturating_mul(u64::from(SOAK_MIN_SUCCESSFUL_READS))
+            / DEFAULT_SOAK_DURATION_SECS;
+        u32::try_from(n.max(1)).unwrap_or(1)
+    }
+}
+
+/// Paced soak: ReadProperty every 5s, Who-Is every 60s. Reuses one BACnetClient.
+async fn run_soak_core<S: SerialPort + 'static>(
+    mut client: BACnetClient<MstpTransport<S>>,
+    opts: AcceptanceOptions,
+    mode: &str,
+    hardware_evidence: bool,
+    started_ok: bool,
+) -> AcceptanceReport {
+    let mut report = empty_report(&opts, mode, hardware_evidence);
+    if started_ok {
+        report.push_step(
+            "start_client_server",
+            true,
+            format!(
+                "soak duration_secs={} read_every={}s whois_every={}s",
+                opts.duration_secs,
+                SOAK_READ_INTERVAL.as_secs(),
+                SOAK_WHOIS_INTERVAL.as_secs()
+            ),
+            None,
+        );
+    }
+
+    sleep(Duration::from_millis(TOKEN_SETTLE_MS)).await;
+    report.push_step(
+        "token_stabilize",
+        true,
+        format!("waited {TOKEN_SETTLE_MS} ms for MS/TP token"),
+        None,
+    );
+
+    let mac = device_mac(&opts);
+    let ai_oid = ObjectIdentifier::new(ObjectType::ANALOG_INPUT, 1).expect("ai oid");
+    let min_reads = soak_min_successful_reads(opts.duration_secs);
+    let deadline = Instant::now() + Duration::from_secs(opts.duration_secs);
+    let mut latencies = Vec::new();
+    let mut ok_reads = 0u32;
+    let mut fail_reads = 0u32;
+    let mut whois_ok = 0u32;
+    let mut whois_fail = 0u32;
+    let mut next_whois = Instant::now();
+
+    while Instant::now() < deadline {
+        let loop_start = Instant::now();
+
+        if Instant::now() >= next_whois {
+            match timeout(STEP_TIMEOUT, async {
+                client
+                    .who_is(Some(opts.device_instance), Some(opts.device_instance))
+                    .await?;
+                sleep(Duration::from_millis(WHO_IS_WAIT_MS)).await;
+                Ok::<(), anyhow::Error>(())
+            })
+            .await
+            {
+                Ok(Ok(())) => whois_ok += 1,
+                Ok(Err(_)) | Err(_) => whois_fail += 1,
+            }
+            next_whois = Instant::now() + SOAK_WHOIS_INTERVAL;
+        }
+
+        let t0 = Instant::now();
+        let read_result = timeout(STEP_TIMEOUT, async {
+            client
+                .read_property(&mac, ai_oid, PropertyIdentifier::PRESENT_VALUE, None)
+                .await
+                .map_err(anyhow::Error::from)
+        })
+        .await;
+        match read_result {
+            Ok(Ok(_)) => {
+                ok_reads += 1;
+                latencies.push(t0.elapsed().as_secs_f64() * 1000.0);
+            }
+            Ok(Err(_)) | Err(_) => {
+                fail_reads += 1;
+            }
+        }
+
+        let elapsed = loop_start.elapsed();
+        if let Some(remain) = SOAK_READ_INTERVAL.checked_sub(elapsed) {
+            sleep(remain).await;
+        }
+    }
+
+    report.latency = LatencySummary::from_samples(latencies);
+    let paced_ok = fail_reads == 0 && ok_reads >= min_reads && whois_fail == 0;
+    report.push_step(
+        "paced_reads",
+        paced_ok,
+        format!(
+            "ok_reads={ok_reads} fail_reads={fail_reads} min_required={min_reads} \
+             whois_ok={whois_ok} whois_fail={whois_fail} duration_secs={}",
+            opts.duration_secs
+        ),
+        report.latency.mean_ms,
+    );
+
+    let shutdown = client.stop().await;
+    match shutdown {
+        Ok(()) => {
+            report.shutdown_ok = Some(true);
+            report.shutdown_detail = Some("client stop ok".into());
+            report.push_step("shutdown", true, "BACnetClient.stop ok", None);
+        }
+        Err(e) => {
+            report.shutdown_ok = Some(false);
+            report.shutdown_detail = Some(e.to_string());
+            report.push_step("shutdown", false, e.to_string(), None);
+        }
+    }
+
+    report.finalize(opts.profile);
+    report
+}
+
 async fn run_acceptance_core<S: SerialPort + 'static>(
     mut client: BACnetClient<MstpTransport<S>>,
     opts: AcceptanceOptions,
@@ -247,6 +388,10 @@ async fn run_acceptance_core<S: SerialPort + 'static>(
     hardware_evidence: bool,
     started_ok: bool,
 ) -> AcceptanceReport {
+    if opts.profile == AcceptanceProfile::Soak {
+        return run_soak_core(client, opts, mode, hardware_evidence, started_ok).await;
+    }
+
     let mut report = empty_report(&opts, mode, hardware_evidence);
     if started_ok {
         report.push_step(
@@ -951,6 +1096,23 @@ mod tests {
         assert!(opts.validate(true).is_err());
     }
 
+    #[test]
+    fn soak_min_reads_full_hour_and_scaled() {
+        assert_eq!(soak_min_successful_reads(3600), 500);
+        assert_eq!(soak_min_successful_reads(1800), 250);
+        assert_eq!(soak_min_successful_reads(30), 4);
+    }
+
+    #[test]
+    fn rejects_soak_too_short() {
+        let opts = AcceptanceOptions {
+            profile: AcceptanceProfile::Soak,
+            duration_secs: 10,
+            ..Default::default()
+        };
+        assert!(opts.validate(false).is_err());
+    }
+
     #[tokio::test]
     async fn loopback_smoke_acceptance_passes() {
         let report = run_loopback_acceptance(AcceptanceOptions {
@@ -963,5 +1125,21 @@ mod tests {
         assert!(!report.hardware_evidence);
         assert_eq!(report.baud, 38_400);
         assert_eq!(report.schema_version, AcceptanceReport::SCHEMA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn loopback_short_soak_passes() {
+        let report = run_loopback_acceptance(AcceptanceOptions {
+            profile: AcceptanceProfile::Soak,
+            duration_secs: 30,
+            ..Default::default()
+        })
+        .await;
+        assert_eq!(report.status, "Passed", "{report:?}");
+        assert!(
+            report.steps.iter().any(|s| s.step == "paced_reads" && s.ok),
+            "{report:?}"
+        );
+        assert!(report.latency.samples >= 4, "{report:?}");
     }
 }

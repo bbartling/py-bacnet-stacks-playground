@@ -34,6 +34,9 @@ struct Args {
     max_info_frames: u8,
     #[arg(long, default_value_t = 10)]
     repeated_reads: u32,
+    /// Soak wall-clock seconds (profile=soak). Default 3600.
+    #[arg(long, default_value_t = 3600)]
+    duration_secs: u64,
     #[arg(long, default_value_t = LAB_VENDOR_ID)]
     vendor_id: u16,
     #[arg(long, default_value = "captures/mstp-acceptance.json")]
@@ -75,6 +78,7 @@ fn options(args: &Args, command: &Command) -> Result<AcceptanceOptions> {
         max_master: args.max_master,
         max_info_frames: args.max_info_frames,
         repeated_reads: args.repeated_reads,
+        duration_secs: args.duration_secs,
         vendor_id: args.vendor_id,
         probe_serial,
         device_serial,

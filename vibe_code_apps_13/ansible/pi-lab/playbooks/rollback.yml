@@ -6,6 +6,35 @@
   any_errors_fatal: true
   vars:
     lab_release_id: "{{ release_id | mandatory }}"
+    lab_scripts: "{{ playbook_dir }}/../scripts"
+  pre_tasks:
+    - name: Require full 40-char git SHA for rollback
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ lab_scripts }}/lab_ids.py"
+          - check-git-sha
+          - "{{ lab_release_id }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Trusted host allowlist
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [
+              'python3',
+              lab_scripts + '/lab_ids.py',
+              'check-host',
+              inventory_hostname,
+              ansible_host
+            ] + (['--ci-doc'] if (lab_ci_doc | default(false) | bool) else [])
+          }}
+      delegate_to: localhost
+      become: false
+      changed_when: false
   tasks:
     - name: Verify release exists
       ansible.builtin.stat:
@@ -19,6 +48,35 @@
           - rel.stat.isdir
         fail_msg: Unknown release {{ lab_release_id }}
 
+    - name: Validate release (sums/manifest/ELF) BEFORE switching current
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ lab_install_root }}/releases/{{ lab_release_id }}"
+        test -f MANIFEST.json
+        test -f SHA256SUMS
+        sha256sum -c SHA256SUMS
+        python3 - <<'PY'
+        import json, pathlib
+        m=json.loads(pathlib.Path("MANIFEST.json").read_text())
+        assert m.get("release_id") == "{{ lab_release_id }}", m
+        assert m.get("target_triple","").startswith("aarch64"), m
+        print("manifest ok")
+        PY
+        for b in mstp-mini-device mstp-probe vibe13-observer vibe13-raw-peer; do
+          python3 - <<PY
+        import struct
+        p="bin/$b"
+        with open(p,"rb") as f: hdr=f.read(20)
+        assert hdr[:4]==b"\\x7fELF", p
+        machine=struct.unpack_from("<H", hdr, 18)[0]
+        assert machine==183, (p, machine)
+        print("elf ok", p)
+        PY
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+
     - name: Stop services before rollback
       ansible.builtin.systemd:
         name: "{{ item }}"
@@ -31,11 +89,14 @@
       failed_when: false
 
     - name: Point current at known-good release
-      ansible.builtin.file:
-        src: "{{ lab_install_root }}/releases/{{ lab_release_id }}"
-        dest: "{{ lab_install_root }}/current"
-        state: link
-        force: true
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dest="{{ lab_install_root }}/current"
+        tmp="{{ lab_install_root }}/.current.tmp.$$"
+        ln -sfn "{{ lab_install_root }}/releases/{{ lab_release_id }}" "$tmp"
+        mv -Tf "$tmp" "$dest"
+      args:
+        executable: /bin/bash
 
     - name: Verify identity file
       ansible.builtin.slurp:

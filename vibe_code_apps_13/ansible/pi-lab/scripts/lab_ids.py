@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+from pathlib import Path
 
 # Short allowlist for run/release path segments (reject traversal).
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -16,6 +17,16 @@ MODEL_CHIPSET = {
     "waveshare_c": {"vid_pid": "0403:6001", "driver": "ftdi_sio", "usb_hint": "FTDI"},
     "waveshare_b": {"vid_pid": "1a86:55d3", "driver": "cdc_acm", "usb_hint": "1a86"},
 }
+
+# Re-export controller-owned allowlist (inventory cannot override).
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from wiring_contract import (  # noqa: E402
+    CI_DOC_HOSTS,
+    TRUSTED_HOSTS,
+    assert_trusted_host,
+)
 
 
 def validate_run_id(value: str) -> str:
@@ -40,18 +51,40 @@ def expected_model_for_vid_pid(vid_pid: str) -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    # Exact argv: [prog, check-run-id|check-git-sha, <id>]
-    if len(argv) != 3:
-        print("usage: lab_ids.py check-run-id|check-git-sha <id>", file=sys.stderr)
+    if len(argv) < 2:
+        print(
+            "usage: lab_ids.py check-run-id|check-git-sha|check-host ...",
+            file=sys.stderr,
+        )
         return 2
     cmd = argv[1]
     try:
         if cmd == "check-run-id":
+            if len(argv) != 3:
+                print("usage: lab_ids.py check-run-id <id>", file=sys.stderr)
+                return 2
             print(validate_run_id(argv[2]))
         elif cmd == "check-git-sha":
+            if len(argv) != 3:
+                print("usage: lab_ids.py check-git-sha <id>", file=sys.stderr)
+                return 2
             print(validate_git_sha(argv[2]))
+        elif cmd == "check-host":
+            # lab_ids.py check-host <hostname> <ansible_host> [--ci-doc]
+            if len(argv) < 4:
+                print(
+                    "usage: lab_ids.py check-host <hostname> <ansible_host> [--ci-doc]",
+                    file=sys.stderr,
+                )
+                return 2
+            allow_ci = "--ci-doc" in argv
+            assert_trusted_host(argv[2], argv[3], allow_ci_doc=allow_ci)
+            print("ok")
         else:
-            print("usage: lab_ids.py check-run-id|check-git-sha <id>", file=sys.stderr)
+            print(
+                "usage: lab_ids.py check-run-id|check-git-sha|check-host ...",
+                file=sys.stderr,
+            )
             return 2
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)

@@ -34,6 +34,9 @@ class InventorySafety(unittest.TestCase):
         self.assertEqual(allowed["workerpi2"], "192.168.204.60")
         for name, host in self.hosts.items():
             self.assertEqual(host["ansible_host"], allowed[name])
+        # Controller TRUSTED_HOSTS is authoritative (inventory is documentation).
+        lab_ids = load_lab_ids()
+        self.assertEqual(lab_ids.TRUSTED_HOSTS, allowed)
 
     def test_tx_default_false(self) -> None:
         self.assertIs(self.vars["lab_allow_serial_tx"], False)
@@ -114,16 +117,16 @@ class WiringRunGateDocs(unittest.TestCase):
     def test_run_asserts_vid_pid_and_wiring_freshness(self) -> None:
         text = (ROOT / "playbooks/run.yml").read_text()
         self.assertIn("lab_adapter_vid_pid", text)
-        self.assertIn("approved_utc", text)
-        self.assertIn("max_age_hours", text)
+        self.assertIn("validate-run", text)
+        self.assertIn("consume-nonce", text)
         self.assertIn("argv:", text)
 
     def test_confirm_writes_schema(self) -> None:
         text = (ROOT / "playbooks/confirm_wiring.yml").read_text()
-        self.assertIn("vibe13_wiring_v1", text)
-        self.assertIn("inventory_digest_sha256", text)
-        self.assertIn("approved_utc", text)
-        self.assertIn("max_age_hours", text)
+        self.assertIn("vibe13_wiring_v2", text)
+        self.assertIn("wiring_contract", text)
+        self.assertIn("write-manifest", text)
+        self.assertIn("check-host", text)
 
     def test_deploy_requires_full_sha(self) -> None:
         text = (ROOT / "playbooks/deploy.yml").read_text()
@@ -143,6 +146,9 @@ class WiringRunGateDocs(unittest.TestCase):
         self.assertIn("GATE_REPORT_DIR", text)
         self.assertIn('"$PROCESS_EXIT_CODE" -ne 75', text)
         self.assertIn('! -e "$SERIAL"', text)
+        self.assertIn("systemd_main_pid", text)
+        self.assertIn("expected_recovery_exit_code", text)
+        self.assertIn("--unit", text)
 
 
 if __name__ == "__main__":

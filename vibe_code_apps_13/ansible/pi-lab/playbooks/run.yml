@@ -6,15 +6,19 @@
   any_errors_fatal: true
   vars:
     lab_profile: "{{ profile | default('mstp-smoke') }}"
+    lab_pair: "{{ pair | default('cb') }}"
+    lab_orientation: "{{ orientation | default('workerpi1-server') }}"
     lab_run_id: "{{ run_id | default(lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ')) }}"
     lab_wiring_file: "{{ playbook_dir }}/../wiring.local.yml"
+    lab_inventory: "{{ lookup('env', 'PI_LAB_INVENTORY') | default(playbook_dir + '/../inventory.local.yml', true) }}"
+    lab_scripts: "{{ playbook_dir }}/../scripts"
     lab_allow_tx_flag: "{{ lab_allow_tx | default(false) | bool }}"
   pre_tasks:
     - name: Validate run_id allowlist
       ansible.builtin.command:
         argv:
           - python3
-          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - "{{ lab_scripts }}/lab_ids.py"
           - check-run-id
           - "{{ lab_run_id }}"
       delegate_to: localhost
@@ -31,74 +35,137 @@
           existence is not authorization.
       run_once: true
 
-    - name: Load wiring manifest
-      ansible.builtin.slurp:
-        src: "{{ lab_wiring_file }}"
-      register: wiring_slurp
+    - name: Pair must be cb only
+      ansible.builtin.assert:
+        that:
+          - lab_pair == 'cb'
+        fail_msg: "Only --pair cb is supported (isolated C↔B)."
+      run_once: true
+
+    - name: Trusted host re-check (controller allowlist, not inventory)
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [
+              'python3',
+              lab_scripts + '/lab_ids.py',
+              'check-host',
+              inventory_hostname,
+              ansible_host
+            ] + (['--ci-doc'] if (lab_ci_doc | default(false) | bool) else [])
+          }}
       delegate_to: localhost
       become: false
-      run_once: true
+      changed_when: false
 
-    - name: Parse wiring YAML
-      ansible.builtin.set_fact:
-        wiring: "{{ wiring_slurp.content | b64decode | from_yaml }}"
-      run_once: true
-
-    - name: Reject expired wiring manifests
-      ansible.builtin.command:
-        argv:
-          - python3
-          - -c
-          - |
-            import sys
-            from datetime import datetime, timezone, timedelta
-            approved = """{{ wiring.approved_utc | default('') }}"""
-            max_h = int("""{{ wiring.max_age_hours | default(8) }}""")
-            if not approved:
-                sys.exit("missing approved_utc")
-            # Accept ISO8601 with Z
-            ts = approved.replace("Z", "+00:00")
-            try:
-                t = datetime.fromisoformat(ts)
-            except ValueError as e:
-                sys.exit(f"bad approved_utc: {e}")
-            if t.tzinfo is None:
-                t = t.replace(tzinfo=timezone.utc)
-            age = datetime.now(timezone.utc) - t.astimezone(timezone.utc)
-            if age > timedelta(hours=max_h) or age.total_seconds() < -60:
-                sys.exit(f"wiring expired age={age} max_h={max_h}")
-            print("fresh")
+    - name: Normalize profile + parse duration via wiring_contract
+      ansible.builtin.shell: |
+        set -euo pipefail
+        PROF="$(python3 "{{ lab_scripts }}/wiring_contract.py" normalize-profile "{{ lab_profile }}")"
+        SECS="$(python3 "{{ lab_scripts }}/wiring_contract.py" parse-duration "$PROF" "{{ lab_duration | default('') }}")"
+        echo "$PROF $SECS"
+      args:
+        executable: /bin/bash
+      register: prof_dur
       delegate_to: localhost
       become: false
       run_once: true
       changed_when: false
 
-    - name: Validate wiring schema and freshness
-      ansible.builtin.assert:
-        that:
-          - wiring.schema == 'vibe13_wiring_v1'
-          - wiring.operator_confirmed | default(false) | bool
-          - wiring.hosts.workerpi1.serial_by_id == hostvars['workerpi1'].lab_serial_by_id
-          - wiring.hosts.workerpi2.serial_by_id == hostvars['workerpi2'].lab_serial_by_id
-          - wiring.hosts.workerpi1.adapter_model == hostvars['workerpi1'].lab_adapter_model
-          - wiring.hosts.workerpi2.adapter_model == hostvars['workerpi2'].lab_adapter_model
-          - wiring.hosts.workerpi1.vid_pid == hostvars['workerpi1'].lab_adapter_vid_pid
-          - wiring.hosts.workerpi2.vid_pid == hostvars['workerpi2'].lab_adapter_vid_pid
-          - wiring.hosts.workerpi1.mac | int == hostvars['workerpi1'].lab_mstp_mac | int
-          - wiring.hosts.workerpi2.mac | int == hostvars['workerpi2'].lab_mstp_mac | int
-          - wiring.baud | int == lab_baud | int
-          - wiring.max_master | int == lab_max_master | int
-        fail_msg: >-
-          wiring.local.yml stale/mismatched/malformed vs live inventory. Re-run
-          confirm-wiring --confirmed. Never authorize the tower tty.
+    - name: Apply normalized profile and duration_secs
+      ansible.builtin.set_fact:
+        lab_profile: "{{ prof_dur.stdout.split()[0] }}"
+        lab_duration_secs: "{{ prof_dur.stdout.split()[1] | int }}"
+      run_once: true
+
+    - name: Build live_hosts.json from inventory hostvars
+      ansible.builtin.copy:
+        dest: "/tmp/vibe13-live-hosts-{{ lab_run_id }}.json"
+        mode: "0600"
+        content: |
+          {
+            "workerpi1": {
+              "ansible_host": "{{ hostvars['workerpi1'].ansible_host }}",
+              "lab_serial_by_id": "{{ hostvars['workerpi1'].lab_serial_by_id }}",
+              "lab_adapter_model": "{{ hostvars['workerpi1'].lab_adapter_model }}",
+              "lab_adapter_vid_pid": "{{ hostvars['workerpi1'].lab_adapter_vid_pid }}",
+              "lab_mstp_mac": {{ hostvars['workerpi1'].lab_mstp_mac | int }},
+              "lab_device_instance": {{ hostvars['workerpi1'].lab_device_instance | int }}
+            },
+            "workerpi2": {
+              "ansible_host": "{{ hostvars['workerpi2'].ansible_host }}",
+              "lab_serial_by_id": "{{ hostvars['workerpi2'].lab_serial_by_id }}",
+              "lab_adapter_model": "{{ hostvars['workerpi2'].lab_adapter_model }}",
+              "lab_adapter_vid_pid": "{{ hostvars['workerpi2'].lab_adapter_vid_pid }}",
+              "lab_mstp_mac": {{ hostvars['workerpi2'].lab_mstp_mac | int }},
+              "lab_device_instance": {{ hostvars['workerpi2'].lab_device_instance | int }}
+            }
+          }
+      delegate_to: localhost
+      become: false
+      run_once: true
+      register: live_hosts_file
+
+    - name: Controller project SHA
+      ansible.builtin.command: git -C "{{ playbook_dir }}/../../.." rev-parse HEAD
+      register: ctrl_sha
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Validate wiring contract for this run
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ lab_scripts }}/wiring_contract.py"
+          - validate-run
+          - "{{ lab_wiring_file }}"
+          - "{{ lab_inventory }}"
+          - "{{ ctrl_sha.stdout }}"
+          - "{{ lab_profile }}"
+          - "{{ lab_pair }}"
+          - "{{ lab_orientation }}"
+          - "{{ live_hosts_file.dest }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Derive orientation roles
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ lab_scripts }}/wiring_contract.py"
+          - roles-for-orientation
+          - "{{ lab_orientation }}"
+      register: role_json
+      delegate_to: localhost
+      become: false
+      run_once: true
+      changed_when: false
+
+    - name: Apply lab_role from orientation (overrides inventory role)
+      ansible.builtin.set_fact:
+        lab_role: "{{ (role_json.stdout | from_json)[inventory_hostname] }}"
+
+    - name: Consume wiring nonce (single-use; after validation, before services)
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ lab_scripts }}/wiring_contract.py"
+          - consume-nonce
+          - "{{ lab_wiring_file }}"
+      delegate_to: localhost
+      become: false
       run_once: true
 
     - name: Show what will transmit
       ansible.builtin.debug:
         msg: >-
           TX ENABLED for run {{ lab_run_id }} profile={{ lab_profile }}
-          workerpi1={{ hostvars['workerpi1'].lab_serial_by_id }} (MAC {{ hostvars['workerpi1'].lab_mstp_mac }})
-          workerpi2={{ hostvars['workerpi2'].lab_serial_by_id }} (MAC {{ hostvars['workerpi2'].lab_mstp_mac }})
+          pair={{ lab_pair }} orientation={{ lab_orientation }} duration_secs={{ lab_duration_secs }}
+          role={{ lab_role }} serial={{ lab_serial_by_id }} MAC={{ lab_mstp_mac }}
           baud={{ lab_baud }}. Tower tty is NOT a target.
       run_once: true
 

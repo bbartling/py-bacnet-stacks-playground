@@ -21,7 +21,9 @@ mod report;
 mod token_edges;
 mod transport;
 
-pub use acceptance::{run_hardware_acceptance, run_loopback_acceptance, AcceptanceOptions};
+pub use acceptance::{
+    run_hardware_acceptance, run_loopback_acceptance, soak_min_successful_reads, AcceptanceOptions,
+};
 pub use database::{
     apply_simulated_inputs, build_mini_device_database, network_write_ai_denied, MiniDeviceConfig,
     LAB_VENDOR_ID, MSTP_MAX_APDU, UNITS_DEGF,

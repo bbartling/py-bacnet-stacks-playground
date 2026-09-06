@@ -7,6 +7,8 @@
   any_errors_fatal: true
   vars:
     lab_release_id: "{{ lab_revision | mandatory }}"
+  vars:
+    lab_scripts: "{{ playbook_dir }}/../scripts"
   pre_tasks:
     - name: Refuse TX during deploy
       ansible.builtin.assert:
@@ -17,12 +19,27 @@
       ansible.builtin.command:
         argv:
           - python3
-          - "{{ playbook_dir }}/../scripts/lab_ids.py"
+          - "{{ lab_scripts }}/lab_ids.py"
           - check-git-sha
           - "{{ lab_revision }}"
       delegate_to: localhost
       become: false
       run_once: true
+      changed_when: false
+    - name: Trusted host allowlist
+      ansible.builtin.command:
+        argv: >-
+          {{
+            [
+              'python3',
+              lab_scripts + '/lab_ids.py',
+              'check-host',
+              inventory_hostname,
+              ansible_host
+            ] + (['--ci-doc'] if (lab_ci_doc | default(false) | bool) else [])
+          }}
+      delegate_to: localhost
+      become: false
       changed_when: false
   roles:
     - role: prereqs

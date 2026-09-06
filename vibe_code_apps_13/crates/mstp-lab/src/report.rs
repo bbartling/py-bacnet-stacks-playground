@@ -2,12 +2,14 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Acceptance intensity: smoke is CI-safe; gate requires full step set + ≥500 reads.
+/// Acceptance intensity: smoke is CI-safe; gate requires full step set + ≥500 reads;
+/// soak is paced ReadProperty / Who-Is endurance (not unpaced back-to-back reads).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AcceptanceProfile {
     Smoke,
     Gate,
+    Soak,
 }
 
 impl AcceptanceProfile {
@@ -16,6 +18,7 @@ impl AcceptanceProfile {
         match self {
             Self::Smoke => "smoke",
             Self::Gate => "gate",
+            Self::Soak => "soak",
         }
     }
 }
@@ -27,8 +30,9 @@ impl std::str::FromStr for AcceptanceProfile {
         match s.trim().to_ascii_lowercase().as_str() {
             "smoke" => Ok(Self::Smoke),
             "gate" => Ok(Self::Gate),
+            "soak" => Ok(Self::Soak),
             other => Err(format!(
-                "unknown profile '{other}'; expected 'smoke' or 'gate'"
+                "unknown profile '{other}'; expected 'smoke', 'gate', or 'soak'"
             )),
         }
     }
@@ -216,7 +220,8 @@ impl AcceptanceReport {
         });
     }
 
-    /// Gate Passed requires every required step present and ok; smoke only needs zero failures.
+    /// Gate Passed requires every required step present and ok; soak requires paced_reads ok
+    /// with ≥500 successes when duration_secs ≥ 3600; smoke only needs zero failures.
     pub fn finalize(&mut self, profile: AcceptanceProfile) {
         self.ended_utc = chrono_now();
         if profile == AcceptanceProfile::Gate {
@@ -228,6 +233,17 @@ impl AcceptanceReport {
                     "gate_completeness",
                     false,
                     "missing or failed required gate step(s)",
+                    None,
+                );
+            }
+        }
+        if profile == AcceptanceProfile::Soak {
+            let soak_ok = self.steps.iter().any(|s| s.step == "paced_reads" && s.ok);
+            if !soak_ok {
+                self.push_step(
+                    "soak_completeness",
+                    false,
+                    "missing or failed paced_reads step",
                     None,
                 );
             }

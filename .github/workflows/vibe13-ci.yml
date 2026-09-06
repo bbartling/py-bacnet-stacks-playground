@@ -54,19 +54,34 @@ jobs:
         run: |
           chmod +x scripts/run_pty_smoke.sh scripts/pty_null_modem.py
           ./scripts/run_pty_smoke.sh 100 captures/wire-test-pty-ci.json
-      - name: Pi-lab inventory safety (offline)
+      - name: Pi-lab inventory + wiring contract (offline)
         run: |
           python3 -m pip install --user PyYAML
           python3 ansible/pi-lab/tests/test_inventory_safety.py
-      - name: Pi-lab ansible syntax (fixture inventory)
+          python3 ansible/pi-lab/tests/test_wiring_contract.py
+      - name: shellcheck pi-lab scripts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck -x ansible/pi-lab/scripts/pi-lab
+          shellcheck -x ansible/pi-lab/scripts/build_release.sh
+      - name: Pi-lab ansible syntax (all playbooks, fixture inventory)
         working-directory: vibe_code_apps_13/ansible/pi-lab
         run: |
           python3 -m pip install --user 'ansible-core==2.17.9'
           export ANSIBLE_CONFIG="$PWD/ansible.cfg"
-          ansible-playbook --syntax-check -i files/fixtures/inventory.ci.yml \
-            playbooks/preflight.yml
-          ansible-playbook --syntax-check -i files/fixtures/inventory.ci.yml \
-            playbooks/discover.yml
+          # Never contact 192.168.204.0/24 — fixture uses 198.51.100.* only.
+          for pb in playbooks/*.yml; do
+            echo "syntax-check $pb"
+            ansible-playbook --syntax-check -i files/fixtures/inventory.ci.yml "$pb"
+          done
+      - name: yamllint / ansible-lint (best-effort)
+        working-directory: vibe_code_apps_13/ansible/pi-lab
+        continue-on-error: true
+        run: |
+          python3 -m pip install --user 'yamllint==1.35.1' 'ansible-lint==24.10.0'
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' playbooks roles group_vars || true
+          ansible-lint -p playbooks/*.yml || true
       - name: upload PTY report
         if: always()
         uses: actions/upload-artifact@v4

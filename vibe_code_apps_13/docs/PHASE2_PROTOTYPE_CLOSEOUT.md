@@ -16,8 +16,8 @@ A **stable, historical lab prototype**: server-only, standard-frame BACnet MS/TP
 | 1 — wire / lab-common | PASS (historical) | `captures/wire-test-*.json` |
 | 2 — passive sniff | PASS | `captures/mstp-passive-af4e886-60s.json` |
 | 3 — FEC client RP | PASS | `captures/mstp-fec-ai1173-af4e886-oneshot.json` |
-| 4 — mini-device server | PASS | Workbench `device:123001`; `captures/mstp-mini-device-af4e886.log` |
-| 4b — Haystack trunk | PASS | `captures/haystack-trunk/` |
+| 4 — mini-device server | PASS (manual/external) | Workbench `device:123001`; capture log not committed (see PHASE2_HARDWARE_EVIDENCE) |
+| 4b — Haystack trunk | PASS (manual/external) | Supervisory zinc not committed |
 | 5–6 — shared endpoint / mirror | **OUT OF SCOPE** | not attempted |
 | 1h hardware soak | run [`scripts/run_mstp_mini_soak.sh`](../scripts/run_mstp_mini_soak.sh) | see `captures/mstp-soak-af4e886-*` |
 | 24h continuity (same PID) | **PASS** (process continuity only) | [`captures/mini-device-24h-continuity-20260901T200935Z.txt`](../captures/mini-device-24h-continuity-20260901T200935Z.txt) |

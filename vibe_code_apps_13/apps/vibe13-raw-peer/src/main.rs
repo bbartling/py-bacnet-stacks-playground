@@ -255,6 +255,25 @@ async fn main() -> Result<()> {
 mod tests {
     use super::*;
 
+    /// Expected next seq for initiator reply matching (duplicate/missing/stale/ooo).
+    fn classify_reply_seq(expected: u32, got: u32) -> &'static str {
+        if got == expected {
+            "ok"
+        } else if got < expected {
+            "stale_or_duplicate"
+        } else if got == expected + 1 {
+            "missing_prior"
+        } else {
+            "out_of_order"
+        }
+    }
+
+    fn total_deadline_exceeded(start: Instant, exchanges: u32, timeout_ms: u64) -> bool {
+        let deadline =
+            start + Duration::from_millis(timeout_ms.saturating_mul(u64::from(exchanges) + 5));
+        Instant::now() > deadline
+    }
+
     #[test]
     fn split_across_reads() {
         let frame = encode(7, b"hi");
@@ -268,6 +287,22 @@ mod tests {
     }
 
     #[test]
+    fn byte_at_a_time() {
+        let frame = encode(11, b"bytewise");
+        let mut d = FrameDecoder::default();
+        for b in &frame {
+            d.push(&[*b]);
+            if d.buf.len() < frame.len() {
+                assert!(d.next_frame().is_none());
+            }
+        }
+        let (seq, p) = d.next_frame().unwrap();
+        assert_eq!(seq, 11);
+        assert_eq!(p, b"bytewise");
+        assert!(d.next_frame().is_none());
+    }
+
+    #[test]
     fn coalesced_two_frames() {
         let mut blob = encode(1, b"a");
         blob.extend_from_slice(&encode(2, b"b"));
@@ -278,6 +313,19 @@ mod tests {
     }
 
     #[test]
+    fn coalesced_three_frames() {
+        let mut blob = encode(1, b"a");
+        blob.extend_from_slice(&encode(2, b"b"));
+        blob.extend_from_slice(&encode(3, b"c"));
+        let mut d = FrameDecoder::default();
+        d.push(&blob);
+        assert_eq!(d.next_frame().unwrap().0, 1);
+        assert_eq!(d.next_frame().unwrap().0, 2);
+        assert_eq!(d.next_frame().unwrap().0, 3);
+        assert!(d.next_frame().is_none());
+    }
+
+    #[test]
     fn noise_before_magic() {
         let mut blob = vec![0x00, 0xff, 0x13];
         blob.extend_from_slice(&encode(3, b"x"));
@@ -285,6 +333,21 @@ mod tests {
         d.push(&blob);
         assert_eq!(d.next_frame().unwrap().0, 3);
         assert!(d.bad_magic >= 1);
+    }
+
+    #[test]
+    fn bad_crc_then_valid_frame() {
+        let mut bad = encode(1, b"z");
+        *bad.last_mut().unwrap() ^= 0xff;
+        let good = encode(2, b"ok");
+        let mut blob = bad;
+        blob.extend_from_slice(&good);
+        let mut d = FrameDecoder::default();
+        d.push(&blob);
+        let (seq, p) = d.next_frame().expect("recovered frame");
+        assert_eq!(seq, 2);
+        assert_eq!(p, b"ok");
+        assert_eq!(d.bad_crc, 1);
     }
 
     #[test]
@@ -309,6 +372,18 @@ mod tests {
     }
 
     #[test]
+    fn oversized_noise_then_recover() {
+        let mut noise = vec![0xAA; 200];
+        noise.extend_from_slice(&encode(9, b"recovered"));
+        let mut d = FrameDecoder::default();
+        d.push(&noise);
+        let (seq, p) = d.next_frame().unwrap();
+        assert_eq!(seq, 9);
+        assert_eq!(p, b"recovered");
+        assert!(d.bad_magic >= 1);
+    }
+
+    #[test]
     fn truncation_waits() {
         let frame = encode(9, b"hello");
         let mut d = FrameDecoder::default();
@@ -316,5 +391,23 @@ mod tests {
         assert!(d.next_frame().is_none());
         d.push(&frame[frame.len() - 1..]);
         assert_eq!(d.next_frame().unwrap().0, 9);
+    }
+
+    #[test]
+    fn sequence_duplicate_missing_stale_ooo() {
+        assert_eq!(classify_reply_seq(5, 5), "ok");
+        assert_eq!(classify_reply_seq(5, 5), "ok");
+        assert_eq!(classify_reply_seq(5, 4), "stale_or_duplicate");
+        assert_eq!(classify_reply_seq(5, 3), "stale_or_duplicate");
+        assert_eq!(classify_reply_seq(5, 6), "missing_prior");
+        assert_eq!(classify_reply_seq(5, 9), "out_of_order");
+    }
+
+    #[test]
+    fn responder_total_deadline_helper() {
+        let start = Instant::now() - Duration::from_secs(10);
+        assert!(total_deadline_exceeded(start, 1, 100));
+        let fresh = Instant::now();
+        assert!(!total_deadline_exceeded(fresh, 100, 1000));
     }
 }
