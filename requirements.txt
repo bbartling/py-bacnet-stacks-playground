@@ -1,0 +1,3 @@
+# Fallback if Streamlit Cloud resolves requirements from the GitHub repo root.
+-r vibe_code_apps_23/requirements-studio.txt
+-e ./vibe_code_apps_23
