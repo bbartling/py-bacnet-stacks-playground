@@ -6,6 +6,8 @@ import zipfile
 from pathlib import Path
 
 from vibe23.energyplus_worker import (
+    EnergyPlusWorkerError,
+    ensure_worker_awake,
     extract_results_zip,
     prefer_worker_backend,
     worker_configured,
@@ -36,6 +38,28 @@ def test_prefer_worker_backend_modes(monkeypatch):
     monkeypatch.setenv("EPLUS_BACKEND", "auto")
     monkeypatch.setenv("EPLUS_WORKER_FORCE", "1")
     assert prefer_worker_backend() is True
+
+
+def test_ensure_worker_awake_retries_then_succeeds(monkeypatch):
+    monkeypatch.setenv("EPLUS_WORKER_URL", "https://example.test")
+    monkeypatch.setenv("EPLUS_WORKER_API_KEY", "secret")
+    calls = {"n": 0}
+
+    def fake_healthz(*, timeout: float = 60.0):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise EnergyPlusWorkerError("sleeping")
+        return {"ok": True, "energyplus_version": "26.1.0", "api_key_configured": True}
+
+    from vibe23 import energyplus_worker as mod
+
+    monkeypatch.setattr(mod, "healthz", fake_healthz)
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+    result = ensure_worker_awake(attempts=4, per_try_timeout=1.0, pause_seconds=0.0)
+    assert result["ok"] is True
+    assert result["awake"] is True
+    assert result["attempt"] == 3
+    assert result["woke_from_sleep"] is True
 
 
 def test_extract_results_zip_flattens_output_prefix(tmp_path: Path):
