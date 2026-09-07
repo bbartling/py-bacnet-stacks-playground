@@ -44,6 +44,15 @@
         )
       }}
 
+- name: Refresh host.env with orientation-derived lab_role
+  # Deploy-time host.env freezes inventory roles; orientation must rewrite before TX.
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../roles/deploy_release/templates/host.env.j2"
+    dest: "{{ lab_etc_root }}/{{ inventory_hostname }}.env"
+    owner: root
+    group: "{{ lab_service_user }}"
+    mode: "0640"
+
 - name: Stop vibe13 units first (absent unit is OK)
   ansible.builtin.shell: |
     set -euo pipefail
@@ -228,9 +237,13 @@
   when: lab_enable_observer | default(true) | bool
 
 - name: Bounded profile wait (smoke / gate / soak)
+  # pause is controller-side; do NOT gate on lab_role — when the first play host is
+  # probe (workerpi2-server), a per-host when: skips the wait for everyone.
   ansible.builtin.pause:
     seconds: "{{ lab_runtime_secs | int }}"
-  when: lab_role == 'server'
+  run_once: true
+  delegate_to: localhost
+  become: false
 
 - name: Evaluate finite-profile evidence (never PASS on is-active alone)
   ansible.builtin.shell: |
@@ -321,6 +334,15 @@
     fail_msg: >-
       Profile {{ lab_profile }} host {{ inventory_hostname }} role {{ lab_role }}
       ended FAIL (detail in summary.json). Refuse soft-ok on Ansible success.
+
+- name: Fail closed when raw profile is not PASS
+  ansible.builtin.assert:
+    that:
+      - summary_eval.stdout == 'PASS'
+    fail_msg: >-
+      Raw profile {{ lab_profile }} host {{ inventory_hostname }} ended
+      {{ summary_eval.stdout }} (need PASS). Refuse PARTIAL/NOT_RUN soft-ok.
+  when: lab_is_raw | bool
 
 - name: Refresh observer status with terminal summary
   ansible.builtin.copy:
