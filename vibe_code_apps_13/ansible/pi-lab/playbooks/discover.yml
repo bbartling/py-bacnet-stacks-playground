@@ -26,6 +26,15 @@
   roles:
     - role: discover_serial
   tasks:
+    - name: Ensure controller discovery report dir
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id | default('discover') }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
     - name: Write per-host discovery JSON on controller
       ansible.builtin.copy:
         dest: "{{ playbook_dir }}/../reports/pi-lab/{{ lab_run_id | default('discover') }}/{{ inventory_hostname }}.json"

@@ -41,7 +41,8 @@
     lab_discovery:
       host: "{{ inventory_hostname }}"
       ansible_host: "{{ ansible_host }}"
-      role: "{{ lab_role }}"
+      # Discover is orientation-free; roles are assigned at confirm-wiring / run time.
+      role: "{{ lab_role | default('unassigned') }}"
       expected_serial_by_id: "{{ lab_serial_by_id | default('') }}"
       expected_adapter_model: "{{ lab_adapter_model | default('unconfirmed') }}"
       os_lines: "{{ os_facts.stdout_lines }}"

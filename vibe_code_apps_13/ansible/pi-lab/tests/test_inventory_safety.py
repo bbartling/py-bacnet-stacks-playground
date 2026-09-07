@@ -150,6 +150,11 @@ class WiringRunGateDocs(unittest.TestCase):
         self.assertIn("expected_recovery_exit_code", text)
         self.assertIn("--unit", text)
 
+    def test_discover_role_defaults_without_orientation(self) -> None:
+        text = (ROOT / "roles/discover_serial/tasks/main.yml").read_text()
+        self.assertIn("lab_role | default('unassigned')", text)
+        self.assertIn("Ensure controller discovery report dir", (ROOT / "playbooks/discover.yml").read_text())
+
 
 if __name__ == "__main__":
     try:
