@@ -15,7 +15,8 @@ Restart=on-failure
 RestartSec=2
 StartLimitIntervalSec=120
 StartLimitBurst=20
-RuntimeMaxSec={{ lab_runtime_max_sec | default(0) }}
+RuntimeMaxSec={{ lab_runtime_max_sec | default('infinity') }}
+# Note: systemd treats RuntimeMaxSec=0 as an immediate kill on some hosts — never emit 0.
 StandardOutput=append:{{ lab_state_root }}/runs/{{ lab_run_id | default('current') }}/mini-device.log
 StandardError=append:{{ lab_state_root }}/runs/{{ lab_run_id | default('current') }}/mini-device.log
 
