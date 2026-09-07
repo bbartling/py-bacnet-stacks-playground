@@ -38,6 +38,19 @@ Early inventory letters were inverted; by-id paths below are unchanged.
 
 Operator must confirm printed product labels at the wiring gate before TX.
 
+## Wiring resistance (operator pause, 2026-09-07)
+
+Unpowered A/B on the isolated C↔B pair (tower trunk untouched):
+
+| Adapter / segment | Ohms |
+|-------------------|------|
+| workerpi1 Waveshare **C** alone | **127** |
+| workerpi2 Waveshare **B** alone | **127** |
+| Combined (A+↔A+, B-↔B-, GND↔GND, no VCC) | **~71** |
+
+Full note: [`docs/PI_LAB_WIRING_RESISTANCE_20260907.md`](../../docs/PI_LAB_WIRING_RESISTANCE_20260907.md).  
+Fail-closed bands live in `scripts/wiring_contract.py` (individual 100–140 Ω; combined 55–75 Ω).
+
 ## Physical gate (required before TX)
 
 Wire **only** the two Pi adapters to each other. Then:
