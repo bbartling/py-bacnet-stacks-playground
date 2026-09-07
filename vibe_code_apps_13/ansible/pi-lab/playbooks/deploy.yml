@@ -7,7 +7,6 @@
   any_errors_fatal: true
   vars:
     lab_release_id: "{{ lab_revision | mandatory }}"
-  vars:
     lab_scripts: "{{ playbook_dir }}/../scripts"
   pre_tasks:
     - name: Refuse TX during deploy

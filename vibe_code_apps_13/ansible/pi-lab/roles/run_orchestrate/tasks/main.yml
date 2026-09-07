@@ -314,6 +314,14 @@
   register: summary_eval
   changed_when: false
 
+- name: Fail closed when any host summary is FAIL
+  ansible.builtin.assert:
+    that:
+      - summary_eval.stdout != 'FAIL'
+    fail_msg: >-
+      Profile {{ lab_profile }} host {{ inventory_hostname }} role {{ lab_role }}
+      ended FAIL (detail in summary.json). Refuse soft-ok on Ansible success.
+
 - name: Refresh observer status with terminal summary
   ansible.builtin.copy:
     dest: "{{ lab_state_root }}/observer/status.json"
