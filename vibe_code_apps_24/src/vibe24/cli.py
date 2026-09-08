@@ -25,6 +25,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd != "serve":
         parser.error("unknown command")
 
+    # Allow: vibe24 serve --bacnet -- --address ...  (strip argparse/-- separator)
+    if bacnet_argv and bacnet_argv[0] == "--":
+        bacnet_argv = bacnet_argv[1:]
+
     logging.basicConfig(level=logging.INFO)
     from .api import create_app
     from .runtime import TwinRuntime

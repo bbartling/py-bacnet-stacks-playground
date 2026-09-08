@@ -1,61 +1,178 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vibe 24 — Live RTU Twin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("vibe24-theme");
+        var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-  <header>
-    <h1>Vibe 24 Live Twin</h1>
-    <p class="claim">SURROGATE_PLANT_V1 · UI writes at BACnet priority <strong>8</strong></p>
+  <header class="top">
+    <div class="hd">
+      <div>
+        <span class="badge">Module RTU-01 · Live Twin</span>
+        <h1>Residential RTU <span>BAS Mimic</span></h1>
+        <p class="claim">SURROGATE_PLANT_V1 · UI writes at BACnet priority <b>8</b> · sensors update on plant ticks</p>
+      </div>
+      <div class="hstat">
+        <div class="chip"><div class="k">Mode</div><div class="v" id="chip-MODE">—</div></div>
+        <div class="chip"><div class="k">Fan</div><div class="v" id="chip-FAN">—</div></div>
+        <div class="chip"><div class="k">RTU kW</div><div class="v" id="chip-KW">—</div></div>
+        <div class="chip"><div class="k">Zone °F</div><div class="v" id="chip-ZONE">—</div></div>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light and dark mode">
+          <span class="label">Dark</span>
+        </button>
+      </div>
+    </div>
   </header>
 
-  <main class="graphic">
-    <section class="house">
-      <h2>Zone</h2>
-      <div class="metric"><span>ZONE-T</span><strong id="ZONE-T">—</strong><em>°F</em></div>
-      <div class="metric"><span>OA-T</span><strong id="OA-T">—</strong><em>°F</em></div>
-      <div class="sp">
-        <label>HEAT-SP <input id="in-HEAT-SP" type="number" step="0.5" /></label>
-        <button data-write="HEAT-SP">Write prio 8</button>
-        <button data-rel="HEAT-SP" class="ghost">Relinquish 8</button>
+  <div class="wrap">
+    <div class="layout">
+      <section class="panel mimic-panel">
+        <div class="panel-hd">
+          <h2>Live System Schematic</h2>
+          <p>Outdoor → RTU heat pump → supply → zone. Airflow dash animation tracks fan status; deck color tracks heat / cool mode.</p>
+        </div>
+        <div class="svgwrap" id="mimic" data-mode="0" data-fan="0">
+          <svg class="sch" viewBox="0 0 920 420" role="img" aria-label="Residential RTU BAS schematic">
+            <!-- OA well -->
+            <rect class="box" x="28" y="150" width="110" height="120" rx="6" />
+            <text class="stitle" x="83" y="178" text-anchor="middle">OA</text>
+            <text class="slab" x="83" y="198" text-anchor="middle">OUTDOOR</text>
+            <text class="sval teal" id="svg-OA-T" x="83" y="228" text-anchor="middle">—</text>
+            <text class="slab" x="83" y="248" text-anchor="middle">°F</text>
+
+            <!-- OA duct -->
+            <path class="duct flow duct-oa" d="M138 210 H210" fill="none" stroke-width="10" stroke-linecap="round" />
+
+            <!-- RTU -->
+            <rect class="box rtu" x="210" y="110" width="250" height="200" rx="8" />
+            <text class="stitle" x="335" y="138" text-anchor="middle">RTU-1 HEAT PUMP</text>
+            <text class="slab" x="335" y="156" text-anchor="middle">COMPRESSOR + SUPPLY FAN</text>
+
+            <rect class="inner" x="235" y="170" width="90" height="70" rx="4" />
+            <text class="slab" x="280" y="192" text-anchor="middle">COMP</text>
+            <text class="sval" id="svg-MODE" x="280" y="218" text-anchor="middle">—</text>
+
+            <rect class="inner" x="345" y="170" width="90" height="70" rx="4" />
+            <text class="slab" x="390" y="192" text-anchor="middle">FAN</text>
+            <text class="sval" id="svg-FAN-S" x="390" y="218" text-anchor="middle">—</text>
+
+            <text class="slab" x="335" y="268" text-anchor="middle">ELECTRIC POWER</text>
+            <text class="sval amber" id="svg-RTU-KW" x="335" y="290" text-anchor="middle">— kW</text>
+
+            <!-- Supply duct -->
+            <path class="duct flow duct-sa" d="M460 210 H560" fill="none" stroke-width="10" stroke-linecap="round" />
+
+            <!-- House / zone -->
+            <path class="house" d="M560 145 L700 70 L840 145 V310 H560 Z" />
+            <rect class="box zone" x="590" y="160" width="220" height="140" rx="6" />
+            <text class="stitle" x="700" y="186" text-anchor="middle">ZONE</text>
+            <text class="slab" x="700" y="204" text-anchor="middle">SPACE TEMP</text>
+            <text class="sval big teal" id="svg-ZONE-T" x="700" y="236" text-anchor="middle">—</text>
+            <text class="slab" x="640" y="268" text-anchor="middle">HEAT SP</text>
+            <text class="sval amber" id="svg-HEAT-SP" x="640" y="286" text-anchor="middle">—</text>
+            <text class="slab" x="760" y="268" text-anchor="middle">COOL SP</text>
+            <text class="sval teal" id="svg-COOL-SP" x="760" y="286" text-anchor="middle">—</text>
+
+            <!-- Enable lamp -->
+            <circle class="lamp" id="svg-ENABLE-LAMP" cx="430" cy="140" r="7" />
+            <text class="slab" x="445" y="144">UNIT ENABLE</text>
+          </svg>
+        </div>
+      </section>
+
+      <aside class="panel controls">
+        <div class="panel-hd">
+          <h2>Operator Writes</h2>
+          <p>Priority 8 · relinquish falls back to default (16)</p>
+        </div>
+
+        <div class="ctrl">
+          <label>HEAT-SP <span>°F</span></label>
+          <div class="row">
+            <input id="in-HEAT-SP" type="number" step="0.5" />
+            <button data-write="HEAT-SP">Write 8</button>
+            <button data-rel="HEAT-SP" class="ghost">Rel 8</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>COOL-SP <span>°F</span></label>
+          <div class="row">
+            <input id="in-COOL-SP" type="number" step="0.5" />
+            <button data-write="COOL-SP">Write 8</button>
+            <button data-rel="COOL-SP" class="ghost">Rel 8</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>UNIT-ENABLE</label>
+          <div class="row">
+            <select id="in-UNIT-ENABLE">
+              <option value="1">On</option>
+              <option value="0">Off</option>
+            </select>
+            <button data-write="UNIT-ENABLE">Write 8</button>
+            <button data-rel="UNIT-ENABLE" class="ghost">Rel 8</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>OCC-OVRD</label>
+          <div class="row">
+            <select id="in-OCC-OVRD">
+              <option value="1">Occupied</option>
+              <option value="0">Unoccupied</option>
+            </select>
+            <button data-write="OCC-OVRD">Write 8</button>
+            <button data-rel="OCC-OVRD" class="ghost">Rel 8</button>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div><i class="sw cool"></i> Cool / OA path</div>
+          <div><i class="sw heat"></i> Heat path</div>
+          <div><i class="sw flow"></i> Flow when fan ON</div>
+        </div>
+
+        <div class="panel-hd log-hd">
+          <h2>Event Log</h2>
+          <p>Writes, relinquish, mode transitions</p>
+        </div>
+        <div class="log" id="event-log" aria-live="polite"></div>
+      </aside>
+    </div>
+
+    <section class="panel table-wrap">
+      <div class="panel-hd">
+        <h2>Point Bus</h2>
+        <p>Shared present values for HTML + BACnet</p>
       </div>
-      <div class="sp">
-        <label>COOL-SP <input id="in-COOL-SP" type="number" step="0.5" /></label>
-        <button data-write="COOL-SP">Write prio 8</button>
-        <button data-rel="COOL-SP" class="ghost">Relinquish 8</button>
-      </div>
+      <table id="points">
+        <thead>
+          <tr><th>Name</th><th>PV</th><th>Win prio</th><th>Source</th><th>Kind</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </section>
 
-    <section class="rtu">
-      <h2>RTU</h2>
-      <div class="metric"><span>RTU-KW</span><strong id="RTU-KW">—</strong><em>kW</em></div>
-      <div class="metric"><span>FAN-S</span><strong id="FAN-S">—</strong></div>
-      <div class="metric"><span>MODE</span><strong id="MODE">—</strong></div>
-      <div class="sp">
-        <label>UNIT-ENABLE
-          <select id="in-UNIT-ENABLE">
-            <option value="1">On</option>
-            <option value="0">Off</option>
-          </select>
-        </label>
-        <button data-write="UNIT-ENABLE">Write prio 8</button>
-        <button data-rel="UNIT-ENABLE" class="ghost">Relinquish 8</button>
-      </div>
-    </section>
-  </main>
-
-  <section class="table-wrap">
-    <h2>Point bus</h2>
-    <table id="points">
-      <thead>
-        <tr><th>Name</th><th>PV</th><th>Win prio</th><th>Source</th><th>Kind</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+    <footer class="ft">
+      Vibe 24 · SURROGATE_PLANT_V1 · graphic language inspired by BAS training mimics · not EnergyPlus / not GL14 calibrated
+    </footer>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>
