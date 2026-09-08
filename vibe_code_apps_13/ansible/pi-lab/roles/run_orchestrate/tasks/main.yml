@@ -327,23 +327,8 @@
   register: summary_eval
   changed_when: false
 
-- name: Fail closed when any host summary is FAIL
-  ansible.builtin.assert:
-    that:
-      - summary_eval.stdout != 'FAIL'
-    fail_msg: >-
-      Profile {{ lab_profile }} host {{ inventory_hostname }} role {{ lab_role }}
-      ended FAIL (detail in summary.json). Refuse soft-ok on Ansible success.
-
-- name: Fail closed when raw profile is not PASS
-  ansible.builtin.assert:
-    that:
-      - summary_eval.stdout == 'PASS'
-    fail_msg: >-
-      Raw profile {{ lab_profile }} host {{ inventory_hostname }} ended
-      {{ summary_eval.stdout }} (need PASS). Refuse PARTIAL/NOT_RUN soft-ok.
-  when: lab_is_raw | bool
-
+# Publish terminal observer status before fail-closed asserts so FAIL/PARTIAL/NOT_RUN
+# are not left looking like a live success when Ansible aborts.
 - name: Refresh observer status with terminal summary
   ansible.builtin.copy:
     dest: "{{ lab_state_root }}/observer/status.json"
@@ -362,3 +347,20 @@
     owner: "{{ lab_service_user }}"
     group: "{{ lab_service_user }}"
     mode: "0640"
+
+- name: Fail closed when any host summary is FAIL
+  ansible.builtin.assert:
+    that:
+      - summary_eval.stdout != 'FAIL'
+    fail_msg: >-
+      Profile {{ lab_profile }} host {{ inventory_hostname }} role {{ lab_role }}
+      ended FAIL (detail in summary.json). Refuse soft-ok on Ansible success.
+
+- name: Fail closed when raw profile is not PASS
+  ansible.builtin.assert:
+    that:
+      - summary_eval.stdout == 'PASS'
+    fail_msg: >-
+      Raw profile {{ lab_profile }} host {{ inventory_hostname }} ended
+      {{ summary_eval.stdout }} (need PASS). Refuse PARTIAL/NOT_RUN soft-ok.
+  when: lab_is_raw | bool
