@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibe24-live-twin"
+version = "0.1.0"
+description = "Live BACnet + FastAPI HTML twin with surrogate residential RTU plant"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+bacnet = ["bacpypes3>=0.0.98"]
+dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.12", "bacpypes3>=0.0.98"]
+
+[project.scripts]
+vibe24 = "vibe24.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
