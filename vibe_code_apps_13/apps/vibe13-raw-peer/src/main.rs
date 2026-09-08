@@ -165,13 +165,14 @@ async fn main() -> Result<()> {
     let deadline = Instant::now()
         + Duration::from_millis(args.timeout_ms.saturating_mul(args.exchanges as u64 + 5));
 
-    for seq in 1..=args.exchanges {
-        if Instant::now() > deadline {
-            fail += 1;
-            warn!(seq, "total deadline exceeded");
-            break;
-        }
-        if initiator {
+    if initiator {
+        // Probe: fixed exchange budget (one loop iteration == one ping).
+        for seq in 1..=args.exchanges {
+            if Instant::now() > deadline {
+                fail += 1;
+                warn!(seq, "total deadline exceeded");
+                break;
+            }
             let payload = format!("ping-{seq}").into_bytes();
             let frame = encode(seq, &payload);
             port.write_all(&frame).await?;
@@ -203,7 +204,16 @@ async fn main() -> Result<()> {
                 warn!(seq, "timeout waiting reply");
             }
             tokio::time::sleep(Duration::from_millis(args.interval_ms)).await;
-        } else {
+        }
+    } else {
+        // Server: idle pre-ping waits must NOT burn the exchange budget.
+        // (A `for 1..=N` loop + `continue` on idle caused consistent 99/100 PASS/FAIL.)
+        while ok + fail < args.exchanges {
+            if Instant::now() > deadline {
+                fail += 1;
+                warn!(ok, fail, "total deadline exceeded");
+                break;
+            }
             let wait_until =
                 Instant::now() + Duration::from_millis(args.timeout_ms.saturating_mul(5));
             let mut handled = false;
@@ -228,11 +238,8 @@ async fn main() -> Result<()> {
                 tokio::task::yield_now().await;
             }
             if !handled {
-                // idle; keep waiting for initiator exchanges
+                // Still waiting for initiator; do not count against exchanges.
                 continue;
-            }
-            if ok + fail >= args.exchanges {
-                break;
             }
         }
     }
