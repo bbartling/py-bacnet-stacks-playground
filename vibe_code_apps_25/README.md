@@ -1,8 +1,8 @@
 # Vibe 25 — Open-FDD PID hunting tutorial
 
-Jupyter walkthrough of **PID-HUNT-1** from [`open-fdd`](https://pypi.org/project/open-fdd/) (pandas oracle): generate synthetic cooling-valve AO traces, learn the rolling TV / span / cycles / reversals math, run `hunting_fault_mask`, and plot how those metrics AND into a fault.
+For **controls technicians**: is a cooling valve settling, or hunting?
 
-This is a **screening** demo — suspected control-output hunting, not proof of a bad PID alone. Distinct from cookbook **FC4** (operating-state oscillation).
+Jupyter walkthrough of Open-FDD **PID-HUNT-1** with synthetic sine-wave AO data, plain-English TV/span explanation, and zoomed cycle callouts. Helper code is in importable Python modules (`vibe25.synth`, `vibe25.detect`, `vibe25.plotting`).
 
 ## Quick start
 
@@ -12,27 +12,13 @@ pip install -e ".[dev]"
 jupyter notebook notebooks/01_pid_hunt_tutorial.ipynb
 ```
 
-Or execute headlessly:
-
-```powershell
-jupyter nbconvert --to notebook --execute notebooks/01_pid_hunt_tutorial.ipynb --inplace
-python -m pytest
-```
-
-Optional tip-of-tree Open-FDD:
-
-```powershell
-pip install -e "C:\Users\ben\Documents\open-fdd[oracle]"
-```
-
 ## Layout
 
 | Path | Role |
 |------|------|
-| [`notebooks/01_pid_hunt_tutorial.ipynb`](notebooks/01_pid_hunt_tutorial.ipynb) | Tutorial |
-| [`src/vibe25/synth.py`](src/vibe25/synth.py) | Healthy vs hunting AO generators |
-| [`tests/`](tests/) | Detector smoke tests |
+| [`notebooks/01_pid_hunt_tutorial.ipynb`](notebooks/01_pid_hunt_tutorial.ipynb) | Short tech-facing tutorial |
+| [`src/vibe25/synth.py`](src/vibe25/synth.py) | Healthy + hunting generators |
+| [`src/vibe25/detect.py`](src/vibe25/detect.py) | `run_pid_hunt` wrapper |
+| [`src/vibe25/plotting.py`](src/vibe25/plotting.py) | Overview + TV zoom plots |
 
-## Defaults (Open-FDD `PidHuntingParams`)
-
-Rolling **1h** window; fault when coverage ≥ 80%, span ≥ 20%, TV ≥ 500 %-pts, equivalent cycles ≥ 2.5, and reversals ≥ 4.
+Screening demo only — not proof of bad PID alone.
