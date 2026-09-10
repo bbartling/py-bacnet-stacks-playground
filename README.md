@@ -64,6 +64,8 @@ Days **1–27** lead with Python + BACnet (BAC0 / BACpypes3) and a Rust companio
 | **Demand twin (app 21)** | Liberty cooling DR twin *(completed reference)* | [`vibe_code_apps_21/`](vibe_code_apps_21/) |
 | **Lakeside ES (app 22)** | Lakeside heating DSM / grid-search stack *(completed reference)* | [`vibe_code_apps_22/`](vibe_code_apps_22/) |
 | **Residential DSM lab (app 23)** | Heat-pump home DR + thermostat/battery grid search | [`vibe_code_apps_23/`](vibe_code_apps_23/) |
+| **Live BACnet twin (app 24)** | Priority-array RTU twin + BAS mimic (`SURROGATE_PLANT_V1`) | [`vibe_code_apps_24/`](vibe_code_apps_24/) |
+| **PID hunting tutorial (app 25)** | Open-FDD PID-HUNT-1 notebook + synthetic AO math | [`vibe_code_apps_25/`](vibe_code_apps_25/) |
 
 </details>
 
@@ -99,6 +101,8 @@ Hands-on milestones from BACnet scripting to cloud FDD. Checkpoints **1–10** a
 | **21** | **[Demand-management twin](vibe_code_apps_21/)** | Liberty Building cooling DR: G14 Twin → hourly E+ farm → sklearn `facility_kw`. | Done |
 | **22** | **[Lakeside ES (unified)](vibe_code_apps_22/)** | Lakeside Elementary heating DSM / grid-search stack. | Done |
 | **23** | **[Residential heat-pump DSM](vibe_code_apps_23/)** | Hypothetical heat-pump home: DR demo, TOU thermostat grid, battery co-optimization. | **Active** |
+| **24** | **[Live BACnet + physics twin](vibe_code_apps_24/)** | FastAPI BAS mimic + optional BACnet; priority-8 UI writes; `SURROGATE_PLANT_V1`. | **Active** |
+| **25** | **[Open-FDD PID hunting tutorial](vibe_code_apps_25/)** | Jupyter + PyPI `open-fdd`: synthetic AO hunting, PID-HUNT-1 math, AND-gate viz. | **Active** |
 
 </details>
 
