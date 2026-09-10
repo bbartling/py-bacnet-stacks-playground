@@ -7,6 +7,7 @@ from .synth import (
     POLL_SECONDS,
     healthy_cooling_valve,
     hunting_cooling_valve,
+    hunting_midrange_sine_cooling_valve,
     hunting_sine_cooling_valve,
 )
 
@@ -18,6 +19,7 @@ __all__ = [
     "fault_summary",
     "healthy_cooling_valve",
     "hunting_cooling_valve",
+    "hunting_midrange_sine_cooling_valve",
     "hunting_sine_cooling_valve",
     "plot_healthy_vs_hunting",
     "plot_valve_overview",

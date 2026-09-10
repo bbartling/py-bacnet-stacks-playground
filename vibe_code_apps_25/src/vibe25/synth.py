@@ -53,9 +53,23 @@ def hunting_sine_cooling_valve(
     amplitude_pct: float = 40.0,
     period_samples: int = 6,
 ) -> pd.DataFrame:
-    """High-amplitude sine AO — also trips defaults; useful for continuous-travel viz."""
+    """Sine AO hunting. Default ~10–90%. Mid-range example: center=55, amplitude=15 → ~40–70%."""
     idx = _index(hours)
     t = np.arange(len(idx), dtype=float)
     series = center_pct + amplitude_pct * np.sin(2.0 * np.pi * t / max(period_samples, 2))
     series = np.clip(series, 0.0, 100.0)
     return pd.DataFrame({COLUMN: series}, index=idx)
+
+
+def hunting_midrange_sine_cooling_valve(
+    *,
+    hours: float = 3.0,
+    period_samples: int = 6,
+) -> pd.DataFrame:
+    """Hunting that never goes near 0 or 100 — stays roughly 40–70% and still trips defaults."""
+    return hunting_sine_cooling_valve(
+        hours=hours,
+        center_pct=55.0,
+        amplitude_pct=15.0,
+        period_samples=period_samples,
+    )
