@@ -25,20 +25,37 @@ class SurrogatePlant:
     fan_kw: float = 0.45
     deadband_f: float = 0.5
     sim_minute: int = 0
+    month: int = 7
+    day: int = 15
 
     def reset(self, *, oa_f: float, zone_f: float) -> None:
         self.oa_f = float(oa_f)
         self.zone_f = float(zone_f)
         self.sim_minute = 0
 
+    def sim_clock(self) -> dict[str, int | str]:
+        minute_of_day = int(self.sim_minute) % (24 * 60)
+        hour = minute_of_day // 60
+        minute = minute_of_day % 60
+        return {
+            "month": int(self.month),
+            "day": int(self.day),
+            "hour": hour,
+            "minute": minute,
+            "label": f"{self.month:02d}/{self.day:02d} {hour:02d}:{minute:02d}",
+        }
+
     def step(self, dt_hours: float, commands: dict[str, float]) -> dict[str, float]:
         dt = max(float(dt_hours), 1e-6)
         enable = float(commands.get("UNIT-ENABLE", 1.0)) >= 0.5
         occ = float(commands.get("OCC-OVRD", 1.0)) >= 0.5
-        heat_sp = float(commands.get("HEAT-SP", 71.0))
-        cool_sp = float(commands.get("COOL-SP", 73.0))
-        if heat_sp > cool_sp - 1.0:
-            cool_sp = heat_sp + 2.0
+        # Prefer derived effective SPs from ZONE-SP + DEADBAND (runtime injects these).
+        heat_sp = float(commands.get("HEAT-EFF", commands.get("HEAT-SP", 71.0)))
+        cool_sp = float(commands.get("COOL-EFF", commands.get("COOL-SP", 73.0)))
+        if heat_sp > cool_sp - 0.5:
+            cool_sp = heat_sp + 1.0
+        # Control deadband inside the effective band (small).
+        ctrl_db = 0.3
 
         # Mild diurnal OA drift for “looks alive” without weather file.
         self.sim_minute = (self.sim_minute + max(1, int(round(dt * 60.0)))) % (24 * 60)
@@ -55,12 +72,12 @@ class SurrogatePlant:
         fan = 0.0
 
         if enable:
-            if self.zone_f < heat_sp - self.deadband_f:
+            if self.zone_f < heat_sp - ctrl_db:
                 mode = 1
                 thermal_kw = self.heat_cap_kw
                 elec_kw = thermal_kw / max(self.heat_cop, 0.1) + self.fan_kw
                 fan = 1.0
-            elif self.zone_f > cool_sp + self.deadband_f:
+            elif self.zone_f > cool_sp + ctrl_db:
                 mode = 2
                 thermal_kw = -self.cool_cap_kw
                 elec_kw = self.cool_cap_kw / max(self.cool_cop, 0.1) + self.fan_kw

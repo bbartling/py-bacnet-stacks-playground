@@ -24,6 +24,14 @@ class RelinquishBody(BaseModel):
     priority: int = Field(default=8, ge=1, le=16)
 
 
+class SpeedBody(BaseModel):
+    realtime_factor: float = Field(..., ge=1, le=60, description="1..60 (wall sec/sim-min = 60/factor)")
+
+
+class PauseBody(BaseModel):
+    paused: bool
+
+
 def create_app(runtime: TwinRuntime | None = None, *, auto_tick: bool = True) -> FastAPI:
     rt = runtime or TwinRuntime()
 
@@ -39,7 +47,7 @@ def create_app(runtime: TwinRuntime | None = None, *, auto_tick: bool = True) ->
 
     @app.get("/healthz")
     def healthz() -> dict:
-        return {"ok": True, "claim": "SURROGATE_PLANT_V1"}
+        return {"ok": True, "claim": rt.claim}
 
     @app.get("/status")
     def status() -> dict:
@@ -47,7 +55,12 @@ def create_app(runtime: TwinRuntime | None = None, *, auto_tick: bool = True) ->
 
     @app.get("/points")
     def points() -> dict:
-        return {"points": rt.bus.snapshot()}
+        rt._publish_effective_setpoints()
+        return {
+            "points": rt.bus.snapshot(),
+            "claim": rt.claim,
+            "clock": rt.sim_clock(),
+        }
 
     @app.post("/points/{name}/write")
     def write_point(name: str, body: WriteBody) -> dict:
@@ -57,12 +70,15 @@ def create_app(runtime: TwinRuntime | None = None, *, auto_tick: bool = True) ->
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        rt._publish_effective_setpoints()
         state = rt.bus.get(name)
         return {
             "name": name,
             "present_value": present,
             "winning_priority": state.winning_priority(),
             "winning_source": state.winning_source(),
+            "heat_eff": rt.bus.present("HEAT-EFF"),
+            "cool_eff": rt.bus.present("COOL-EFF"),
         }
 
     @app.post("/points/{name}/relinquish")
@@ -73,18 +89,43 @@ def create_app(runtime: TwinRuntime | None = None, *, auto_tick: bool = True) ->
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        rt._publish_effective_setpoints()
         state = rt.bus.get(name)
         return {
             "name": name,
             "present_value": present,
             "winning_priority": state.winning_priority(),
             "winning_source": state.winning_source(),
+            "heat_eff": rt.bus.present("HEAT-EFF"),
+            "cool_eff": rt.bus.present("COOL-EFF"),
         }
 
     @app.post("/tick")
     def manual_tick(sim_minutes: float = 1.0) -> dict:
         sensors = rt.tick(sim_minutes)
         return {"sensors": sensors, "status": rt.status()}
+
+    @app.post("/speed")
+    def set_speed(body: SpeedBody) -> dict:
+        try:
+            clock = rt.set_speed(body.realtime_factor)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"ok": True, "clock": clock, "claim": rt.claim}
+
+    @app.post("/pause")
+    def set_pause(body: PauseBody) -> dict:
+        clock = rt.set_paused(body.paused)
+        return {"ok": True, "clock": clock}
+
+    @app.post("/step")
+    def step_once(sim_minutes: float = 1.0) -> dict:
+        """Advance one (or N) sim-minutes while paused — for inspecting mid-sim SP changes."""
+        was = rt.paused
+        rt.paused = True
+        sensors = rt.tick(sim_minutes)
+        rt.paused = was
+        return {"sensors": sensors, "clock": rt.sim_clock()}
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

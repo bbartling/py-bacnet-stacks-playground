@@ -134,13 +134,41 @@ h1 span { color: var(--teal); }
   text-transform: uppercase;
   font-family: var(--mono);
 }
-.chip .v {
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--teal);
-  margin-top: 2px;
+.chip.clock .v { color: var(--amber); letter-spacing: 0.04em; }
+
+.speed-ctrl .speed-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 8px;
 }
+.speed-ctrl .radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--txt);
+  cursor: pointer;
+}
+.speed-ctrl .radio input {
+  accent-color: var(--teal);
+}
+.speed-ctrl input[type="range"] {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: var(--teal);
+}
+.speed-actions { margin-top: 8px; }
+.ctrl.readonly .eff-row {
+  display: flex;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--mut);
+  margin-top: 6px;
+}
+.ctrl.readonly .eff-row b { color: var(--amber); }
 
 .theme-toggle {
   border: 1px solid var(--line2);
