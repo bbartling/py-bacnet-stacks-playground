@@ -1,45 +1,45 @@
 # Vibe 24 — Live BACnet + physics twin
 
-FastAPI HTML BAS graphic + optional BACpypes3 device, sharing a BACnet-style **priority array** PointBus and a **surrogate** residential RTU plant (`SURROGATE_PLANT_V1`).
+FastAPI HTML BAS graphic + optional BACpypes3 device, sharing a BACnet-style **priority array** PointBus and either a **surrogate** plant or a **vibe23 EnergyPlus residential day** stream.
 
-Commands (HEAT-SP / COOL-SP / UNIT-ENABLE / …) update **instantly**. Zone temperature and power update on each plant tick (default: **1 wall-second ≈ 1 sim-minute**).
+**Thermostat model:** writable `ZONE-SP` + `DEADBAND` → read-only `HEAT-EFF` / `COOL-EFF`.
 
-This is **not** EnergyPlus. A later milestone can swap the plant for E+ co-sim using the vibe 23 residential IDF.
+Commands update **instantly**. Sensors update on **1 sim-minute** ticks (default **~5×** realtime; live slider 1–60×, pause/step).
+
+| Claim | How |
+|-------|-----|
+| `SURROGATE_PLANT_V1` | default `vibe24 serve` |
+| `ENERGYPLUS_RESIDENTIAL_V1` | `--plant eplus` + native EP 26.1 + vibe23 |
+
+Not Guideline 14 calibrated.
 
 ## Quick start
 
-```powershell
+```bash
 cd vibe_code_apps_24
-pip install -e ".[dev]"
+pip install -e ".[dev,bacnet]"
 vibe24 serve
 ```
 
 Open http://127.0.0.1:8024/
 
-- Write setpoints from the graphic → **priority 8**
-- Relinquish 8 → falls back to default (priority 16)
-- Point table shows winning priority / source
-
-### Optional BACnet (Linux lab)
+### EnergyPlus + BACnet (Linux lab)
 
 ```bash
-pip install -e ".[bacnet]"
-vibe24 serve --bacnet -- --address <iface>/24:47808 --name TwinRTU --instance 24001
+pip install -e ../vibe_code_apps_23
+export ENERGYPLUS_EXE=$HOME/EnergyPlus-26-1-0/energyplus
+vibe24 serve --host 0.0.0.0 --port 8024 --plant eplus --bacnet -- \
+  --address 192.168.204.55/24:47808 --name TwinRTU --instance 24001
 ```
 
-Uses the same BACpypes3 flags as `scripts/fake_ahu.py`. Windows bind often fails; use the HTML UI alone there.
+## Docs
 
-## Architecture
-
-```
-BACnet clients ──┐
-                 ├──► PointBus (prio 1–16) ◄── FastAPI / HTML (prio 8)
-SurrogatePlant ──┘         ▲
-     ticks every N wall-sec │ publishes SENSOR points
-```
+- [`AGENTS.md`](AGENTS.md) — agent rules
+- [`vibe24_agent_spec/SPEC.md`](vibe24_agent_spec/SPEC.md) — construction SoT
 
 ## Tests
 
-```powershell
+```bash
 python -m pytest
+python -m ruff check src tests
 ```
