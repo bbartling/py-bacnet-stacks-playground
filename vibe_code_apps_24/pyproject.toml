@@ -15,6 +15,8 @@ dependencies = [
 
 [project.optional-dependencies]
 bacnet = ["bacpypes3>=0.0.98"]
+# Install sibling vibe23 separately: pip install -e ../vibe_code_apps_23
+eplus = ["numpy>=2.0", "pandas>=2.2"]
 dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.12", "bacpypes3>=0.0.98"]
 
 [project.scripts]

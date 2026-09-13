@@ -18,6 +18,18 @@ Build a trustworthy Linux BACnet/IP-to-MS/TP router appliance in three evidence-
 
 Extended orientation for AI sessions: [`vibe13_agent_spec/AGENTS.md`](vibe13_agent_spec/AGENTS.md) — Streamlit lab vs Rust appliance UI, supervisory metrics, JSON contracts.
 
+## Product appliance moved (2026-09-13)
+
+BIP↔physical MS/TP **source G7/G8** and the persistent two-Pi lab live in
+**https://github.com/bbartling/diy-bacnet-router**, not as further Vibe13 Phase 3
+product work. This tree’s `mstp-mini-device` is the **fixture** (lab pin
+`12e7d232b23023e1bb06da7b75972d79ca584cf9`).
+
+Shared resume skill (topology, pins, Ansible, daily rusty-bacnet MS/TP watch):
+[`../../agentic_ai/skills/diy-bacnet-router-two-pi/SKILL.md`](../../agentic_ai/skills/diy-bacnet-router-two-pi/SKILL.md).
+Next product gate after resume: **exact-image / Buildroot** G7/G8 on the same
+topology — do not claim it from Pi OS source runs.
+
 ## Phase boundaries
 
 ### Phase 1
