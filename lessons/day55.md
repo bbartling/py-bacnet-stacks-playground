@@ -1,73 +1,53 @@
-# Day 55 – From Network Bytes to Graphs: Why RDF?
+# Day 55 — Bounded concurrency before async
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 54](day54.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 56](day56.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–54, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-After protocols, step back: **triples** model relationships BACnet object numbers and Haystack tags can't merge alone. Add one HVAC triple in **oxrdf** and mirror it in **rdflib**.
+Serve several TCP clients without allowing unlimited threads or shared-state corruption.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day55/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-A **triple**: `(subject, predicate, object)`
+A thread per connection is easy to understand but needs admission control. Shared mutable state needs synchronization, while socket waits should not hold a global lock that blocks everyone else. A connection limit bounds one resource, not every buffer or queued task. Shutdown should stop accepting new work and account for workers that are still active.
 
-```
-ex:AHU1  brick:hasPoint  ex:OA-T .
-ex:OA-T  rdf:type        brick:Outside_Air_Temperature_Sensor .
-```
+## Tiny example
 
-```rust
-use oxrdf::{Graph, NamedNode, Triple};
+A budget might be four concurrent clients, 1024 bytes per message, and a three-second idle deadline. These are separate limits; multiplying them does not automatically bound every allocation in the process.
 
-fn main() {
-    let mut g = Graph::new();
-    let s = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
-    let p = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
-    let o = NamedNode::new("http://example.com/bldg#OA-T").unwrap();
-    g.insert(Triple::new(s, p, o));
-    println!("triples: {}", g.len());
-}
-```
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Brick / Haystack / **ASHRAE 223P** interoperability targets **graphs**, not CSV columns alone.
+- Extend your Rust framed service to support at most four active clients with a documented overload response or immediate refusal policy.
+- Maintain a shared completed-request counter and keep blocking socket operations outside the counter lock.
+- Join worker threads on bounded shutdown and report unfinished work honestly.
 
-## Mini Examples
+## Experiment
 
-- Draw three circles: BACnet, Haystack, RDF—arrows for "maps to".
-- List 3 predicates you'd want between AHU and VAV.
+Connect four slow clients and then a fifth. Verify that overload behavior is predictable and an unrelated completed client still updates the counter.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Convert a Day 53 mapping row into two triples (same IRIs in both stacks).
-2. Why global IRIs beat bare strings `"OA-T"`?
-3. Add a second triple: `ex:OA-T rdf:type brick:Outside_Air_Temperature_Sensor`.
+## Acceptance checks
 
-## Key Takeaway
+- Active worker count never exceeds the configured limit.
+- A stalled peer cannot hold the global state lock through network I/O.
+- Shutdown has a documented deadline and outcome.
 
-**RDF is the semester cap after networking**—same triple shape in oxrdf and rdflib.
+## Optional Python companion
 
----
+Optionally launch concurrent peer processes and inspect the Rust server metrics.
 
-## Python companion — One triple in rdflib
+## Stretch and reflection
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+Which costs would async remove, and which resource limits would still be necessary?
 
-```python
-from rdflib import Graph, Namespace, URIRef
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-
-g = Graph()
-g.add((EX.AHU1, BRICK.hasPoint, EX["OA-T"]))
-print(len(g))  # 1
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| `Graph::new()` + `insert` | `Graph()` + `add` |
-| `NamedNode::new(...)` | `Namespace` / `URIRef` |
-| same `ex:` / `brick:` IRIs | same prefixes |
-
-**Takeaway:** One AHU→point edge is enough to start—practice the shape in both stacks today.
+[Previous: Day 54](day54.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 56](day56.md)

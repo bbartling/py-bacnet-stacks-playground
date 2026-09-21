@@ -1,3 +1,5 @@
+> **Optional older reference material.** The active Rust networking course is [Days 1–112](../../INDEX.md). Historical day numbers and example commands below are not the current syllabus; inspect code and configuration before use. This material may contain implementation spoilers.
+
 # Day 54 — Haystack capstone lives here
 
 The polished **niagara-read** / **`nhaystack-smoke`** tutorial is maintained in vibe code app 17:

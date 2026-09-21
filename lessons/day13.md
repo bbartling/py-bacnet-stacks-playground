@@ -1,97 +1,59 @@
-# Day 13 – Tuples & Sets
+# Day 13 — Tuples, sets and identity
+
+[Previous: Day 12](day12.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 14](day14.md)
+
+**Week 2 · 45–90 minutes.** Prerequisites: Days 1–12, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Understand two additional built‑in container types—**tuples** and **sets**—and learn when to use them instead of lists. You’ll create tuples for fixed collections of values and sets for deduplicating items and performing basic membership tests.
+Distinguish an observation from the identity used to deduplicate it.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day13/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-A **tuple** is an ordered, immutable sequence of values. Unlike lists, tuples cannot be modified after creation (you can’t append or assign to an index). Tuples are created by separating items with commas, and parentheses are optional in most contexts. Tuples are useful when the number and order of elements should not change—for example, representing a point in 2‑D space or a date as `(year, month, day)`. Python’s `tuple()` function can also convert other iterables into a tuple.
+A tuple groups a small fixed number of values; a set records uniqueness. Choosing the key is a design decision. Two observations with the same label can come from different endpoints, and one endpoint can be observed many times. Real BACnet identity and network addressing are different concepts; keep this lesson generic rather than assuming an IP address permanently identifies a device.
 
-A **set** is an unordered collection of *unique* elements. Sets are created with curly braces `{}` or by calling `set()` with an iterable. Unlike lists, sets automatically remove duplicates and support efficient membership tests and mathematical operations like union, intersection and difference. The data structures chapter of the Python tutorial notes that *sets are unordered collections with no duplicate elements* and can be created using braces or the `set()` constructor.
-
-## How to Use It
-
-**Creating tuples:**
-
-```python
-# a 3‑element tuple representing a coordinate
-coord = (10, 20, 30)
-
-# parentheses are optional when the context is unambiguous
-version = 3, 10, 2
-
-# converting a list to a tuple
-values = [1, 2, 3]
-t = tuple(values)
-```
-
-Tuples support indexing and slicing like lists, but you cannot assign to them since they are immutable. Attempting `coord[0] = 5` will raise a `TypeError`.
-
-**Creating sets:**
-
-```python
-# from a literal (duplicates are removed)
-fruit_set = {"apple", "banana", "apple", "orange"}
-
-# from an iterable
-letters = set("hello")
-
-# deduplicating a list
-numbers = [1, 2, 2, 3, 3, 3]
-unique = set(numbers)
-```
-
-Use set operations to combine or compare sets:
-
-```python
-a = {"red", "green"}
-b = {"green", "blue"}
-a.union(b)        # {'red', 'green', 'blue'}
-a.intersection(b) # {'green'}
-a.difference(b)   # {'red'}
-```
-
-## Why This Matters
-
-Tuples and sets are lightweight alternatives to lists and dictionaries for simple data. Tuples help you group related values without worrying about accidental changes; sets make it trivial to remove duplicates, test membership and combine collections. In building automation, you might use a tuple to represent an HVAC zone’s coordinates or a set to collect all unique device identifiers discovered from a scan.
-
-## Mini Examples
-
-- Represent the dimensions of a room as a tuple: `dimensions = (12, 10)`.
-- Convert a list of sensor names into a set to find unique sensors.
-- Use set intersection to find which rooms are served by both Air Handler A and B.
-
-## Micro Exercises
-
-1. Create a tuple called `date` containing three numbers: year, month and day. Try printing `date[1]` (the month).
-2. Convert the list `['hi', 'hi', 'hello', 'hello', 'hola']` into a set and print the result.
-3. Make two sets `x = {1, 2, 3, 4}` and `y = {3, 4, 5}`. Compute and print `x.union(y)`, `x.intersection(y)` and `x.difference(y)`.
-
-## Key Takeaway
-
-Tuples group a fixed number of values in order and cannot be changed, while sets hold unordered unique elements and support fast membership tests and set operations.
-
----
-
-## Rust companion — Tuples and arrays
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let point = (5007u32, "SAT", 72.5); // tuple, fixed types
-    println!("device={} name={} pv={}", point.0, point.1, point.2);
-
-    let arr = [1, 2, 3]; // array, fixed length
-    println!("arr[0]={}", arr[0]);
+    use std::collections::HashSet;
+    let labels: HashSet<&str> = ["a", "b", "a"].into_iter().collect();
+    println!("distinct={}", labels.len());
 }
 ```
 
-| Python | Rust |
-|--------|------|
-| `(1, "a")` | `(1, "a")` tuple |
-| list | `Vec` (growable) or array `[T; N]` (fixed) |
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** Tuples group mixed types; arrays are fixed-size.
+## Coding challenge
 
+- Represent observations as `(label, textual_address)` tuples.
+- Report observation count, unique labels, and unique addresses as three separate values.
+- Include two labels sharing one address and one label appearing at two addresses.
+
+## Experiment
+
+Deduplicate first by label and then by full tuple. Explain what evidence each operation discards.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- The three counts can differ and are labeled.
+- Identical tuples collapse predictably.
+- No deduplication policy is described as universally correct.
+
+## Optional Python companion
+
+Use tuple keys in a Python set and compare the same three counts.
+
+## Stretch and reflection
+
+What extra field would you need to distinguish observations over time?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-2) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 12](day12.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 14](day14.md)

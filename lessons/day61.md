@@ -1,86 +1,53 @@
-# Day 61 – Haystack Tags vs Brick Graphs
+# Day 61 — Backend selection and health policy
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 60](day60.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 62](day62.md)
+
+**Week 9 · 45–90 minutes.** Prerequisites: Days 1–60, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Compare **Haystack tag dictionaries** (Zinc/CSV) with **Brick RDF graphs**—emit the same triples from a row in both stacks.
+Route new TCP connections predictably without replaying existing streams.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day61/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Haystack row (conceptual):
+A connection-level routing decision chooses a backend before opaque forwarding begins. A health check is evidence about a particular probe at a particular time, not a promise that the next request succeeds. New connections may choose another healthy backend; an existing byte stream cannot be moved safely without an application protocol that supports it. Configuration needs validation before listeners become active.
 
-```
-id,dis,equipRef,curVal,unit
-@ahu1.oa-t,"OA Temp",@ahu1,55.3,°F
-```
+## Tiny example
 
-Brick graph (target triples):
+Example configuration meaning: listener A selects backend A; listener B selects backend B. Round-robin within a backend group is a later extension, not required for a useful traffic switch.
 
-```
-ex:ahu1-oa-t rdf:type brick:Outside_Air_Temperature_Sensor .
-ex:ahu1 brick:hasPoint ex:ahu1-oa-t .
-```
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-```rust
-use oxrdf::{Graph, NamedNode, Triple, vocab::rdf};
+## Coding challenge
 
-fn haystack_row_to_graph(id_local: &str, equip_local: &str) -> Graph {
-    let mut g = Graph::new();
-    let point = NamedNode::new(format!("http://example.com/bldg#{id_local}")).unwrap();
-    let equip = NamedNode::new(format!("http://example.com/bldg#{equip_local}")).unwrap();
-    let ty = NamedNode::new(
-        "https://brickschema.org/schema/Brick#Outside_Air_Temperature_Sensor",
-    ).unwrap();
-    let hp = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
-    g.insert(Triple::new(point.clone(), rdf::TYPE, ty));
-    g.insert(Triple::new(equip, hp, point));
-    g
-}
-```
+- Support two explicit listener-to-backend mappings and reject duplicate listeners or invalid endpoints.
+- Apply a bounded connect timeout and an observable unavailable-backend outcome.
+- If adding health checks, cap check frequency and outstanding probes; state whether the check proves TCP acceptance or application health.
 
-## Why This Matters
+## Experiment
 
-Niagara speaks Haystack; analytics ontologies speak Brick—**edge services translate**.
+Stop backend A while B remains active. Verify that B traffic continues and an existing A connection is not replayed to B.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- Convert one golden Zinc row to 2–3 triples; serialize or print both sides.
-- Tags not in Brick—optional `ex:tag` literal triples.
+## Acceptance checks
 
-## Micro Exercises
+- Routing is determined by validated configuration.
+- A failed backend does not stall unrelated listeners.
+- In-flight stream retry is not automatic.
 
-1. Table: 3 things Haystack does well vs 3 things Brick does well.
-2. Implement `haystack_row_to_*` returning at least the two triples above.
-3. Where does rusty-haystack stop and RDF begin?
+## Optional Python companion
 
-## Key Takeaway
+Optionally launch identifiable test backends that return different fixed labels.
 
-**Tags for ops/runtime; graphs for mergeable semantics**—you need both in modern BAS stacks.
+## Stretch and reflection
 
----
+Add round-robin selection for new connections and explain how you would test fairness without assuming exact OS scheduling.
 
-## Python companion — Same row → same triples
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-9) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph, Namespace, RDF
-
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-
-row = {"id": "ahu1-oa-t", "equipRef": "ahu1"}
-g = Graph()
-g.add((EX[row["id"]], RDF.type, BRICK.Outside_Air_Temperature_Sensor))
-g.add((EX[row["equipRef"]], BRICK.hasPoint, EX[row["id"]]))
-print(len(g))  # 2 — same as oxrdf
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| `haystack_row_to_graph` | dict row → `g.add` ×2 |
-| `rdf:type` + `brick:hasPoint` | same IRIs |
-| edge bridge story | same mapping shape |
-
-**Takeaway:** Haystack rows are dicts; Brick is triples—map once, insert in both stacks.
+[Previous: Day 60](day60.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 62](day62.md)

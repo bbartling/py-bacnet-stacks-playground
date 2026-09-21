@@ -1,78 +1,58 @@
-# Day 31 – Functions, Option & Result
+# Day 31 — Routes, next hops and ARP
+
+[Previous: Day 30](day30.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 32](day32.md)
+
+**Week 5 · 45–90 minutes.** Prerequisites: Days 1–30, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Write reusable functions and handle **missing data** (`Option`) and **errors** (`Result`)—the Rust patterns every network client uses.
+Predict the chosen route and next-hop address before reading a capture.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day31/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```rust
-fn parse_pv(text: &str) -> Result<f64, std::num::ParseFloatError> {
-    text.trim().parse::<f64>()
-}
+IP routing chooses a next hop; Ethernet delivery uses a local destination MAC. A remote destination IP normally remains the final host even while the frame destination is a gateway. Longest-prefix selection chooses among matching routes, followed by relevant policy and metrics. ARP resolves IPv4 neighbors on a link; it does not resolve the MAC of every remote host on the internet.
 
-fn first_ok(values: &[Option<f64>]) -> Option<f64> {
-    values.iter().find_map(|v| *v)
-}
+## Tiny example
 
-fn main() {
-    match parse_pv("72.5") {
-        Ok(v) => println!("pv = {v}"),
-        Err(e) => eprintln!("bad pv: {e}"),
-    }
-}
+```text
+192.0.2.0/24  -> on-link
+198.51.100.0/24 -> gateway 192.0.2.1
+0.0.0.0/0 -> gateway 192.0.2.254
 ```
+This is a teaching table; do not install it on your workstation.
 
-- **`Option<T>`**: `Some(x)` or `None`
-- **`Result<T, E>`**: `Ok(x)` or `Err(e)`
-- **`?` operator** (later): propagate errors up the call stack
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-A BACnet read can **timeout**, return **ERROR**, or give a value. Rust makes you handle that in the type system instead of `None` surprises at 2 a.m.
+- Write an offline Rust longest-prefix selector for a small route table. For equal prefixes, use a documented metric/tie policy.
+- Return selected prefix and next hop separately from the final destination.
+- Inspect `ip route get <lab-ip>` and `ip neigh` on your actual machine; compare with your simplified model and note omitted policy routing.
 
-## Mini Examples
+## Experiment
 
-- Function `c_to_f(c: f64) -> f64`
-- Return `None` when a CSV field is empty string.
+Observe a same-link and routed exchange in the isolated lab. Display filter: `arp or icmp`. If a neighbor is already cached, explain the absence of a new ARP exchange rather than treating it as a failure.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Write `fn device_label(id: u32) -> String` using `format!`.
-2. Write `parse_u32(s: &str) -> Option<u32>`.
-3. Explain in one sentence: when would you use `Option` vs `Result`?
+## Acceptance checks
 
-## Key Takeaway
+- A more-specific route wins over a default route.
+- No matching route is explicit.
+- The report distinguishes gateway IP, destination IP and link-layer destination.
 
-Network code lives on **`Result`**. Get comfortable before UDP sockets and HTTP clients.
+## Optional Python companion
 
----
+Generate route-test inputs with ipaddress; implement the primary selector in Rust.
 
-## Python companion — functions, None & errors
+## Stretch and reflection
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
+What changes with two route tables and policy rules? State why your model does not implement that yet.
 
-```python
-def parse_pv(text: str) -> float:
-    return float(text.strip())
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-5) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-def first_ok(values: list[float | None]) -> float | None:
-    for v in values:
-        if v is not None:
-            return v
-    return None
-
-try:
-    print("pv =", parse_pv("72.5"))
-except ValueError as e:
-    print("bad pv:", e)
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `Option<T>` / `None` | `T \| None` / `None` |
-| `Result<T, E>` | `try`/`except` (or return `(ok, err)`) |
-| `.parse::<f64>()` | `float(s)` raises `ValueError` |
-| `?` propagate | raise or return `None` / re-raise |
-
-**Takeaway:** A timed-out BACnet read is `None` or an exception—handle it explicitly so night-shift logs stay honest.
+[Previous: Day 30](day30.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 32](day32.md)

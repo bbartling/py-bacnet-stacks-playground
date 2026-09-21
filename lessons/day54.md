@@ -1,68 +1,53 @@
-# Day 54 – Haystack Capstone: niagara-read Tool
+# Day 54 — TCP flow, retransmission and observation limits
+
+[Previous: Day 53](day53.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 55](day55.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–53, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Ship a polished **`niagara-read`** (or your fork) with clap flags: URL, auth mode, filter, output format.
+Use packet evidence to reason about stream delivery without overclaiming the cause of delays.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day54/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Reference: [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) (`nhaystack-smoke` CLI). Capstone pointer: [`capstone/niagara-read/`](./capstone/niagara-read/README.md).
+Sequence and acknowledgement numbers describe byte positions, not application message numbers. Receive windows provide flow control; congestion control responds to conditions along the path. Retransmission can have several causes, and a single capture may miss packets or show offload artifacts. A slow reader can eventually reduce the advertised window. Nagle and delayed ACK behavior can influence latency but are not framing mechanisms.
 
-Also see upstream `rusty-haystack/demo/niagara_sample/niagara-rusty-scrape/` when using the fork.
+## Tiny example
 
-Flags to support:
+In Wireshark inspect a single `tcp.stream == N` after selecting its actual stream number. Sequence-analysis labels are analysis hints, not a proof that your program lost application data.
 
-- `--url`, `--user`, `--pass`
-- `--auth basic|scram`
-- `--filter 'point and temp'`
-- `--probe-scram` diagnostic
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-This is the Rust/network capstone before RDF—HTTP + TLS + auth + parsing in one binary.
+- Build a bounded Rust sender/receiver experiment with a fixed total byte count and configurable receiver delay.
+- Report elapsed time, bytes accepted by the application, and bytes read, without interpreting a successful write as proof of remote processing.
+- Compare normal and slow-reader runs using a small capture; cap total bytes and runtime.
 
-## Mini Examples
+## Experiment
 
-- JSON lines output for agent consumption (optional).
-- Exit code non-zero on auth failure.
+Vary only receiver pacing. If the test never fills enough buffers to expose window effects, record that limitation rather than invent a zero-window event.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. README with example command for your bench.
-2. Run tool in loop 10×—memory stable? (qualitative)
-3. Add to vibe_code_apps_17 tutorial index.
+## Acceptance checks
 
-## Wireshark Lab
+- Application byte totals match for successful runs.
+- Retransmissions are not counted as duplicate application bytes.
+- The explanation separates receive-window flow control from congestion control.
 
-One final Haystack capture during demo for portfolio zip.
+## Optional Python companion
 
-## Key Takeaway
+Optionally analyze recorded timing CSV with Python; networking remains Rust.
 
-**Field-ready Haystack CLI in Rust**—network course outcome alongside BACnet capstone.
+## Stretch and reflection
 
----
+What additional capture point would help distinguish sender behavior from capture loss?
 
-## Python companion — Thin read wrapper (conceptual)
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-# Conceptual — course deliverable is the Rust niagara-read CLI
-import argparse
-import requests
-
-p = argparse.ArgumentParser()
-p.add_argument("--url", default="https://192.168.204.11/haystack/about")
-p.add_argument("--user"); p.add_argument("--pass")
-args = p.parse_args()
-r = requests.get(args.url, auth=(args.user, args.pass), verify=False, timeout=10)
-raise SystemExit(0 if r.ok else 1)
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| clap `niagara-read` binary | argparse + requests sketch |
-| `--filter` / Zinc parse | about GET only here |
-| exit codes on auth fail | `SystemExit` on status |
-
-**Takeaway:** Flag shapes can mirror in Python; the portfolio tool is rusty-haystack + Rust CLI.
+[Previous: Day 53](day53.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 55](day55.md)

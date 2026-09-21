@@ -1,83 +1,53 @@
-# Day 59 – Graph Insert & Lookup
+# Day 59 — Cancellation, deadlines and task ownership
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 58](day58.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 60](day60.md)
+
+**Week 9 · 45–90 minutes.** Prerequisites: Days 1–58, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-**Intuition:** subject → outgoing edges. Then use **oxrdf `Graph`** insert + subject lookup—mirror with **rdflib**.
+Stop an async service without losing track of active work.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day59/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Hand-built adjacency (intuition only):
+Dropping a future cancels its further polling, but does not roll back side effects already performed. Dropping a JoinHandle does not necessarily stop the spawned task. A select branch can cancel another future, so inspect cancellation safety for the exact operation. Keep partial decoder state where it survives the waits that may be canceled. Shutdown has phases: stop admission, signal workers, then wait within a bound.
 
-```rust
-// HashMap<String, Vec<(String, String)>> — subject → (pred, obj)
-// Query: all brick:hasPoint for ex:AHU1
-```
+## Tiny example
 
-Real lab—oxrdf (after Day 58 Turtle load, or insert by hand):
+Use a paper lifecycle: `accepting -> draining -> stopped`, with a separate final outcome for forced termination. These states describe service policy, not a replacement for Tokio primitives.
 
-```rust
-use oxrdf::{Graph, NamedNode, Triple};
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-fn main() {
-    let mut g = Graph::new();
-    let ahu = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
-    let hp = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
-    let sat = NamedNode::new("http://example.com/bldg#SAT").unwrap();
-    g.insert(Triple::new(ahu.clone(), hp.clone(), sat));
+## Coding challenge
 
-    for t in g.triples_for_subject(ahu.as_ref()) {
-        if t.predicate == hp.as_ref() {
-            println!("point: {}", t.object);
-        }
-    }
-}
-```
+- Add Ctrl-C or an explicit stop signal to the Rust service. Stop accepting new connections and notify active tasks.
+- Track tasks using JoinSet or an equivalent owned collection and wait at most two seconds for draining.
+- Preserve frame decoder state across timeouts or explicitly terminate the connection; do not silently discard part of a frame and continue.
 
-## Why This Matters
+## Experiment
 
-This is your **mini query engine**—enough for Brick traversals before SPARQL (Day 63).
+Request shutdown while one client is idle and another is halfway through a frame. Report which tasks completed and which were canceled.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- Query all `brick:hasPoint` for `ex:AHU1`.
-- Count triples after loading `mini.ttl`.
+## Acceptance checks
 
-## Micro Exercises
+- Task completion is observed rather than assumed from dropped handles.
+- Shutdown duration is bounded.
+- Partial-message behavior is documented and tested.
 
-1. `types_of(g, subj)` via `rdf:type` (both stacks).
-2. Merge two graphs (insert all triples from B into A).
-3. Load Day 58 `mini.ttl` and list points of AHU1.
+## Optional Python companion
 
-## Key Takeaway
+Optionally hold a connection open from a small external peer while signaling the Rust server.
 
-**Graph = insert + match by subject/predicate**—adjacency intuition, oxrdf/rdflib for real work.
+## Stretch and reflection
 
----
+Which cleanup requires an explicit async shutdown method rather than Drop?
 
-## Python companion — Same insert + lookup
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-9) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph, Namespace, RDF
-
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-
-g = Graph()
-g.add((EX.AHU1, BRICK.hasPoint, EX.SAT))
-g.add((EX.SAT, RDF.type, BRICK.Supply_Air_Temperature_Sensor))
-
-points = list(g.objects(EX.AHU1, BRICK.hasPoint))
-print(points)  # [rdflib.term.URIRef('...#SAT')]
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| `insert` + `triples_for_subject` | `add` + `g.objects(s, p)` |
-| same AHU / hasPoint / SAT | same |
-| optional adjacency sketch first | same ops on `Graph` |
-
-**Takeaway:** Subject → edges is the query shape—run it on oxrdf and rdflib, not only dicts.
+[Previous: Day 58](day58.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 60](day60.md)

@@ -1,129 +1,59 @@
-# Day 17 – Reading & Writing Files
+# Day 17 — Files, text formats and repeatable inputs
 
-*Part II: Control Structures | Week 3*
+[Previous: Day 16](day16.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 18](day18.md)
+
+**Week 3 · 45–90 minutes.** Prerequisites: Days 1–16, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to **read from** and **write to** text files using Python's
-`open()` function and the `with` statement. By the end of this lesson
-you'll know how to process sensor logs or create simple data files.
+Read a small text file and write a result without confusing missing, empty and malformed input.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day17/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Python's built-in `open()` function returns a file object and is
-commonly called with a filename and a mode. The mode can be `'r'` for
-reading, `'w'` for writing (truncating the file), `'a'` for appending,
-or `'r+'` for reading and writing. Files are opened in text mode by
-default; add `'b'` to open in binary mode. Specify `encoding="utf-8"` for
-text files.
+Files let you repeat an experiment exactly. `read_to_string` assumes valid UTF-8 and reads the whole file; that is suitable for small trusted fixtures, not unlimited packet captures. A relative path is resolved from the process working directory, not from the Rust source file. Writing a report should not accidentally overwrite its input.
 
-When working with files, use the `with` statement so the file is
-properly closed even if an error occurs. The file object provides
-methods like `read()`, `readline()`, `readlines()`, and `write()`.
-
-## How to Use It
-
-**Writing to a file:**
-
-```python
-data = ['ZoneTemp,72', 'ZoneFlow,450', 'ZoneHumidity,45']
-
-with open('sensors.csv', 'w', encoding='utf-8') as f:
-    for line in data:
-        f.write(line + '\n')
-```
-
-**Reading a file:**
-
-```python
-with open('sensors.csv', 'r', encoding='utf-8') as f:
-    contents = f.read()
-print(contents)
-
-with open('sensors.csv', 'r', encoding='utf-8') as f:
-    for line in f:
-        print(line.strip())
-```
-
-**Appending to a file:**
-
-```python
-with open('sensors.csv', 'a', encoding='utf-8') as f:
-    f.write('ZonePressure,1.2\n')
-```
-
-**Writing CSV with the csv module:**
-
-```python
-import csv
-from datetime import date
-
-filename = 'sensors_' + str(date.today()) + '.csv'
-with open(filename, 'w', newline='', encoding='utf-8') as f:
-    writer = csv.writer(f)
-    writer.writerow(['point', 'value', 'units'])
-    writer.writerow(['ZoneTemp', 72.4, 'degF'])
-```
-
-## Why This Matters
-
-Most real-world programs read or write data. In building automation you
-may need to save sensor readings, write audit logs or import point
-definitions from CSV files. Understanding file I/O lets you work with
-text files reliably across platforms.
-
-## Mini Examples
-
-- Write a script that reads `site_scan.csv` (from your BACnet scan) and
-  prints the first five lines.
-- Create a text file `notes.txt` and append a new timestamped note each
-  time the script runs.
-- Read a configuration file line by line and ignore blank lines or lines
-  starting with `#` (comments).
-
-## Micro Exercises
-
-1. Create a file `hello.txt` containing the text "Hello, Python!". Then
-   write a script that reads the file and prints the content to the
-   console.
-2. Write a program that opens a file `numbers.txt`, reads each line as
-   an integer, sums them up and prints the total.
-3. Modify the script from exercise 2 to handle the case where the file
-   does not exist by printing a friendly message instead of crashing.
-
-## Key Takeaway
-
-Use `open()` with an appropriate mode to obtain a file object. Always
-wrap file operations in a `with` block so the file is closed
-automatically. Use the `csv` module for CSV files: `csv.writer()` and
-`csv.DictWriter()`.
-
----
-
-## Vibe Code Checkpoint 2 (Week 2–3)
-
-Your BAC0 data collection app will use the `csv` module to save readings
-to a file. Use `open()` with `'w'` or `'a'` and `csv.writer()` or
-`csv.DictWriter()`. Add **daily log rotation** — e.g. a new file per day
-like `sensors_2026-02-05.csv`. Use `datetime.date.today()` to build the
-filename. Something fancy for rotation is fine — the goal is persistent,
-organised data.
-
----
-
-## Rust companion — Read / write files
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-use std::fs;
-
 fn main() {
-    fs::write("/tmp/pv.csv", "ts,pv\n1,72.5\n").unwrap();
-    let text = fs::read_to_string("/tmp/pv.csv").unwrap();
-    println!("{text}");
+    use std::path::Path;
+    let input = Path::new("fixtures").join("sample.txt");
+    println!("reading from {}", input.display());
 }
 ```
 
-**Takeaway:** `std::fs` is the simple path. Errors are `Result` — we use `.unwrap()` in labs; Day 18 / 31 teach proper handling.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Read a supplied small UTF-8 file of one numeric value per line and display accepted/rejected line counts.
+- Write the summary to a different path. State a 64 KiB fixture limit and enforce it before accepting the whole input; a bounded read is preferable to trusting a racing metadata check.
+- Distinguish an empty file, a nonexistent file, invalid UTF-8 and an invalid number.
+
+## Experiment
+
+Run from a different working directory with the same relative input path. Then repeat with an explicit correct path and explain the result.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Source input remains unchanged.
+- The output path and input path are reported.
+- Missing and empty input have different outcomes.
+
+## Optional Python companion
+
+Compare `Path.read_text()` with binary reading on invalid UTF-8.
+
+## Stretch and reflection
+
+Explain when streaming line-by-line would be preferable and why individual line lengths still need a bound.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-3) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 16](day16.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 18](day18.md)

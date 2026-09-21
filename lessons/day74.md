@@ -1,60 +1,53 @@
-# Day 74 – Course Review: Python → Rust → Wire → Graph
+# Day 74 — APDU types, invoke IDs and tags
 
-*Week 10 · Course synthesis · Rust main + Python companion*
+[Previous: Day 73](day73.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 75](day75.md)
+
+**Week 11 · 45–90 minutes.** Prerequisites: Days 1–73, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Write a **one-page architecture doc** tying Days 1–27 Python to Days 28–73 Rust + dual-stack RDF.
+Decode a small service subset without confusing APDU headers with tagged parameters.
+
+## Before you start
+
+Offline fixtures first; isolated BACnet peers for live evidence. No occupied building network. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day74/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Sections to include:
+BACnet APDUs have different layouts for confirmed requests, unconfirmed requests, acknowledgements, errors and other outcomes. Invoke IDs correlate confirmed transactions; unconfirmed discovery does not use the same transaction header. BACnet tag headers carry type/context and length/value information, with special handling for some forms. A generic one-byte-tag assumption will break extended lengths and opening/closing tags.
 
-1. What you kept from Python BACnet intuition
-2. UDP/TCP labs and Wireshark filters you use weekly
-3. rusty-bacnet + rusty-haystack roles
-4. RDF dual-stack: **`oxrdf` (Rust)** + **`rdflib` (Python)**—same TTL / SPARQL intent
-5. Bench diagram with IPs
+## Tiny example
 
-## Why This Matters
+The supplied Who-Is fixture contains an unconfirmed request with no optional range parameters. Compare its APDU header with a confirmed ReadProperty capture; mark exactly where service parameters begin in each.
 
-Learning sticks when you **integrate**, not when you finish Day 75 and forget Day 36.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- Timeline photo: pcap + CLI output + TTL file.
-- List 5 filters from [wireshark_filters.md](./lab-scripts/wireshark_filters.md) you used.
+- Support unconfirmed Who-Is/I-Am recognition and a declared subset of ReadProperty-related APDU headers.
+- Build bounded tag inspection for the specific primitive/context forms required by your fixtures; classify unsupported extended forms explicitly.
+- Retain raw service bytes and reject incomplete lengths rather than guessing a value.
 
-## Micro Exercises
+## Experiment
 
-1. Submit `COURSE_REVIEW.md` in your lab folder ([template](./capstone/COURSE_REVIEW.md)).
-2. Re-run Day 46 + Day 54 capstones—both still work?
-3. Teach a peer one UDP vs TCP difference using your pcap.
+Truncate a tag payload and substitute a different APDU type while keeping the old bytes. Verify that header selection changes before tag interpretation.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**You speak field protocols and semantic graphs**—Python weeks were foundation; Rust + dual RDF close the loop.
+## Acceptance checks
 
----
+- Unconfirmed discovery is not assigned a fabricated invoke ID.
+- Unsupported tags are visible rather than silently skipped as known values.
+- The supported service subset is written beside the tests.
 
-## Python companion — Review outline as dict
+## Optional Python companion
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+Optionally cross-check with a pinned independent BACnet implementation.
 
-```python
-outline = {
-    "python_weeks": "BACnet intuition (Days 1–27)",
-    "wire": "UDP/TCP + Wireshark filters",
-    "drivers": "rusty-bacnet + rusty-haystack",
-    "semantics": "dual-stack rdflib + oxrdf (same TTL/SPARQL)",
-}
-for k, v in outline.items():
-    print(f"- {k}: {v}")
-```
+## Stretch and reflection
 
-| Rust (main lesson) | Python |
-|--------|--------|
-| Architecture doc across the track | dict of section bullets |
-| `oxrdf` in graph-export | `rdflib` companion path |
+Which tag forms would need to be added before decoding arbitrary constructed BACnet values?
 
-**Takeaway:** Outline in Python; ship the review that integrates wire + dual-stack graphs.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-11) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 73](day73.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 75](day75.md)

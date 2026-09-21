@@ -1,73 +1,36 @@
-# Day 49 – rusty-haystack Client Setup
+# Day 49 — Week 7 Review — UDP field messenger
 
-## Goal
+[Previous: Day 48](day48.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 50](day50.md)
 
-Clone **[rusty-haystack](https://github.com/jscott3201/rusty-haystack)**, build **`haystack-client`**, and run the Niagara demo if present.
+**Week 7 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–48, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-## Concept
+## Project brief
 
-```bash
-git clone https://github.com/jscott3201/rusty-haystack.git
-cd rusty-haystack
-cargo build -p haystack-client
-# demo path may vary:
-cargo run -p niagara-read -- --help
-```
+Build a Rust CLI that discovers a bounded set of lab peers and requests their status using [the field messenger wire contract](WIRE_FORMATS.md#field-messenger). Interoperate with another process; it may be Rust or an optional independent Python peer. Keep this a small read-only application protocol.
 
-Config knobs (lab):
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-- Base URL: `https://192.168.204.11/haystack`
-- Auth: **HTTP Basic** on many Niagara stations (not always SCRAM)
-- TLS: `tls_verify = false` for self-signed lab certs only
+## Acceptance criteria
 
-See also: [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) — full N4.15 lab with `nhaystack-smoke` CLI. Hub: [rust-lessons/](../vibe_code_apps_17/rust-lessons/README.md).
+- Validate version, message kind, lengths, ID and peer correlation before accepting a response.
+- Finish discovery within two seconds and keep at most 32 peers; disclose conflicts and truncation.
+- Bound retries and transaction lifetime despite unrelated or malformed traffic.
+- Handle loss, delay and duplicate replies without double completion.
+- Support a controlled stop and leave no responder/relay running.
 
-## Why This Matters
+## Deliverables
 
-Same building, two protocols: **UDP BACnet** for OT points, **HTTPS Haystack** for semantic tags and ops.
+- CLI source, usage and protocol tests, including wrong-ID and wrong-peer cases.
+- Normal and fault captures or simulator logs with a recorded schedule.
+- A short report separating observations, unique identities, timeouts and errors.
 
-## Mini Examples
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-- Print `/about` server name and Haystack version string.
-- Compare response time to a BACnet ReadProperty (qualitative).
+## Self-review
 
-## Micro Exercises
+- Which operations could be retried safely if you later add writes?
+- What evidence would prove the same behavior on a second physical host?
 
-1. Document which auth mode your station uses (Basic vs SCRAM probe).
-2. Build with `--release` before timing.
-3. Read `ClientConfig` or equivalent in source.
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-7); references may contain examples, so attempt the review independently first.
 
-## Wireshark Lab
-
-During `about` fetch:
-
-```bash
-./capture_pcap.sh day49-haystack-about "tcp port 443 and host 192.168.204.11"
-```
-
-## Key Takeaway
-
-**rusty-haystack sits in the TCP/HTTP layer** of your curriculum—after Days 37–40, before RDF weeks.
-
----
-
-## Python companion — Basic auth client sketch
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-# Conceptual — primary client is rusty-haystack
-import httpx
-
-url = "https://192.168.204.11/haystack/about"
-r = httpx.get(url, auth=("user", "pass"), verify=False, timeout=10.0)
-print(r.status_code, r.text[:200])
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `cargo build -p haystack-client` | httpx/requests smoke GET |
-| `ClientConfig` / TLS flags | `verify=False` lab only |
-| Niagara demo binary | same URL + Basic auth |
-
-**Takeaway:** Python can probe `/about`; the curriculum client and demos are rusty-haystack.
+[Previous: Day 48](day48.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 50](day50.md)

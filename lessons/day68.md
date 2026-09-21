@@ -1,57 +1,53 @@
-# Day 68 – Integrate BACnet Read → RDF Triples
+# Day 68 — Modbus RTU framing and CRC
 
-*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 67](day67.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 69](day69.md)
+
+**Week 10 · 45–90 minutes.** Prerequisites: Days 1–67, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Pipeline: **ReadProperty** (or a lab stub value) → update a **literal triple** on the Brick point node in the same `ex:` / `brick:` graph.
+Explain the serial ADU and validate offline frames before touching hardware.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day68/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Link Day 53 BACnet object map keys to Brick IRIs. Each poll writes latest `rdf:value` (or project predicate) as `xsd:double`. Historian stays separate—graph holds the **snapshot**.
+Modbus RTU carries an address, application PDU and CRC. Serial silence helps delimit frames; an arbitrary host read boundary is not an RTU frame boundary. CRC byte transmission order is a protocol rule and differs from simply displaying a numeric checksum. TCP and RTU wrap related PDUs differently, so do not copy an entire TCP ADU onto a serial port.
 
-Same Turtle base file on both sides; live update is one triple change, then optional re-serialize.
+## Tiny example
 
-## Why This Matters
+Compare [the RTU fixture](fixtures/modbus/README.md) with the TCP request for the same read. Identify what belongs to the application PDU and what belongs to each transport wrapper.
 
-This is the **unity node** of the course: OT read → semantic model on both stacks.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- One point: BACnet PV `57.2` → `ex:AHU1-SAT` literal.
-- Log triple count each poll.
+- Write a Rust offline RTU verifier for the selected read-request/response subset. Include frame-size bounds and CRC validation.
+- Use the serial-line guide for CRC and timing rules; test a known-answer frame independently of your encoder.
+- Represent timestamps separately from bytes; do not infer physical silent intervals from a fixture with no timestamps.
 
-## Micro Exercises
+## Experiment
 
-1. End-to-end stub: read (or fake) → print/update triple in `oxrdf` and `rdflib`.
-2. PCAP + log timestamp correlation.
-3. Error path: BACnet fail must not corrupt the graph.
+Flip one data bit, truncate the CRC, and reverse its transmitted bytes. Each mutation should be distinguishable from a correct frame.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**Live OT data can feed semantic models**—read-only on lab points.
+## Acceptance checks
 
----
+- Valid fixture CRC agrees with an independent reference.
+- Bad CRC is not treated as a valid exception.
+- The report states that no physical timing was validated.
 
-## Python companion — `rdflib` curVal update
+## Optional Python companion
 
-*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
+Optionally compare the known-answer frame with an independent library; keep the Rust verifier primary.
 
-```python
-from rdflib import Graph, Literal, URIRef, Namespace
-from rdflib.namespace import RDF, XSD
+## Stretch and reflection
 
-EX = Namespace("http://example.org/")
-g = Graph()
-g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
-bacnet_pv = 57.2  # pretend ReadProperty
-g.set((EX["AHU1-SAT"], RDF.value, Literal(bacnet_pv, datatype=XSD.double)))
-print(g.serialize(format="turtle"))
-```
+Which timing behavior can a pseudo-terminal model, and which requires actual serial hardware?
 
-| Rust (`oxrdf`) | Python (`rdflib`) |
-|--------|--------|
-| Insert/replace literal on point IRI | `g.set((s, RDF.value, Literal(...)))` |
-| Same `ex:` point + datatype | Same |
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-10) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-**Takeaway:** Same point IRI and literal shape—wire BACnet safely; sketch values first.
+[Previous: Day 67](day67.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 69](day69.md)

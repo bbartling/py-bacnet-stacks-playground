@@ -1,73 +1,36 @@
-# Day 42 – ReadProperty in Rust (Device 5007)
+# Day 42 — Week 6 Review — offline packet inspector
 
-## Goal
+[Previous: Day 41](day41.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 43](day43.md)
 
-Issue a **ReadProperty** for `present-value` on an analog object using rusty-bacnet (or a thin wrapper binary you write).
+**Week 6 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–41, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-## Concept
+## Project brief
 
-Target (adjust to your commission CSV):
+Build a bounded offline inspector for Ethernet, the selected IPv4/IPv6 subsets, UDP and basic TCP. Use a maintained capture-container reader; the assignment is packet interpretation, not inventing a PCAPNG implementation. Start with [synthetic packet fixtures](fixtures/README.md), then compare with a real capture you are allowed to inspect.
 
-- Device ID: **5007**
-- Network: `192.168.204.200`
-- Example object: `analogInput:1` present-value
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-Pseudocode shape:
+## Acceptance criteria
 
-```rust
-// Follow your clone's API — names differ by version
-// let client = BacnetClient::bind("0.0.0.0:47808")?;
-// let pv = client.read_property(device, object, PropertyIdentifier::PresentValue).await?;
-// println!("pv = {pv:?}");
-```
+- Dispatch using the capture link type and report unsupported types explicitly.
+- Respect captured lengths, protocol lengths, VLAN offsets, IPv4 IHL and TCP data offset.
+- Identify fragments and unsupported IPv6 chains without fabricated transport fields.
+- Handle malformed and truncated fixtures without panics or unbounded allocation.
+- Agree with independently checked fields for at least one IPv4 and one IPv6 packet; state checksum limitations.
 
-Log **`Result`** errors—timeouts look different from **Error** PDUs in pcaps.
+## Deliverables
 
-## Why This Matters
+- Rust CLI, Cargo.lock, supported-subset document and negative tests.
+- Exact fixture/capture provenance plus a field comparison against Wireshark or another independent decoder.
+- A maximum file/record/extension policy and evidence that it is enforced.
 
-This is the Rust equivalent of your Day 1–10 Python reads—same field skill, new toolchain.
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-## Mini Examples
+## Self-review
 
-- Read `object-name` and `present-value` for the same object.
-- Print raw enum for **units** if available.
+- What would be required before advertising full packet reassembly?
+- How can a correctly decoded field still be misleading because of where the capture was taken?
 
-## Micro Exercises
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-6); references may contain examples, so attempt the review independently first.
 
-1. Capture pcap during read—match Wireshark decode to printed value.
-2. Handle timeout with a friendly message (no panic).
-3. Write lab notes: object id string you used.
-
-## Key Takeaway
-
-**One successful ReadProperty in Rust** proves the whole toolchain: Cargo, UDP, BACnet, bench routing.
-
-## Wireshark Lab
-
-Filter: **`bacnet && ip.addr == 192.168.204.200`**
-
-Find **Complex-ACK** vs **Error** APDU in the tree.
-
----
-
-## Python companion — ReadProperty with BAC0
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# Adjust object string to your commission CSV
-# import BAC0
-# bacnet = BAC0.lite()
-# pv = bacnet.read("192.168.204.200 analogInput:1 presentValue")
-# print("pv =", pv)
-print("Match Wireshark Complex-ACK to the printed present-value.")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| rusty-bacnet ReadProperty | `BAC0.read(...)` |
-| `Result` timeout vs Error PDU | exceptions / `None` — still check pcap |
-| device 5007 @ `.200` | same bench target |
-| `PropertyIdentifier::PresentValue` | `"presentValue"` in BAC0 string |
-
-**Takeaway:** One successful present-value read—Python or Rust—proves routing; the pcap proves which APDU you got.
+[Previous: Day 41](day41.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 43](day43.md)

@@ -1,74 +1,59 @@
-# Day 43 – ReadPropertyMultiple & Polling Loops
+# Day 43 — UDP sockets and datagram boundaries
+
+[Previous: Day 42](day42.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 44](day44.md)
+
+**Week 7 · 45–90 minutes.** Prerequisites: Days 1–42, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Batch reads with **RPM**-style APIs and structure a **poll loop** suitable for edge historians.
+Build a small Rust UDP exchange while preserving one-message-per-datagram behavior.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day43/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Python RPM lessons used CSV rotation—Rust pattern:
+A UDP bind chooses a local address and port. Binding to loopback restricts the experiment to the host. A receive returns one datagram and its source, but an undersized buffer may discard excess bytes depending on the platform. A timeout is an I/O outcome, not an empty message. A zero-length datagram is a legitimate transport event unless the application forbids it.
+
+## Tiny example
 
 ```rust
-loop {
-    // read multiple objects in one request
-    // sleep(Duration::from_secs(60));
+fn main() {
+    use std::net::UdpSocket;
+    let socket = UdpSocket::bind("127.0.0.1:0").expect("loopback bind");
+    println!("assigned endpoint={}", socket.local_addr().expect("local address"));
 }
 ```
 
-Use **`tokio::time::sleep`** if examples are async; **`thread::sleep`** for sync labs.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-Design a `Vec<BacnetPoint>` from Day 32 and iterate.
+## Coding challenge
 
-## Why This Matters
+- Create Rust sender and responder modes on loopback, echoing opaque payloads up to 256 bytes with a two-second receive deadline.
+- Receive into a buffer larger than the application maximum and reject oversized results; do not mistake a full small buffer for proof of a complete datagram.
+- Print the peer endpoint and exact byte count; no UTF-8 assumption. Bound the responder by message count or duration.
 
-Open-FDD **commission CSVs** become point lists—RPM reduces LAN chatter vs naive one-read-per-point Python loops.
+## Experiment
 
-## Mini Examples
+Send a short payload, an empty payload and one exceeding the application limit. Then stop the responder and observe timeout behavior. Filter: `udp.port == 40000` if that is your chosen fixed port.
 
-- Poll 3 points for 3 iterations; log timestamp with `chrono` if in examples.
-- Stop loop on Ctrl+C (`ctrlc` crate optional).
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Estimate BACnet traffic: 10 points × RPM vs 10 ReadProperty calls.
-2. Store last values in `HashMap<String, f64>`.
-3. Capture 60s pcap during poll—count UDP packets.
+- Reply bytes exactly match accepted input.
+- Oversize and timeout are separate outcomes.
+- No daemon is left running after the bounded experiment.
 
-## Key Takeaway
+## Optional Python companion
 
-**Batch at the protocol level**—network programming *and* BACnet smarts.
+Optionally use socket.sendto/recvfrom as an independent peer; otherwise run two Rust processes.
 
-## Wireshark Lab
+## Stretch and reflection
 
-```bash
-PCAP_SECONDS=60 ./capture_pcap.sh day43-rpm "udp port 47808 and host 192.168.204.200"
-```
+What does UDP connect change, and why does it not create a TCP-style handshake?
 
-Filter: **`udp.port == 47808`** — use **Statistics → IO Graph** for packet rate.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-7) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
----
-
-## Python companion — RPM & poll loop
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-import time
-
-points = ["analogInput:1", "analogInput:2", "analogValue:1"]
-# bacnet = BAC0.lite()
-for _ in range(3):
-    # for p in points:
-    #     print(p, bacnet.read(f"192.168.204.200 {p} presentValue"))
-    # Prefer RPM/batch APIs when available — fewer UDP round trips
-    time.sleep(60)
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| RPM-style batch API | BAC0 RPM / multi-read helpers |
-| `tokio::time::sleep` / `thread::sleep` | `time.sleep` |
-| `HashMap` last-value cache | `dict` of point → value |
-| poll loop for historians | same edge pattern |
-
-**Takeaway:** Batch reads cut LAN chatter—whether Rust RPM or Python multi-read, poll loops belong at the protocol layer.
+[Previous: Day 42](day42.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 44](day44.md)

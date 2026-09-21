@@ -1,80 +1,57 @@
-# Day 53 – Correlate Haystack Tags with BACnet Points
+# Day 53 — Half-close, EOF and connection shutdown
+
+[Previous: Day 52](day52.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 54](day54.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–52, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Build a **mapping table** (CSV or Rust struct) linking Haystack `id` ↔ BACnet `device:object` for one AHU on your bench.
+Allow a peer to finish sending without prematurely discarding its remaining response.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day53/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```rust
-struct PointMap {
-    haystack_id: String,
-    bacnet_device: u32,
-    object_type: u16,
-    instance: u32,
-}
+A TCP connection has two directions. A write-half shutdown says no more bytes will be sent while still allowing reads. EOF on the receive direction is different from a reset and different from an application timeout. Closing both directions as soon as one reader ends can lose a valid response, especially through a proxy. Slow peers need both idle policy and total-operation bounds.
+
+## Tiny example
+
+```text
+client sends request -> client shuts down writing
+server observes EOF -> server finishes response
+client continues reading -> server finishes writing
 ```
 
-Workflow:
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-1. Haystack read → list temp points for equip
-2. BACnet RPM → list analog inputs
-3. Human or rules-assisted alignment (name patterns)
+## Coding challenge
 
-Open-FDD uses commission CSVs—same idea.
+- Modify a small Rust request/response experiment so the client half-closes after its request but reads the full response.
+- Give the server an explicit incomplete-frame-at-EOF error.
+- Log whether termination was clean EOF, reset, timeout or local cancellation; do not infer the reason only from a generic disconnected label.
 
-## Why This Matters
+## Experiment
 
-Multi-protocol gateways need **one logical point identity**—RDF weeks formalize this; today you do it in a table.
+Use a peer that waits for request EOF before sending its response. Compare with an intentionally early full close in a scratch version.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- Map OA-T Haystack tag to BACnet AI if both exist.
-- Note unmapped points—document why.
+## Acceptance checks
 
-## Micro Exercises
+- The valid response survives client write-half shutdown.
+- Partial frames followed by EOF fail clearly.
+- Timeout ends a stalled session within its declared budget.
 
-1. Five-row CSV `haystack_id,bacnet_obj,pv_haystack,pv_bacnet,delta`.
-2. If deltas differ, hypothesis: stale cache vs unit mismatch.
-3. Dual capture: BACnet UDP + Haystack HTTPS same minute.
+## Optional Python companion
 
-## Wireshark Lab
+Optionally exercise socket.shutdown(SHUT_WR) in the test client.
 
-```bash
-./capture_pcap.sh day53-dual "udp port 47808 or (tcp port 443 and host 192.168.204.11)"
-```
+## Stretch and reflection
 
-Filters separately: **`udp.port == 47808`** and **`tcp.port == 443`**
+Why must a TCP proxy propagate half-close directionally rather than cancel both forwarding tasks immediately?
 
-## Key Takeaway
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-**Interoperability is mapping**, not magic—Rust holds the table; RDF will name relationships properly.
-
----
-
-## Python companion — Mapping CSV sketch
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-import csv
-
-rows = [
-    {"haystack_id": "@ahu1.oa-t", "bacnet_obj": "5007:AI:1", "pv_h": 55.3, "pv_b": 55.2},
-]
-for r in rows:
-    r["delta"] = round(r["pv_h"] - r["pv_b"], 2)
-
-with open("point_map.csv", "w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=["haystack_id", "bacnet_obj", "pv_h", "pv_b", "delta"])
-    w.writeheader()
-    w.writerows(rows)
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `PointMap` struct / CSV | `csv.DictWriter` sketch |
-| dual-protocol alignment | same columns for intuition |
-| RDF later | still a flat table today |
-
-**Takeaway:** Mapping is a table first—Python can draft CSV; keep the durable map in the Rust toolchain.
+[Previous: Day 52](day52.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 54](day54.md)

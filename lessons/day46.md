@@ -1,68 +1,53 @@
-# Day 46 – BACnet Capstone: Mini Commission Tool
+# Day 46 — A small DNS wire exercise
+
+[Previous: Day 45](day45.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 47](day47.md)
+
+**Week 7 · 45–90 minutes.** Prerequisites: Days 1–45, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Combine discovery + RPM + CSV log in one **`cargo` binary**—your Rust BACnet portfolio piece.
+Implement a bounded DNS query/response subset and understand compressed names.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day46/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Deliverable spec:
+DNS messages carry a header, question and resource-record sections. Names are sequences of length-prefixed labels; responses may use compression pointers to other offsets. Pointer jumps need bounds and loop detection. Response IDs alone are insufficient correlation: peer, question and relevant header flags also matter. This exercise supports ordinary A/AAAA queries, not a full recursive resolver.
 
-- Subcommand or flags: `discover`, `poll`
-- Output: `commission_snapshot.csv` with columns `device,object,pv,timestamp`
-- Graceful errors; no unwrap on network paths
+## Tiny example
 
-**Tutorial starter:** [`capstone/discover-and-poll/`](./capstone/discover-and-poll/) — `cargo run -- discover` and `poll` stubs; wire [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) after Day 41. Lab hub: [vibe_code_apps_17/rust-lessons/](../vibe_code_apps_17/rust-lessons/README.md).
+For a name such as `lab.example`, write label lengths next to the characters and a final zero-length label on paper. Compression pointers consume bytes in the original stream while their referenced names live elsewhere; track those two positions separately.
 
-## Why This Matters
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-This mirrors **open-fdd** commissioning flows—Rust is how the edge crate implements them under the hood.
+## Coding challenge
 
-## Mini Examples
+- Encode one standard single-question A or AAAA query with a chosen ID, using [RFC references](SOURCES.md#week-7).
+- Decode a bounded response: maximum 4096 bytes, 32 records and 16 pointer hops; enforce name/label limits and check the echoed question.
+- Report DNS error codes and truncation explicitly. TCP fallback is an extension, not a silently successful partial answer.
 
-- Add `--device 5007` filter flag.
-- Log to stderr, data to stdout (Unix tool hygiene).
+## Experiment
 
-## Micro Exercises
+Use fixture responses with an ordinary name, a valid compressed name, an out-of-range pointer and a pointer cycle. A configured lab resolver may provide an additional live comparison.
 
-1. Run 5-minute poll; graph packet rate from pcap.
-2. Peer review: can a tech run your binary with `--help` only?
-3. Link to your vibe_code_apps Python equivalent—what improved?
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Wireshark Lab
+## Acceptance checks
 
-Full bench capture during capstone:
+- Compression loops terminate with a clear error.
+- A wrong question or ID cannot satisfy the request.
+- Unsupported record types can be skipped using validated record lengths.
 
-```bash
-./capture_pcap.sh day46-capstone "udp port 47808 or tcp port 443"
-```
+## Optional Python companion
 
-Filters: BACnet **`udp.port == 47808`**, Haystack **`tcp.port == 443`** — same file, two stories.
+Optionally obtain an independent expected answer with a DNS library or system tool; Rust owns the codec.
 
-## Key Takeaway
+## Stretch and reflection
 
-**Small, reliable CLI tools** win in the field—Rust + Cargo + clap (optional) is a strong combo.
+After the TCP week, add length-prefixed DNS-over-TCP fallback and preserve the same overall deadline.
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-7) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — BACnet read sketch
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-# Conceptual BAC0 / bacpypes3 read — not the course deliverable
-# import BAC0
-# bacnet = BAC0.lite()
-# pv = bacnet.read("5007:analogInput:1 presentValue")
-# print(pv)
-device, obj, pv, ts = 5007, "AI:1", 72.5, "2026-07-11T12:00:00Z"
-print(f"{device},{obj},{pv},{ts}")  # same CSV shape as the Rust tool
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `cargo` binary `discover` / `poll` | BAC0/bacpypes3 lab scripts |
-| `commission_snapshot.csv` | same columns from a sketch print |
-| rusty-bacnet + clap | optional Python Who-Is / RPM apps |
-
-**Takeaway:** Python is fine for a quick read sketch; the portfolio CLI is the Rust capstone.
+[Previous: Day 45](day45.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 47](day47.md)

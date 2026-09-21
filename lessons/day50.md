@@ -1,72 +1,53 @@
-# Day 50 – Haystack /read & Zinc Filters
+# Day 50 — TCP connections and a bounded server
+
+[Previous: Day 49](day49.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 51](day51.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–49, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Execute a **read** op with a Zinc filter (e.g. `point and temp`) and parse rows in Rust or log raw Zinc.
+Accept a TCP connection and explain its lifecycle using a capture.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day50/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Example filter ideas:
+TCP provides an ordered byte stream between endpoints. Listening creates a socket ready for incoming connections; accepting creates a separate connected stream. A successful connect is not proof that the application protocol is healthy. Local refusal, routing failure and silent dropping can produce different outcomes and timing. Begin with loopback and one bounded connection.
 
-```
-point and temp
-siteRef == @yourSite
-equipRef == @ahu1
-```
+## Tiny example
 
-Zinc response is **text grid**—columns like `id`, `curVal`, `unit`.
+Observe `ss -ltn` before and after starting your listener. In Wireshark, use `tcp.port == 40001` for the chosen lab port and inspect SYN, SYN/ACK and ACK flags.
 
-In rusty-haystack, follow crate examples for `read()` returning typed rows or strings.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-FDD rules want **curVal** time series—Haystack read is how Niagara exposes normalized tags without BACnet object numbers.
+- Write Rust listener and client modes using std::net, with explicit loopback address and a connect deadline.
+- Exchange a fixed short greeting and close after one connection; set read/write timeouts.
+- Report local and peer addresses from the connected stream, not merely the requested target string.
 
-## Mini Examples
+## Experiment
 
-- Read one known OA-T tag from your golden fixtures.
-- Limit columns if API supports projection.
+Connect before the server starts, during its run, and after it exits. Capture one success and record the distinct failed outcomes.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Save Zinc body to `read_response.zinc` file from client debug logging.
-2. Match one `curVal` to a BACnet present-value for same point (if mapped).
-3. PCAP note: payload encrypted—trust client logs for body content.
+## Acceptance checks
 
-## Wireshark Lab
+- Listener and accepted stream are described separately.
+- The server exits without an orphaned background process.
+- The report does not equate handshake success with arbitrary service readiness.
 
-Encrypted traffic—practice **client-side logging** instead of display filters for body. Filter handshake only: **`tls.handshake`**
+## Optional Python companion
 
-## Key Takeaway
+Optionally use socket.create_connection as an independent client.
 
-**Zinc is the on-the-wire data language** for Haystack reads—RDF/Turtle comes later as a modeling view.
+## Stretch and reflection
 
----
+Why can two connections share a server port while still being distinct?
 
-## Python companion — POST /read (conceptual)
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-# Conceptual — Zinc parse belongs in rusty-haystack
-import requests
-
-r = requests.post(
-    "https://192.168.204.11/haystack/read",
-    auth=("user", "pass"),
-    data="ver:\"3.0\"\nfilter,limit\n\"point and temp\",10\n",
-    headers={"Content-Type": "text/zinc"},
-    verify=False,
-    timeout=15,
-)
-print(r.status_code)
-print(r.text[:300])  # raw Zinc grid
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `read()` + typed rows | POST body + print raw Zinc |
-| filter `point and temp` | same filter string |
-| golden fixture parse | optional file compare later |
-
-**Takeaway:** Same `/read` shape; use Python only to see the grid—rusty-haystack is primary.
+[Previous: Day 49](day49.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 51](day51.md)

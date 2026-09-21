@@ -1,88 +1,59 @@
-# Day 32 – struct, enum & impl
+# Day 32 — IPv6 addresses and interface scope
+
+[Previous: Day 31](day31.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 33](day33.md)
+
+**Week 5 · 45–90 minutes.** Prerequisites: Days 1–31, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Model a **BACnet point** as a `struct` and object kinds as an **`enum`**.
+Parse IPv6 endpoints correctly and explain why link-local addresses need interface context.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day32/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
+IPv6 addresses have 128 bits, abbreviated with hexadecimal groups and optional zero compression. A socket endpoint brackets the address before its port. Link-local addresses are meaningful on a particular link; a scope ID identifies the interface when required. IPv6 has multicast but no broadcast. Do not assume every address beginning with a particular visual pattern is usable without checking its actual prefix.
+
+## Tiny example
+
 ```rust
-#[derive(Debug, Clone)]
-struct BacnetPoint {
-    device_id: u32,
-    object_type: u16,
-    instance: u32,
-    name: String,
-}
-
-enum ObjectKind {
-    Ai,
-    Ao,
-    Av,
-    Bi,
-    Bo,
-}
-
-impl BacnetPoint {
-    fn object_id(&self) -> String {
-        format!("{}:{}", self.object_type, self.instance)
-    }
+fn main() {
+    use std::net::SocketAddr;
+    let endpoint: SocketAddr = "[::1]:40000".parse().expect("literal endpoint");
+    println!("{endpoint}, ipv6={}", endpoint.is_ipv6());
 }
 ```
 
-## Why This Matters
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-rusty-bacnet and rusty-haystack expose **typed structs** for devices, tags, and reads. You will read `impl` blocks in their docs daily.
+## Coding challenge
 
-## Mini Examples
+- Extend your endpoint tool with IPv6 literals and standard formatting. Keep IP-address parsing separate from socket-address parsing.
+- Classify loopback, unspecified, link-local and ULA examples; include documentation prefix 2001:db8::/32 in offline tests.
+- Represent scope explicitly. Standard Rust numeric parsing does not universally resolve interface names in zone syntax; inspect the platform or accept a numeric scope via SocketAddrV6.
 
-- Add method `is_analog(&self) -> bool` using `ObjectKind`.
-- Print `Debug` output with `{:?}`.
+## Experiment
 
-## Micro Exercises
+Compare `::1`, `[::1]:40000`, and a link-local address with and without a scope. Use `ip -6 address` to identify actual interface-local addresses without assuming interface numbers.
 
-1. Define `struct Zone { name: String, temp_c: f64 }` with a method `fahrenheit`.
-2. Enum `AlarmState { Normal, Offnormal, Fault }` with `match` printer.
-3. Why does `#[derive(Debug)]` help when sniffing packets and logging?
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Key Takeaway
+## Acceptance checks
 
-**Structs hold data; enums restrict variants**—perfect for equipment models before RDF weeks.
+- A bare IPv6 address is not parsed by splitting on colon.
+- Equivalent compressed forms normalize consistently.
+- Scope is preserved in a link-local endpoint representation.
 
----
+## Optional Python companion
 
-## Python companion — dataclasses & Enum
+Compare canonical address formatting with ipaddress; note that address parsing and connecting are different operations.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
+## Stretch and reflection
 
-```python
-from dataclasses import dataclass
-from enum import Enum, auto
+Why can the same link-local address exist on two interfaces without identifying the same endpoint?
 
-class ObjectKind(Enum):
-    AI = auto()
-    AO = auto()
-    AV = auto()
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-5) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-@dataclass
-class BacnetPoint:
-    device_id: int
-    object_type: int
-    instance: int
-    name: str
-
-    def object_id(self) -> str:
-        return f"{self.object_type}:{self.instance}"
-
-pt = BacnetPoint(5007, 0, 1, "OA-T")
-print(pt.object_id(), ObjectKind.AI)
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `struct` + `impl` | `@dataclass` + methods |
-| `enum` variants | `enum.Enum` |
-| `#[derive(Debug)]` | `__repr__` (dataclass default) |
-| `&self` methods | `self` methods |
-
-**Takeaway:** Model AHU points as small typed records—whether Rust structs or Python dataclasses—before you drown in raw dicts.
+[Previous: Day 31](day31.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 33](day33.md)

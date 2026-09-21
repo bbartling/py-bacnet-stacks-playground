@@ -1,76 +1,57 @@
-# Day 51 – Auth: HTTP Basic vs Haystack SCRAM
+# Day 51 — Partial reads and writes are normal
+
+[Previous: Day 50](day50.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 52](day52.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–50, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Understand why **Niagara nHaystack** often needs **Basic auth**, while upstream rusty-haystack defaults may probe **SCRAM**—and how to configure each.
+Make application behavior independent of how TCP bytes are chunked.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day51/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-**HTTP Basic**: `Authorization: Basic base64(user:pass)` every request—simple, common on N4 stations with `HTTPBasicScheme`.
+TCP does not preserve send-call boundaries. One write can arrive through multiple reads, and several writes can appear in one read. Read returns what is available within its contract; Write can consume less than the entire supplied buffer. A packet capture observes segments, while the application reads a reassembled stream. Tests must vary input chunk boundaries instead of relying on localhost luck.
 
-**Haystack SCRAM**: challenge/response (`HELLO` → `SCRAM` → `BEARER` token)—Project Haystack spec; not always enabled on vendors.
+## Tiny example
 
-Lab script reference:
-
-```bash
-vibe_code_apps_17/nhaystack-niagara-pi-tutorial/scripts/04_probe_scram_vs_basic.sh
+```text
+Same byte stream:  a b c d e f
+Possible reads:   [a b] [c d e f]
+Also possible:    [a] [b] [c] [d e] [f]
 ```
 
-Rust config pattern:
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-```rust
-// AuthMode::Basic { username, password }
-// vs AuthMode::Scram — see haystack-client config in rusty-haystack fork demos
-```
+## Coding challenge
 
-## Why This Matters
+- Write a Rust stream consumer that collects an explicitly fixed six-byte teaching record before reporting it, with a size and time bound.
+- Test it using a Read test double that returns at most one or two bytes per call.
+- Exercise a partial Write test double or write_all behavior; preserve the difference between clean EOF and EOF before six bytes.
 
-Most "rusty-haystack doesn't work on Niagara" reports are **auth + TLS**, not Rust bugs.
+## Experiment
 
-## Mini Examples
+Have a peer write the record in separate pieces with short delays. Compare with one write and with immediate close halfway through.
 
-- Intentionally wrong password—confirm **401** in logs and pcap (TLS outer layer only).
-- Successful Basic read after fixing creds.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Run SCRAM probe script—paste one-line result (pass/fail).
-2. Document Workbench scheme name for your user.
-3. When is Basic acceptable on a LAN lab vs production?
+- All complete chunkings produce identical record bytes.
+- Premature EOF is not a valid shorter record.
+- No assertion assumes a particular recv/read chunk size on a live socket.
 
-## Wireshark Lab
+## Optional Python companion
 
-You won't see passwords in pcaps (TLS). Verify **TCP connection completes**: **`tcp.port == 443`**
+Optionally send the same record using several sendall calls, while recognizing that this does not guarantee matching receive boundaries.
 
-## Key Takeaway
+## Stretch and reflection
 
-**Match auth to server capability**—read `/about` unauthenticated is rare; read ops need the scheme the station exposes.
+Why does TCP_NODELAY still not create application message boundaries?
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — Basic auth header
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-import base64
-import requests
-
-user, password = "user", "pass"
-token = base64.b64encode(f"{user}:{password}".encode()).decode()
-r = requests.get(
-    "https://192.168.204.11/haystack/about",
-    headers={"Authorization": f"Basic {token}"},
-    verify=False,
-    timeout=10,
-)
-print(r.status_code)  # 200 or 401
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `AuthMode::Basic` / SCRAM | Basic header or `auth=(...)` |
-| probe script in tutorial | same 401 vs 200 experiment |
-| config in haystack-client | conceptual only |
-
-**Takeaway:** Niagara labs usually need Basic—confirm with a tiny Python GET, then configure rusty-haystack.
+[Previous: Day 50](day50.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 52](day52.md)

@@ -1,86 +1,59 @@
-# Day 30 – Control Flow: if, loop, match
+# Day 30 — IPv4 prefixes and subnet membership
+
+[Previous: Day 29](day29.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 31](day31.md)
+
+**Week 5 · 45–90 minutes.** Prerequisites: Days 1–29, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Branch and iterate like Python `if`/`for`, but with **`match`** for exhaustive enum-style logic.
+Calculate whether two IPv4 addresses share a prefix and verify boundary cases.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day30/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
+IPv4 addresses have 32 bits. A CIDR prefix says how many leading bits identify a network; it is not a count of connected devices. Subnet membership, usable-host policy and route selection are separate questions. The familiar host-count subtraction does not apply uniformly to /31 point-to-point links or /32 host routes. Treat special-use ranges as address classifications, not proof of reachability.
+
+## Tiny example
+
 ```rust
-fn classify_sat(sat: f64) -> &'static str {
-    if sat > 55.0 {
-        "high"
-    } else if sat < 45.0 {
-        "low"
-    } else {
-        "ok"
-    }
-}
-
 fn main() {
-    for i in 0..5 {
-        println!("sample {}", i);
-    }
-    let code = 2;
-    match code {
-        0 => println!("normal"),
-        1 | 2 => println!("warning"),
-        _ => println!("unknown"),
-    }
+    use std::net::Ipv4Addr;
+    let addr = Ipv4Addr::new(192, 0, 2, 9);
+    println!("octets={:?}", addr.octets());
 }
 ```
 
-## Why This Matters
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-Control sequences are **state machines**. `match` makes BACnet priority levels and alarm severities explicit—compiler warns if you forget a case.
+## Coding challenge
 
-## Mini Examples
+- Build a Rust prefix-membership function for an IPv4 address, network address and prefix length 0..=32. Normalize host bits in the supplied network before comparing.
+- Report the normalized network and membership result. Reject invalid prefixes instead of shifting by an invalid count.
+- Use documentation addresses such as 192.0.2.0/24 for offline tests; do not assign them to unrelated real networks.
 
-- Loop over `[68.0, 71.0, 74.0]` and print `classify_sat` for each.
-- Use `while` to simulate a 3-iteration poll loop.
+## Experiment
 
-## Micro Exercises
+Compare 192.0.2.127 and 192.0.2.128 against a /25. Add /0 and /32 cases, predicting the results first.
 
-1. Write `match` on priority `1..=16` that prints "manual" only for priority 8.
-2. Convert a Python-style `for x in list` mental model: what is `0..3` vs `0..=3`?
-3. Refactor nested `if` into `match` on a small enum you define.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Key Takeaway
+## Acceptance checks
 
-**`match` is your friend** for BACnet enums (object types, error codes) later in rusty-bacnet labs.
+- /0 covers every IPv4 address.
+- /32 covers exactly one address.
+- Membership is not confused with broadcast/host assignment policy.
 
----
+## Optional Python companion
 
-## Python companion — if, for, match-like logic
+Compare with `ipaddress.ip_network(..., strict=False)` and membership checks.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
+## Stretch and reflection
 
-```python
-def classify_sat(sat: float) -> str:
-    if sat > 55.0:
-        return "high"
-    if sat < 45.0:
-        return "low"
-    return "ok"
+Add /31 test cases and explain why counting usable hosts is a separate operation.
 
-for i in range(5):
-    print("sample", i)
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-5) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-code = 2
-match code:                    # 3.10+ structural match
-    case 0:
-        print("normal")
-    case 1 | 2:
-        print("warning")
-    case _:
-        print("unknown")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `if` is an expression | `if` is a statement (`x if c else y`) |
-| `for i in 0..5` | `for i in range(5)` |
-| `match` exhaustive | `match`/`case` (3.10+) or `if`/`elif` |
-| `_` wildcard | `_` in `case _` |
-
-**Takeaway:** Alarm severities and priority bands map cleanly to `match`/`case`—same state-machine habit as Rust, friendlier syntax.
+[Previous: Day 29](day29.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 31](day31.md)

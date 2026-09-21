@@ -1,6 +1,8 @@
+> **Optional older reference material.** The active Rust networking course is [Days 1–112](../../INDEX.md). Historical day numbers and example commands below are not the current syllabus; inspect code and configuration before use. This material may contain implementation spoilers.
+
 # Modbus read CLI (capstone starter)
 
-Optional **beginner-friendly** TCP lab after [Day 36b Modbus TCP](../day36b_modbus_tcp.md).
+Optional **beginner-friendly** TCP lab after [current Modbus module](../../day64.md).
 
 ## Goal
 

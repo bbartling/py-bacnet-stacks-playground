@@ -1,79 +1,56 @@
-# Day 39 – Wireshark: BACnet on UDP
+# Day 39 — IPv6 headers and bounded extension walking
+
+[Previous: Day 38](day38.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 40](day40.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–38, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Read **BVLC → NPDU → APDU** layers in Wireshark for a real **ReadProperty** or **Who-Is** capture.
+Decode the IPv6 base header and walk a small, explicitly supported extension subset.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day39/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Display filter cheat sheet (see [wireshark_filters.md](./lab-scripts/wireshark_filters.md)):
+The IPv6 base header is 40 bytes. Next Header identifies either an upper-layer protocol or another extension. Different extensions have different length rules, so a single universal formula is wrong. IPv6 has no base-header checksum. A robust educational parser limits both extension count and bytes inspected, reports unsupported types, and does not claim support for jumbograms or encrypted payloads.
 
-```
-udp.port == 47808
-bacnet
-bacnet.type == 0x10   # Who-Is (example; verify in your capture)
-```
+## Tiny example
 
-Packet details tree:
-
-- **Ethernet / IP / UDP**
-- **BACnet Virtual Link Control (BVLC)**
-- **Network Layer (NPDU)**
-- **Application Layer (APDU)**
-
-## Why This Matters
-
-When rusty-bacnet returns an error, the pcap tells you if the problem is **network** (no reply) or **application** (Error PDU).
-
-## Mini Examples
-
-- Identify source/dest IP and UDP ports on one BACnet packet.
-- Export one packet as hex and compare to Rust `&[u8]` buffer mindset.
-
-## Micro Exercises
-
-1. Capture during `Who-Is`—find **I-Am** in the list.
-2. Apply filter `bacnet && ip.addr == 192.168.204.200` (adjust IP).
-3. Screenshot one ReadProperty decode for your portfolio.
-
-## Key Takeaway
-
-**Filter `udp.port == 47808` first**, then narrow with `bacnet.*` fields.
-
-## Wireshark Lab
-
-```bash
-./capture_pcap.sh day39-bacnet "udp port 47808 and host 192.168.204.200"
+```text
+base header -> optional extension -> optional extension -> upper-layer payload
+Next Header chooses the next interpretation; packet length bounds every step.
 ```
 
-While capturing, trigger a BACnet read from any tool you have.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-In Wireshark: **`udp.port == 47808 && bacnet`**
+## Coding challenge
 
----
+- Decode version, payload length, Next Header, hop limit and source/destination addresses.
+- Support a maximum of eight Hop-by-Hop or Destination Options headers using their defined length units; recognize Fragment separately and report it for later analysis.
+- Report unsupported extensions and payload-length-zero jumbo cases explicitly. Never scan indefinitely looking for TCP.
 
-## Python companion — BACnet capture helpers
+## Experiment
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
+Test a plain UDP packet, a supported options header, a truncated extension and an over-limit chain. The provided simple IPv6 fixture is a starting point; synthesize labeled mutations.
 
-```python
-# Trigger traffic in Python; decode in Wireshark (filters unchanged)
-# import BAC0
-# bacnet = BAC0.lite()
-# bacnet.whois()                    # while capture_pcap.sh is running
-FILTERS = [
-    "udp.port == 47808",
-    "bacnet",
-    "bacnet && ip.addr == 192.168.204.200",
-]
-print("Apply in Wireshark:", FILTERS[0], "then narrow with bacnet.*")
-```
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-| Rust (main lesson) | Python |
-|--------|--------|
-| BVLC → NPDU → APDU in GUI | identical pcap layers |
-| rusty-bacnet for traffic | BAC0 / BACpypes3 to generate packets |
-| filter `udp.port == 47808` | same display filters |
-| hex ↔ `&[u8]` mindset | hex ↔ `bytes` mindset |
+## Acceptance checks
 
-**Takeaway:** Who-Is from Python, layers from Wireshark—when the stack errors, the pcap still decides network vs APDU.
+- Total expected size is base-header size plus ordinary payload length.
+- Hop limit is not called TTL in the output.
+- Unsupported chains do not produce invented transport ports.
+
+## Optional Python companion
+
+Compare only addresses and lengths with a known parser or Wireshark.
+
+## Stretch and reflection
+
+Why can dropping all extension-bearing packets be an incomplete general-purpose network policy even if your teaching decoder rejects them?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 38](day38.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 40](day40.md)

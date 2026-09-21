@@ -1,80 +1,58 @@
-# Day 36 – UDP Sockets in Rust (Echo Lab)
+# Day 36 — A bounded binary codec
+
+[Previous: Day 35](day35.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 37](day37.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–35, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Send and receive a **UDP datagram** with `std::net::UdpSocket`—the same primitive BACnet/IP uses under BVLC.
+Encode and decode a small teaching format with explicit length and byte order.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day36/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Terminal A (listener):
+Binary fields describe bits, not Rust memory layout. Network byte order generally means big-endian where specified; protocol rules always win. A declared length is untrusted input. Check available bytes and arithmetic before creating slices or allocating. A successful round trip proves internal agreement, so also compare a manually specified known-answer fixture.
+
+## Tiny example
 
 ```rust
-// udp_echo_server.rs — cargo new udp_lab
-use std::net::UdpSocket;
-fn main() -> std::io::Result<()> {
-    let sock = UdpSocket::bind("127.0.0.1:9999")?;
-    let mut buf = [0u8; 1024];
-    let (n, src) = sock.recv_from(&mut buf)?;
-    sock.send_to(&buf[..n], src)?;
-    Ok(())
+fn main() {
+    let field = u16::from_be_bytes([0x12, 0x34]);
+    println!("decimal={field}, wire={:02x?}", field.to_be_bytes());
 }
 ```
 
-Terminal B: `echo hello | nc -u 127.0.0.1 9999`
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Every BACnet BVLC packet starts as **bytes in a UDP payload**. Today you see the raw datagram before rusty-bacnet wraps it.
+- Implement the teaching codec in [WIRE_FORMATS.md](WIRE_FORMATS.md#teaching-envelope): version, kind, payload length and opaque bytes. The header is four bytes and payload length excludes it.
+- Support only version 1, kinds 1 and 2, and payloads up to 256 bytes. Reject trailing bytes for the single-message decoder.
+- Return a typed invalid/truncated/unsupported outcome; do not use struct transmutation or unsafe pointer casts.
 
-## Mini Examples
+## Experiment
 
-- Bind `0.0.0.0:9999` vs `127.0.0.1:9999`—when is each appropriate?
-- Print hex of first 4 bytes: `{:02x?}`, &buf[..4].
+Use fixture bytes for a valid message, then truncate at every byte position and mutate the length field. Decide whether each case is incomplete or invalid under a complete-datagram contract.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Modify server to uppercase ASCII payload before echo.
-2. Capture your echo traffic (see Wireshark Lab).
-3. What buffer size might BACnet frames need? (hint: ~1476 bytes MTU-ish)
+## Acceptance checks
 
-## Key Takeaway
+- Known-answer encoding matches the documented bytes.
+- Length zero and maximum length have tests.
+- An unsupported version does not decode as a valid message.
 
-**`recv_from` / `send_to`** — address + port per datagram. BACnet adds structure *inside* the payload.
+## Optional Python companion
 
-## Wireshark Lab
+Use struct.pack/unpack to independently produce a header, without implementing the Rust decoder for it.
 
-```bash
-cd lessons/lab-scripts
-./capture_pcap.sh day36-udp-echo "udp port 9999"
-```
+## Stretch and reflection
 
-Open the pcap → display filter: **`udp`**
+How would a streaming decoder distinguish “need more data” from final truncated input?
 
-Follow **UDP Stream** on your echo packet pair. Note: no handshake—one packet out, one back.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
----
-
-## Python companion — UDP echo with `socket`
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-import socket
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("127.0.0.1", 9999))
-data, addr = sock.recvfrom(1024)
-sock.sendto(data, addr)          # echo
-print(f"echoed {len(data)} bytes to {addr}")
-sock.close()
-# Client: echo hello | nc -u 127.0.0.1 9999
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `UdpSocket::bind` | `socket(..., SOCK_DGRAM)` + `bind` |
-| `recv_from` / `send_to` | `recvfrom` / `sendto` |
-| `[0u8; 1024]` buffer | `recvfrom(1024)` returns `bytes` |
-| `io::Result` | raises `OSError` |
-
-**Takeaway:** BACnet/IP is still just UDP payloads—Python `socket` shows the same datagram shape before BAC0 wraps it.
+[Previous: Day 35](day35.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 37](day37.md)

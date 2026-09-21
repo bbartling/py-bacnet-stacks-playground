@@ -1,96 +1,53 @@
-# Day 75 – Final Capstone: Multi-Protocol Semantic Snapshot
+# Day 75 — Read the rusty-bacnet workspace
 
-*Week 10 · Course synthesis · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 74](day74.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 76](day76.md)
+
+**Week 11 · 45–90 minutes.** Prerequisites: Days 1–74, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Deliver **[`capstone/`](./capstone/)** with:
+Use the actual pinned upstream public APIs for one Rust discovery experiment.
 
-1. **`discover-and-poll/`** — Rust BACnet CLI ([Day 46 starter](./capstone/discover-and-poll/))
-2. **`niagara-read`** — Haystack CLI via [nhaystack-niagara-pi-tutorial](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) ([pointer](./capstone/niagara-read/README.md))
-3. **`model/ahu1.ttl`** — Brick hand model ([starter](./capstone/model/ahu1.ttl))
-4. **`graph-export/`** — Rust binary: hand TTL + **`oxrdf`** load (+ optional BACnet merge) → Turtle ([starter](./capstone/graph-export/))
-5. **`pcaps/README.md`** — three filters on one multi-protocol capture ([template](./capstone/pcaps/README.md))
-6. **`COURSE_REVIEW.md`** ([template](./capstone/COURSE_REVIEW.md))
+## Before you start
+
+Offline fixtures first; isolated BACnet peers for live evidence. No occupied building network. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day75/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-| Artifact | Pass criteria |
-|----------|---------------|
-| BACnet CLI | Reads device 5007 without panic; logs errors |
-| Haystack CLI | Basic auth works; prints Zinc or parsed rows |
-| TTL model | ≥8 triples; valid Turtle |
-| Graph export | `oxrdf` load/round-trip triple count ≥ original |
-| PCAP doc | Shows BACnet + HTTPS + filter strings |
-| Python check | `pathlib` checklist + SPARQL on `ahu1.ttl` via `rdflib` |
+An actively developed stack can change APIs faster than a course. The destination appliance records an audited upstream revision; study that revision first and keep its lockfile intact. Separate types, encoding, transport, network and endpoint/service responsibilities by inspecting the workspace instead of assuming crate names imply stable APIs. Student codecs are for learning and tests, not replacements inside the appliance.
 
-Optional stretch: JSON point export (Day 73).
+## Tiny example
 
-## Why This Matters
+From the destination repo, read `config/upstream-lock.toml` and `Cargo.toml`. In an independent upstream checkout at that revision, use `cargo metadata --no-deps --format-version 1` and `rg "WhoIs|Who-Is|who_is" examples crates` to locate real entry points.
 
-Portfolio closes the track: **wire protocols + dual-stack RDF** for FDD and agents.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- Confirm each graded path under `capstone/`.
-- Rehearse three Wireshark filters before the final capture.
+- Create a separate Rust coursework package using public APIs from the selected revision. Record repository URL, full commit and toolchain.
+- Run or adapt the smallest upstream discovery example on loopback-separated peers or an isolated LAN. Bound discovery duration and results.
+- Trace the API path from your call into encoding/transport; do not paste stack internals into your project to avoid an API mismatch.
 
-## Micro Exercises
+## Experiment
 
-1. Zip repo subset; include `--help` screenshots.
-2. Screen demo: Wireshark filter → CLI read → TTL query (`oxrdf` export + `rdflib` SPARQL).
-3. Optional: post one lesson learned to the community.
+Compare one discovery result with an independent peer and a PCAP. If live setup is unavailable, compile the selected example and label the packet exercise fixture-only.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**Turn-key edge path:** Python BACnet basics → Rust on the wire → **rdflib + oxrdf** semantics for FDD and agents.
+## Acceptance checks
 
-## Wireshark Lab
+- The dependency pin is explicit and reproducible.
+- Observed discovery is distinguished from merely compiling.
+- No claim about segmentation, BBMD or serial support is inferred from a README alone.
 
-```bash
-./capture_pcap.sh day75-final "udp port 47808 or tcp port 443 or tcp port 1502"
-```
+## Optional Python companion
 
-Document in `pcaps/README.md`:
+Optional bacpypes3 acts as the external oracle on a separate bind address; Rust remains the client under study.
 
-```
-udp.port == 47808
-tcp.port == 443 && ip.addr == 192.168.204.11
-tcp.port == 1502
-```
+## Stretch and reflection
 
-Congratulations—you finished the **Rust network programming + dual-stack RDF** track.
+How would you evaluate a newer upstream revision without silently changing the appliance pin?
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-11) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — Checklist + SPARQL on `ahu1.ttl`
-
-*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
-
-```python
-from pathlib import Path
-from rdflib import Graph
-
-root = Path("lessons/capstone")  # adjust cwd
-for rel in ["discover-and-poll", "niagara-read", "model/ahu1.ttl",
-            "graph-export", "pcaps/README.md", "COURSE_REVIEW.md"]:
-    p = root / rel
-    print(("OK" if p.exists() else "MISSING"), rel)
-
-g = Graph()
-g.parse(root / "model" / "ahu1.ttl", format="turtle")
-for row in g.query("""
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX ex: <http://example.org/>
-SELECT ?p WHERE { ex:AHU1 brick:hasPoint ?p }
-"""):
-    print(row.p)
-# Rust side: same TTL via oxrdf in graph-export/
-```
-
-| Rust (`oxrdf` in `graph-export`) | Python (`rdflib`) |
-|--------|--------|
-| Capstone CLIs + TTL load/export | `pathlib` checklist + same SELECT |
-| Multi-protocol semantic snapshot | Parallel—not a full rewrite |
-
-**Takeaway:** Ship Rust artifacts; Python checklists paths and runs SPARQL on the same `ahu1.ttl`.
+[Previous: Day 74](day74.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 76](day76.md)

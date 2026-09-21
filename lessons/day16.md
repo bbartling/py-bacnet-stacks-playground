@@ -1,122 +1,53 @@
-# Day 16 – Modules & the Standard Library
+# Day 16 — Modules and responsibility boundaries
+
+[Previous: Day 15](day15.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 17](day17.md)
+
+**Week 3 · 45–90 minutes.** Prerequisites: Days 1–15, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to organise code into reusable **modules** and access the
-Python **standard library**.  You will import functions from built‑in
-modules like `math` and `random` and write your own simple module.
+Separate reusable logic from the command-line entry point.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day16/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-A **module** is a file containing Python definitions and statements.  The
-Python tutorial notes that modules allow you to split your program into
-several files and reuse functions in multiple programs.
-You import a module using the `import` statement.  This adds the module
-name to your program’s namespace; you can then access functions and
-variables with `module.name`.  A variant of the import statement allows
-you to import specific attributes directly into your namespace.
-The standard library provides many useful modules for mathematics, random
-numbers, date/time, and more.
+A Rust module groups related code and controls visibility with `pub`. A crate is a compilation unit; a Cargo package may contain more than one crate. Keep these terms distinct. Network applications benefit when codecs can be exercised without starting a process or binding a port. A small module boundary today grows into the separation between router-core, adapter and daemon later.
 
-## How to Use It
+## Tiny example
 
-**Importing standard modules:**
+In a scratch package, put `pub fn label() -> &'static str { "demo" }` in `src/banner.rs`. Declare `mod banner;` in main.rs and print `banner::label()`. The string literal has static storage; this example does not introduce owned runtime text.
 
-```python
-import math
-import random
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-# using functions from math
-radius = 5
-circumference = 2 * math.pi * radius
-root = math.sqrt(16)  # 4.0
+## Coding challenge
 
-# using functions from random
-coin = random.choice(['heads', 'tails'])
-dice = random.randint(1, 6)
-```
+- Move your Day 15 calculation into a module with a small public interface.
+- Keep argument collection and printing in main.rs. Do not make every helper public.
+- Add a module-level description explaining what depends on I/O and what can run offline.
 
-**Importing specific functions:**
+## Experiment
 
-```python
-from math import sqrt, pi
+Remove `pub` from the function used by main and read the visibility diagnostic. Restore only the visibility actually required.
 
-print(sqrt(25))  # 5.0
-print(pi)        # 3.1415926535...
-```
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**Writing your own module:**
+## Acceptance checks
 
-Create a file named `utils.py` in the same directory as your script and
-define a function:
+- The package builds from its root.
+- Main calls a module rather than duplicating its logic.
+- An internal helper can remain private.
 
-```python
-# utils.py
-def celsius_to_fahrenheit(c):
-    """Convert Celsius to Fahrenheit."""
-    return (c * 9/5) + 32
-```
+## Optional Python companion
 
-Then import and use it:
+Split the same responsibility between an imported Python module and a guarded main entry point.
 
-```python
-import utils
-print(utils.celsius_to_fahrenheit(20))
-```
+## Stretch and reflection
 
-## Why This Matters
+Explore src/lib.rs and an integration test. What changes when another crate is the caller?
 
-Modules help you organise code and avoid repeating yourself.  The
-standard library provides reliable tools for common tasks so you don’t
-have to reinvent the wheel.  Building automation tasks often need
-mathematical functions (`math.sqrt`), random selections for test data
-(`random.choice`) or date/time handling; learning to import modules lets
-you leverage these capabilities immediately.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-3) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Mini Examples
-
-- Use `math.floor()` and `math.ceil()` to round a floating‑point HVAC
-  setpoint down and up, respectively.
-- Generate a random sample of 3 sensor names from a list using
-  `random.sample()`.
-- Write a module `conversions.py` with functions to convert feet to
-  metres and kilograms to pounds; import and test them.
-
-## Micro Exercises
-
-1. Import the `statistics` module and use `statistics.mean()` to
-   calculate the average of the list `[72, 75, 68, 70]`.
-2. Use `from random import randint` to generate and print ten random
-   integers between 1 and 100.
-3. Create a file `mytools.py` with a function `fahrenheit_to_celsius(f)`
-   and then write a separate script that imports `mytools` and calls the
-   function.
-
-## Key Takeaway
-
-Modules allow you to split your program into multiple files and reuse
-code.  You import standard modules like `math` and `random` to access
-additional functions, or write your own modules for your projects.
-
----
-
-## Rust companion — Modules and `use`
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
-
-```rust
-use std::f64::consts::PI;
-
-fn main() {
-    println!("pi ≈ {PI}");
-    // crates = libraries; add to Cargo.toml later, e.g. serde
-}
-```
-
-| Python | Rust |
-|--------|------|
-| `import math` | `use std::...` |
-| `pip install x` | add to `Cargo.toml` `[dependencies]` |
-
-**Takeaway:** `std` is always available; third-party crates go in `Cargo.toml`.
-
+[Previous: Day 15](day15.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 17](day17.md)

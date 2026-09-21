@@ -1,114 +1,34 @@
-# Day 14 – Advanced Loops & Sentinels
+# Day 14 — Week 2 mini milestone — bounded event reporter
 
-## Goal
+[Previous: Day 13](day13.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 15](day15.md)
 
-Practise using `for` and `while` loops beyond the basics.  You will learn how
-to write **nested loops**, use `while True` with a sentinel to terminate
-input, and control loop execution with `break` and `continue`.
+**Week 2 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–13, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-## Concept
+## Project brief
 
-Python’s `for` statement iterates over the items of a sequence, such as a
-list or string.  You can nest loops to process
-multi‑dimensional data (for example, iterating over rows and columns of a
-matrix).  A `while` loop runs until its condition becomes false; in many
-programs you don’t know in advance how many iterations are required.  The
-Fibonacci example in the tutorial demonstrates that a `while` loop continues
-as long as the condition remains true.
+Build an offline report from a finite collection of endpoint observations and status events. Use loops, validation, collections and a deliberate identity rule. Make it useful enough that a future socket program could feed it observations, while keeping networking out of this assignment.
 
-Sometimes you need an *indefinite loop* that repeatedly asks the user for
-input until they signal that they’re done.  Using `while True` creates an
-infinite loop; you exit it by calling `break` when a sentinel value is
-entered.  Python’s `break` statement exits the nearest enclosing loop and
-`continue` skips to the next iteration.
+Environment: Offline: terminal, Rust; Python is optional. No network device required. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-## How to Use It
+## Acceptance criteria
 
-**Nested loops:**
+- Report accepted records, rejected records, event totals and distinct identities separately.
+- Limit processing to a declared maximum and disclose omitted records.
+- Produce deterministic output for the same accepted observations.
+- Handle empty input, duplicate identities, an unknown event and a malformed record.
 
-```python
-# generate a multiplication table
-for i in range(1, 4):
-    for j in range(1, 4):
-        print(f"{i} × {j} = {i*j}")
-    print()  # blank line between rows
-```
+## Deliverables
 
-**Sentinel loops:**
+- Source and a normal/failure transcript with the input alongside it.
+- A short description of your identity key and what information deduplication discards.
 
-```python
-while True:
-    name = input("Enter a device name (or 'quit' to stop): ")
-    if name == 'quit':
-        break  # exit the loop
-    print(f"You entered: {name}")
-```
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-**Break and continue:**
+## Self-review
 
-```python
-# skip over negative numbers
-numbers = [3, -1, 4, -2, 5]
-for n in numbers:
-    if n < 0:
-        continue  # skip the rest of the loop body
-    print(n)
-```
+- Which parts should remain unchanged when events eventually come from UDP?
+- Can the summary distinguish a repeated response from a second device? What is missing?
 
-## Why This Matters
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-2); references may contain examples, so attempt the review independently first.
 
-Real programs often need to loop until a certain condition is met.  HVAC
-monitoring scripts might read sensor values continuously until an operator
-stops the program.  Understanding sentinel loops and control statements
-ensures your code can handle unknown amounts of data gracefully.  Nested
-loops are essential when dealing with tables of information, such as rooms
-versus equipment.
-
-## Mini Examples
-
-- Write a loop that keeps asking the user for temperatures until they type
-  `'done'`, then prints the average.
-- Use nested loops to print every combination of floors (1–3) and rooms
-  (1–2) in a building.
-- Modify a list of numbers by replacing all negative values with `0` using
-  `continue`.
-
-## Micro Exercises
-
-1. Create a `while True` loop that reads lines from the user until they
-   enter an empty string (press Enter).  Each time, print the length of
-   the string.  When the empty string is entered, exit the loop with
-   `break`.
-2. Use nested `for` loops to print a 4 × 4 grid of coordinates `(row,
-   column)` starting from `(0,0)`.
-3. Given a list `values = [10, -5, 20, -3, 7]`, use a `for` loop with
-   `continue` to print only the positive numbers.
-
-## Key Takeaway
-
-Use nested loops to handle multi‑dimensional data and `while True` loops
-with a sentinel value to process input of unknown length.  `break`
-terminates a loop early, and `continue` skips to the next iteration.
-
----
-
-## Rust companion — `break` and `continue`
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
-
-```rust
-fn main() {
-    for i in 0..10 {
-        if i % 2 == 0 {
-            continue;
-        }
-        if i > 7 {
-            break;
-        }
-        println!("{i}");
-    }
-}
-```
-
-**Takeaway:** Same ideas as Python — skip or stop a loop early.
-
+[Previous: Day 13](day13.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 15](day15.md)

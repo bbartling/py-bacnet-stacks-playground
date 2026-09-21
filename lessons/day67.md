@@ -1,58 +1,53 @@
-# Day 67 – ASHRAE 223P & Brick Alignment (Concept)
+# Day 67 — Registers are words, not engineering values
 
-*Week 8 · Brick models & query patterns · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 66](day66.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 68](day68.md)
+
+**Week 10 · 45–90 minutes.** Prerequisites: Days 1–66, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-High-level **223P** vs **Brick** vs **Haystack**—where RDF fits industry standards (no full-standard reading).
+Keep protocol data separate from vendor-specific interpretation.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day67/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-- **Brick**: RDF ontology for buildings (classes, relationships)
-- **Haystack**: tag taxonomy + REST/Zinc (RDF often synthesized)
-- **223P**: ASHRAE semantic model effort—RDF-oriented; aligns with Brick in many discussions
+Modbus distinguishes coils, discrete inputs, input registers and holding registers. A register is a 16-bit word; a vendor may combine words into integers, floats or bit fields with documented word order and scaling. The wire protocol specifies bytes within a register, while a vendor register map must explain multi-register meaning. Guessing from a plausible temperature is not verification.
 
-Store **223P-aligned IRIs** as strings in the same graph as Brick—future-proof naming. Both stacks can load the same TTL comment/`ex:` IRIs.
+## Tiny example
 
-## Why This Matters
+Two raw words `0x0001` and `0x0002` can be displayed without claiming a float or scaled value. A mapping table must identify address notation, function, word order, signedness, scale and units before interpretation.
 
-Standards are shared graphs—edge services (Rust or Python) produce and consume them.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- One paragraph each: Brick, Haystack, 223P audience.
-- Name one AHU relationship in Brick and its 223P-equivalent intent (qualitative).
+- Extend the Rust report to show raw register hex and optional interpreted values using an explicit small mapping configuration.
+- Support one documented signed integer mapping and one two-register mapping; no automatic word-order guessing.
+- Reject insufficient register data and retain raw words in the result.
 
-## Micro Exercises
+## Experiment
 
-1. Reading notes + link to public Brick/223P primers (no heavy code).
-2. Optional: `# aligns with 223P intent: system boundary` in `ahu1.ttl`; load with `oxrdf` / `rdflib`.
-3. How would rusty-haystack + RDF export compose on an edge node?
+Apply two different word-order settings to the same fixture and show how both can produce numbers while only the configured one is intended.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**Standards are shared graphs**—dual-stack tools hold the same IRIs at the edge.
+## Acceptance checks
 
----
+- Raw data is available alongside interpretation.
+- Address notation conversion is documented.
+- Units and scale come from configuration, not inferred from the value.
 
-## Python companion — Standards one-liners
+## Optional Python companion
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+Optionally verify a mapping with Python struct using explicit endianness.
 
-```python
-notes = {
-    "Brick": "RDF ontology for buildings",
-    "Haystack": "tags + REST/Zinc ops",
-    "223P": "ASHRAE semantic model (RDF-oriented)",
-}
-for k, v in notes.items():
-    print(f"{k}: {v}")
-# Optional: Graph().parse("ahu1.ttl") to confirm IRIs load in rdflib
-```
+## Stretch and reflection
 
-| Rust (`oxrdf`) | Python (`rdflib`) |
-|--------|--------|
-| Same Brick/223P IRIs in graph | Same notes + optional TTL load |
-| Edge produce/consume RDF | Parallel reading |
+How would you mark an unavailable or out-of-range engineering value without replacing it with zero?
 
-**Takeaway:** Name the standards once; both stacks store the IRIs.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-10) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 66](day66.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 68](day68.md)

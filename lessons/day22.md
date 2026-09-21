@@ -1,94 +1,63 @@
-# Day 22 – Working with Nested Data
+# Day 22 — Structs, enums and meaningful states
 
-*Part III: Data Structures | Week 4*
+[Previous: Day 21](day21.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 23](day23.md)
+
+**Week 4 · 45–90 minutes.** Prerequisites: Days 1–21, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to manage **nested data structures** such as lists of dictionaries and dictionaries of lists. Practise iterating through nested structures with loops and extracting meaningful information.
+Model endpoint configuration and parse outcomes without scattered flags.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day22/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Real-world data is often hierarchical. A building may contain many rooms, each with its own set of sensors. Python allows nesting lists and dictionaries. Use nested `for` loops and `items()` to traverse and summarise nested data — no comprehensions.
+A struct groups related fields; an enum expresses alternatives that cannot all hold at once. A result enum can prevent combinations such as both successful and invalid. Types do not automatically validate field ranges, so constructors or parsing boundaries still matter. Avoid creating a general building ontology: these types describe protocol configuration and program state.
 
-## How to Use It
-
-**List of dictionaries:**
-
-```python
-devices = [
-    {'id': 1, 'name': 'VAV-1', 'points': {'temp': 72, 'flow': 450}},
-    {'id': 2, 'name': 'VAV-2', 'points': {'temp': 70, 'flow': 430}},
-]
-
-for device in devices:
-    print(device['name'], device['points']['temp'])
-```
-
-**Dictionary of lists:**
-
-```python
-building = {
-    'floor1': ['Room101', 'Room102'],
-    'floor2': ['Room201', 'Room202'],
-}
-
-for floor, rooms in building.items():
-    print(floor + ' has ' + str(len(rooms)) + ' rooms')
-```
-
-**Processing nested data with a loop:**
-
-```python
-# compute average temperature across all devices
-temps = []
-for d in devices:
-    temps.append(d['points']['temp'])
-avg = sum(temps) / len(temps)
-print('Average temperature: ' + str(round(avg, 1)))
-```
-
-## Why This Matters
-
-Building models and BACnet scans often involve nested structures: a site has buildings, buildings have floors, floors have rooms, rooms have points. Traversing nested collections with loops prepares you for CSV output from a BACnet discover script.
-
-## Mini Examples
-
-- Given a list of rooms, each with a dictionary of `temp` and `rh`, compute the average relative humidity using a loop.
-- Transform a list of `(name, value)` tuples into a dictionary using a `for` loop.
-- Flatten a dictionary of lists into a single list using nested loops.
-
-## Micro Exercises
-
-1. Create a list called `sensors` with three dictionaries. Each dictionary has keys `name` and `reading`. Loop over the list and print each sensor's name and reading.
-2. Write a loop that produces a dictionary mapping each room in `['Room1', 'Room2', 'Room3']` to a default temperature of `72`.
-3. Given `schedule = {'Mon': ['8am', '5pm'], 'Tue': ['9am', '6pm']}`, loop through the dictionary and print the day along with the start and end times.
-
-## Key Takeaway
-
-Nested data structures require nested loops to traverse. Use `items()` to loop over dictionaries and combine list and dictionary techniques to summarise complex data.
-
----
-
-## Rust companion — Nested data: `Vec` of structs (lite)
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-struct Point {
-    name: String,
-    pv: f64,
-}
-
 fn main() {
-    let points = vec![
-        Point { name: "SAT".into(), pv: 55.0 },
-        Point { name: "RAT".into(), pv: 72.0 },
-    ];
-    for p in &points {
-        println!("{} = {}", p.name, p.pv);
+    enum LinkState { Down, Up { speed_mbps: u32 } }
+    let state = LinkState::Up { speed_mbps: 100 };
+    let _offline = LinkState::Down;
+    match state {
+        LinkState::Down => println!("down"),
+        LinkState::Up { speed_mbps } => println!("{speed_mbps} Mb/s"),
     }
 }
 ```
 
-**Takeaway:** Prefer a small `struct` over a pile of parallel lists — Day 32 goes deeper.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Define an endpoint configuration with a label, parsed socket address and transport choice. Use standard address types rather than manual IP validation.
+- Represent parse success and failure deliberately; include a field-specific diagnostic.
+- Provide a display operation through impl or a method without opening a socket.
+
+## Experiment
+
+Try an unknown transport name, port overflow, a missing field and a valid bracketed IPv6 endpoint. Decide where each error belongs.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Unknown transport cannot masquerade as UDP.
+- Malformed addresses never enter the valid configuration collection.
+- Output includes enough context to identify the endpoint.
+
+## Optional Python companion
+
+Generate three configuration cases as ordinary dictionaries for Rust to consume later.
+
+## Stretch and reflection
+
+Which invariants can private fields and a constructor enforce?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-4) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 21](day21.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 23](day23.md)

@@ -1,77 +1,53 @@
-# Day 69 – FILTER & OPTIONAL Patterns
+# Day 69 — Independent Modbus interoperability
 
-*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 68](day68.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 70](day70.md)
+
+**Week 10 · 45–90 minutes.** Prerequisites: Days 1–68, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Run the same SPARQL intent: **`OPTIONAL`** labels and **`FILTER`** on numeric literals against your Brick graph.
+Cross-check your implementation against another endpoint and enforce a polling budget.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day69/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX ex:    <http://example.org/>
-SELECT ?p ?label ?v WHERE {
-  ex:AHU1 brick:hasPoint ?p .
-  OPTIONAL { ?p rdfs:label ?label }
-  OPTIONAL { ?p rdf:value ?v }
-  FILTER(!BOUND(?v) || ?v > 55.0)
-}
-```
+Two sides written from the same assumptions can interoperate and still be wrong. An independent peer tests a different implementation. Polling adds scheduling: slow responses should not cause unlimited overlapping requests or burst catch-up. Read-only work is the baseline. Exception and transport errors deserve counters separate from successful polls.
 
-Real models miss labels or values—queries must not explode on absence (**OPTIONAL ≈ LEFT JOIN**).
+## Tiny example
 
-## Why This Matters
+A finite poll plan can specify ten reads, one outstanding transaction, a one-second period and a two-second overall transaction budget. Explain what happens to the schedule when a read takes longer than the period.
 
-Commissioning graphs are incomplete; FILTER/OPTIONAL keep tools usable.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- Print label or unbound when `rdfs:label` is missing.
-- Keep points whose numeric literal is above a threshold.
+- Run the Rust client against a maintained simulator with fixed registers and a recorded version.
+- Collect ten bounded read attempts with latency and outcome; skip missed schedule slots rather than launching an unbounded catch-up burst.
+- Compare normal values and one exception with another client or the simulator configuration.
 
-## Micro Exercises
+## Experiment
 
-1. Load `ahu1.ttl`; run the SELECT above (Python `rdflib`; Rust: same query intent over `oxrdf` graph / optional SPARQL crate).
-2. Filter SAT > 55.0 when literal present.
-3. One sentence: OPTIONAL vs SQL LEFT JOIN.
+Delay the peer, then stop it during the run. Verify that attempts stay bounded and shutdown does not wait forever.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**OPTIONAL = left join mindset**—essential for incomplete graphs.
+## Acceptance checks
 
----
+- Independent peer identity/version is recorded.
+- No uncontrolled request overlap occurs.
+- Timeout, exception and normal counts reconcile with attempts.
 
-## Python companion — same SELECT in `rdflib`
+## Optional Python companion
 
-*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
+Optional: Python may be the independent simulator or comparator, not the main polling implementation.
 
-```python
-from rdflib import Graph
+## Stretch and reflection
 
-g = Graph()
-g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
-q = """
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX ex:    <http://example.org/>
-SELECT ?p ?label ?v WHERE {
-  ex:AHU1 brick:hasPoint ?p .
-  OPTIONAL { ?p rdfs:label ?label }
-  OPTIONAL { ?p rdf:value ?v }
-  FILTER(!BOUND(?v) || ?v > 55.0)
-}
-"""
-for row in g.query(q):
-    print(row)
-```
+How would many devices change a fair polling schedule without increasing per-device concurrency?
 
-| Rust (`oxrdf`) | Python (`rdflib`) |
-|--------|--------|
-| Same SPARQL intent on loaded graph | `g.query(q)` |
-| Same `ex:` / `brick:` sample | Same query text |
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-10) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-**Takeaway:** One SELECT—two engines; compare rows, not syntax flavors.
+[Previous: Day 68](day68.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 70](day70.md)

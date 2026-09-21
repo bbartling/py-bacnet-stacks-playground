@@ -1,3 +1,5 @@
+> **Optional older reference material.** The active Rust networking course is [Days 1–112](../../INDEX.md). Historical day numbers and example commands below are not the current syllabus; inspect code and configuration before use. This material may contain implementation spoilers.
+
 # PCAP portfolio (Days 64 & 75)
 
 Store captures from [../../lab-scripts/capture_pcap.sh](../../lab-scripts/capture_pcap.sh) here.  

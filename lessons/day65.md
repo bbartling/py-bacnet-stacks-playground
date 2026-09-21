@@ -1,78 +1,53 @@
-# Day 65 – Drivers & Semantic Layer Stack
+# Day 65 — A read-only Modbus register client
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 64](day64.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 66](day66.md)
+
+**Week 10 · 45–90 minutes.** Prerequisites: Days 1–64, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Relate **drivers** (BACnet, Haystack, Modbus) to the graphs you build—architecture day with a light dual-stack sketch.
+Implement a narrow register-read transaction with validated responses.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day65/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Layers:
+Function 03 reads holding registers; its wire address is a zero-based protocol address, not necessarily the same text displayed in vendor manuals. Request quantity, response byte count, unit ID, function and transaction ID all need validation. Exception responses are legitimate protocol outcomes with an exception function code and exception code; they are not malformed packets merely because no data arrived.
 
-1. **Transport** — UDP/TCP (Weeks 5–6)
-2. **Driver** — rusty-bacnet / HTTP client / modbus crate
-3. **Normalization** — point IDs, units, timestamps
-4. **Semantics** — Brick/RDF (`oxrdf` / `rdflib`) for rules (FDD)
+## Tiny example
 
-```rust
-// Conceptual — where ahu1.ttl sits in the stack
-const STACK: &[&str] = &[
-    "transport: UDP/TCP",
-    "driver: bacnet | haystack | modbus",
-    "normalize: point id, unit, ts",
-    "semantics: Brick/RDF (oxrdf Graph / mini.ttl)",
-];
-fn main() {
-    for layer in STACK {
-        println!("{layer}");
-    }
-}
-```
+A request for two registers should return four data bytes in a normal function-03 response. A server exception is a different response shape and must not be parsed as those four data bytes.
 
-Read: `open-fdd` workspace driver configs and commission CSVs if available locally.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-You aren't learning Rust in a vacuum—you're learning **edge BAS architecture**.
+- Build a Rust function-03 client for an explicitly configured simulator endpoint, starting address and quantity 1..=125.
+- Reject a range that exceeds the address space; validate response correlation and exact byte count.
+- Use a bounded transaction deadline and report normal, exception, malformed and timeout results separately.
 
-## Mini Examples
+## Experiment
 
-- Diagram: BACnet PV → internal point id → Brick class for a rule.
-- List env vars that disable BACnet server on the commission host.
+Read two known simulator registers, request an unsupported address and stop the simulator. Compare the three outcomes in the capture.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Trace one point from Wireshark BACnet frame to FDD rule input (conceptual).
-2. Where would `ahu1.ttl` / `mini.ttl` live in a deployment story?
-3. Skim open-fdd agent prompts that reference drivers if present.
+## Acceptance checks
 
-## Key Takeaway
+- Known raw register words match the independent simulator definition.
+- Exception response is decoded rather than mislabeled as timeout.
+- Oversized quantity is rejected before transmission.
 
-**Network programming enables drivers; RDF enables reasoning across drivers.**
+## Optional Python companion
 
----
+Optionally use a maintained Python simulator or client as the independent side; implement the learning client in Rust.
 
-## Python companion — Same layer stack
+## Stretch and reflection
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+Why is a successful TCP write insufficient evidence that a Modbus write took effect?
 
-```python
-stack = {
-    "transport": "UDP/TCP",
-    "driver": "bacnet | haystack | modbus",
-    "normalize": "point id, unit, ts",
-    "semantics": "Brick/RDF (rdflib Graph / mini.ttl)",
-}
-for layer, role in stack.items():
-    print(f"{layer}: {role}")
-# Same story as Rust — semantics = shared Turtle + SPARQL days
-```
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-10) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-| Rust (oxrdf track) | Python (rdflib track) |
-|--------|--------|
-| drivers + `oxrdf` semantics | same four layers; `rdflib` at top |
-| `mini.ttl` / `ahu1.ttl` | same files |
-| wire → point → Brick class | same labels |
-
-**Takeaway:** Both stacks share the semantic top—Turtle and queries from Days 58–63 sit above the drivers.
+[Previous: Day 64](day64.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 66](day66.md)

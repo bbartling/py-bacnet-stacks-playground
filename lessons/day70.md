@@ -1,73 +1,36 @@
-# Day 70 – UNION & ASK Queries
+# Day 70 — Week 10 Review — Modbus bench toolkit
 
-*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 69](day69.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 71](day71.md)
 
-## Goal
+**Week 10 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–69, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-Same commissioning checks on both stacks: **`ASK`** (exists?) and **`UNION`** (merge two patterns).
+## Project brief
 
-## Concept
+Package your Rust Modbus work into a read-only bench CLI with TCP register polling and offline TCP/RTU inspection. The supported subset is explicit: function 03, a bounded quantity, and documented response/error handling. No write function or live serial gateway is required.
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX ex:    <http://example.org/>
-ASK {
-  ex:AHU1 brick:hasPoint ?p .
-  ?p a brick:Supply_Air_Temperature_Sensor .
-}
-```
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX ex:    <http://example.org/>
-SELECT ?p WHERE {
-  { ex:AHU1 brick:hasPoint ?p . ?p a brick:Supply_Air_Temperature_Sensor }
-  UNION
-  { ex:AHU1 brick:hasPoint ?p . ?p a brick:Outside_Air_Temperature_Sensor }
-}
-```
+## Acceptance criteria
 
-## Why This Matters
+- Validate MBAP framing, transaction/unit/function correlation, quantity and response byte count.
+- Handle exception replies, split/coalesced input, malformed length, stale ID and disconnect.
+- Preserve raw registers beside optional configured interpretation.
+- Verify offline RTU CRC and explain why it is absent from TCP ADUs.
+- Interoperate with an independent peer and respect a finite polling budget.
 
-Commissioning scripts ask yes/no before trends—**ASK** is first-class, not only SELECT tables.
+## Deliverables
 
-## Mini Examples
+- Rust source, CLI usage, lockfile and known-answer/negative tests.
+- Normal and exception captures, plus timeout and malformed-peer evidence.
+- A scope statement separating offline serial decoding from physical RTU validation.
 
-- ASK: does AHU1 have a SAT-typed point?
-- UNION: one list from two sensor-class patterns.
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-## Micro Exercises
+## Self-review
 
-1. Three ASK rules on `ahu1.ttl` (both stacks).
-2. UNION for two sensor classes; print PASS/FAIL markdown.
-3. Compare bool results Rust vs Python.
+- Which fields would a TCP-to-RTU gateway translate or preserve?
+- What would make automatic retry of a write risky?
 
-## Key Takeaway
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-10); references may contain examples, so attempt the review independently first.
 
-**Existence checks are first-class**—not everything is a result table.
-
----
-
-## Python companion — same ASK / UNION
-
-*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph
-
-g = Graph()
-g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
-ask = g.query("""
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX ex: <http://example.org/>
-ASK { ex:AHU1 brick:hasPoint ?p . ?p a brick:Supply_Air_Temperature_Sensor }
-""")
-print("ASK", bool(ask))
-```
-
-| Rust (`oxrdf`) | Python (`rdflib`) |
-|--------|--------|
-| Same ASK / UNION intent | `g.query` ASK → `bool(...)` |
-| PASS/FAIL report | Same checks |
-
-**Takeaway:** ASK is yes/no; UNION merges patterns—same queries on both sides.
+[Previous: Day 69](day69.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 71](day71.md)

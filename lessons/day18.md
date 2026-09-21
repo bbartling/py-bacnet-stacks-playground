@@ -1,118 +1,59 @@
-# Day 18 – Handling Errors Gracefully
+# Day 18 — Result, Option and error context
+
+[Previous: Day 17](day17.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 19](day19.md)
+
+**Week 3 · 45–90 minutes.** Prerequisites: Days 1–17, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to use `try`/`except` blocks to handle runtime errors and
-prevent your program from crashing unexpectedly.  You will practice
-catching specific exceptions and using a sentinel loop that repeatedly
-prompts for valid input.
+Carry a failure from a low-level operation to a useful caller-facing diagnostic.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day18/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-When a Python statement causes an error during execution, an **exception**
-is raised.  Exceptions are not always fatal; you can handle them to
-recover from errors.  The Python tutorial shows a pattern where a
-`while` loop repeatedly prompts the user for input until a valid
-integer is entered.  Within a `try` block you
-place code that might fail.  If an exception occurs, execution jumps to
-the corresponding `except` block.  The tutorial explains that the
-`try` clause executes first; if an exception occurs and matches the
-`except` clause, the handler runs and the loop continues.
+Option models absence; Result models success or failure. The `?` operator returns early on error in a compatible function; it does not log or recover automatically. A useful diagnostic includes the operation and input context, such as file and line, without leaking secrets. `unwrap()` is convenient for a known test fixture but is not a recovery policy for untrusted input.
 
-## How to Use It
-
-**Catching a specific exception:**
-
-```python
-while True:
-    try:
-        value = int(input("Enter a whole number: "))
-        break
-    except ValueError:
-        print("Oops! That was not a valid integer. Try again...")
-
-print(f"You entered {value}")
-```
-
-**Handling multiple exceptions:**
-
-```python
-try:
-    f = open('numbers.txt')
-    total = 0
-    for line in f:
-        total += int(line.strip())
-except FileNotFoundError:
-    print('numbers.txt not found.')
-except ValueError:
-    print('Could not convert data to an integer.')
-finally:
-    # the finally block runs whether or not an exception occurred
-    try:
-        f.close()
-    except NameError:
-        pass
-```
-
-## Why This Matters
-
-Robust programs need to anticipate and handle errors gracefully.  In an
-HVAC data acquisition script a sensor might return unexpected data or a
-file might be missing; by catching exceptions you can log an error and
-continue running rather than crashing.  This is especially important
-when scripts need to run unattended on controllers or servers.
-
-## Mini Examples
-
-- Prompt the user for a filename, try to open it and report if it does not exist.
-- Wrap a division operation in `try`/`except` to catch division by zero.
-- Use a `try`/`except` block in a loop to ensure that the user enters a
-  floating‑point number between 0 and 1.
-
-## Micro Exercises
-
-1. Write a program that asks the user for two integers and prints their
-   quotient.  Use `try`/`except` to catch `ZeroDivisionError` if the
-   second number is zero.
-2. Modify the file summing program from Day 17 to catch
-   `FileNotFoundError` and print a user‑friendly message instead of
-   crashing.
-3. Create a loop that asks the user to enter a positive number less
-   than 100.  Use `try`/`except` and a `while True` loop to keep asking
-   until a valid number is provided.
-
-## Key Takeaway
-
-Use `try`/`except` blocks to catch and handle exceptions.  Place code
-that might fail in the `try` block and catch specific exceptions in
-`except` clauses.  This allows your program to recover gracefully from
-errors.
-
----
-
-## Rust companion — Errors: `Result` and `Option` (preview)
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-fn parse_pv(s: &str) -> Result<f64, std::num::ParseFloatError> {
-    s.trim().parse()
+fn parse_count(text: &str) -> Result<u16, std::num::ParseIntError> {
+    let count = text.parse::<u16>()?;
+    Ok(count)
 }
-
-fn main() {
-    match parse_pv("72.5") {
-        Ok(v) => println!("pv={v}"),
-        Err(e) => println!("bad: {e}"),
-    }
-    let maybe: Option<f64> = None;
-    println!("{:?}", maybe.unwrap_or(0.0));
-}
+fn main() { println!("{:?}", parse_count("many")); }
 ```
 
-| Python | Rust |
-|--------|------|
-| `try/except` | `Result<T, E>` + `match` |
-| `None` | `Option<T>` (`Some` / `None`) |
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** Missing data → `Option`. Failure → `Result`. No silent `None` surprises later on the wire.
+## Coding challenge
 
+- Give your file loader an explicit result type and report filename plus line number for invalid records.
+- Choose strict mode or continue-with-errors mode, document it, and keep successful records distinguishable from rejected ones.
+- Return a nonzero exit status when the chosen contract considers the run unsuccessful.
+
+## Experiment
+
+Cause a file-open failure and a numeric-parse failure separately. Explain where each originates and which layer adds context.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- No malformed input is handled with a panic.
+- Diagnostics identify the operation and location.
+- Exit status matches the documented error policy.
+
+## Optional Python companion
+
+Catch narrow exception types rather than swallowing every Exception; compare where context is added.
+
+## Stretch and reflection
+
+Why might retrying a parse error never help while retrying a temporary transport failure sometimes does?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-3) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 17](day17.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 19](day19.md)
