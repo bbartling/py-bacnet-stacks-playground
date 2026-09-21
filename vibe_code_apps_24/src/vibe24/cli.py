@@ -15,10 +15,28 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--port", type=int, default=8024)
     serve.add_argument("--bacnet", action="store_true", help="Also start BACpypes3 device")
     serve.add_argument(
+        "--plant",
+        choices=("surrogate", "eplus"),
+        default="surrogate",
+        help="Physics backend: surrogate ODE (default) or vibe23 residential EnergyPlus day",
+    )
+    serve.add_argument(
+        "--eplus-month",
+        type=int,
+        default=7,
+        help="EnergyPlus run-period month (with --plant eplus)",
+    )
+    serve.add_argument(
+        "--eplus-day",
+        type=int,
+        default=15,
+        help="EnergyPlus run-period day (with --plant eplus)",
+    )
+    serve.add_argument(
         "--wall-seconds-per-sim-minute",
         type=float,
-        default=1.0,
-        help="Plant tick period in wall seconds (1.0 ≈ real-time minutes)",
+        default=12.0,
+        help="Plant tick period in wall seconds (12 ≈ 5x realtime; UI slider can change live)",
     )
 
     args, bacnet_argv = parser.parse_known_args(argv)
@@ -33,7 +51,20 @@ def main(argv: list[str] | None = None) -> int:
     from .api import create_app
     from .runtime import TwinRuntime
 
-    runtime = TwinRuntime(wall_seconds_per_sim_minute=float(args.wall_seconds_per_sim_minute))
+    plant: object
+    if args.plant == "eplus":
+        from .eplus_plant import EnergyPlusPlant
+
+        plant = EnergyPlusPlant(month=int(args.eplus_month), day=int(args.eplus_day))
+    else:
+        from .plant import SurrogatePlant
+
+        plant = SurrogatePlant()
+
+    runtime = TwinRuntime(
+        plant=plant,
+        wall_seconds_per_sim_minute=float(args.wall_seconds_per_sim_minute),
+    )
     app = create_app(runtime)
 
     if args.bacnet:

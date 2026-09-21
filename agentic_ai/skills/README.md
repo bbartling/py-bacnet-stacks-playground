@@ -8,6 +8,7 @@ Use these for new cross-project work unless an app's `AGENTS.md` explicitly rout
 | EnergyPlus | [`energyplus-model-authoring`](energyplus-model-authoring/SKILL.md), [`energyplus-weather`](energyplus-weather/SKILL.md), [`energyplus-calibration`](energyplus-calibration/SKILL.md), [`energyplus-mcp`](energyplus-mcp/SKILL.md), [`energyplus-results`](energyplus-results/SKILL.md) |
 | ECM and economics | [`ecm-analysis`](ecm-analysis/SKILL.md), [`esco-bin-method`](esco-bin-method/SKILL.md), [`energy-economics`](energy-economics/SKILL.md), [`utility-tariff`](utility-tariff/SKILL.md) |
 | Grid flexibility | [`energyplus-demand-management`](energyplus-demand-management/SKILL.md), [`dsm-experiment-design`](dsm-experiment-design/SKILL.md), [`grid-search-dsm`](grid-search-dsm/SKILL.md), [`policy-evaluation`](policy-evaluation/SKILL.md) |
+| BACnet lab / appliance | [`diy-bacnet-router-two-pi`](diy-bacnet-router-two-pi/SKILL.md) — two-Pi BIP↔MS/TP source G7/G8, rusty-bacnet daily MS/TP watch, Ansible persist (companion to diy-bacnet-router; Vibe13 mini-device is fixture only) |
 | Publication | [`research-publication`](research-publication/SKILL.md), [`validation-and-release`](validation-and-release/SKILL.md) |
 
 ## Migration posture

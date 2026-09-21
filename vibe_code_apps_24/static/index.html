@@ -24,9 +24,12 @@
       <div>
         <span class="badge">Module RTU-01 · Live Twin</span>
         <h1>Residential RTU <span>BAS Mimic</span></h1>
-        <p class="claim">SURROGATE_PLANT_V1 · UI writes at BACnet priority <b>8</b> · sensors update on plant ticks</p>
+        <p class="claim" id="claim-line">… · UI writes at BACnet priority <b>8</b> · sensors update on plant ticks</p>
       </div>
       <div class="hstat">
+        <div class="chip clock"><div class="k">Sim date</div><div class="v" id="chip-DATE">—</div></div>
+        <div class="chip clock"><div class="k">Sim time</div><div class="v" id="chip-TIME">—</div></div>
+        <div class="chip"><div class="k">Speed</div><div class="v" id="chip-SPEED">—</div></div>
         <div class="chip"><div class="k">Mode</div><div class="v" id="chip-MODE">—</div></div>
         <div class="chip"><div class="k">Fan</div><div class="v" id="chip-FAN">—</div></div>
         <div class="chip"><div class="k">RTU kW</div><div class="v" id="chip-KW">—</div></div>
@@ -82,10 +85,10 @@
             <text class="stitle" x="700" y="186" text-anchor="middle">ZONE</text>
             <text class="slab" x="700" y="204" text-anchor="middle">SPACE TEMP</text>
             <text class="sval big teal" id="svg-ZONE-T" x="700" y="236" text-anchor="middle">—</text>
-            <text class="slab" x="640" y="268" text-anchor="middle">HEAT SP</text>
-            <text class="sval amber" id="svg-HEAT-SP" x="640" y="286" text-anchor="middle">—</text>
-            <text class="slab" x="760" y="268" text-anchor="middle">COOL SP</text>
-            <text class="sval teal" id="svg-COOL-SP" x="760" y="286" text-anchor="middle">—</text>
+            <text class="slab" x="640" y="268" text-anchor="middle">HEAT EFF</text>
+            <text class="sval amber" id="svg-HEAT-EFF" x="640" y="286" text-anchor="middle">—</text>
+            <text class="slab" x="760" y="268" text-anchor="middle">COOL EFF</text>
+            <text class="sval teal" id="svg-COOL-EFF" x="760" y="286" text-anchor="middle">—</text>
 
             <!-- Enable lamp -->
             <circle class="lamp" id="svg-ENABLE-LAMP" cx="430" cy="140" r="7" />
@@ -100,21 +103,42 @@
           <p>Priority 8 · relinquish falls back to default (16)</p>
         </div>
 
+        <div class="ctrl speed-ctrl">
+          <label>Sim speed <span id="speed-label">5×</span></label>
+          <input id="speed-slider" type="range" min="1" max="60" step="1" value="5" />
+          <div class="row speed-actions">
+            <button type="button" id="btn-pause">Pause</button>
+            <button type="button" id="btn-step" class="ghost">Step +1 min</button>
+          </div>
+          <p class="hint">
+            1 sim-minute ticks. Slider = realtime factor (wall sec = 60÷factor).
+            Mid-sim <b>ZONE-SP</b> / <b>DEADBAND</b> writes re-plan E+ from now forward.
+          </p>
+        </div>
+
         <div class="ctrl">
-          <label>HEAT-SP <span>°F</span></label>
+          <label>ZONE-SP <span>°F center</span></label>
           <div class="row">
-            <input id="in-HEAT-SP" type="number" step="0.5" />
-            <button data-write="HEAT-SP">Write 8</button>
-            <button data-rel="HEAT-SP" class="ghost">Rel 8</button>
+            <input id="in-ZONE-SP" type="number" step="0.5" />
+            <button data-write="ZONE-SP">Write 8</button>
+            <button data-rel="ZONE-SP" class="ghost">Rel 8</button>
           </div>
         </div>
 
         <div class="ctrl">
-          <label>COOL-SP <span>°F</span></label>
+          <label>DEADBAND <span>°F width</span></label>
           <div class="row">
-            <input id="in-COOL-SP" type="number" step="0.5" />
-            <button data-write="COOL-SP">Write 8</button>
-            <button data-rel="COOL-SP" class="ghost">Rel 8</button>
+            <input id="in-DEADBAND" type="number" step="0.5" min="0.5" />
+            <button data-write="DEADBAND">Write 8</button>
+            <button data-rel="DEADBAND" class="ghost">Rel 8</button>
+          </div>
+        </div>
+
+        <div class="ctrl readonly">
+          <label>Effective (read-only)</label>
+          <div class="eff-row">
+            <span>HEAT-EFF <b id="ro-HEAT-EFF">—</b></span>
+            <span>COOL-EFF <b id="ro-COOL-EFF">—</b></span>
           </div>
         </div>
 
