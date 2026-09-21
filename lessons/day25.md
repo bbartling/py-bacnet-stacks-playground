@@ -1,117 +1,61 @@
-# Day 25 – Documentation, Comments & `help()`
+# Day 25 — Read, Write and test doubles
+
+[Previous: Day 24](day24.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 26](day26.md)
+
+**Week 4 · 45–90 minutes.** Prerequisites: Days 1–24, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Discover how to write clear **docstrings** and comments in your code and
-use Python’s built‑in `help()` function to explore modules and
-functions.  Good documentation makes your code easier to understand and
-maintain.
+Exercise I/O logic against memory before putting it on a socket.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day25/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Documentation comes in two main forms: **comments** and **docstrings**.
-Comments start with `#` and continue to the end of the line; they
-explain the *why* behind your code.  A docstring is a string literal
-that appears as the first statement in a module, function, class or
-method.  Python stores the docstring in the object’s `__doc__`
-attribute and uses it when you call `help()`.
+Traits describe behavior shared by different concrete types. Files, memory cursors and sockets can implement Read or Write, but their runtime behavior differs. A Read call can return fewer bytes than requested; EOF is reported with zero bytes for a nonempty buffer. Generic code becomes useful when it lets you test these cases without real networking.
 
-The `help()` function displays the documentation of an object.  You can
-call `help(function)` or use it at the interactive prompt to explore
-modules.  Good docstrings follow conventions described in PEP 257 and
-begin with a short summary line, followed by a more detailed
-explanation.
-
-## How to Use It
-
-**Comments and docstrings:**
-
-```python
-def fahrenheit_to_celsius(f):
-    """Convert a Fahrenheit temperature to Celsius.
-
-    Args:
-        f (float): Temperature in degrees Fahrenheit.
-
-    Returns:
-        float: Temperature in degrees Celsius.
-    """
-    # apply the conversion formula
-    return (f - 32) * 5/9
-
-# This is a comment explaining the next line
-result = fahrenheit_to_celsius(68)
-```
-
-**Using `help()`:**
-
-```python
-import math
-
-# get help on the math module
-help(math)
-
-# get help on a specific function
-help(math.sqrt)
-
-# view a function’s docstring directly
-print(fahrenheit_to_celsius.__doc__)
-```
-
-## Why This Matters
-
-Clear documentation helps others (and your future self) understand what
-your code is doing.  Comments provide context that code alone cannot
-convey, and docstrings enable automatic tools and the interactive
-interpreter to display usage information.  In collaborative projects,
-good documentation reduces bugs and accelerates onboarding.
-
-## Mini Examples
-
-- Write a docstring for a function `area_of_circle(r)` that explains the
-  formula and parameters.
-- Use `help(random.choice)` to learn about the parameters and return
-  value of `choice()`.
-- Write a brief comment in a script explaining why a particular magic
-  number (constant) is used.
-
-## Micro Exercises
-
-1. Add a docstring to your `sum_list()` function from Day 15 that
-   describes what it does and its parameters.
-2. Use `help(str.split)` to view documentation for the `split()` method.
-3. Write a script that defines a function with an empty body using
-   `pass` and a docstring explaining that the function will be
-   implemented later.
-
-## Key Takeaway
-
-Comments and docstrings explain *why* and *how* your code works.  Use
-`help()` to explore modules and functions and check your own
-docstrings.  Clear documentation makes your code more maintainable and
-user‑friendly.
-
----
-
-## Rust companion — Comments and `cargo doc`
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-/// Convert °C to °F for display.
-fn c_to_f(c: f64) -> f64 {
-    c * 9.0 / 5.0 + 32.0
-}
-
 fn main() {
-    // line comment
-    println!("{}", c_to_f(20.0));
+    use std::io::{Cursor, Read};
+    let mut source = Cursor::new(b"abc");
+    let mut byte = [0_u8; 1];
+    let n = source.read(&mut byte).expect("memory read");
+    println!("read={n}, byte={}", byte[0]);
 }
 ```
 
-```bash
-cargo doc --open   # when you have a project
-```
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** `///` documents items; `cargo doc` builds HTML for your crate.
+## Coding challenge
 
+- Write an operation accepting a Read source that counts bytes up to an explicit limit and reports limit overflow.
+- Call it with a file and with Cursor over in-memory bytes. Keep output outside the operation.
+- Introduce a test source that returns small chunks or a deliberate error; do not assume one read fills a buffer.
+
+## Experiment
+
+Run the same bytes through one large chunk and many small chunks. Then inject failure after a known prefix and state whether partial results are returned.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Chunking does not change the successful count.
+- Exactly-at-limit and one-over-limit differ.
+- A source error is not treated as clean EOF.
+
+## Optional Python companion
+
+Use io.BytesIO to exercise equivalent input behavior.
+
+## Stretch and reflection
+
+What responsibilities would a Write implementation add around partial writes?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-4) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 24](day24.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 26](day26.md)

@@ -1,0 +1,46 @@
+{
+  "provenance": "synthetic offline fixture; timestamps invented; not a real exchange",
+  "link_type": 1,
+  "fcs_included": false,
+  "frames": [
+    {
+      "number": 1,
+      "ip_version": 4,
+      "transport": "UDP",
+      "src": "192.0.2.1",
+      "dst": "192.0.2.2",
+      "source_port": 40000,
+      "destination_port": 40001,
+      "payload_hex": "01020003616263"
+    },
+    {
+      "number": 2,
+      "ip_version": 4,
+      "transport": "UDP",
+      "source_port": 47808,
+      "destination_port": 47808,
+      "payload_hex": "810b000801001008"
+    },
+    {
+      "number": 3,
+      "ip_version": 6,
+      "transport": "UDP",
+      "src": "2001:db8::1",
+      "dst": "2001:db8::2",
+      "source_port": 40000,
+      "destination_port": 40001,
+      "payload_hex": "01020003616263"
+    },
+    {
+      "number": 4,
+      "ip_version": 4,
+      "transport": "TCP",
+      "source_port": 40000,
+      "destination_port": 40001,
+      "flags": "SYN",
+      "sequence": 100,
+      "window": 4096,
+      "payload_hex": ""
+    }
+  ]
+}

@@ -1,93 +1,36 @@
-# Day 63 – SPARQL Mindset (Pattern Matching)
+# Day 63 — Week 9 Review — TCP traffic switch
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 62](day62.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 64](day64.md)
 
-## Goal
+**Week 9 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–62, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-Run the **same graph pattern** both sides: Python real SPARQL; Rust oxrdf iterate matching that pattern (SPARQL text as the shared contract).
+## Project brief
 
-## Concept
+Build a Rust TCP proxy with two configurable listener/backend mappings. Use it to carry your record-service traffic and at least one opaque binary payload. This is the fun “TCP router” project: document that it is a connection proxy, while the Pi project later performs actual IP forwarding.
 
-Shared query intent:
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-```sparql
-PREFIX ex: <http://example.com/bldg#>
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-SELECT ?p WHERE { ex:AHU1 brick:hasPoint ?p }
-```
+## Acceptance criteria
 
-Rust—oxrdf match (no full SPARQL engine required):
+- Validate configuration, cap concurrent sessions, and bound connection/shutdown time.
+- Preserve bidirectional bytes and client half-close so EOF-triggered backend responses work.
+- Keep one unavailable backend from blocking the other mapping.
+- Do not replay partial in-flight streams after failure.
+- Expose bounded structured logs and per-direction byte/connection counters.
 
-```rust
-use oxrdf::{Graph, NamedNode, Triple};
-use oxrdfio::{RdfFormat, RdfParser};
-use std::fs;
+## Deliverables
 
-fn main() {
-    // SPARQL (shared with Python):
-    // SELECT ?p WHERE { ex:AHU1 brick:hasPoint ?p }
-    let data = fs::read("mini.ttl").unwrap();
-    let mut g = Graph::new();
-    for q in RdfParser::from_format(RdfFormat::Turtle).for_reader(data.as_slice()) {
-        let q = q.unwrap();
-        g.insert(Triple::new(q.subject, q.predicate, q.object));
-    }
-    let ahu = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
-    let hp = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
-    for t in g.triples_for_subject(ahu.as_ref()) {
-        if t.predicate == hp.as_ref() {
-            println!("?p = {}", t.object);
-        }
-    }
-}
-```
+- Source, lockfile, config example, CLI help and direct-vs-proxied tests.
+- A normal capture plus slow-peer, half-close, unavailable-backend and shutdown evidence.
+- A deployment note for a future Pi, including listening interfaces and resource limits.
 
-Stretch: spargebra / oxigraph if you want a real SPARQL engine later.
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-## Why This Matters
+## Self-review
 
-Before (or instead of) a SPARQL engine, understand **pattern matching as filters** over triples.
+- Which transport properties are preserved and which endpoint addresses change?
+- How would TLS passthrough affect what this proxy can inspect?
 
-## Mini Examples
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-9); references may contain examples, so attempt the review independently first.
 
-- Two-pattern: points that are also typed sensors.
-- Count only (`COUNT` mindset).
-
-## Micro Exercises
-
-1. `ASK` mindset: does AHU1 have any point? (bool both sides)
-2. Optional filter: literal value > 50 if you added sensor values.
-3. One paragraph: SPARQL vs SQL JOIN intuition.
-
-## Key Takeaway
-
-**SPARQL is declarative graph pattern matching**—rdflib runs it; oxrdf shows the loops underneath.
-
----
-
-## Python companion — Real SPARQL on same graph
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph
-
-g = Graph()
-g.parse("mini.ttl", format="turtle")  # same file as Rust
-
-q = """
-PREFIX ex: <http://example.com/bldg#>
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-SELECT ?p WHERE { ex:AHU1 brick:hasPoint ?p }
-"""
-for row in g.query(q):
-    print(row.p)
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| iterate + filter = SPARQL pattern | `Graph.query(sparql)` |
-| SPARQL string as comment/contract | same SPARQL string executed |
-| `mini.ttl` | same |
-
-**Takeaway:** One pattern, two engines—Python executes SPARQL; Rust matches the same triple shape.
+[Previous: Day 62](day62.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 64](day64.md)

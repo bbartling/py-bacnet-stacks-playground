@@ -1,107 +1,59 @@
-# Day 23 – Random Numbers & Math
+# Day 23 — Binary buffers and hexadecimal inspection
+
+[Previous: Day 22](day22.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 24](day24.md)
+
+**Week 4 · 45–90 minutes.** Prerequisites: Days 1–22, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Use Python’s `random` and `math` modules to generate random data and
-perform common mathematical operations.  These modules help you test
-programs and perform calculations without writing your own functions.
+Inspect arbitrary bytes without treating them as text or reading beyond a slice.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day23/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-The `random` module provides functions for generating pseudo‑random
-numbers.  You can pick a random element from a sequence with
-`random.choice()`, generate random integers with `random.randint(a, b)`
-and produce random floating‑point numbers between 0 and 1 with
-`random.random()`.  The `math` module includes mathematical constants
-(`math.pi`, `math.e`) and functions such as square root, floor/ceil,
-trigonometry and logarithms.
+An array has a fixed size, a Vec owns a growable buffer, and a slice borrows a contiguous region. Binary protocol values may contain zero and non-UTF-8 bytes. Hex is a representation of bytes, not an encoding layer on the wire unless a protocol says so. Bounds checks and explicit offsets are the foundation of a trustworthy packet decoder.
 
-## How to Use It
-
-**Random functions:**
-
-```python
-import random
-
-# random integer between 1 and 10 inclusive
-n = random.randint(1, 10)
-print(f"Random integer: {n}")
-
-# random choice from a list
-device = random.choice(['VAV-1', 'VAV-2', 'AHU-1'])
-print(f"Random device: {device}")
-
-# random float between 0 and 1
-value = random.random()
-print(f"Random float: {value:.3f}")
-```
-
-**Math functions:**
-
-```python
-import math
-
-radius = 2.5
-area = math.pi * radius ** 2
-length = 10.7
-print(math.floor(length))  # 10
-print(math.ceil(length))   # 11
-print(math.sqrt(16))       # 4.0
-```
-
-## Why This Matters
-
-Random numbers are useful for testing algorithms, selecting random
-samples and simulating sensor data.  Math functions let you compute
-areas, lengths and other quantities without needing to derive formulas
-yourself.  In HVAC modelling you might generate random setpoints for
-testing or compute geometric properties of spaces.
-
-## Mini Examples
-
-- Use `random.sample()` to pick three unique rooms from a list of ten.
-- Compute the circumference of a circle with radius 5 using `math.pi`.
-- Generate five random temperature readings between 65 °F and 75 °F by
-  scaling `random.random()`.
-
-## Micro Exercises
-
-1. Write a program that simulates rolling two six‑sided dice 100 times
-   and counts how many times the sum is 7.
-2. Use `math.sqrt()` to compute the distance between two points `(x1, y1)`
-   and `(x2, y2)` entered by the user.
-3. Create a list of ten random integers between 1 and 100 and sort it
-   using `sorted()`; print the result.
-
-## Key Takeaway
-
-The `random` module generates pseudo‑random numbers for sampling and
-testing.  The `math` module provides constants and functions for common
-calculations.  Together they enable quick simulations and numeric
-computations.
-
----
-
-## Rust companion — Random numbers (crate)
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
-
-Add to `Cargo.toml`:
-
-```toml
-[dependencies]
-rand = "0.8"
-```
+## Tiny example
 
 ```rust
-use rand::Rng;
-
 fn main() {
-    let mut rng = rand::thread_rng();
-    let noise: f64 = rng.gen_range(-0.5..0.5);
-    println!("sim pv = {}", 72.0 + noise);
+    let raw = [0x00_u8, 0x7f, 0xff];
+    for byte in raw { print!("{byte:02x} "); }
+    println!();
 }
 ```
 
-**Takeaway:** Third-party code = Cargo dependency, then `use`.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Read a bounded binary file and print offsets plus hexadecimal bytes in rows. Choose and document a row width.
+- Show the byte count and a separate optional text preview that cannot panic on invalid UTF-8.
+- Handle empty input and a final row shorter than the chosen width.
+
+## Experiment
+
+Use bytes containing zero, a newline and 0xff. Compare byte count with a lossy string preview and explain why the preview cannot reconstruct the original data.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Every input byte appears exactly once in hex output.
+- The partial final row has correct offsets.
+- The preview never changes the raw bytes used for later parsing.
+
+## Optional Python companion
+
+Use `bytes.hex()` as an independent formatting reference.
+
+## Stretch and reflection
+
+Add a maximum displayed length while retaining the true input length and an explicit truncated-preview marker.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-4) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 22](day22.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 24](day24.md)

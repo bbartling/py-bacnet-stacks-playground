@@ -1,84 +1,53 @@
-# Day 38 – tcpdump & PCAP Workflow
+# Day 38 — IPv4 headers, options and checksums
+
+[Previous: Day 37](day37.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 39](day39.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–37, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Master the **capture → file → Wireshark** loop you'll reuse for BACnet and Haystack labs.
+Validate IPv4 header boundaries before trusting transport offsets.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day38/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```bash
-# 30s BACnet bench capture (adjust host)
-sudo tcpdump -i any -w bacnet.pcap -s 0 'udp port 47808'
+IPv4 IHL is a count of 32-bit words, so options can make the header longer than the common minimum. Total length bounds the IP packet independently of Ethernet padding. The header checksum covers the IPv4 header, not its payload. Fragment fields change whether the remaining bytes contain an entire transport message; recognize them now and defer transport decoding of fragments.
 
-# Read without GUI
-tcpdump -r bacnet.pcap -c 5 -n
-```
+## Tiny example
 
-Our helper:
+Use the [IPv4/UDP fixture](fixtures/README.md): locate the first byte, derive version and IHL, and compare total length against the captured bytes. The fixture manifest identifies header checksum bytes but does not provide a parser.
 
-```bash
-cd lessons/lab-scripts
-PCAP_SECONDS=15 PCAP_IFACE=enp3s0 ./capture_pcap.sh day38-bench "udp port 47808 or tcp port 443"
-```
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**`-s 0`**: full snaplen—don't truncate BACnet payloads.
+## Coding challenge
 
-**`-n`**: no DNS—show IPs.
+- Decode version, IHL, total length, TTL, protocol, addresses and fragmentation fields. Validate minimum header length and available bytes.
+- Implement header-checksum verification for the declared header including options; preserve the original bytes.
+- Report a truncated capture separately from an internally impossible total length. Do not treat Ethernet padding as IP payload.
 
-## Why This Matters
+## Experiment
 
-Commissioning without pcaps is guessing. Techs who can capture once and analyze offline win arguments about routing and firewalls.
+Mutate one header byte without updating the checksum, then shorten the capture. Explain why these are two different failures.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- Capture only host `192.168.204.200`.
-- File size sanity: 30s BACnet on quiet net ≈ small MB.
+## Acceptance checks
 
-## Micro Exercises
+- An IHL below the minimum is rejected.
+- A total length shorter than the header is rejected.
+- Options do not move the transport offset by a hard-coded 20 bytes.
 
-1. Run capture script during a Python or rusty Who-Is—did you get packets?
-2. What does "promiscuous mode" mean in one sentence?
-3. Store pcaps under `lessons/pcaps/` with dated names—practice good hygiene.
+## Optional Python companion
 
-## Key Takeaway
+Independently calculate one known header checksum or compare against Wireshark; avoid generating both expected and actual through the same Rust function.
 
-**tcpdump writes truth**—Wireshark is the microscope.
+## Stretch and reflection
 
-## Wireshark Lab
+Why does changing TTL require an IPv4 header-checksum update?
 
-Open your `day38-bench_*.pcap`.
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-Try display filters in order:
-
-1. `udp or tcp`
-2. `udp.port == 47808`
-3. `tcp.port == 443`
-
-Paste filter results count into lab notes (View → Packet List applies filter).
-
----
-
-## Python companion — capture workflow (not Wireshark)
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# Python cannot replace Wireshark — use it to drive or wrap capture tools
-import subprocess
-from pathlib import Path
-
-out = Path("day38-bench.pcap")
-# Example only — needs sudo/capabilities and a real iface; prefer lab-scripts/capture_pcap.sh
-# subprocess.run(["tcpdump", "-i", "any", "-w", str(out), "-c", "20", "udp", "port", "47808"], check=True)
-print("Write pcaps with tcpdump/capture_pcap.sh; open them in Wireshark.")
-print("Optional later: scapy sniff() for tiny filters — GUI decode still wins.")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| shell `tcpdump` / capture script | same tools; optional `subprocess` wrapper |
-| Wireshark for decode | same — don't reimplement dissectors |
-| full snaplen `-s 0` | same capture flags |
-| offline analysis | same pcap hygiene |
-
-**Takeaway:** Capture with tcpdump, decode in Wireshark—Python is for triggering Who-Is, not reinventing the microscope.
+[Previous: Day 37](day37.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 39](day39.md)

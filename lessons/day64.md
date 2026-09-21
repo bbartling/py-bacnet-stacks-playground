@@ -1,75 +1,53 @@
-# Day 64 – Multi-Protocol Bench PCAP Challenge
+# Day 64 — Modbus TCP: MBAP, ADU and PDU
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 63](day63.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 65](day65.md)
+
+**Week 10 · 45–90 minutes.** Prerequisites: Days 1–63, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-One capture, **three display filters**—BACnet UDP, Haystack HTTPS, Modbus TCP—document what each shows. Light dual-stack notes only.
+Annotate a Modbus request without confusing its framing with TCP segments.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day64/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```bash
-PCAP_SECONDS=45 ./capture_pcap.sh day64-multi \
-  "udp port 47808 or tcp port 443 or tcp port 1502"
-```
+A Modbus application PDU begins with a function code and function data. Modbus TCP wraps it with MBAP: transaction ID, protocol ID, length and unit ID. The length counts unit ID plus PDU, so a complete ADU length is six plus that field. TCP still supplies a byte stream; one read need not contain the complete MBAP header. The Modbus TCP form does not carry an RTU CRC.
 
-Bench reference:
+## Tiny example
 
-- BACnet: `192.168.204.200:47808`
-- Haystack: `192.168.204.11:443`
-- Modbus: `192.168.204.14:1502` (if enabled)
+Inspect the request in [fixtures/modbus](fixtures/modbus/README.md). Identify MBAP fields, the read function, starting address and quantity using the official application/TCP guides. Fixture bytes are a contract example, not a complete parser.
 
-RDF tie-in (thin): each protocol eventually feeds points that land in the same Brick graph (`ex:` / `brick:hasPoint`) from Days 58–63.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Open-FDD runs **multiple drivers**—one edge host, many transports.
+- Implement a Rust MBAP header view using the length rules from the official guide.
+- Require protocol ID zero for this Modbus subset and validate a bounded total ADU size before exposing the PDU.
+- Report transaction ID and unit ID as separate fields with separate meanings.
 
-## Mini Examples
+## Experiment
 
-- IO graph per filter.
-- Table: protocol, transport, port, tool that generated traffic.
+Mutate the MBAP length without changing the available bytes. Then change protocol ID. Explain why each failure must be caught before register interpretation.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Three screenshots with three filters applied.
-2. Which protocol is easiest to decode without TLS keys?
-3. Write one sentence per protocol for your README portfolio.
+## Acceptance checks
 
-## Key Takeaway
+- The unit byte is included in MBAP length.
+- No RTU CRC is expected at the end.
+- A split header is incomplete stream input rather than immediately malformed.
 
-**Wireshark is multi-protocol**—display filters switch lenses on the same file.
+## Optional Python companion
 
-## Wireshark Lab
+Optionally inspect the seven header bytes with struct for an independent field comparison.
 
-Filters (apply one at a time):
+## Stretch and reflection
 
-1. `udp.port == 47808`
-2. `tcp.port == 443 && ip.addr == 192.168.204.11`
-3. `tcp.port == 1502`
+Why might a unit ID matter even when the IP address already identifies the TCP peer?
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-10) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — Filter cheat sheet (+ RDF hint)
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-# Capture/Wireshark are the lab—aligned labels for portfolio.
-filters = {
-    "bacnet": "udp.port == 47808",
-    "haystack": "tcp.port == 443 && ip.addr == 192.168.204.11",
-    "modbus": "tcp.port == 1502",
-}
-# Later: map decoded points → ex: / brick:hasPoint (Days 58–63)
-for name, f in filters.items():
-    print(f"{name}: {f}")
-```
-
-| Rust (main lab) | Python |
-|--------|--------|
-| Drivers generate traffic; pcap is shell | dict of display-filter strings |
-| Three Wireshark lenses | same three names |
-| RDF graph is yesterday's model | same `ex:` / `brick:` story |
-
-**Takeaway:** Multi-protocol means multiple filters—semantics reunite them in the Brick graph.
+[Previous: Day 63](day63.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 65](day65.md)

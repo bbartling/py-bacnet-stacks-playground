@@ -1,73 +1,53 @@
-# Day 73 – Agent-Ready Point Metadata (JSON)
+# Day 73 — NPDU control fields and network messages
 
-*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+[Previous: Day 72](day72.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 74](day74.md)
+
+**Week 11 · 45–90 minutes.** Prerequisites: Days 1–72, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Query the Brick graph, then emit **JSON / NDJSON** point rows for MCP/agents—same SELECT intent, two serializers.
+Walk the optional NPDU fields using control bits and validated lengths.
+
+## Before you start
+
+Offline fixtures first; isolated BACnet peers for live evidence. No occupied building network. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day73/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX ex:    <http://example.org/>
-SELECT ?p ?v WHERE {
-  ex:AHU1 brick:hasPoint ?p .
-  OPTIONAL { ?p rdf:value ?v }
-}
-```
+NPDU fields depend on control flags. Destination and source network address fields can be present or absent, and variable MAC lengths affect offsets. Hop count accompanies destination routing information. A network-message flag changes the meaning of the remaining payload from APDU to a network-layer message. BACnet addressing rules include special broadcast forms; do not substitute an IP-subnet interpretation.
 
-Shape each row: `iri`, `brick_class`, `cur_val`, `bacnet_ref` (Day 53). Rust: `serde_json`; Python: `json.dumps`.
+## Tiny example
 
-## Why This Matters
+Draw an NPDU as `version | control | optional destination | optional source | optional hop count | payload`. The actual ordering and field validity come from the selected standard/stack reference, not from a fixed payload offset.
 
-Agents speak **JSON** first—RDF supplies context; JSON is the tool API.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Mini Examples
+## Coding challenge
 
-- One JSON line per temperature sensor.
-- Include `bacnet_ref` from your map.
+- Implement a Rust NPDU header decoder for the documented classic subset, including source/destination presence and bounded address lengths.
+- Classify application payload versus network message and retain priority/expecting-reply information where defined.
+- Reject truncated optional fields, unsupported version and invalid reserved-bit combinations according to the reference.
 
-## Micro Exercises
+## Experiment
 
-1. Rust: `cargo add serde serde_json`; Python: stdlib `json`.
-2. Emit `points.ndjson` from the SELECT above (both stacks).
-3. Validate with `jq .` per line.
+Test a local application NPDU, a routed one and a network message. Mutate address lengths and destination/source presence bits independently.
 
-## Key Takeaway
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-**Agents don't speak SPARQL first—they speak JSON**—serve both graph and tool APIs.
+## Acceptance checks
 
----
+- A field absent by control flag is not read.
+- Hop-count position follows the validated optional fields.
+- Network messages never go directly to the APDU parser.
 
-## Python companion — SELECT → NDJSON
+## Optional Python companion
 
-*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
+Optionally obtain independent decoder output for the same bytes from bacpypes3 or Wireshark.
 
-```python
-import json
-from rdflib import Graph
+## Stretch and reflection
 
-g = Graph()
-g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
-q = """
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX ex: <http://example.org/>
-SELECT ?p ?v WHERE {
-  ex:AHU1 brick:hasPoint ?p .
-  OPTIONAL { ?p rdf:value ?v }
-}
-"""
-for row in g.query(q):
-    print(json.dumps({"iri": str(row.p), "cur_val": float(row.v) if row.v else None,
-                       "bacnet_ref": "AI:1"}))
-```
+Why should a router preserve application bytes it does not need to interpret?
 
-| Rust (`oxrdf` + `serde_json`) | Python (`rdflib` + `json`) |
-|--------|--------|
-| Same SELECT → NDJSON | Same query → `json.dumps` |
-| Agent file export | Same row shape |
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-11) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-**Takeaway:** One query, JSON rows—graph in, tool API out.
+[Previous: Day 72](day72.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 74](day74.md)

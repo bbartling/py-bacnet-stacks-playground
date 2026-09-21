@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/badge/Discord-daily%20challenges-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord daily challenges">
   </a>
   <a href="lessons/INDEX.md">
-    <img src="https://img.shields.io/badge/Lessons-Days%201–75%20Python%20%2B%20Rust-2563EB?style=for-the-badge" alt="Lessons Days 1–75">
+    <img src="https://img.shields.io/badge/Lessons-Days%201–112%20Rust%20Networking-2563EB?style=for-the-badge" alt="Rust networking lessons Days 1–112">
   </a>
   <a href="https://overthewire.org/wargames/bandit/">
     <img src="https://img.shields.io/badge/Linux-Bandit%20wargame-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="OverTheWire Bandit">
@@ -31,9 +31,11 @@
   </a>
 </p>
 
-Hands-on playground for **HVAC controls technicians, IoT practitioners, and building-systems tinkerers**: dual-language **Python + Rust** daily lessons (BACnet → networking → Haystack → RDF), vibe-code labs from field scripting to residential DSM, and Linux shell practice via [OverTheWire Bandit](https://overthewire.org/wargames/bandit/) with daily challenges on Discord.
+Hands-on playground for **HVAC controls technicians, IoT practitioners, and building-systems tinkerers**: a **112-day Rust-first network programming course**, building-automation experiments, and Linux shell practice.
 
-Days **1–27** lead with Python + BACnet (BAC0 / BACpypes3) and a Rust companion. From **Day 28** the main text flips to Rust (Cargo, sockets, tcpdump/Wireshark, [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet), [rusty-haystack](https://github.com/jscott3201/rusty-haystack)) with a matching Python companion each day. Semantic weeks use RDF dual-stack **`rdflib` / `oxrdf`**.
+The [networking course](lessons/INDEX.md) goes from Rust fundamentals through IPv4/IPv6, packet parsing, UDP/TCP, async services, Modbus, BACnet routing, and Raspberry Pi labs. Build a TCP proxy, a pocket router/WAP, and finish with a contribution to **DIY BACnet Router**. Python companions are optional test peers and comparisons. Weekly review projects leave the implementation to you; RDF/Brick/Haystack are separate electives.
+
+**Already at the old Day 19?** Keep your completed work and continue with [Day 20](lessons/day20.md), porting your own project to Rust. All 112 lesson plans are written; [validation notes](lessons/VALIDATION.md) distinguish checked examples from learner-run hardware labs.
 
 ---
 
@@ -44,7 +46,7 @@ Days **1–27** lead with Python + BACnet (BAC0 / BACpypes3) and a Rust companio
 
 - **HVAC controls technicians** who want to automate scans, collect data, and build simple tools
 - **IoT practitioners** working with building automation
-- **Anyone** who knows BACnet from the field and wants to code it in **Python and Rust**, play with **Wireshark**, and learn graph modeling (`rdflib` / `oxrdf`) with AI-assisted workflows
+- **Anyone** who knows BACnet/Modbus from the field and wants to learn **Rust**, understand packets in **Wireshark**, and build network tools and router labs
 
 </details>
 
@@ -55,7 +57,7 @@ Days **1–27** lead with Python + BACnet (BAC0 / BACpypes3) and a Rust companio
 
 | Track | What you get | Start here |
 | --- | --- | --- |
-| **Python + Rust (BACnet / networking / RDF)** | Days **1–75 dual-language**: shared scaffold every day; **1–27** Python-main + Rust companion; **28–75** Rust-main + Python companion; RDF weeks **`rdflib` + `oxrdf`** | [`lessons/`](lessons/) · [`lessons/INDEX.md`](lessons/INDEX.md) · Day 1: [`lessons/day01.md`](lessons/day01.md) |
+| **Rust network programming** | **112 days**, 16 review projects: Rust, IPv4/IPv6, packets, UDP/TCP, async proxy, Modbus, BACnet, Pi router/WAP and MS/TP; Python optional | [Course index](lessons/INDEX.md) · [Lab guide](lessons/LAB_GUIDE.md) · [Day 1](lessons/day01.md) |
 | **Linux (OverTheWire Bandit)** | Shell / Linux fundamentals via [Bandit](https://overthewire.org/wargames/bandit/); **daily challenges on Discord** (same cadence as Python & Rust) | [`lessons/bandit/`](lessons/bandit/) · [Discord](https://discord.gg/Ta48yQF8fC) |
 | **Grid-search DSM tutorials** | Ten progressive EnergyPlus ExampleFiles lessons (thermostat → BESS) supporting Vibe 23 | [`lessons/grid_search/`](lessons/grid_search/) · [`INDEX.md`](lessons/grid_search/INDEX.md) |
 | **DIY BACnet router (app 13)** | Pi/Linux **BACnet/IP ↔ MS/TP** router; three-phase Rust lab | [`vibe_code_apps_13/`](vibe_code_apps_13/) · [AGENTS.md](vibe_code_apps_13/AGENTS.md) |
@@ -107,145 +109,36 @@ Hands-on milestones from BACnet scripting to cloud FDD. Checkpoints **1–10** a
 </details>
 
 <details>
-<summary>Computer Science Theory 101 — weekly outline</summary>
+<summary>Rust network programming — weekly outline</summary>
 
-## Computer Science Theory 101 — weekly outline
+<a id="computer-science-theory-101-weekly-outline"></a>
 
-AI-generated mini lessons as daily challenges with a **shared scaffold** (`Goal` → `Key Takeaway`, then a language companion). **Every day is Python and Rust**—only which side is “main” flips:
+## Rust network programming — weekly outline
 
-| Days | Main text | Companion (same-day, parallel intent) |
+The [course index](lessons/INDEX.md) is the canonical syllabus. Rust is required; Python companions are optional. A study day is a session, not a calendar deadline. Reviews can span a weekend. There are no full review solutions in the lesson pages.
+
+| Week | Days | Focus |
 | --- | --- | --- |
-| **1–27** | Python + BACnet | **Rust companion** |
-| **28–75** | Rust (Cargo → sockets → rusty-bacnet → rusty-haystack → RDF) | **Python companion** |
-| **55–75 RDF** | `oxrdf` (Rust) | `rdflib` + SPARQL (Python); shared Turtle / query intent |
+| 1 | [1–7](lessons/day01.md) | Rust setup, values, strings and collections |
+| 2 | [8–14](lessons/day08.md) | Control flow, text records and identity |
+| 3 | [15–21](lessons/day15.md) | Functions, files, Day 19 review and Rust bridge |
+| 4 | [22–28](lessons/day22.md) | Ownership, types, CLI design and tests |
+| 5 | [29–35](lessons/day29.md) | IPv4/IPv6, routes, neighbors and DNS |
+| 6 | [36–42](lessons/day36.md) | Binary codecs, packet inspection and Wireshark |
+| 7 | [43–49](lessons/day43.md) | UDP discovery, correlation and fault injection |
+| 8 | [50–56](lessons/day50.md) | TCP streams, framing, half-close and bounded service |
+| 9 | [57–63](lessons/day57.md) | Async Rust, cancellation and TCP traffic switch |
+| 10 | [64–70](lessons/day64.md) | Modbus TCP/RTU framing and read-only toolkit |
+| 11 | [71–77](lessons/day71.md) | BACnet BVLC/NPDU/APDU and rusty-bacnet |
+| 12 | [78–84](lessons/day78.md) | Transactions, segmentation, COV and failure handling |
+| 13 | [85–91](lessons/day85.md) | BACnet routing, BBMD and isolated network labs |
+| 14 | [92–98](lessons/day92.md) | Pi pocket router/WAP, DHCP, DNS and forwarding |
+| 15 | [99–105](lessons/day99.md) | Serial, RS-485, MS/TP and measured evidence |
+| 16 | [106–112](lessons/day106.md) | DIY BACnet Router study and contribution |
 
-Daily labs include **tcpdump** / **Wireshark** — see [`lessons/lab-scripts/`](lessons/lab-scripts/). Capstone starters: [`lessons/capstone/`](lessons/capstone/).
+Supporting material: [lab guide](lessons/LAB_GUIDE.md), [wire contracts](lessons/WIRE_FORMATS.md), [offline fixtures](lessons/fixtures/README.md), [topologies](lessons/TOPOLOGIES.md), [capture filters](lessons/lab-scripts/wireshark_filters.md), and [project briefs](lessons/capstone/README.md).
 
-**Track tip:** On Day 1, install Python *and* Rust (`rustup`); keep `~/rust-lab` and `~/py-lab`. Do **both** the main lesson and the companion the same day.
-
-### Week 1 — Fundamentals & First BACnet App
-*Part I: Variables, operators, strings, numbers, booleans, input/output, lists · + Rust companions*
-
-- **Day 1 — Installing Python & Pip (BACnet Ready):** Set up Python, pip, BAC0, bacpypes3. **Rust:** install `rustup` / Cargo, `cargo new`, first `println!`.
-- **Day 2 — Variables & Arithmetic:** Store values, arithmetic, operator precedence. **Rust:** `let` / `let mut`, `i32` / `f64`.
-- **Day 3 — Working with Strings:** Create, concatenate, index, slice strings. **Rust:** `String` vs `&str`.
-- **Day 4 — Numbers, Booleans & Comparisons:** Numeric types, comparisons, truthiness. **Rust:** `bool`, comparisons.
-- **Day 5 — User Input & Output:** `input()`, type conversion, f-strings. **Rust:** `println!`, `read_line`, `parse`.
-- **Day 6 — Introducing Lists:** Create, index, slice, append, `len()`. **Rust:** `Vec<T>`.
-- **Day 7 — List Operations & Methods:** append, extend, insert, remove, sort, copy. **Rust:** `Vec` methods, `clone`.
-
-### Week 2 — Control Structures & Data Collection
-*Part II: Loops, conditionals, functions, files · + Rust companions*
-
-- **Day 8 — For Loops & Range:** Iterate over lists/strings/ranges, `enumerate()`. **Rust:** `for`, `0..n`, `.enumerate()`.
-- **Day 9 — Conditionals & While Loops:** `if`/`elif`/`else`, `while`, sentinel loops. **Rust:** `if` expressions, `while`.
-- **Day 10 — String Methods: Split, Join & Case:** `split()`, `join()`, case conversion. **Rust:** `.split`, `.collect`, `.to_uppercase()`.
-- **Day 11 — Introducing Dictionaries:** Keys, values, add, retrieve, membership. **Rust:** `HashMap`, `.get` → `Option`.
-- **Day 12 — Looping over Dictionaries:** `items()`, `keys()`, `values()` (no comprehensions). **Rust:** `for (k, v) in &map`.
-- **Day 13 — Tuples & Sets (Light):** Immutable tuples, sets for membership (optional). **Rust:** tuples, arrays.
-- **Day 14 — Loops & Sentinels:** `break`, `continue`, common loop patterns. **Rust:** same keywords.
-
-### Week 3 — Functions, Modules & Files
-*Part II continued: Reusable code, modules, file I/O · + Rust companions*
-
-- **Day 15 — Writing Functions:** Define functions, parameters, return, docstrings. **Rust:** `fn`, typed params/returns.
-- **Day 16 — Modules & the Standard Library:** `math`, `random`, organising code. **Rust:** `use std::...`, crates.
-- **Day 17 — Reading & Writing Files:** `open()`, `with`, read/write text and CSV. **Rust:** `std::fs`.
-- **Day 18 — Handling Errors:** `try`/`except`, robust programs. **Rust:** `Result`, `Option` preview.
-- **Day 19 — Week 3 Review:** CSV of sensor readings, statistics, error handling. **Rust:** small review project.
-- **Day 20 — Built-in Functions:** `min()`, `max()`, `sorted()`, `sum()`, `zip()` (no comprehensions). **Rust:** iterators.
-- **Day 21 — Slicing & String Formatting:** Advanced f-strings, slicing. **Rust:** `format!`, slices.
-
-### Week 4 — Data Structures & Discovery
-*Part III: Lists, dicts, file I/O · + Rust companions*
-
-- **Day 22 — Working with Nested Data:** Lists of dicts, dicts of lists (loops only, no comprehensions). **Rust:** `Vec` of `struct`.
-- **Day 23 — Random & Math:** `random`, `math` for simulations. **Rust:** `rand` crate.
-- **Day 24 — any(), all() & Simple Patterns:** Boolean checks on collections. **Rust:** `.any` / `.all`.
-- **Day 25 — Documentation & help():** Docstrings, comments, `help()`. **Rust:** `///`, `cargo doc`.
-- **Day 26 — Week 4 Review:** Nested data, built-ins, loops. **Rust:** map + alarm review.
-
-### Week 5 — Rust Fast Track (After Python Day 27)
-*Rust-main + Python companion each day — ownership, types, control flow, collections*
-
-- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs; **Rust:** ownership teaser (move vs `&`).
-- **Day 28 — Rust recap & ownership crash course:** Confirm Cargo; **ownership, borrowing, lifetimes** intuition. **Python:** GC vs ownership companion.
-- **Day 29 — Types, Operators & Variables:** Scalars, `mut`, formatting BACnet-style readings. **Python:** same readings with types/`f`-strings.
-- **Day 30 — Control Flow:** `if`, loops, `match` for alarm/priority-style logic. **Python:** `if` / `match`/`case`.
-- **Day 31 — Functions, Option & Result:** Error handling before sockets. **Python:** functions + exceptions / `Optional`.
-- **Day 32 — struct, enum & impl:** Model BACnet points and object kinds. **Python:** dataclasses / Enum.
-- **Day 33 — Vec, HashMap & String:** Device caches and tag maps. **Python:** list / dict.
-- **Day 34 — Ownership & Borrowing (practice):** References for network buffers and APIs. **Python:** aliases / mutability companion.
-
-### Week 5b — Network Programming & Wireshark
-*UDP/TCP, tcpdump pcaps, display filters — Rust-main; Python companion mirrors sockets / capture workflow*
-
-- **Day 35 — Network map:** BACnet UDP `:47808`, Haystack TCP `:443`, Modbus TCP—bench topology.
-- **Day 36 — UDP sockets in Rust:** Echo lab; BACnet datagram mindset. **Python:** `socket` UDP echo.
-- **Day 36b — Modbus TCP (beginner OT):** Register read over TCP `:502`/`:1502`; Wireshark `modbus` filter. **Python:** pymodbus / raw TCP sketch.
-- **Day 37 — TCP client/server:** Echo lab; HTTP/TLS foundation. **Python:** `socket` TCP.
-- **Day 38 — tcpdump & PCAP workflow:** `capture_pcap.sh`, snaplen, offline analysis.
-- **Day 39 — Wireshark: BACnet on UDP:** BVLC/NPDU/APDU; filter `udp.port == 47808`.
-- **Day 40 — Wireshark: TCP, TLS & HTTP:** Haystack preview; filter `tcp.port == 443`.
-
-### Week 6 — rusty-bacnet Specialty
-*Discovery, ReadProperty, RPM, writes (lab-safe), capstone CLI — Rust-main; Python companion via BAC0 / bacpypes3*
-
-- **Day 41 — Intro rusty-bacnet:** Clone, build, map Who-Is/ReadProperty APIs.
-- **Day 42 — ReadProperty:** Device **5007** bench read in Rust.
-- **Day 43 — ReadPropertyMultiple:** Poll loops and traffic math.
-- **Day 44 — WriteProperty & priority:** Lab/sim only; read-back discipline.
-- **Day 45 — Who-Is / I-Am scan:** Discovery table in `HashMap`.
-- **Day 46 — BACnet capstone:** Mini commission CLI + CSV snapshot.
-- **Day 47 — Async preview (tokio):** Why edge services use async I/O. **Python:** `asyncio` sketch.
-
-### Week 6b — rusty-haystack & HTTP Haystack Ops
-*Niagara nHaystack, Basic vs SCRAM, fixtures, tag↔BACnet mapping — Rust-main; Python companion via requests/httpx*
-
-- **Day 48 — HTTP mental model:** `/about`, `/read`, `/ops`; status codes.
-- **Day 49 — rusty-haystack setup:** Build client; Niagara URL and TLS lab notes.
-- **Day 50 — /read & Zinc filters:** Point reads and grid parsing.
-- **Day 51 — Auth: Basic vs SCRAM:** Niagara `HTTPBasicScheme` vs Project Haystack SCRAM.
-- **Day 52 — Golden fixtures:** Offline dev with captured Zinc/HTTP fixtures.
-- **Day 53 — Correlate Haystack tags with BACnet points:** Mapping CSV/structs.
-- **Day 54 — Haystack capstone:** `niagara-read` CLI with clap flags.
-
-### Week 7 — RDF Bridge (rdflib + oxrdf)
-*Triples, IRIs, Turtle, graphs — dual-stack*
-
-- **Day 55 — Why RDF after protocols:** Triples; same sample on both stacks.
-- **Day 56 — URIs & prefix maps:** QName expansion; shared prefixes.
-- **Day 57 — Triples & literals:** IRI vs typed literal.
-- **Day 58 — Reading Turtle:** Hand syntax; `oxrdf` / `rdflib` load.
-- **Day 59 — Adjacency-list graph:** Subject → edges; parallel `rdflib` Graph.
-- **Day 60 — rdf:type & Brick taxonomy:** Class and subclass chains.
-- **Day 61 — Haystack tags vs Brick graphs:** When tags vs mergeable RDF.
-
-### Week 8 — Brick Models & Query Patterns (rdflib + oxrdf)
-*Hand-authored TTL; SPARQL intent on both stacks*
-
-- **Day 62 — Hand-author Brick AHU model:** `ahu1.ttl` capstone piece.
-- **Day 63 — Pattern matching queries:** Tiny `SELECT`-style patterns.
-- **Day 64 — Multi-protocol PCAP challenge:** One file, three Wireshark filters.
-- **Day 65 — open-fdd drivers & semantic layer:** Transport → driver → RDF.
-- **Day 66 — Serialize graph to Turtle:** Round-trip with `oxrdf` / `rdflib`.
-- **Day 67 — ASHRAE 223P alignment (concept):** Brick, Haystack, 223P roles.
-
-### Week 9 — Live Data → Graph & Agent-Ready Export
-*BACnet → RDF; SPARQL FILTER/ASK; JSON for tools*
-
-- **Day 68 — BACnet read → RDF triples:** Live snapshot into graph.
-- **Day 69 — FILTER & OPTIONAL patterns:** Same SPARQL on both stacks.
-- **Day 70 — UNION & ASK queries:** Existence checks for commissioning.
-- **Day 71 — DISTINCT, ORDER BY, LIMIT:** Practical query hygiene.
-- **Day 72 — Haystack → RDF export path:** Zinc rows to triples stub.
-- **Day 73 — Agent-ready metadata:** JSON/NDJSON point rows for MCP/agents.
-
-### Week 10 — Course Synthesis & Final Capstone
-*Portfolio: dual-language CLIs + TTL + pcaps + `rdflib` SPARQL / `oxrdf` graph-export*
-
-- **Day 74 — Course review:** Python → Rust → Wireshark → dual-stack graph doc.
-- **Day 75 — Final capstone:** Multi-protocol semantic snapshot; `oxrdf` in `graph-export`; `rdflib` SPARQL on `ahu1.ttl`; Wireshark filters in `pcaps/README.md`.
+The old 75-day lesson files were replaced directly; no archive is kept. Existing unrelated semantic-modeling and application projects remain available as electives. Live hardware and image gates require their own evidence.
 
 </details>
 

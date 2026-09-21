@@ -1,88 +1,57 @@
-# Day 60 – rdf:type & Brick Class Taxonomy
+# Day 60 — A two-connection TCP proxy
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 59](day59.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 61](day61.md)
+
+**Week 9 · 45–90 minutes.** Prerequisites: Days 1–59, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Navigate **`rdf:type`** and **`rdfs:subClassOf`** for Brick equipment—load a tiny taxonomy TTL in both stacks.
+Forward opaque bytes in both directions while preserving half-close behavior.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day60/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Shared taxonomy sketch (`taxo.ttl`):
+A TCP proxy terminates one connection and opens another. It does not forward original IP packets and cannot generally replay an in-flight stream safely. Bidirectional copying must allow one direction to finish while the other still has response bytes. Tokio provides copying primitives with documented shutdown and error semantics; using one does not remove the need for timeouts, admission limits and tests.
 
-```turtle
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix ex: <http://example.com/bldg#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+## Tiny example
 
-ex:AHU1 a brick:AHU .
-brick:AHU rdfs:subClassOf brick:Equipment .
+```text
+client TCP connection <-> proxy <-> backend TCP connection
+client write EOF       -> backend write shutdown
+client still reads     <- backend may still respond
 ```
 
-```rust
-use oxrdf::{Graph, NamedNode, Triple, vocab::rdf};
-use oxrdfio::{RdfFormat, RdfParser};
-use std::fs;
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-fn main() {
-    let data = fs::read("taxo.ttl").unwrap();
-    let mut g = Graph::new();
-    for q in RdfParser::from_format(RdfFormat::Turtle).for_reader(data.as_slice()) {
-        let q = q.unwrap();
-        g.insert(Triple::new(q.subject, q.predicate, q.object));
-    }
-    let ahu1 = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
-    for t in g.triples_for_subject(ahu1.as_ref()) {
-        if t.predicate == rdf::TYPE {
-            println!("type: {}", t.object);
-        }
-    }
-}
-```
+## Coding challenge
 
-Walk `rdfs:subClassOf` upward for a tiny `is_instance_of` (BFS) as stretch.
+- Build a Rust loopback proxy from one explicit listener to one configured backend. Treat payload bytes as opaque.
+- Use or implement documented bidirectional-copy behavior; record bytes per direction and enforce connect/session limits.
+- When either side errors, report that unflushed bytes may be lost. Never claim exactly-once application delivery.
 
-## Why This Matters
+## Experiment
 
-FDD rules reference **Brick class names**—types tell which points belong to which equip templates.
+Use a backend that waits for request EOF before responding. Compare direct connection with proxy traversal. Review the current copy_bidirectional API behavior rather than assuming both directions stop on the first EOF.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- List direct types of `ex:AHU1`.
-- Add `brick:Sensor` subclass edges; list sensor instances.
+## Acceptance checks
 
-## Micro Exercises
+- The delayed response survives a client half-close.
+- Connection failure is visible without an infinite retry loop.
+- Byte totals are labeled by direction.
 
-1. Hard-code a 5-class hierarchy in TTL; load in both stacks.
-2. Function `is_instance_of(g, node, class_iri)` (BFS over subclass).
-3. Link to open-fdd rule inputs that mention Brick classes.
+## Optional Python companion
 
-## Key Takeaway
+Optionally supply the EOF-waiting backend as an independent Python test peer.
 
-**Taxonomy = typed nodes + subclass edges**—RDF's OOP-like view of buildings.
+## Stretch and reflection
 
----
+What would change if the proxy terminated TLS instead of forwarding encrypted bytes untouched?
 
-## Python companion — Same taxonomy TTL
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-9) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph, Namespace, RDF, RDFS
-
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-
-g = Graph()
-g.parse("taxo.ttl", format="turtle")  # same file as Rust
-print(list(g.objects(EX.AHU1, RDF.type)))  # [BRICK.AHU]
-# Walk: g.objects(BRICK.AHU, RDFS.subClassOf) → Equipment
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| parse TTL → `triples_for_subject` + `rdf::TYPE` | `g.objects(s, RDF.type)` |
-| same `taxo.ttl` | same |
-| BFS `subClassOf` stretch | `RDFS.subClassOf` walk |
-
-**Takeaway:** `rdf:type` plus `subClassOf` is the taxonomy—same file, both stacks.
+[Previous: Day 59](day59.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 61](day61.md)

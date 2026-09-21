@@ -1,68 +1,53 @@
-# Day 52 – Golden Fixtures & Offline Haystack Dev
+# Day 52 — Incremental framing and bounded buffers
+
+[Previous: Day 51](day51.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 53](day53.md)
+
+**Week 8 · 45–90 minutes.** Prerequisites: Days 1–51, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Use **golden HTTP fixtures** from the niagara tutorial to develop rusty-haystack parsers without hammering live Niagara.
+Decode multiple application messages from an arbitrary TCP byte stream.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day52/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Path: [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/fixtures/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/fixtures/) — see [FIXTURES_AND_SIM.md](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/FIXTURES_AND_SIM.md).
+A framing layer turns a byte stream into records. Delimiters are convenient for text but require escaping or restricted payloads. Length prefixes work for opaque bytes but must be validated before allocation. Keep incomplete buffered state separate from invalid input. At final EOF, an incomplete frame becomes truncation. Use the same decoder in memory and on sockets.
 
-Capture script (run from tutorial folder):
+## Tiny example
 
-```bash
-scripts/03_capture_golden_fixtures.sh
-```
+Use [the TCP record framing contract](WIRE_FORMATS.md#tcp-record-service): two-byte big-endian payload length, followed by that many bytes. The prefix excludes itself; a maximum keeps buffering finite.
 
-Develop pattern:
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-1. Record real responses once (with permission)
-2. Commit redacted **golden** files
-3. Unit test client against fixtures (local `mockito` or file:// server—stretch)
+## Coding challenge
 
-## Why This Matters
+- Implement an incremental Rust frame decoder with maximum payload 1024 bytes, preserving leftover bytes after one frame.
+- Support zero-length payload at the framing layer; application commands may reject it separately.
+- Reject oversized lengths immediately and distinguish incomplete input from malformed input and final truncation.
 
-Network programming best practice: **separate protocol parsing from live I/O** so CI runs without your bench VLAN.
+## Experiment
 
-## Mini Examples
+Concatenate two frames and split the resulting bytes at every possible boundary. Compare decoded frame sequence across splits.
 
-- Diff `about.zinc` golden vs live `/about`.
-- List ops available in fixture metadata.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Capture golden set on your N4.15 station if not present.
-2. Write one test that loads fixture string and asserts row count > 0.
-3. Explain replay value when 192.168.204.11 is offline.
+- Two frames in one read do not merge into one message.
+- One frame across many reads is not rejected prematurely.
+- Oversize input cannot trigger unbounded allocation.
 
-## Wireshark Lab
+## Optional Python companion
 
-Optional: capture during golden capture script run—filter **`tcp.port == 443`**
+Optionally generate length-prefixed fixtures with struct.pack; no duplicate decoder needed.
 
-## Key Takeaway
+## Stretch and reflection
 
-**Fixtures are how Rust projects test HTTP clients** without always-on Niagara hardware.
+Compare memory growth under a peer that sends a valid prefix very slowly.
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-8) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — Load a Zinc fixture
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from pathlib import Path
-
-# Point at a tutorial golden file when you have one
-path = Path("about.zinc")  # or fixtures/about.zinc
-text = path.read_text(encoding="utf-8") if path.exists() else 'ver:"3.0"\n'
-print("lines:", len(text.splitlines()))
-print(text[:120])
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| unit test vs golden Zinc | `pathlib` read + assert line count |
-| mockito / file server | offline file only |
-| rusty-haystack parse | inspect raw text for intuition |
-
-**Takeaway:** Fixtures are language-agnostic text—parse them in Rust tests; peek in Python if helpful.
+[Previous: Day 51](day51.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 53](day53.md)

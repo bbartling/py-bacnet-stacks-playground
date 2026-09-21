@@ -1,79 +1,59 @@
-# Day 21 – Slicing & String Formatting
+# Day 21 — Ownership and borrowing through a real tool
+
+[Previous: Day 20](day20.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 22](day22.md)
+
+**Week 3 · 45–90 minutes.** Prerequisites: Days 1–20, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Improve your ability to work with sequences by practising **slicing** and reviewing Python’s string formatting options, including f‑strings.
+Explain who owns your report input and remove unnecessary copying from one data path.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day21/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-**Slicing** allows you to extract a contiguous portion of a list or string using the syntax `seq[start:stop:step]`. Both `start` and `stop` are optional; negative indices count from the end. The Python tutorial shows that you can slice strings to obtain substrings and that strings and lists support indexing and slicing. For example, `s[1:3]` returns characters at positions 1 and 2.
+A move transfers responsibility for an owned value; a borrow temporarily lets other code use it. Multiple immutable borrows are allowed, while a mutable borrow requires exclusive access for its active lifetime. Borrowing is not just a performance trick: it states who may change a buffer while another operation uses it. Cloning to silence every diagnostic hides these relationships.
 
-String formatting lets you build readable output. An **f‑string** is a string literal prefixed with `f` that contains expressions in curly braces, which are evaluated at runtime. The Input/Output section of the tutorial demonstrates that prefixing a string with `f` and embedding expressions like `{year}` produces formatted results. You can also use the `format()` method or old‑style `%` formatting, but f‑strings are the most concise.
-
-## How to Use It
-
-**Slicing sequences:**
-
-```python
-numbers = [0, 1, 2, 3, 4, 5]
-print(numbers[1:4])    # [1, 2, 3]
-print(numbers[:3])     # [0, 1, 2]
-print(numbers[3:])     # [3, 4, 5]
-print(numbers[-3:])    # last three elements
-print(numbers[::2])    # every second element [0, 2, 4]
-print(numbers[::-1])   # reversed list
-
-s = "HVAC"
-print(s[1:3])  # 'VA'
-```
-
-**String formatting with f‑strings:**
-
-```python
-year = 2026
-event = 'HVAC conference'
-print(f"Results of the {year} {event}")  # Results of the 2026 HVAC conference
-
-temperature = 72.456
-print(f"{temperature:.1f}°F")  # 72.5°F with one decimal place
-```
-
-## Why This Matters
-
-Being comfortable with slicing lets you quickly extract or modify parts of sequences. Reversing lists, skipping every other element or taking substrings are common operations in data processing. F‑strings make it easy to build human‑readable output—crucial when reporting sensor values or constructing file names.
-
-## Mini Examples
-
-- Extract the domain from the email `info@hvac.example.com` using slicing.
-- Reverse a string entered by the user using `s[::-1]`.
-- Use an f‑string to display a temperature and humidity reading such as `f"Temp: {temp}°F, Humidity: {rh}%"`.
-
-## Micro Exercises
-
-1. Given `phrase = "BACnet Data"`, slice it to produce `"BAC"` and `"Data"`.
-2. Use slicing to create a copy of a list and then modify the copy without altering the original.
-3. Write a formatted string that prints the filename and size (in kilobytes) of a file using variables `name` and `size`.
-
-## Key Takeaway
-
-Slicing allows you to extract portions of sequences and reverse them easily. F‑strings provide concise, readable string formatting for embedding variable values in output.
-
----
-
-## Rust companion — `format!` and slices
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let device = 5007;
-    let label = format!("device-{device}");
-    println!("{label}");
-    let s = "BACnet";
-    let head = &s[0..3]; // byte index — OK for ASCII
-    println!("{head}");
+    let name = String::from("bench");
+    let view = name.as_str();
+    println!("{view}: {} bytes", name.len());
 }
 ```
 
-**Takeaway:** `format!` builds `String`. Slices `&s[a..b]` are views (borrows) — more on Day 27–28.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Sketch ownership for the file contents, parsed readings and report in your Day 20 tool.
+- Change one read-only helper to accept a borrowed view instead of consuming or cloning its input.
+- Demonstrate a move error in a disposable scratch file, then choose borrowing or an intentional clone and justify it.
+
+## Experiment
+
+Try mutating an owned string while a borrowed slice is still needed later. Move the last use of the slice and observe how the compiler evaluates the borrow lifetime.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- You can identify the buffer owner at every function boundary.
+- The caller still uses the input after a read-only operation.
+- Any remaining clone has a reason beyond making compilation succeed.
+
+## Optional Python companion
+
+Compare two Python names referring to the same list with Rust ownership. Explain why the analogy is incomplete.
+
+## Stretch and reflection
+
+Where would ownership need to change if a background task outlived the function that created the input?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-3) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 20](day20.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 22](day22.md)

@@ -1,143 +1,53 @@
-# Day 01 – Installing Python & Pip (BACnet Ready)
+# Day 01 — Set up a Rust networking workbench
 
-*Part I: Fundamentals | Week 1*
+[Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 2](day02.md)
+
+**Week 1 · 45–90 minutes.** Prerequisites: No programming prerequisite; a terminal and editor.
 
 ## Goal
 
-Set up your development environment by installing Python and pip, then verify that everything works **including installing BACnet libraries**. By the end of this lesson you’ll be able to run:
+Build and run a tiny Rust executable, make an intentional compiler error, and distinguish source, build output, and terminal output.
 
-* `python --version`
-* `python -m pip --version`
-* install **BAC0** and **bacpypes3**
-* run a quick import test for both
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day01/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Python is a high-level programming language that is **easy to learn** and has extensive standard and third-party libraries. To run Python code you need the interpreter installed on your computer.
+Cargo manages packages, dependencies, builds and tests. rustc is the compiler underneath it. A package can contain a binary and a library; today only a binary is needed. Rust catches many mistakes before execution, but a successful build does not prove that a program behaves correctly. Python will later act as an independent network peer. Neither language needs access to a BACnet device today.
 
-Once Python is installed, **pip** provides a way to install additional libraries from the Python Package Index (PyPI). For this course, pip is how we install building automation tooling—especially BACnet libraries.
+## Tiny example
 
+Create a disposable package with `cargo new hello_wire --bin`, enter it, and run `cargo run`. Change the greeting, then remove one closing quote and read the compiler diagnostic. Restore it. `cargo --version`, `rustc --version`, and `python3 --version` identify the tools actually used.
 
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## How to Use It
+## Coding challenge
 
-### Install Python
+- Install Rust through the official rustup instructions if missing. Python is optional for comparison exercises. Record versions; use the stable Rust toolchain and edition 2024 for new coursework packages.
+- Create your own day01 binary that prints a tool name, a lab-only purpose, and a version label on separate lines. No dependencies or live traffic.
+- Locate Cargo.toml, src/main.rs, Cargo.lock and target; describe which files you would commit. Keep generated target contents out of version control.
 
-Download Python from the official site latest version of `3.14.x` and install it:
+## Experiment
 
-* https://www.python.org/downloads/windows/
+Run once from the package directory and once from its parent. Explain the different result. Use `cargo run --manifest-path <package>/Cargo.toml` to identify the package explicitly; replace the placeholder with its real relative path.
 
-* Windows/macOS: use the installer and **check “Add Python to PATH”**
-* Linux: use your package manager if needed (often already installed)
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-### Verify your installation
+## Acceptance checks
 
-Open a terminal and run:
+- The executable prints your chosen three lines.
+- You can recover from a compiler error without deleting the project.
+- A short environment note includes OS, CPU architecture and exact tool versions.
 
-```bash
-python --version
-python -m pip --version
-```
+## Optional Python companion
 
-### Install BACnet libraries: BAC0 + bacpypes3
+Print the same three facts in a short Python script. Compare how each language starts execution, without translating Cargo concepts into nonexistent Python equivalents.
 
-Install both in your venv:
+## Stretch and reflection
 
-```bash
-python -m pip install bac0 bacpypes3 ifaddr
-```
+Run `cargo check` and `cargo build`; explain what each produces. Read the official installation page before changing an existing system-wide toolchain.
 
-> If you’re on Linux and plan to do real BACnet/IP work later, you may also want:
-> `python -m pip install ifaddr`
-> (Some BACnet tooling uses it to find network interfaces.)
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-1) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-### Verify the BACnet installs
-
-Run this one-liner:
-
-```bash
-pip show BAC0
-```
-
-### Confirm imports
-
-```bash
-pip show bacpypes3
-```
-
-If it prints version numbers without errors, you’re ready.
-
-## Why This Matters
-
-Before you can experiment with Python you must have a working interpreter and package installer. Installing Python and pip ensures that you can run the examples in this course and install additional libraries when needed.
-
-For building automation, **BAC0** and **bacpypes3** are foundational:
-
-* **BAC0** is a friendly, higher-level interface for common BACnet tasks.
-* **bacpypes3** is a modern BACnet stack for building your own BACnet tools and services.
-
-You’ll use these later to scan devices, read present values, and build repeatable data collection scripts.
-
-
-## Micro Exercises
-
-1. Create and activate a virtual environment named `env`.
-2. Upgrade pip inside your venv.
-3. Install **BAC0** and **bacpypes3**.
-4. Run the example to print "Hello Python!"
-
-
-## Key Takeaway
-
-Installing Python and pip is the first step. Setting up a virtual environment and installing **BAC0** + **bacpypes3** makes your machine **BACnet-ready**, so you can move on to scanning and reading real building automation data in the next lessons.
-
----
-
-## Rust companion — Install Rust & Cargo (same day as Python)
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
-
-You do **not** wait until Day 28 to touch Rust. Install it **today** so every later day can show a tiny Rust twin of the Python idea.
-
-### Install (one time)
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-# then restart the terminal, or:
-source "$HOME/.cargo/env"
-rustc --version
-cargo --version
-```
-
-| Python | Rust |
-|--------|------|
-| `python` interpreter | `rustc` compiler |
-| `pip` packages | **Cargo** crates |
-| `script.py` | `cargo new app --bin` → `src/main.rs` |
-| `python script.py` | `cargo run` |
-
-### First project
-
-```bash
-mkdir -p ~/rust-lab && cd ~/rust-lab
-cargo new day01_hello --bin
-cd day01_hello
-cargo run
-```
-
-Edit `src/main.rs`:
-
-```rust
-fn main() {
-    println!("Hello Rust — BACnet lab ready");
-}
-```
-
-### Micro exercises (Rust)
-
-1. Install rustup; write down `rustc --version`.
-2. Create `day01_hello` and change the message to your name.
-3. Run `cargo build` then `cargo run` — note the binary under `target/debug/`.
-
-**Takeaway:** Cargo is your daily driver. Keep `~/rust-lab` for all Day 1–27 Rust snippets.
-
+[Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 2](day02.md)

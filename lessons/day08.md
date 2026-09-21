@@ -1,133 +1,60 @@
-# Day 08 – For Loops & Range
+# Day 08 — Loops, ranges and bounded work
+
+[Previous: Day 7](day07.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 9](day09.md)
+
+**Week 2 · 45–90 minutes.** Prerequisites: Days 1–7, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to iterate over sequences using `for` loops and generate sequences
-of numbers with the `range()` function.  By the end of this lesson you’ll be
-comfortable looping through lists, strings and ranges, and using `enumerate()`
-to access both index and value.
+Use loops to summarize records and make a finite work budget visible.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day08/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-In Python the `for` statement iterates over the items of any sequence such as
-a list or a string.  In the tutorial, a `for` loop prints each word and its
-length from a list.  The built‑in `range()`
-function returns an iterable sequence of numbers which can be used in loops.
-`range(n)` produces numbers from `0` up to but not including `n`, and you can
-provide a start and step to control the sequence.
+A range expresses repetition without manually updating a counter. `0..n` excludes n; `0..=n` includes it. Iterating by reference preserves the collection for later use. Network tools eventually need limits on requests, records and retries; an innocent off-by-one can change the rate or contact an unintended endpoint. Today use only offline data.
 
-## How to Use It
-
-1. **Loop over a list.**  The `for` loop assigns each item in the sequence to
-   the loop variable in turn:
-
-   ```python
-   fruits = ['apple', 'banana', 'cherry']
-   for fruit in fruits:
-       print(fruit)
-   ```
-
-2. **Loop over a string.**  Strings are sequences too:
-
-   ```python
-   for char in 'BACnet':
-       print(char)
-   ```
-
-3. **Use `range()`.**  Generate numeric sequences:
-
-   ```python
-   for i in range(5):
-       print(i)  # prints 0 1 2 3 4
-
-   for i in range(2, 10, 2):
-       print(i)  # prints 2 4 6 8
-   ```
-
-4. **Get index and value.**  Use `enumerate()` to access both:
-
-   ```python
-   for index, value in enumerate(['VAV', 'AHU', 'Boiler']):
-       print(index, value)
-   ```
-
-5. **Sum a range.**  You can compute sums with loops or use `sum()`:
-
-   ```python
-   total = 0
-   for n in range(1, 6):
-       total += n
-   print(total)  # 15
-   # or
-   print(sum(range(1, 6)))
-   ```
-
-## Why This Matters
-
-Iterating over sequences lets you perform operations on each element of a
-collection—vital for tasks such as printing sensor names, computing average
-temperatures or generating tables.  The `range()` function gives you control
-over numeric loops and is used in many algorithms.
-
-## Mini Examples
-
-```python
-# print each BACnet device instance with its position
-devices = [3456789, 3456790, 123456]
-for i, dev in enumerate(devices, start=1):
-    print(f'Device {i}: {dev}')
-
-# generate a table of squares
-for n in range(1, 6):
-    print(n, n*n)
-
-# loop over characters in a string
-name = 'AHU'
-for ch in name:
-    print(ch)
-```
-
-## Micro Exercises
-
-1. Write a loop that prints the numbers 10 down to 1 using `range()`.
-2. Given a list of temperatures, use a `for` loop to compute the average.
-3. Use `enumerate()` to loop over the list `['north','south','east','west']`
-   and print each direction with its index starting at 1.
-4. Create a list of even numbers between 2 and 20 (inclusive) using
-   `range()` and print the list.
-
-## Key Takeaway
-
-`for` loops iterate over sequences and `range()` generates arithmetic
-progressions.  These constructs let you process lists, strings and numbers
-cleanly.
-
----
-
-## Rust companion — `for` loops and ranges
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let points = ["SAT", "RAT", "OAT"];
-    for name in points {
-        println!("point={name}");
-    }
-    for i in 0..3 {
-        println!("i={i}");
-    }
-    for (i, name) in points.iter().enumerate() {
-        println!("{i}: {name}");
+    let lengths = [3_u32, 5, 7];
+    for (index, length) in lengths.iter().enumerate() {
+        println!("record {index}: {length} bytes");
     }
 }
 ```
 
-| Python | Rust |
-|--------|------|
-| `for x in items:` | `for x in items` |
-| `range(3)` | `0..3` (end exclusive) |
-| `enumerate(items)` | `.iter().enumerate()` |
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** `0..n` is half-open like Python `range(n)`.
+## Coding challenge
 
+- Given a vector of captured-message lengths, calculate count and total bytes with explicit loops.
+- Print a human-friendly record number starting at 1 while explaining the zero-based index.
+- Generate exactly five proposed poll slots, without sleeping or sending packets.
+
+## Experiment
+
+Change an exclusive range to an inclusive range and predict the extra iteration. Repeat with an empty vector.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Counts equal the number of processed records.
+- The empty collection has a defined summary.
+- No loop sends real traffic or has an accidental unbounded termination condition.
+
+## Optional Python companion
+
+Use a plain Python for loop and range; avoid comprehensions for this exercise.
+
+## Stretch and reflection
+
+Add a maximum of three processed records and report how many were left out.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-2) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 7](day07.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 9](day09.md)

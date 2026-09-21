@@ -1,74 +1,53 @@
-# Day 62 – Hand-Author Brick Model for One AHU
+# Day 62 — Tracing a slow connection
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 61](day61.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 63](day63.md)
+
+**Week 9 · 45–90 minutes.** Prerequisites: Days 1–61, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Write **`ahu1.ttl`** by hand for one AHU, SAT, OAT, and **`brick:hasPoint`**—load and query in oxrdf and rdflib.
+Collect useful operational evidence without making logging the bottleneck.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day62/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Minimum entities:
+A connection ID links events across tasks. Aggregate counters answer how much work occurred, while structured spans help explain one session. Logs should avoid unbounded payload dumps and secrets. Performance experiments need a fixed workload and comparable environments; localhost results do not predict MS/TP timing or Wi-Fi performance. Instrumentation itself consumes CPU, memory and I/O.
 
-- `ex:AHU1` a `brick:AHU`
-- Points: SAT, OAT as sensor classes
-- Optional: `ex:VAV1 brick:isFedBy ex:AHU1`
+## Tiny example
 
-```turtle
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix ex: <http://example.com/bldg#> .
+A compact event might contain `connection_id`, `listener`, `backend`, `outcome`, `duration_ms`, `bytes_up`, and `bytes_down`. Raw application payload is unnecessary for this metric.
 
-ex:AHU1 a brick:AHU ;
-    brick:hasPoint ex:AHU1-SAT , ex:AHU1-OAT .
-ex:AHU1-SAT a brick:Supply_Air_Temperature_Sensor .
-ex:AHU1-OAT a brick:Outside_Air_Temperature_Sensor .
-```
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Starter file:** extend [`capstone/model/ahu1.ttl`](./capstone/model/ahu1.ttl) if present (N4 bench naming).
+## Coding challenge
 
-Load with Day 58 pattern (`oxrdfio` / `rdflib.parse`); list points with Day 59 lookup.
+- Add tracing and aggregate counters to your Rust proxy. Bound or sample verbose events.
+- Run a finite normal workload and a slow-backend workload with identical client counts and byte totals.
+- Report active/accepted/rejected connections and final outcomes with units; distinguish accepted from completed.
 
-## Why This Matters
+## Experiment
 
-Commissioning deliverables increasingly include **semantic models** alongside BACnet point lists.
+Reduce log verbosity and repeat the same workload. Describe whether the difference is meaningful with the small sample rather than declaring a benchmark victory.
 
-## Mini Examples
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-- Assert ≥ 8 triples after parse.
-- Pretty-print subjects that are points of AHU1.
+## Acceptance checks
 
-## Micro Exercises
+- One connection can be followed from accept to finish.
+- Counters reconcile at shutdown or disclose unfinished work.
+- Slow logging cannot enqueue unlimited data.
 
-1. At least 8 triples in the TTL file.
-2. Query all `brick:hasPoint` of AHU1 in Rust and Python.
-3. Screenshot Turtle + both query outputs for portfolio.
+## Optional Python companion
 
-## Key Takeaway
+Optionally summarize the result CSV or JSON in Python; it is an analysis helper only.
 
-**Small accurate models beat huge auto-generated junk**—hand authoring builds intuition.
+## Stretch and reflection
 
----
+What resource measurement would reveal a task leak that request latency alone might miss?
 
-## Python companion — Load & query same `ahu1.ttl`
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-9) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Graph, Namespace
-
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-
-g = Graph()
-g.parse("ahu1.ttl", format="turtle")  # same file Rust loads
-points = list(g.objects(EX.AHU1, BRICK.hasPoint))
-print(len(g), points)
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| hand-author + `RdfParser` | `g.parse("ahu1.ttl")` |
-| `triples_for_subject` / filter hasPoint | `g.objects(AHU1, hasPoint)` |
-| same TTL | same |
-
-**Takeaway:** One hand-built AHU model; both stacks load and list points.
+[Previous: Day 61](day61.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 63](day63.md)

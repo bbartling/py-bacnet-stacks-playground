@@ -1,146 +1,59 @@
-# Day 09 – Conditionals & While Loops
+# Day 09 — Decisions and finite state
+
+[Previous: Day 8](day08.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 10](day10.md)
+
+**Week 2 · 45–90 minutes.** Prerequisites: Days 1–8, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to control the flow of your program using `if`/`elif`/`else`
-statements and `while` loops.  You’ll also practise using `break` and
-`continue` to fine‑tune loop behaviour.
+Express a small offline retry policy using conditional branches and a bounded loop.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day09/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-An `if` statement evaluates a condition and executes the corresponding block
-of code if the condition is true.  You can chain multiple tests with
-`elif` (short for “else if”) and end with an optional `else` for the
-fall‑through case.  A `while` loop executes its body
-repeatedly as long as its condition remains true.  In the Python tutorial, a
-`while` loop generates the Fibonacci series until the value of the variable
-`a` reaches 10.
+A branch selects behavior; a state describes what is true between events. Network programs often wait for success, retry after a timeout, or stop on cancellation. A loop must explain why it eventually stops. Avoid mixing a retry count with an overall time budget as though they were interchangeable. Today model events as text values; actual timers arrive later.
 
-The `break` statement immediately exits the nearest loop, and `continue`
-skips the rest of the current iteration and proceeds to the next.
-
-## How to Use It
-
-1. **Use `if`/`elif`/`else`.**
-
-   ```python
-   temperature = 65
-   if temperature < 60:
-       print('Too cold')
-   elif 60 <= temperature <= 75:
-       print('Comfortable')
-   else:
-       print('Too hot')
-   ```
-
-2. **Use `while`.**  Keep looping until a condition is false:
-
-   ```python
-   count = 0
-   while count < 5:
-       print('count is', count)
-       count += 1
-   ```
-
-3. **Infinite loops with `while True`.**  Use `break` to exit:
-
-   ```python
-   while True:
-       command = input('Enter command (q to quit): ')
-       if command == 'q':
-           break  # exit the loop
-       print('You entered', command)
-   ```
-
-4. **Skip iterations with `continue`.**
-
-   ```python
-   for n in range(10):
-       if n % 2 == 0:
-           continue  # skip even numbers
-       print(n)      # prints only odd numbers
-   ```
-
-## Why This Matters
-
-Conditionals let your program make decisions based on sensor values or
-configuration options.  `while` loops are useful when you don’t know how
-many iterations will be needed in advance—for example, reading lines from a
-file until you hit the end.  Understanding `break` and `continue` helps you
-control loops precisely and write efficient, readable code.
-
-## Mini Examples
-
-```python
-# classify a BACnet priority level
-priority = int(input('Enter priority (1–16): '))
-if priority == 1:
-    print('Manual life safety')
-elif priority <= 5:
-    print('Automatic high priority')
-else:
-    print('Normal priority')
-
-# Fibonacci sequence with while
-a, b = 0, 1
-while b < 50:
-    print(b, end=' ')
-    a, b = b, a + b
-print()
-
-# find the first divisible number
-number = 1
-while True:
-    if number % 7 == 0:
-        print('First multiple of 7 is', number)
-        break
-    number += 1
-```
-
-## Micro Exercises
-
-1. Write a program that prompts the user for a number and prints whether
-   it is negative, zero or positive.
-2. Use a `while` loop to compute the sum of numbers from 1 up to `n`
-   (prompt the user for `n`).
-3. Write a loop that prints the squares of numbers from 1 to 10 but
-   skips squares greater than 50 using `continue`.
-4. Prompt the user to enter a password until they type `'secret'`.
-
-## Key Takeaway
-
-Use `if`/`elif`/`else` to branch based on conditions,
-`while` loops to repeat until a condition changes,
-and `break` or `continue` to control loop execution.
-
----
-
-## Rust companion — `if` / `else` and `while`
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let pv = 85.0;
-    if pv > 80.0 {
-        println!("HIGH");
-    } else if pv < 60.0 {
-        println!("LOW");
-    } else {
-        println!("OK");
-    }
-
-    let mut n = 3;
-    while n > 0 {
-        println!("n={n}");
-        n -= 1;
-    }
-
-    // if is an expression:
-    let status = if pv > 80.0 { "alarm" } else { "normal" };
-    println!("{status}");
+    let attempts = 2;
+    let label = if attempts < 3 { "budget remains" } else { "stop" };
+    println!("{label}");
 }
 ```
 
-**Takeaway:** No parentheses required around conditions. `if` can return a value.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Consume a fixed sequence containing `timeout`, `timeout`, `success`. Report the outcome and number of attempted operations.
+- Limit attempts to three; a longer timeout sequence must end in an explicit exhausted result.
+- An unrecognized event is invalid input, not a success.
+
+## Experiment
+
+Move success to the first position, then remove it. Predict the output before each run and inspect whether anything after success is still processed.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Success ends processing immediately.
+- Three timeouts produce exhaustion with no fourth attempt.
+- Unknown input has a documented outcome.
+
+## Optional Python companion
+
+Model the same event list in Python and compare counts.
+
+## Stretch and reflection
+
+Explain how cancellation differs from a retryable timeout. Add it as an event only after the baseline works.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-2) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 8](day08.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 10](day10.md)

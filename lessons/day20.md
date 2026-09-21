@@ -1,92 +1,59 @@
-# Day 20 – Built-in Functions
+# Day 20 — Your Day 19 project, now in Rust
 
-*Part II: Control Structures | Week 3*
+[Previous: Day 19](day19.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 21](day21.md)
+
+**Week 3 · 45–90 minutes.** Prerequisites: Your completed Day 19 Python project, or the Rust version for new learners. Days 20–28 are the bridge; completed legacy lessons count.
 
 ## Goal
 
-Discover Python's most useful **built-in functions** for working with iterables: `min()`, `max()`, `sorted()`, `sum()`, `enumerate()`, and `zip()`. Use loops to transform data — no comprehensions.
+Use your own completed project to learn Rust by preserving behavior across languages.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day20/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Python provides many built-in functions. `min()` and `max()` return the smallest and largest item from an iterable. `sorted()` returns a new sorted list. `sum()` adds numbers. `enumerate()` returns index–value pairs. `zip()` combines two or more sequences into tuples. Use these with `for` loops to process sensor data.
+The port is a behavior comparison, not a line-for-line syntax conversion. Rust makes ownership, numeric types and error paths explicit. Work through compiler feedback in small changes. A learner who already completed Day 19 in Rust can refactor its public interface and add an independent Python check instead of duplicating the exercise. Use your existing source as the baseline; there is no need to repeat completed foundations.
 
-## How to Use It
-
-**Built-ins:**
-
-```python
-numbers = [5, 2, 9, 1, 7]
-print(min(numbers))            # 1
-print(max(numbers))            # 9
-print(sorted(numbers))         # [1, 2, 5, 7, 9]
-print(sorted(numbers, reverse=True))  # [9, 7, 5, 2, 1]
-print(sum(numbers))            # 24
-
-for index, value in enumerate(['a', 'b', 'c']):
-    print(index, value)  # 0 a, 1 b, 2 c
-
-for name, value in zip(['Temp', 'Flow'], [72, 450]):
-    print(name, value)
-```
-
-**Transform data with loops (no comprehensions):**
-
-```python
-# squares of even numbers from 0 to 9
-squares = []
-for n in range(10):
-    if n % 2 == 0:
-        squares.append(n * n)
-
-# build room names from range
-rooms = []
-for n in range(1, 4):
-    rooms.append('room' + str(n))
-```
-
-**Convert units with a loop:**
-
-```python
-sizes = {'room1': 120, 'room2': 150, 'room3': 180}
-sq_meters = {}
-for room, sqft in sizes.items():
-    sq_meters[room] = sqft * 0.0929
-```
-
-## Why This Matters
-
-Built-in functions encapsulate common operations — finding min/max, sorting, summing. Using loops to build new lists and dictionaries keeps your code explicit and easy to follow. These tools are powerful when working with sensor readings and point lists.
-
-## Mini Examples
-
-- Given a dictionary of sensor names and readings, use `min()` and `max()` to find the lowest and highest values.
-- Use `sorted()` with the `key` parameter to sort strings by length.
-- Write a loop that converts a list of Fahrenheit temperatures to Celsius and appends each result to a new list.
-
-## Micro Exercises
-
-1. Create a list `values = [3, 1, 4, 1, 5, 9]` and use `sum()`, `min()` and `max()` to compute its total, minimum and maximum.
-2. Use `zip()` to combine two lists — `names = ['Temp', 'Flow', 'Humidity']` and `readings = [72, 450, 45]` — into a dictionary using a `for` loop.
-3. Write a loop that generates the cubes of numbers 1–5, and only appends to a new list those results that are 100 or less.
-
-## Key Takeaway
-
-Python's built-in functions such as `min()`, `max()`, `sorted()`, `sum()`, `enumerate()` and `zip()` simplify common tasks. Use `for` loops to build new lists and dictionaries — clear and maintainable.
-
----
-
-## Rust companion — Iterator helpers (`sum`, `min`, …)
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let vals = [70.0, 72.0, 71.0];
-    let total: f64 = vals.iter().sum();
-    let hi = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    println!("sum={total} hi={hi}");
+    let sample = "18.5";
+    let parsed: Result<f64, _> = sample.parse();
+    println!("{parsed:?}");
 }
 ```
 
-**Takeaway:** Methods like `.iter().sum()` replace many Python built-ins. You’ll use iterators constantly.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Create a Rust version of your Day 19 tool with the same documented valid-input and invalid-input policies.
+- Use Result for fallible work and Option or an explicit no-data outcome for an empty accepted set.
+- Keep the old implementation and compare both against the same fixtures, including a finite-number check.
+
+## Experiment
+
+Run both tools on the Day 19 valid and malformed fixtures. Compare numeric results with a written floating-point tolerance rather than requiring identical presentation.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Both tools agree on which rows are accepted.
+- Missing and empty input remain different.
+- Write down three Rust compiler messages you encountered and what changed in your understanding.
+
+## Optional Python companion
+
+Use your old Python implementation as the independent peer. Do not alter it merely to match a new Rust bug.
+
+## Stretch and reflection
+
+Which differences are intentional interface improvements, and which are regressions? Record them explicitly.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-3) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 19](day19.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 21](day21.md)

@@ -1,81 +1,56 @@
-# Day 24 – any(), all() & Simple Patterns
+# Day 24 — Borrowed packet views and lifetimes
 
-*Part III: Data Structures | Week 4*
+[Previous: Day 23](day23.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 25](day25.md)
+
+**Week 4 · 45–90 minutes.** Prerequisites: Days 1–23, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Explore Python's `any()` and `all()` functions for checking conditions over collections. Use loops to build the data you pass to them — no comprehensions or generator expressions.
+Return a view into a caller-owned buffer and explain why it remains valid.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day24/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-The built-in functions `all()` and `any()` take an iterable and return a Boolean. `all()` returns `True` if every element is truthy (or if the iterable is empty). `any()` returns `True` if at least one element is truthy and `False` if the iterable is empty. Use a loop to build a list of Booleans, then pass it to `any()` or `all()`.
+A lifetime describes a relationship between references; it does not extend storage duration. A function returning part of an input slice can borrow that data without allocation. It cannot return a reference into a local Vec that is about to be dropped. Start with a single input lifetime and avoid elaborate generic designs until a real interface requires them.
 
-## How to Use It
-
-**`all()` and `any()` with a loop:**
-
-```python
-readings = [72, 71, 69, 73]
-
-# check if all readings are above 65
-above_65 = []
-for r in readings:
-    above_65.append(r > 65)
-print(all(above_65))  # True
-
-# check if any reading is above 72
-above_72 = []
-for r in readings:
-    above_72.append(r > 72)
-print(any(above_72))  # True
-```
-
-**Shorter pattern with a loop:**
-
-```python
-# all above 65?
-all_ok = True
-for r in readings:
-    if r <= 65:
-        all_ok = False
-        break
-print(all_ok)
-```
-
-## Why This Matters
-
-Functions like `any()` and `all()` simplify checks over collections. When validating sensor readings or point lists, you often need to ask "are all values in range?" or "is any value in alarm?". Using loops to build the conditions keeps the logic explicit.
-
-## Mini Examples
-
-- Use a loop and `any()` to check whether any point in a list has a reading above 80.
-- Use a loop and `all()` to verify that all device IDs in a list are greater than 0.
-- Check if all temperatures in a dictionary are between 65 and 75.
-
-## Micro Exercises
-
-1. Given `values = [0, 1, 2, 3]`, use a loop to build a list and pass it to `any()` to check if any value is negative. Use another loop for `all()` to check if all values are less than 10.
-2. Write a function `all_in_range(readings, low, high)` that returns `True` if every reading is between `low` and `high` inclusive.
-3. Write a function `any_alarm(readings, threshold)` that returns `True` if any reading exceeds the threshold.
-
-## Key Takeaway
-
-`all()` returns `True` only if every element is truthy. `any()` returns `True` if at least one element is truthy. Use loops to build the conditions you pass to them — clear and easy to debug.
-
----
-
-## Rust companion — `any` / `all` on iterators
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-fn main() {
-    let alarms = [false, false, true];
-    let any_alarm = alarms.iter().any(|&a| a);
-    let all_ok = alarms.iter().all(|&a| !a);
-    println!("any_alarm={any_alarm} all_ok={all_ok}");
-}
+fn first_byte(bytes: &[u8]) -> Option<&u8> { bytes.first() }
+fn main() { let data = [9_u8, 8]; println!("{:?}", first_byte(&data)); }
 ```
 
-**Takeaway:** Iterator adapters read like English and avoid manual loops.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
+## Coding challenge
+
+- Write a helper that returns a borrowed payload view after a caller-specified teaching-header size, or an error when too short.
+- Document that the view borrows the original buffer and performs no payload copy.
+- Use the returned view in the caller, then explain when the owning buffer may be mutated again.
+
+## Experiment
+
+In a scratch example, attempt to return a slice into a Vec created inside the helper. Read the diagnostic and choose a valid ownership design.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Header length zero and equal-to-buffer-length are handled.
+- A larger header length is rejected.
+- No unsafe code or leaked allocation is used to evade lifetime checking.
+
+## Optional Python companion
+
+Compare a Python bytes slice with a memoryview; discuss copying versus borrowed access.
+
+## Stretch and reflection
+
+When would an owned payload be the simpler and safer API?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-4) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 23](day23.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 25](day25.md)

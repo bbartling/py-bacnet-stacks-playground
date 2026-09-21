@@ -1,76 +1,53 @@
-# Day 41 – Intro rusty-bacnet & Clone the Stack
+# Day 41 — MTU, fragmentation and capture filters
+
+[Previous: Day 40](day40.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 42](day42.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–40, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Clone **[rusty-bacnet](https://github.com/jscott3201/rusty-bacnet)**, build examples, and locate **Who-Is / I-Am** and **ReadProperty** entry points in the crate docs.
+Distinguish packet-size problems at IP from stream/application segmentation.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day41/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```bash
-git clone https://github.com/jscott3201/rusty-bacnet.git
-cd rusty-bacnet
-cargo build
-cargo test --no-run   # compile tests
-```
+MTU constrains a link-layer payload. IPv4 fragmentation can occur under its fragmentation rules; IPv6 routers do not fragment forwarded packets and instead use ICMPv6 Packet Too Big feedback. TCP segments a byte stream independently. BACnet APDU segmentation is yet another endpoint mechanism. Capture filters select saved packets using BPF; display filters select visible decoded packets afterward and use a different grammar.
 
-Mental model:
+## Tiny example
 
-- **BACnet/IP** = UDP `:47808`
-- **BVLC** wraps network messages
-- rusty-bacnet exposes Rust APIs instead of BACpypes3 objects
+Capture filter: `icmp or icmp6`. Display filter: `icmp or icmpv6`. Neither expression alone captures every packet needed to reconstruct a PMTU incident; include the associated data flow when investigating.
 
-Map from Python days: `BAC0.read()` → rusty-bacnet read helpers (exact fn names vary by version—read `examples/`).
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Capstone path:** you'll wire this stack into [`capstone/discover-and-poll/`](./capstone/discover-and-poll/) for Day 46.
+## Coding challenge
 
-## Why This Matters
+- Extend the inspector to identify IPv4 fragments and IPv6 Fragment headers, reporting identifiers and offsets without pretending to reassemble them.
+- Create an offline report classifying complete, fragmented, truncated and unsupported inputs.
+- On a disposable namespace topology, compare traffic across a smaller MTU, or analyze a recorded PMTU trace. Document the topology and expected ICMP evidence.
 
-Open-FDD and edge gateways are moving to **Rust BACnet drivers** for memory safety and predictable latency on Pi-class hardware.
+## Experiment
 
-## Mini Examples
+Predict whether reducing application payload, TCP write size or interface MTU changes the same boundary. Observe one controlled case; do not alter the host uplink MTU.
 
-- List files under `examples/` or `crates/` in your clone.
-- Run one example against your lab device `5007 @ 192.168.204.200` if documented.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Document your `RUSTBACNET_*` or bind IP env vars if the stack needs them.
-2. Compare Python Who-Is time vs Rust compile+run time (qualitative is fine).
-3. Find where `47808` appears in source (`rg 47808`).
+- TCP segmentation and IP fragmentation are named separately.
+- Noninitial fragments are not interpreted as if they begin with transport headers.
+- Capture and display filters are recorded separately.
 
-## Key Takeaway
+## Optional Python companion
 
-**rusty-bacnet is a specialty UDP client/server**—Days 36–39 networking labs are prerequisite, not optional.
+Generate a set of payload sizes for the Rust test client, without assuming each send creates one IP packet.
 
-## Wireshark Lab
+## Stretch and reflection
 
-Before running examples:
+How could blocked ICMP feedback produce a size-dependent failure?
 
-```bash
-./capture_pcap.sh day41-rusty-whois "udp port 47808"
-```
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-Filter: **`udp.port == 47808 && bacnet`**
-
----
-
-## Python companion — BAC0 vs rusty-bacnet
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# Map the same bench skills to Python while Rust builds
-# import BAC0
-# bacnet = BAC0.lite()
-# print(bacnet.whois())            # discovery entry point
-print("Python: BAC0/BACpypes3 | Rust: rusty-bacnet — both speak UDP :47808")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| clone/build rusty-bacnet | `pip install BAC0` (venv) |
-| `cargo run --example …` | `bacnet.whois()` / `.read()` |
-| UDP `:47808` | same wire |
-| examples/ in crate | BAC0 docs / earlier Python days |
-
-**Takeaway:** Same Who-Is skill, two stacks—use Python for quick bench checks while you learn the Rust crate layout.
+[Previous: Day 40](day40.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 42](day42.md)

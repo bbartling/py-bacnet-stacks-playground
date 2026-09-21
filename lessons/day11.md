@@ -1,129 +1,60 @@
-# Day 11 – Introducing Dictionaries
+# Day 11 — Maps and explicit missing values
+
+[Previous: Day 10](day10.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 12](day12.md)
+
+**Week 2 · 45–90 minutes.** Prerequisites: Days 1–10, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to create and use dictionaries to map keys to values.  By the end
-of this lesson you’ll be able to define a dictionary, access and update
-entries, test for membership and handle missing keys gracefully.
+Use keyed lookup without inventing a default that could be mistaken for real data.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day11/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-A **dictionary** (sometimes called a *dict* or *hash map*) stores key–value
-pairs.  Keys must be immutable types such as strings, numbers or tuples.
-You create a dictionary using braces `{}` or the `dict()` constructor.  Access
-and update values using square‑bracket indexing: `d[key] = value`.  Trying
-to access a non‑existent key raises a `KeyError`; to avoid this, use
-`get(key, default)` which returns a default if the key is missing.
-The `in` operator tests whether a dictionary contains a given key.  The
-function `list(d)` returns a list of the dictionary’s keys.
+`HashMap<K,V>` associates keys with values. `.get()` returns an Option because a key may not exist. Missing data, a numeric zero, and an error are different facts. In a building network, treating a missing measurement as zero can look like a genuine reading. Hash-map iteration order is not a stable output contract.
 
-## How to Use It
-
-1. **Create dictionaries.**
-
-   ```python
-   empty = {}
-   person = {'name': 'Alice', 'age': 30}
-   device = dict(type='sensor', instance=1)
-   ```
-
-2. **Retrieve and update.**
-
-   ```python
-   print(person['name'])  # 'Alice'
-   person['age'] = 31      # update value
-   device['location'] = 'Zone1'  # add new key
-   ```
-
-3. **Check for keys.**  Use `in` to test membership:
-
-   ```python
-   if 'name' in person:
-       print('Name is present')
-   ```
-
-4. **Handle missing keys.**  Use `get()` with a default to avoid exceptions
-   when a key isn’t present:
-
-   ```python
-   priority = device.get('priority', 16)  # returns 16 if no priority key
-   ```
-
-5. **Delete entries.**  Use `del` to remove a key:
-
-   ```python
-   del person['age']
-   ```
-
-## Why This Matters
-
-Dictionaries are ideal for representing structured data such as BACnet
-device objects where each point has a name, instance number and value.
-Unlike lists, dictionaries provide constant‑time lookups by key.  Using
-`get()` instead of indexing helps avoid crashes when optional metadata is
-missing.
-
-## Mini Examples
-
-```python
-# build a point dictionary
-point = {
-    'name': 'ZoneTemp',
-    'instance': 1,
-    'value': 70.3
-}
-print(point['name'])       # 'ZoneTemp'
-point['value'] = 71.0
-point['unit'] = '°F'
-print(point)
-
-# handle missing key
-print(point.get('priority', 'not set'))  # returns 'not set'
-
-# membership test
-print('instance' in point)  # True
-```
-
-## Micro Exercises
-
-1. Create a dictionary named `device` with keys `'type'`, `'instance'` and
-   `'address'`.  Populate it with appropriate values and print the
-   dictionary.
-2. Update the `'address'` key and add a new key `'status'` with value
-   `'online'`.
-3. Use `get()` to retrieve the `'priority'` of the device, providing a default
-   of `16`.
-4. Test whether the key `'instance'` exists in the dictionary using the `in`
-   operator.
-
-## Key Takeaway
-
-Dictionaries store key–value pairs and provide fast lookups.  Use `d[key]`
-to get or set values, `get(key, default)` to handle missing keys and the
-`in` operator to test for membership.
-
----
-
-## Rust companion — `HashMap` — like dict
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
-use std::collections::HashMap;
-
 fn main() {
-    let mut pv: HashMap<String, f64> = HashMap::new();
-    pv.insert("SAT".into(), 55.0);
-    pv.insert("RAT".into(), 72.0);
-    println!("{:?}", pv.get("SAT"));
-    println!("has RAT? {}", pv.contains_key("RAT"));
+    use std::collections::HashMap;
+    let mut counts = HashMap::new();
+    counts.insert("udp", 4_u32);
+    println!("tcp={:?}", counts.get("tcp"));
 }
 ```
 
-| Python | Rust |
-|--------|------|
-| `d["k"]` | `map.get("k")` → `Option` |
-| `k in d` | `contains_key` |
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** Missing keys are `None` (`Option`), not an exception — safer for live OT data.
+## Coding challenge
 
+- Store three endpoint names and configured port numbers in a HashMap.
+- Look up a present name and an absent name, printing a different outcome for each.
+- Insert the same key twice and record whether it replaces the old value; choose a duplicate policy for your eventual file loader.
+
+## Experiment
+
+Give one key a value that is valid but unusual. Demonstrate that it is still different from the missing key.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Missing lookup never claims a successful endpoint.
+- Duplicate-key behavior is explained.
+- No test relies on HashMap display order.
+
+## Optional Python companion
+
+Compare dictionary indexing, `.get()`, and membership tests for the same absent name.
+
+## Stretch and reflection
+
+What information should be retained when duplicate configuration entries disagree?
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-2) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 10](day10.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 12](day12.md)

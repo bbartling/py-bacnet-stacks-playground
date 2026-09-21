@@ -1,92 +1,57 @@
-# Day 37 – TCP Client & Server (Mini Echo)
+# Day 37 — Ethernet headers and capture link types
+
+[Previous: Day 36](day36.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 38](day38.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–36, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Build a **TCP echo** client and server—foundation for understanding HTTP/TLS sessions to Haystack.
+Decode a declared Ethernet subset while refusing unsupported capture encapsulation.
 
-**Optional first:** If OT protocols are new, do **[Day 36b Modbus TCP](./day36b_modbus_tcp.md)** first—structured request/response on TCP is easier than BACnet and maps directly to bench PLCs before this generic echo lab.
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day37/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Server sketch (`TcpListener`):
+An Ethernet II header contains destination MAC, source MAC and EtherType. VLAN tags add fields before the encapsulated EtherType. A PCAP record also has a capture link type and captured/original length; its bytes are not automatically Ethernet. FCS is often not present in host captures. Do not subtract a guessed checksum trailer or assume packet alignment.
 
-```rust
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-fn handle(mut stream: TcpStream) -> std::io::Result<()> {
-    let mut buf = [0u8; 1024];
-    let n = stream.read(&mut buf)?;
-    stream.write_all(&buf[..n])?;
-    Ok(())
-}
-fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:7777")?;
-    for stream in listener.incoming() {
-        handle(stream?)?;
-    }
-    Ok(())
-}
+## Tiny example
+
+```text
+Ethernet II: destination[6] | source[6] | EtherType[2] | payload
+Single VLAN: ... | TPID[2] | TCI[2] | inner EtherType[2] | payload
 ```
+A capture container parser supplies link type and record lengths before this decoder runs.
 
-Client: `nc 127.0.0.1 7777` or a 10-line `TcpStream::connect` program.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Haystack `/read` is **HTTP over TCP**. If TCP confuses you, TLS and JSON responses will too.
+- Implement Ethernet II parsing for untagged frames and one 802.1Q tag. Extract MACs, EtherType and optional VLAN ID.
+- Reject truncated headers and report stacked tags as outside this lesson subset rather than treating their bytes as IP.
+- Use the supplied synthetic Ethernet PCAP; compare one record with tcpdump or Wireshark.
 
-## Mini Examples
+## Experiment
 
-- Log peer address with `stream.peer_addr()?`.
-- Send HTTP-ish line by hand: `GET / HTTP/1.0\\r\\n\\r\\n` to a public test server (lab only).
+Feed the same bytes to a harness declaring a different link type. The dispatcher should refuse the mismatch before Ethernet field interpretation.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Compare UDP Day 36 vs TCP Day 37: what shows up in Wireshark differently?
-2. Handle multiple clients (hint: `thread::spawn` one connection)—optional stretch.
-3. Why does BACnet *not* use this pattern for field traffic?
+## Acceptance checks
 
-## Key Takeaway
+- Untagged and tagged header offsets differ correctly.
+- Captured length bounds every read.
+- FCS presence is not assumed.
 
-TCP = **connected byte stream**. HTTP requests are text (or binary HTTP/2) inside that stream.
+## Optional Python companion
 
-## Wireshark Lab
+Use a small bytes slice only to inspect MAC fields; keep the main parser in Rust.
 
-Capture while running echo:
+## Stretch and reflection
 
-```bash
-./capture_pcap.sh day37-tcp-echo "tcp port 7777"
-```
+What metadata would you need to support Linux cooked captures next?
 
-Display filter: **`tcp.port == 7777`**
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-Look for **SYN, SYN-ACK, ACK** handshake before your payload.
-
----
-
-## Python companion — TCP echo with `socket`
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-import socket
-
-srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-srv.bind(("127.0.0.1", 7777))
-srv.listen(1)
-conn, peer = srv.accept()
-data = conn.recv(1024)
-conn.sendall(data)
-print(f"echoed to {peer}")
-conn.close()
-srv.close()
-# Client: nc 127.0.0.1 7777
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `TcpListener` / `TcpStream` | `SOCK_STREAM` + `listen`/`accept` |
-| `read` / `write_all` | `recv` / `sendall` |
-| connected byte stream | same TCP semantics |
-| foundation for HTTP | `urllib` / `requests` sit on this |
-
-**Takeaway:** Haystack HTTPS is TCP under the hood—an echo lab in Python trains the same connected-stream intuition as Rust.
+[Previous: Day 36](day36.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 38](day38.md)

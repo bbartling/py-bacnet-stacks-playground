@@ -1,80 +1,53 @@
-# Day 40 – Wireshark: TCP, TLS & HTTP (Haystack Preview)
+# Day 40 — Transport headers and checksum evidence
+
+[Previous: Day 39](day39.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 41](day41.md)
+
+**Week 6 · 45–90 minutes.** Prerequisites: Days 1–39, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-See how **Haystack HTTPS** looks in Wireshark—TLS handshake, encrypted application data, and why you need **Follow TLS Stream** or proxy logging for JSON bodies.
+Read UDP/TCP headers only after the IP layer has established a valid boundary.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day40/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-Display filters:
+UDP includes source/destination ports, length and checksum. TCP includes sequence state, flags, window and a data-offset field that can include options. Transport checksums include an IP pseudo-header. Host checksum offload can make an outgoing capture appear invalid before the NIC finishes the packet. A zero UDP checksum has different rules in IPv4 and IPv6; it is not a universal disabled marker.
 
-```
-tcp.port == 443
-tls.handshake.type == 1          # Client Hello
-http                             # only if decrypted or HTTP cleartext lab
-```
+## Tiny example
 
-On Niagara self-signed certs, Rust clients often set **`tls_verify = false`** in lab—production uses proper trust stores.
+Compare a UDP length of 12 with its eight-byte header: only four bytes remain as payload. This is a field-reading exercise, not a guarantee that the IP packet is unfragmented or fully captured.
 
-Haystack ops (conceptual):
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-- `GET /haystack/about`
-- `POST /haystack/read` with `text/zinc` body
+## Coding challenge
 
-## Why This Matters
+- Add UDP and basic TCP header views to your inspector; require unfragmented, complete IP input for this baseline.
+- Validate UDP length and TCP data offset before exposing payload. Report options as raw bounded bytes unless supported.
+- Implement or independently verify one pseudo-header checksum fixture; distinguish invalid, omitted-under-IPv4-rules and not-verifiable evidence.
 
-rusty-haystack failures are often **TLS** or **auth**, visible as TCP resets or HTTP 401 before you ever parse Zinc.
+## Experiment
 
-## Mini Examples
+Compare the synthetic offline fixture with a live outgoing capture if available. Investigate offload before blaming the sender for a checksum discrepancy.
 
-- Count TLS Client Hello vs Server Hello in a short capture to `192.168.204.11`.
-- Note: application JSON/Zinc is **inside** TLS—you won't read tag values from encrypted pcaps without keys.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Capture `curl -vk https://192.168.204.11/haystack/about` (lab credentials).
-2. Apply `tcp.port == 443 && ip.addr == 192.168.204.11`.
-3. Write why BACnet point values are easier to spot in pcaps than Haystack point values.
+- A short TCP header or impossible data offset is rejected.
+- UDP length includes its header.
+- Output states when checksum validation was skipped and why.
 
-## Key Takeaway
+## Optional Python companion
 
-**TCP reliability first, TLS privacy second**—log at the client when you need Haystack payloads.
+Use struct to inspect selected header fields as an independent comparison.
 
-## Wireshark Lab
+## Stretch and reflection
 
-```bash
-./capture_pcap.sh day40-haystack-tls "tcp port 443 and host 192.168.204.11"
-```
+Why should a fragmented IP packet not be fed directly to your complete transport-checksum routine?
 
-Filters to try:
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-6) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-1. `tcp.port == 443`
-2. `tls.handshake.type == 1`
-3. (If available) **Analyze → Follow → TCP Stream** for handshake bytes only
-
-## Week 5 Capstone
-
-Document your bench: BACnet UDP path + Haystack TCP path + one screenshot each.
-
----
-
-## Python companion — TLS capture & client logging
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# Wireshark still owns TLS decode; Python triggers HTTPS and logs bodies client-side
-# import urllib.request
-# urllib.request.urlopen("https://192.168.204.11/haystack/about")  # lab only
-print("Capture: tcp port 443 — app Zinc/JSON stays inside TLS without keys.")
-print("Prefer client logs (requests/httpx) when you need Haystack payloads.")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| rusty-haystack / TLS flags | `requests` / `httpx` (+ verify=False in lab) |
-| Wireshark TLS handshake | same filters (`tls.handshake.type == 1`) |
-| encrypted app data in pcap | same — log at client for Zinc |
-| TCP :443 | identical |
-
-**Takeaway:** BACnet UDP shows point values in cleartext pcaps; Haystack needs client-side logs once TLS wraps the JSON.
+[Previous: Day 39](day39.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 41](day41.md)

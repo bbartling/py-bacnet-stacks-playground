@@ -1,3 +1,5 @@
+> **Optional older reference material.** The active Rust networking course is [Days 1–112](../INDEX.md). Historical day numbers and example commands below are not the current syllabus; inspect code and configuration before use. This material may contain implementation spoilers.
+
 # Course review (Day 74 template)
 
 Fill this in after completing Days 28–73. One page is enough.

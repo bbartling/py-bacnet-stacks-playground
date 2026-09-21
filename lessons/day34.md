@@ -1,78 +1,61 @@
-# Day 34 – Ownership & Borrowing (practice)
+# Day 34 — DNS, resolution and connection failures
+
+[Previous: Day 33](day33.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 35](day35.md)
+
+**Week 5 · 45–90 minutes.** Prerequisites: Days 1–33, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Practice the **borrow checker** (from Day 28 and the Day 1–27 Rust companions): pass `&str` into functions and store data in structs without fighting the compiler.
+Separate a name lookup from opening a transport connection.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day34/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
+A resolver can consult caches, local files and DNS; resolving a name is not necessarily a new wire query. A records describe IPv4 addresses and AAAA records describe IPv6 addresses. Multiple returned addresses are candidates, not proof that all are reachable. TTL concerns cached data lifetime. Numeric endpoint validation should not unexpectedly perform DNS or contact a network.
+
+## Tiny example
+
 ```rust
-fn log_tag(tag: &str, val: f64) {
-    println!("{tag} = {val}");
-}
-
 fn main() {
-    let name = String::from("OA-T");
-    log_tag(&name, 55.3);  // borrow &name as &str
-    println!("still own {name}");
+    use std::net::ToSocketAddrs;
+    match ("localhost", 40000).to_socket_addrs() {
+        Ok(addresses) => for address in addresses { println!("{address}"); },
+        Err(error) => eprintln!("resolution failed: {error}"),
+    }
 }
 ```
 
-Rules (simplified):
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-1. One **mutable** borrow *or* many **immutable** borrows at a time
-2. References must not outlive the data they point to
-3. **`clone()`** when you truly need a copy
+## Coding challenge
 
-## Why This Matters
+- Build a Rust resolver-report CLI taking a hostname and port, listing returned addresses without claiming a successful connection.
+- Include elapsed time and a distinct resolution-error result. State that the standard resolver call can block and has no simple portable per-call timeout setting.
+- Test localhost plus an explicitly selected lab DNS name; offline runs can inject a fixed address list.
 
-Socket buffers and HTTP bodies are **borrowed slices** (`&[u8]`, `&str`). Fighting ownership early makes rusty-bacnet examples click.
+## Experiment
 
-## Mini Examples
+Compare a numeric address with a hostname. Inspect `dns` traffic only when the resolver actually emits it; a cache hit or local hosts entry may produce none.
 
-- Fix a "borrow of moved value" compiler error by using `.clone()` or references.
-- Function taking `&[f64]` instead of `Vec<f64>`.
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Micro Exercises
+## Acceptance checks
 
-1. Explain why `let s2 = s1; println!("{s1}")` fails for `String`.
-2. Write `fn avg(vals: &[f64]) -> Option<f64>`.
-3. Read one rusty-bacnet example; circle every `&` and `&mut` in comments.
+- A resolution result is not labeled reachable.
+- Multiple results are retained.
+- No-response, nonexistent name and no emitted query are not conflated.
 
-## Key Takeaway
+## Optional Python companion
 
-**Borrow instead of clone** in hot paths (polling loops). Clone when building persistent caches.
+Compare `socket.getaddrinfo` results while recording that resolver ordering can differ.
 
-## Wireshark Lab
+## Stretch and reflection
 
-No capture today—read [wireshark_filters.md](./lab-scripts/wireshark_filters.md) so Day 36 feels familiar.
+Where should a later async application isolate blocking resolution work?
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-5) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — aliases & copies
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-def log_tag(tag: str, val: float) -> None:
-    print(f"{tag} = {val}")
-
-name = "OA-T"                 # str is immutable; "borrow" is just pass-by-object
-log_tag(name, 55.3)
-print("still have", name)
-
-def avg(vals: list[float]) -> float | None:
-    return sum(vals) / len(vals) if vals else None
-
-temps = [68.0, 71.0, 74.0]
-print(avg(temps))             # pass the list; don't need & — but mutations are shared
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `&str` / `&[f64]` borrows | pass object; caller keeps the name |
-| move of `String` | rebind / mutate; no move semantics |
-| `.clone()` | `list(x)` / `x.copy()` when you need isolation |
-| borrow checker | discipline + immutables (`tuple`, `str`) |
-
-**Takeaway:** Python won't stop you from mutating a shared poll buffer—treat aliases like borrows when you cache point values.
+[Previous: Day 33](day33.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 35](day35.md)

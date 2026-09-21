@@ -1,63 +1,58 @@
-# Day 44 – WriteProperty & Priority Array (Careful Lab)
+# Day 44 — Request correlation and retry budgets
+
+[Previous: Day 43](day43.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 45](day45.md)
+
+**Week 7 · 45–90 minutes.** Prerequisites: Days 1–43, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Understand **WriteProperty** and **priority** in rusty-bacnet—**lab/simulator only** unless you have permission on live equipment.
+Match replies to a specific request and stop within an overall deadline.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day44/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-BACnet writes target a **priority level** (1–16). Releasing to schedule often means writing **NULL** at priority 8 (vendor patterns vary—verify on your device doc).
+UDP does not connect a reply to an earlier application request. An application identifier and peer address provide correlation, but identifiers can wrap or be reused. Retries are safe only when the operation and peer behavior tolerate duplicates. A per-receive timeout alone can be extended indefinitely by irrelevant traffic; an overall deadline bounds the transaction.
 
-```rust
-// NEVER run against production without change control
-// client.write_property(..., priority: 8, value: ...)?;
+## Tiny example
+
+```text
+request id 17 -> intended peer
+reply id 16   -> stale, not completion
+reply id 17 from another peer -> unrelated
+reply id 17 from intended peer -> candidate completion
 ```
 
-Always read back **priority-array** and **present-value** after a test write.
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Rust makes it easy to ship powerful tools—**discipline** matters more than language.
+- Add the request identifier defined in [the field messenger format](WIRE_FORMATS.md#field-messenger) to a read-only status request.
+- Allow at most three sends within a two-second overall budget. Discard wrong-peer, wrong-ID and malformed replies while preserving the deadline.
+- Report attempts and final outcome; keep late replies from completing the next request.
 
-## Mini Examples
+## Experiment
 
-- Document your site policy: who approves writes?
-- Read priority array without writing anything.
+Use a second lab process to send an unrelated reply before the correct one, then test no correct reply at all.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. Explain difference between **present-value** and priority 8 slot in prose.
-2. PCAP: can you see WriteProperty in Wireshark? (filter `bacnet`)
-3. If no write-safe point exists, simulate with a local BACnet simulator instead.
+## Acceptance checks
 
-## Key Takeaway
+- Unrelated traffic cannot keep the request alive forever.
+- Duplicate matching replies count as one completion.
+- Timeout is distinguished from an explicit peer error.
 
-**Read-only mastery first.** Writes in Rust are the same responsibility as writes in Python or Workbench.
+## Optional Python companion
 
-## Wireshark Lab
+Optionally build only the fault sender in Python; the transaction implementation stays Rust.
 
-If using simulator write test:
+## Stretch and reflection
 
-Filter: **`bacnet.type == 0x0f`** (confirm type in your Wireshark version for WriteProperty).
+How would you avoid confusing a very old reply with a newly reused identifier?
 
----
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-7) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-## Python companion — WriteProperty caution
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# LAB / SIMULATOR ONLY — same change-control rules as Rust
-# bacnet.write("192.168.204.200 analogOutput:1 presentValue 72.0 - 8")
-# Then read back presentValue and priorityArray
-print("Never write live equipment without permission; prefer a simulator.")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| WriteProperty + priority | BAC0 `.write(..., priority=8)` |
-| read back priority-array | read `priorityArray` after write |
-| lab/simulator only | identical discipline |
-| Wireshark WriteProperty | same `bacnet` filter |
-
-**Takeaway:** Language does not reduce write risk—Python WriteProperty needs the same site approval as Rust or Workbench.
+[Previous: Day 43](day43.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 45](day45.md)

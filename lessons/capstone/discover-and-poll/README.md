@@ -1,3 +1,5 @@
+> **Optional older reference material.** The active Rust networking course is [Days 1–112](../../INDEX.md). Historical day numbers and example commands below are not the current syllabus; inspect code and configuration before use. This material may contain implementation spoilers.
+
 # discover-and-poll (Day 46)
 
 BACnet commission capstone skeleton. Builds without [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet); wire the stack after Day 41.

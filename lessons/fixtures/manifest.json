@@ -1,0 +1,21 @@
+{
+  "synthetic-ethernet.pcap": "9f5459a97811fb4e0e83d8eeea65870698331e507c535dc4c30064fb37416e8e",
+  "expected-packets.json": "b026efcec918ab02d3ffe51b78dd2b3e5af60052bec13a3149f59070b2047979",
+  "teaching-envelope.hex": "69e000717fef920996c73efca1b7b1ca9cc199ead8b2bccaef9e769e906f50c1",
+  "bacnet/segments.csv": "3c753a51ad5c5a6ba4b42e1cb0ca15b40030e7abf1dd3ff15c7e216c75632582",
+  "bacnet/i-am.hex": "bbb02b2b7cd2e21a4c6b7dd78f245ff502296738ead51611faa5a9acde610084",
+  "bacnet/who-is.hex": "a0740921e1cad31eb836d8978096d498cf1e75c29842abac8a11005f57b9d5c7",
+  "bacnet/who-is-router-npdu.hex": "d48f97be6dab1a6fb8fedf26b9b9b05b2e372f30b61a52fbe09d7a5ae55f6b5d",
+  "day19/invalid_utf8.csv": "447718c6b5be1ba2066a106a7c5ceb6ae6e533f5f7450d71d368e26391e71c5d",
+  "day19/malformed.csv": "357cb2b5671db044b5380c11743744f3710b035c3ecabdbc5844a6c03d3d1161",
+  "day19/valid.csv": "af41bff0e96f5cbe050abe3e88a8519e53c7a309d6338ae25455bca6334c30d4",
+  "day19/empty.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "dns/pointer-cycle.hex": "840e137c5038f779c7b0b4c342764bebde4f8ce4a555b02c9b6cee5bab703102",
+  "dns/query.hex": "a1bfb823ca4484dcdab3fc2673433dc99c3ceb2a7230fbe415fe4aa6d76647b9",
+  "dns/answer.hex": "76c4ac16fbeaa97caedf6d0bae408f0d8c21d5eaef512afa1be494def6af8c37",
+  "dhcp/discover.hex": "0aedfa3ff4a7057dc8cd40a338c8707299496ee501a9b8a5a0fe47e8f006e690",
+  "modbus/read-response.hex": "49a8321e293a511f0f19fa669ef73526b75e62ad6af6da7606072ff556efab45",
+  "modbus/exception-response.hex": "17eea4140da5cfcc05a796e2a17c187dae209d06259e7f261cdd184419cf5a8a",
+  "modbus/rtu-read-request.hex": "f9f5139a812c37c43decb05ce378403d3b864f25dfdcb4d4f585506174b42260",
+  "modbus/read-request.hex": "064b92499231189974e793fe2e102a4ee52d7ecb8b18510dd558033d837fb267"
+}

@@ -1,133 +1,59 @@
-# Day 02 – Variables & Arithmetic
+# Day 02 — Variables, units and packet budgets
 
-*Part I: Fundamentals | Week 1*
+[Previous: Day 1](day01.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 3](day03.md)
+
+**Week 1 · 45–90 minutes.** Prerequisites: Days 1–1, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Learn how to store values in variables and perform arithmetic operations.  By
-the end of this lesson you’ll be able to write simple Python expressions to
-calculate sums, differences, products, divisions, remainders and powers, and
-assign the results to descriptive variable names.
+Use explicit numeric types and arithmetic to estimate a bounded message budget.
+
+## Before you start
+
+Offline: terminal, Rust; Python is optional. No network device required. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day02/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-In Python you assign a value to a variable using the `=` operator.  Variable
-names can contain letters, digits and underscores but must not start with a
-digit.  Comments begin with a `#` and extend to the end of the line,
-allowing you to document your code.
+A number without a unit is easy to misuse. Bytes, bits, milliseconds and packets are different quantities even when Rust gives them the same integer representation. Immutable bindings prevent accidental reassignment; `mut` expresses intended change. Integer division discards a fractional remainder. A rate calculation is an estimate, not a statement about actual Ethernet overhead or delivery latency.
 
-Python’s arithmetic operators follow mathematical notation.  The plus (`+`),
-minus (`-`), multiplication (`*`) and division (`/`) operators behave as
-expected.  Division always returns a floating‑point
-result—`7/2` yields `3.5`.  Floor division (`//`) drops the fractional part and
-returns the largest integer less than or equal to the result, while the
-modulo operator (`%`) returns the remainder.  The
-exponentiation operator (`**`) raises the left operand to the power of the
-right operand.
-
-## How to Use It
-
-1. **Assign variables.**  Use `=` to bind a value to a name:
-
-   ```python
-   width = 20  # variable names are case sensitive
-   height = 5.0
-   area = width * height
-   ```
-
-2. **Perform arithmetic.**  Combine numbers and variables using operators:
-
-   ```python
-   total = 50 - 5*6   # multiplication happens before subtraction
-   result = (50 - 5*6) / 4  # parentheses change precedence
-   floor = 17 // 3  # floor division yields 5
-   remainder = 17 % 3  # remainder is 2
-   power = 2 ** 7  # 2 to the 7th power = 128
-   ```
-
-3. **Use comments.**  Explain what your code does:
-
-   ```python
-   # Compute the volume of a box
-   volume = width * height * 3
-   ```
-
-4. **Check types.**  Use `type()` to see the data type of a value:
-
-   ```python
-   print(type(width))   # <class 'int'>
-   print(type(height))  # <class 'float'>
-   ```
-
-## Why This Matters
-
-Variables make programs readable and maintainable: instead of repeating literal
-numbers everywhere, you give them meaningful names.  Basic arithmetic
-operators allow you to perform everyday calculations such as computing
-temperature conversions, finding averages or scaling sensor readings.  Knowing
-operator precedence and the difference between `/` and `//` will prevent
-subtle bugs in your scripts.
-
-## Mini Examples
-
-Try these examples in a Python shell:
-
-```python
-# convert Fahrenheit to Celsius
-fahrenheit = 77
-celsius = (fahrenheit - 32) * 5/9
-print(f"{fahrenheit}°F is {celsius:.1f}°C")
-
-# calculate the area and perimeter of a rectangle
-length = 4
-width = 3
-area = length * width
-perimeter = 2 * (length + width)
-print("Area:", area)
-print("Perimeter:", perimeter)
-```
-
-## Micro Exercises
-
-1. Assign two variables `a` and `b` with numeric values and compute their
-   product, quotient and remainder.  Print the results.
-2. Write a small script that calculates how many seconds are in a day using
-   multiplication (`24 * 60 * 60`).  Store the result in a variable named
-   `seconds_per_day` and print it.
-3. Compute `3**4` using the exponent operator and verify your result using
-   multiplication.
-
-## Key Takeaway
-
-Variables store values and arithmetic operators perform calculations.  Use
-parentheses to control precedence and remember that `/` returns a float while
-`//` performs floor division.
-
----
-
-## Rust companion — Variables & arithmetic
-
-*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+## Tiny example
 
 ```rust
 fn main() {
-    let width = 20;           // immutable by default
-    let mut height = 5.0;     // mut = can change later
-    height = 6.0;
-    let area = (width as f64) * height;
-    println!("area = {area}");
-    println!("7 / 2 = {}", 7 / 2);     // integer division → 3
-    println!("7.0 / 2.0 = {}", 7.0 / 2.0);
-    println!("7 % 2 = {}", 7 % 2);
+    let samples: u32 = 4;
+    let bytes_per_sample: u32 = 3;
+    println!("{} payload bytes", samples * bytes_per_sample);
 }
 ```
 
-| Python | Rust |
-|--------|------|
-| `x = 1` (always rebindable) | `let x = 1` (immutable) |
-| `x = 2` again | need `let mut x` |
-| `7 / 2` → `3.5` | `7 / 2` → `3` (same types) |
-| no types written | types exist (`i32`, `f64`) — often inferred |
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-**Takeaway:** Prefer `let`. Use `mut` only when the value must change (like a running total of sensor readings).
+## Coding challenge
 
+- For hard-coded counts, calculate payload bytes, header bytes and total bytes for 12 messages containing 8 payload bytes and a 4-byte teaching header each. Label every output unit.
+- Calculate a 5-second average payload byte rate separately from the total wire-format byte rate. Do not call either Ethernet throughput.
+- Repeat with zero messages and with a non-even division; explain integer vs floating-point output.
+
+## Experiment
+
+Change a header size but keep the payload unchanged. Predict which totals should change. Deliberately assign a negative number to an unsigned binding and explain the diagnostic.
+
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
+
+## Acceptance checks
+
+- Zero messages produces zero bytes.
+- The total includes a header for each message.
+- The explanation distinguishes bits per second from bytes per second.
+
+## Optional Python companion
+
+Calculate the same totals using Python integers and `/` versus `//`. Identify one difference in the languages rather than copying every line.
+
+## Stretch and reflection
+
+What information would be missing if you wanted to estimate real Ethernet traffic? List overhead sources without adding guessed constants.
+
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-1) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
+
+[Previous: Day 1](day01.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 3](day03.md)

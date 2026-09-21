@@ -1,72 +1,36 @@
-# Day 35 – Network Programming Map (UDP, TCP, Ports)
+# Day 35 — Week 5 Review — network detective
 
-## Goal
+[Previous: Day 34](day34.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 36](day36.md)
 
-Place **BACnet/IP**, **Haystack HTTPS**, and **Modbus TCP** on the same mental map you would see in a university networking course—before writing sockets.
+**Week 5 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–34, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-## Concept
+## Project brief
 
-| Protocol | Transport | Typical port | Building use |
-|----------|-----------|--------------|--------------|
-| BACnet/IP | **UDP** | 47808 | Who-Is, ReadProperty, COV |
-| Haystack REST | **TCP** + TLS | 443 | `/about`, `/read`, `/ops` |
-| Modbus TCP | **TCP** | 502 / 1502 | Register reads |
+Investigate three deliberately limited cases: a wrong IPv4 prefix, a missing or wrong next hop, and a name-resolution failure. Add an IPv6 case that distinguishes missing link scope from an unavailable service. Use a disposable topology or supplied offline route/address cases, never reconfigure the workstation carrying your remote session.
 
-**UDP**: connectionless datagrams—fast, no guaranteed delivery (fine for BACnet with app-layer retries).
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-**TCP**: reliable byte stream—HTTP sits on top.
+## Acceptance criteria
 
-Your bench (example):
+- Use your Rust prefix/route/endpoint tools to make a prediction before consulting OS results.
+- Explain source/destination IP, next hop, neighbor MAC and interface scope where applicable.
+- Separate DNS success, packet delivery and application availability.
+- Identify which OS facts your simplified route model omits.
+- For live work, collect a relevant ARP/NDP/ICMP/DNS trace; for offline work, label the evidence accordingly.
 
-- Edge: `192.168.204.55`
-- BACnet device: `192.168.204.200:47808/udp`
-- Niagara nHaystack: `https://192.168.204.11/haystack`
+## Deliverables
 
-## Why This Matters
+- A topology with prefixes, gateways and interfaces; tool source and relevant tests.
+- A case table with symptom, prediction, evidence, diagnosis and one validating experiment.
+- Capture frame references or exact offline inputs, plus limitations.
 
-When Wireshark shows "UDP" vs "TCP", you know **which stack** you are debugging—BACnet driver vs Haystack client.
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-## Mini Examples
+## Self-review
 
-- Sketch a diagram: Pi → UDP → BACnet device; Pi → TCP → Niagara.
-- List three reasons BACnet chose UDP historically (broadcast, low overhead, LAN-local).
+- Which diagnosis would be wrong if a firewall silently dropped traffic?
+- What additional evidence would distinguish a cached DNS response from no attempted lookup?
 
-## Micro Exercises
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-5); references may contain examples, so attempt the review independently first.
 
-1. What port does `ss -ulnp | grep 47808` show on a BACnet gateway?
-2. Why is Haystack not "just another UDP app"?
-3. Write one sentence linking Day 33 `HashMap` to caching I-Am responses.
-
-## Key Takeaway
-
-**Pick transport by protocol spec**, not preference—rusty-bacnet speaks UDP; rusty-haystack speaks HTTP over TCP.
-
-## Wireshark Lab
-
-Open an empty capture mindset: **Statistics → Protocol Hierarchy** on any future pcap—that's your course dashboard.
-
----
-
-## Python companion — ports & transports
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
-
-```python
-# Mental map only — no sockets yet
-PROTOCOLS = {
-    "BACnet/IP": {"transport": "UDP", "port": 47808},
-    "Haystack":  {"transport": "TCP+TLS", "port": 443},
-    "Modbus TCP": {"transport": "TCP", "port": 502},
-}
-for name, meta in PROTOCOLS.items():
-    print(f"{name}: {meta['transport']} :{meta['port']}")
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| same ports / transports | identical bench map |
-| rusty-bacnet → UDP | BAC0 / `socket` UDP later |
-| rusty-haystack → HTTPS | `requests` / `httpx` later |
-| choose by protocol spec | same rule |
-
-**Takeaway:** Port 47808 UDP vs 443 TCP is a Python-or-Rust question of the same wire—pick the stack that matches the protocol.
+[Previous: Day 34](day34.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 36](day36.md)

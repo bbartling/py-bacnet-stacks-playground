@@ -1,72 +1,36 @@
-# Day 56 – URIs, Prefixes & QNames
+# Day 56 — Week 8 Review — TCP record service
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 55](day55.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 57](day57.md)
 
-## Goal
+**Week 8 review · 2–4 hours, split across sessions as needed.** Prerequisites: Days 1–55, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
-Represent **IRIs** and expand `brick:AHU` / `ex:OA-T` the same way both stacks will use them in Turtle and queries.
+## Project brief
 
-## Concept
+Implement the [bounded record service](WIRE_FORMATS.md#tcp-record-service) in Rust. Clients store and retrieve small opaque values by short keys over a length-prefixed protocol. Keep the store in memory and support the documented command subset only. This is a networking/framing project, not a database design assignment.
 
-```rust
-use oxrdf::NamedNode;
-use std::collections::HashMap;
+Environment: Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Apply the [review rubric](LAB_GUIDE.md#review-rubric). This page intentionally contains no worked solution, implementation sequence, or companion implementation. Pick your own decomposition. You may consult language/API references and your earlier work.
 
-fn expand(map: &HashMap<&str, &str>, qname: &str) -> NamedNode {
-    let (prefix, local) = qname.split_once(':').unwrap();
-    let iri = format!("{}{}", map[prefix], local);
-    NamedNode::new(iri).unwrap()
-}
+## Acceptance criteria
 
-fn main() {
-    let mut pm = HashMap::new();
-    pm.insert("brick", "https://brickschema.org/schema/Brick#");
-    pm.insert("ex", "http://example.com/bldg#");
-    let ahu = expand(&pm, "brick:AHU");
-    println!("{ahu}"); // <https://brickschema.org/schema/Brick#AHU>
-}
-```
+- Decode every valid split/coalesced message sequence identically.
+- Bound frame size, key/value size, stored records and concurrent clients as specified.
+- Handle malformed commands, missing keys, slow peers, half-close and premature EOF.
+- Keep framing errors distinct from valid application error responses.
+- Perform a clean bounded shutdown with useful final counters.
 
-## Why This Matters
+## Deliverables
 
-RDF tools merge models from BACnet exporters, Haystack tags, and Brick—**shared identity strings** prevent collisions.
+- Rust client/server source, protocol tests and CLI help.
+- A transcript or capture from a second implementation/process; Python is optional.
+- Evidence for partial reads, two frames in one read, overload and a disconnect halfway through a frame.
 
-## Mini Examples
+Label every result **observed**, **fixture-only**, or **not run**. A failed case with a clear explanation is better evidence than an unsupported pass. Keep the baseline within the declared limits before attempting extensions.
 
-- Expand `ex:OA-T` and `brick:Outside_Air_Temperature_Sensor`.
-- Store the expanded `NamedNode` in a triple (Day 55 pattern).
+## Self-review
 
-## Micro Exercises
+- What would fail if you assumed one read equals one command?
+- Which operations are idempotent, and which timeout outcomes are ambiguous to a client?
 
-1. Function `is_brick(qname: &str) -> bool`.
-2. Why HTTPS IRIs for the Brick namespace?
-3. Convert one Haystack tag path to a fake `ex:` IRI convention.
+Explain your choices without reading your source aloud. If a criterion is missing, record a specific next experiment; do not silently redefine completion. Reference material is in [the reading list](SOURCES.md#week-8); references may contain examples, so attempt the review independently first.
 
-## Key Takeaway
-
-**Prefix maps expand to full IRIs**—SPARQL `PREFIX` blocks do the same thing in query text.
-
----
-
-## Python companion — Same prefix expand
-
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
-
-```python
-from rdflib import Namespace
-
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
-EX = Namespace("http://example.com/bldg#")
-
-# Same QNames as Rust: brick:AHU, ex:OA-T
-print(BRICK.AHU)   # https://brickschema.org/schema/Brick#AHU
-print(EX["OA-T"])
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| hand `HashMap` → `NamedNode` | `Namespace` binds prefix |
-| `brick:AHU` → full IRI | same expanded IRI string |
-| used in triples tomorrow | bind on `Graph` with `bind` later |
-
-**Takeaway:** QName expansion is prefix + local—mirror the same `ex:` / `brick:` bases in both stacks.
+[Previous: Day 55](day55.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 57](day57.md)

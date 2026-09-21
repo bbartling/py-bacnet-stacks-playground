@@ -1,73 +1,53 @@
-# Day 57 – Triples & Literals
+# Day 57 — Async Rust without changing the protocol
 
-*Part VII: RDF & Brick | Week 12*
+[Previous: Day 56](day56.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 58](day58.md)
+
+**Week 9 · 45–90 minutes.** Prerequisites: Days 1–56, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-Model **IRI objects vs typed literals**—sensor identity is a node; `"72.5"` is a value.
+Port a working blocking service to Tokio while preserving its observable contract.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day57/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```rust
-use oxrdf::{Graph, Literal, NamedNode, Triple, vocab::xsd};
+An async function returns a future; progress happens when a runtime polls it. Await can suspend a task so other work proceeds, but blocking calls still block the thread running them. Concurrency is not automatically CPU parallelism. Start from a protocol already tested in memory, and change the I/O boundary rather than rewrite framing and application behavior simultaneously.
 
-fn main() {
-    let mut g = Graph::new();
-    let sat = NamedNode::new("http://example.com/bldg#SAT").unwrap();
-    let has = NamedNode::new("https://brickschema.org/schema/Brick#hasValue").unwrap();
-    // literal object — not an IRI
-    let lit = Literal::new_typed_literal("72.5", xsd::DOUBLE);
-    g.insert(Triple::new(sat.clone(), has, lit));
+## Tiny example
 
-    let ahu = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
-    let hp = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
-    g.insert(Triple::new(ahu, hp, sat)); // object is an IRI
-    println!("triples: {}", g.len());
-}
-```
+In a new package, add Tokio features `macros`, `rt-multi-thread`, `net`, `io-util`, `time`, `sync`, and `signal` as needed. Read the current setup tutorial and record the resolved version. Avoid enabling unrelated features simply because an old example did.
 
-## Why This Matters
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-Distinguishing **node vs literal** prevents bugs like treating `"72.5"` as a sensor identity.
+## Coding challenge
 
-## Mini Examples
+- Port your Day 56 accept/client handling to Tokio, retaining the existing frame codec and size limits.
+- Use async socket operations and Tokio timers; identify any remaining blocking file, DNS or CPU work.
+- Retain a concurrency cap and record which task owns each stream.
 
-- Triple with object IRI `ex:AHU1`.
-- Literal `"72.5"^^xsd:double` as the object of a value predicate.
+## Experiment
 
-## Micro Exercises
+Run the same protocol fixtures against blocking and async versions. Add two delayed clients and observe that one does not prevent the other from making progress.
 
-1. Insert AHU + SAT point + one typed literal in both stacks.
-2. Print each object and say whether it is IRI or literal.
-3. Why `rdf:type` objects should be IRIs, not strings?
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-## Key Takeaway
+## Acceptance checks
 
-**Enums / typed terms express RDF grammar**—oxrdf and rdflib both separate IRI from literal.
+- Protocol output remains compatible.
+- No std::thread::sleep sits in the async connection path.
+- The runtime and task ownership are explained.
 
----
+## Optional Python companion
 
-## Python companion — URIRef vs Literal
+Optionally reuse the same external peer to compare both implementations; no Python async rewrite is required.
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+## Stretch and reflection
 
-```python
-from rdflib import Graph, Literal, Namespace, XSD
+When would spawn_blocking help, and why does it still require workload limits?
 
-EX = Namespace("http://example.com/bldg#")
-BRICK = Namespace("https://brickschema.org/schema/Brick#")
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-9) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-g = Graph()
-g.add((EX.SAT, BRICK.hasValue, Literal("72.5", datatype=XSD.double)))
-g.add((EX.AHU1, BRICK.hasPoint, EX.SAT))
-for s, p, o in g:
-    print(type(o).__name__, o)
-```
-
-| Rust (oxrdf) | Python (rdflib) |
-|--------|--------|
-| `NamedNode` vs `Literal` | `URIRef` vs `Literal` |
-| `xsd::DOUBLE` | `XSD.double` |
-| same two triples | same `ex:` / `brick:` |
-
-**Takeaway:** Separate IRI from literal early—both crates enforce the distinction.
+[Previous: Day 56](day56.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 58](day58.md)

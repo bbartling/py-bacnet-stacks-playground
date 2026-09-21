@@ -1,69 +1,53 @@
-# Day 47 – Async Rust Preview (tokio & BACnet)
+# Day 47 — Discovery with stable identity and expiry
+
+[Previous: Day 46](day46.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 48](day48.md)
+
+**Week 7 · 45–90 minutes.** Prerequisites: Days 1–46, or equivalent skills. Reuse your earlier work rather than start every tool again.
 
 ## Goal
 
-See why rusty-bacnet examples often use **`async`/`await`** and **`tokio`**—without becoming an async expert yet.
+Build bounded peer discovery for your teaching protocol.
+
+## Before you start
+
+Linux loopback / offline packet fixtures; use a disposable VM for privileged network experiments. Follow [workspace and evidence conventions](LAB_GUIDE.md). Save today's work as `student-work/day47/` or in your own learning repository. Record the toolchain; commands and dependency behavior may differ across OS releases. Complete the baseline before the stretch.
 
 ## Concept
 
-```rust
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let reply = client.read(...).await?;
-    Ok(())
-}
-```
+Discovery produces observations that can be duplicated, delayed or stale. A transport endpoint tells you where a reply came from; a protocol peer ID tells you which identity it claims. Neither is an authentication guarantee. Keep a finite collection window and a maximum peer count, and report conflicts rather than letting the last packet silently rewrite identity.
 
-**async** lets one thread wait on many UDP/HTTP operations—useful on gateways polling BACnet + Haystack + Modbus.
+## Tiny example
 
-Sync vs async rule of thumb:
+An observation record can contain `peer_id`, `source_endpoint`, `last_seen`, and `request_id`. This is networking state, not an ontology or permanent asset database.
 
-- Sync: fine for labs and single-device tools
-- Async: edge services with many concurrent I/O tasks
+Use this to explore the mechanism. It is deliberately smaller than the assignment.
 
-## Why This Matters
+## Coding challenge
 
-Open-FDD bridge services multiplex drivers—async runtime is structural, not trendy.
+- Use the [field messenger contract](WIRE_FORMATS.md#field-messenger) to request status from an explicit list of lab peers; broadcast discovery is optional after Day 45.
+- Deduplicate by peer ID within a two-second window, limit results to 32, and report conflicting endpoint claims.
+- Track monotonic age for expiry; preserve raw observation counts separately from unique peers.
 
-## Mini Examples
+## Experiment
 
-- Add `.await` to one example; read compiler errors if you forget `async fn`.
-- Compare `thread::sleep` blocking vs `tokio::time::sleep` in async context.
+Run two peers, repeat one reply, then make two endpoints claim the same ID. Predict unique count and conflict reporting.
 
-## Micro Exercises
+Write your prediction before running the experiment, then record what changed and why. Use the [capture guide](lab-scripts/wireshark_filters.md) when packets are involved; for offline work, preserve input bytes and actual output instead.
 
-1. When would blocking UDP recv freeze an async service?
-2. Run `cargo tree | head`—spot `tokio` in dependency graph.
-3. One paragraph: Python asyncio vs Rust tokio similarities.
+## Acceptance checks
 
-## Key Takeaway
+- Duplicate replies do not inflate device count.
+- The collection window closes even while replies continue.
+- Conflicting identity is visible.
 
-**Learn sync sockets first (Days 36–37), async second**—same order as many networking courses, then production stacks.
+## Optional Python companion
 
----
+Optionally run one independent responder with a fixed ID to exercise cross-language interoperability.
 
-## Python companion — asyncio sketch
+## Stretch and reflection
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+Why would a device ID alone be inadequate for trusting a configuration write?
 
-```python
-import asyncio
+Save the source, relevant test output, and a short explanation of one failure you understand better now. Consult [this week's primary references](SOURCES.md#week-7) for exact API and protocol details. Live interop and hardware steps are learner-run labs, not results claimed by this document.
 
-async def poll_once(name: str) -> str:
-    await asyncio.sleep(0.05)  # stand-in for I/O
-    return f"{name} ok"
-
-async def main() -> None:
-    a, b = await asyncio.gather(poll_once("bacnet"), poll_once("haystack"))
-    print(a, b)
-
-asyncio.run(main())
-```
-
-| Rust (main lesson) | Python |
-|--------|--------|
-| `#[tokio::main]` + `.await` | `asyncio.run` + `async def` |
-| `tokio::time::sleep` | `asyncio.sleep` |
-| many concurrent I/O tasks | `asyncio.gather` |
-
-**Takeaway:** Same idea—don't block the event loop; Rust uses tokio, Python uses asyncio.
+[Previous: Day 46](day46.md) · [Course index](INDEX.md) · [Lab guide](LAB_GUIDE.md) · [Next: Day 48](day48.md)
