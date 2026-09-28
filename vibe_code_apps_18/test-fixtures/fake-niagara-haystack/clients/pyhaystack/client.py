@@ -101,6 +101,7 @@ def main() -> None:
     parser.add_argument("--username", default="admin")
     parser.add_argument("--password", default="demo")
     parser.add_argument("--range", dest="range_text", default="yesterday")
+    parser.add_argument("--mode", choices=("single", "bulk"), default="single")
     args = parser.parse_args()
 
     session = StandardAuthPyHaystackSession(args.url, args.username, args.password)
@@ -108,14 +109,22 @@ def main() -> None:
     if not points:
         raise RuntimeError("server returned no historized points")
 
-    point = points[0]
-    history = completed(session.his_read(point["id"], args.range_text))
     print(f"discovered_points={len(points)}")
-    print(f"point={point['id'].name}")
-    print(f"history_rows={len(history)}")
-    if history:
-        print(f"first={history[0]}")
-        print(f"last={history[-1]}")
+    if args.mode == "single":
+        point = points[0]
+        history = completed(session.his_read(point["id"], args.range_text))
+        print(f"point={point['id'].name}")
+        print(f"history_rows={len(history)}")
+        if history:
+            print(f"first={history[0]}")
+            print(f"last={history[-1]}")
+    else:
+        counts = {}
+        for point in points:
+            history = completed(session.his_read(point["id"], args.range_text))
+            counts[point["id"].name] = len(history)
+        print(f"point_counts={counts}")
+        print(f"history_values={sum(counts.values())}")
 
 
 if __name__ == "__main__":

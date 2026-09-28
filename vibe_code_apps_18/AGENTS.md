@@ -72,6 +72,20 @@ Minimum fixture acceptance for a collector or driver change:
 5. Repeat the same backfill without duplicate rows.
 6. Preserve UTC identity across Chicago daylight-saving transitions.
 
+Client-specific probes live under the fixture's `clients/` directory:
+
+- `clients/pyhaystack`: use pyhaystack for Zinc/grid handling. Its Niagara 4
+  session uses proprietary web-login routes, so the probe adapts standard
+  Haystack SCRAM. Bulk mode fans out one `hisRead` per discovered point.
+- `clients/rusty-haystack`: use `his_read` for a single sensor and generic
+  `call("hisRead", ...)` for a true multi-point batch grid.
+
+For both clients, test a single sensor and a full discovered-point backfill.
+Do not call a loop over hard-coded IDs a discovery test. A bulk test must report
+point count, timestamp-row count, and total non-null values. The future lake
+normalizes either transport shape into the same idempotent SQL records keyed by
+source, point identity, and UTC timestamp.
+
 ---
 
 ## Lessons that must shape the design

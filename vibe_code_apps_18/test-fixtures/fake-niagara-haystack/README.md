@@ -37,26 +37,34 @@ python -m fake_niagara.client --url http://127.0.0.1:8080/api --discover
 python -m fake_niagara.client --point point-ahu1-sat --range yesterday
 ```
 
-### Optional pyhaystack probe
+### Client compatibility probes
 
 The older [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack)
 package can parse this fixture's Zinc grids and history. Its built-in
 `Niagara4HaystackSession` expects Niagara-specific `/prelogin` and
 `/j_security_check` web endpoints rather than standard Haystack HTTP SCRAM, so
-the included example supplies a small read-only authentication adapter:
+the included client supplies a small read-only authentication adapter:
 
 ```sh
 python -m venv .venv-pyhaystack
 .venv-pyhaystack/bin/pip install \
   'git+https://github.com/ChristianTremblay/pyhaystack.git'
-.venv-pyhaystack/bin/python examples/pyhaystack_client.py \
+.venv-pyhaystack/bin/python clients/pyhaystack/client.py \
   --url http://127.0.0.1:8080/api \
-  --username admin --password demo
+  --username admin --password demo --mode single
+.venv-pyhaystack/bin/python clients/pyhaystack/client.py \
+  --url http://127.0.0.1:8080/api \
+  --username admin --password demo --mode bulk
 ```
 
 The adapter uses this fixture's standard SCRAM client to obtain a bearer token,
 then uses pyhaystack for the read-only `read` and `hisRead` grid operations. It
 does not add Niagara's proprietary browser-login surface to the emulator.
+
+The pinned Rust probe is in `clients/rusty-haystack`. It tests both
+`HaystackClient::his_read` for one sensor and a real standard multi-point batch
+request through `call("hisRead", ...)`. See each client directory's README for
+commands and the difference between batch and fan-out behavior.
 
 The sample graph contains one site, two pieces of equipment, and four history
 points. Samples are deterministic 15-minute values generated on demand, so a

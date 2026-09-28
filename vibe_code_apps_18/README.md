@@ -68,6 +68,17 @@ The manual bench instance currently uses `http://192.168.204.12:8080/api`.
 Automated tests must start an ephemeral local instance instead of depending on
 that device or address.
 
+Compatibility probes are separated by upstream client:
+
+- `clients/pyhaystack` tests one-sensor history and discovered-point bulk
+  backfill via per-point `hisRead` fan-out.
+- `clients/rusty-haystack` tests one-sensor history and the standard
+  multi-point batch `hisRead` grid used for efficient native-history backfill.
+
+Both probes report the discovered point count and returned history size. The
+fixture's SQLite client verifies repeatable SQL upserts; the future Rust lake
+will normalize either client response shape into Postgres.
+
 ## Workspace layout (target)
 
 ```text
