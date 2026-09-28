@@ -1,0 +1,21 @@
+[Unit]
+Description=Fake Niagara Haystack BAS server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/fake-niagara
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/fake-niagara/fake-niagara.env
+ExecStart=/usr/bin/python3 -m fake_niagara.server --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/fake-niagara
+
+[Install]
+WantedBy=multi-user.target

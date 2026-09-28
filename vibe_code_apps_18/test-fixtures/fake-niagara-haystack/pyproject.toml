@@ -1,0 +1,8 @@
+[project]
+name = "fake-niagara-haystack"
+version = "0.1.0"
+description = "Dependency-free fake Niagara/Haystack server for BAS FDD testing"
+requires-python = ">=3.10"
+
+[tool.unittest]
+start-directory = "."

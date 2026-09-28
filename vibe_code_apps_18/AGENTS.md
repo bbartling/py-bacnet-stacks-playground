@@ -37,6 +37,41 @@ Every BAS/Haystack interaction is **read-only**.
 
 Enforce with a `HaystackReadClient` wrapper that **rejects non-allowlisted ops before HTTP is sent**. Unit-test the allowlist.
 
+## Local Haystack integration fixture
+
+Use [`test-fixtures/fake-niagara-haystack`](./test-fixtures/fake-niagara-haystack/)
+as the default protocol test double for collector and future Open-FDD Haystack
+driver work. It is a Python-standard-library server that mimics the read-only
+surface of a Niagara 4 / nHaystack station, including SCRAM-SHA-256, bearer
+sessions, discovery, single-point `hisRead`, and standard multi-point batch
+`hisRead` with deterministic Chicago-time BAS histories.
+
+Keep the following boundaries explicit:
+
+- The fixture is not Niagara, Workbench, BACnet, or a production historian.
+- Never add write operations to make a test convenient. The fixture and all
+  production-facing clients remain read-only.
+- The fixture's SQLite backfill is a lightweight protocol/idempotency test sink.
+  It does **not** replace the future Postgres lake specified in this document.
+- `/home/ben/Desktop/open-fdd` is the intended future local consumer checkout.
+  Its Haystack driver is not yet assumed complete or current. Do not modify it
+  from App 18 work unless the task explicitly includes that repository.
+- When the Open-FDD Haystack driver is implemented, validate discovery and a
+  daily previous-calendar-day backfill against this fixture before testing a
+  real Niagara station.
+- CI and developer tests must start their own ephemeral fixture instance. The
+  bench deployment at `http://192.168.204.12:8080/api` is useful for manual
+  integration testing but must not become a required CI dependency.
+
+Minimum fixture acceptance for a collector or driver change:
+
+1. Authenticate using the normal Haystack SCRAM flow.
+2. Discover `point and his` records without hard-coded point IDs.
+3. Exercise both single-point and standard batch `hisRead`.
+4. Backfill a selected Chicago calendar day into the target store.
+5. Repeat the same backfill without duplicate rows.
+6. Preserve UTC identity across Chicago daylight-saving transitions.
+
 ---
 
 ## Lessons that must shape the design
