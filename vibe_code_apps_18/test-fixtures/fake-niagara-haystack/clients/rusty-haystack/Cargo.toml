@@ -1,0 +1,10 @@
+[package]
+name = "fake-niagara-rusty-client"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+
+[dependencies]
+haystack-client = { package = "rusty-haystack-client", git = "https://github.com/jscott3201/rusty-haystack", rev = "40f6e0c4e052215e3e4bededbbf94a075d634df7" }
+haystack-core = { package = "rusty-haystack-core", git = "https://github.com/jscott3201/rusty-haystack", rev = "40f6e0c4e052215e3e4bededbbf94a075d634df7" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -8,6 +8,7 @@
 | **GitHub Discussion** | [#5 — Agent prompt to build a DIY data lake](https://github.com/bbartling/py-bacnet-stacks-playground/discussions/5) |
 | **Upstream Haystack client** | [rusty-haystack](https://github.com/jscott3201/rusty-haystack) |
 | **Open-FDD consumer** | JSON API driver + MCP bench profile |
+| **Fake Niagara fixture** | [`test-fixtures/fake-niagara-haystack`](./test-fixtures/fake-niagara-haystack/) |
 
 ## What you are building
 
@@ -41,6 +42,43 @@ Learned from a live Niagara → Postgres sandbox — do **not** ship snapshot-on
 
 **Never write to the live BAS.** Allowlisted Haystack ops only: `about`, `ops`, `read`, `nav`, `hisRead`, and other explicitly read-only calls. Enforce with a `HaystackReadClient` wrapper that rejects forbidden operations before HTTP is sent.
 
+## Fake Niagara / Haystack integration bench
+
+This folder includes a Raspberry Pi-friendly Niagara/nHaystack test double at
+[`test-fixtures/fake-niagara-haystack`](./test-fixtures/fake-niagara-haystack/).
+It supplies deterministic BAS point metadata and history, real Haystack
+SCRAM/bearer authentication, and single or batch `hisRead` without connecting
+to a live building.
+
+Use it to develop the future App 18 collector and the not-yet-complete Haystack
+driver in the local `/home/ben/Desktop/open-fdd` checkout. The fixture includes
+an SQLite backfill client for protocol and idempotency experiments; App 18's
+actual lake design remains Postgres with `polled_history` as the primary source
+and optional native `history_values` from `hisRead`.
+
+Run the fixture locally:
+
+```sh
+cd test-fixtures/fake-niagara-haystack
+python -m unittest discover -v
+python -m fake_niagara.server --host 127.0.0.1 --port 8080
+```
+
+The manual bench instance currently uses `http://192.168.204.12:8080/api`.
+Automated tests must start an ephemeral local instance instead of depending on
+that device or address.
+
+Compatibility probes are separated by upstream client:
+
+- `clients/pyhaystack` tests one-sensor history and discovered-point bulk
+  backfill via per-point `hisRead` fan-out.
+- `clients/rusty-haystack` tests one-sensor history and the standard
+  multi-point batch `hisRead` grid used for efficient native-history backfill.
+
+Both probes report the discovered point count and returned history size. The
+fixture's SQLite client verifies repeatable SQL upserts; the future Rust lake
+will normalize either client response shape into Postgres.
+
 ## Workspace layout (target)
 
 ```text
@@ -52,6 +90,9 @@ bas-haystack-lake-rs/
   docs/             # ARCHITECTURE, CONFIG, DATA_MODEL, OPENFDD_INTEGRATION, RUNBOOK, …
   scripts/          # dev_smoke.sh, check_stale_sites.sh
   Dockerfile, docker-compose.yml
+
+test-fixtures/
+  fake-niagara-haystack/  # read-only Niagara/nHaystack protocol test double
 ```
 
 ## Recommended order

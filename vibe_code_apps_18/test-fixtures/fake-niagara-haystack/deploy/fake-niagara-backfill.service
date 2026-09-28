@@ -1,0 +1,14 @@
+[Unit]
+Description=Backfill yesterday's fake Niagara Haystack history to SQLite
+After=fake-niagara.service
+Requires=fake-niagara.service
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/opt/fake-niagara
+EnvironmentFile=-/etc/fake-niagara/fake-niagara.env
+ExecStart=/usr/bin/python3 -m fake_niagara.client --url http://127.0.0.1:8080/api --database /var/lib/fake-niagara/history.sqlite3
+StateDirectory=fake-niagara
+NoNewPrivileges=true
+PrivateTmp=true
